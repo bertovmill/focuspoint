@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Conversation,
   ConversationContent,
+  ConversationDownload,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
@@ -14,8 +15,16 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestions";
 import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
+
+const QUICK_SUGGESTIONS = [
+  "Capture a thought",
+  "What's on my todo list?",
+  "Add a reminder for later",
+  "What did I think about recently?",
+];
 
 const AGENT_NAME = "focuspoint-agent";
 
@@ -29,7 +38,11 @@ export function AgentChat() {
   const handleSubmit = async (message: PromptInputMessage) => {
     const text = message.text.trim();
     if (!text || isBusy) return;
+    await agent.send({ message: text });
+  };
 
+  const handleSuggestion = async (text: string) => {
+    if (isBusy) return;
     await agent.send({ message: text });
   };
 
@@ -47,13 +60,24 @@ export function AgentChat() {
           <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
           <StatusDot status={agent.status} />
         </span>
-        <Link
-          href="/explore"
-          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Database Explorer"
-        >
-          <DatabaseIcon className="size-4" />
-        </Link>
+        <div className="flex items-center gap-1">
+          {!isEmpty && (
+            <ConversationDownload
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              messages={agent.data.messages as any}
+              filename="focuspoint-conversation.md"
+              className="static translate-x-0 size-8 rounded-lg"
+              title="Download conversation"
+            />
+          )}
+          <Link
+            href="/explore"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Database Explorer"
+          >
+            <DatabaseIcon className="size-4" />
+          </Link>
+        </div>
       </header>
 
       {agent.error ? (
@@ -96,8 +120,13 @@ export function AgentChat() {
         )}
       >
         {isEmpty ? (
-          <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-6 text-center">
             <h1 className="font-medium text-5xl tracking-tighter">{AGENT_NAME}</h1>
+            <Suggestions>
+              {QUICK_SUGGESTIONS.map((text) => (
+                <Suggestion key={text} text={text} onSelect={handleSuggestion} />
+              ))}
+            </Suggestions>
           </div>
         ) : null}
         <div className="w-full">{composer}</div>

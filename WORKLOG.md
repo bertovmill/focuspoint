@@ -173,6 +173,41 @@ is deferred.
 
 ---
 
+## Session: 2026-06-28 (shadcn/ui audit — 10 upgrades)
+
+### Audited the UI against current shadcn/ui and implemented 10 improvements
+
+**Goal:** The app installed shadcn primitives but barely used them — most of the dashboard was raw HTML elements. Adopt the real components + newer shadcn capabilities.
+
+**Components added:** `card`, `alert-dialog`, `sonner`, `tabs`, `empty` (via `npx shadcn add`). `badge`/`skeleton` already existed. Deps `sonner` + `next-themes` pulled in by the CLI.
+
+**Changes:**
+
+| # | Item | File(s) | Change |
+|---|---|---|---|
+| 1 | Use installed primitives | `dashboard.tsx` | Quick-add → `Input`+`Button`; edit box → `Textarea`; Save/Cancel/edit/delete → `Button` variants |
+| 2 | Cards for notes | `dashboard.tsx` | Notes list items → compact `Card` (replaces hand-rolled bordered `<li>`) |
+| 3 | Destructive confirm | `dashboard.tsx` | Note delete now goes through `AlertDialog` (was a silent immediate delete) |
+| 4 | Toast feedback | `layout.tsx`, `dashboard.tsx` | Added `<Toaster>`; add/complete/edit/delete now toast on failure + optimistic rollback (previously a silent `catch {}`) |
+| 5 | Real Tabs | `dashboard.tsx` | Hand-rolled Tasks/Notes tab bar → `Tabs` with `variant="line"` (keeps the underline look, gains keyboard a11y) |
+| 6 | Skeleton component | `dashboard.tsx` | `animate-pulse` divs → installed `Skeleton` |
+| 7 | Empty component | `dashboard.tsx` | All empty states → `Empty`/`EmptyHeader`/`EmptyMedia`/`EmptyTitle`/`EmptyDescription` |
+| 8 | Tokenized priority + Badge | `globals.css`, `dashboard.tsx` | Added `--priority-high` token (replaces raw `text-red-500`); high-priority marker + all tag pills → `Badge` |
+| 9 | Theme toggle | `globals.css`, `layout.tsx`, `theme-provider.tsx`, `mode-toggle.tsx` | Switched dark mode from `@media (prefers-color-scheme)` to `.dark` class; added `next-themes` `ThemeProvider` (system default) + a sun/moon `ModeToggle` in the dashboard header |
+| 10 | Namespaced registries | `components.json` | Registered `ai-elements` + `v0` registries so future `add @ai-elements/x` / `@v0/x` work |
+
+**Decisions:**
+- Tabs use the `line` variant to preserve the existing underline aesthetic rather than the default segmented pill.
+- Notes `Card`s use `gap-0`/`shadow-none` + tight padding so the Card primitive matches the prior compact density (avoids the default roomy `py-6`).
+- Dark mode is now class-based (required for a manual toggle); `next-themes` injects the pre-paint script so there's no FOUC. `suppressHydrationWarning` added to `<html>`.
+- Toasts only fire on error (success is implied by optimistic UI), except delete which confirms success.
+- Left the mobile bottom-nav as a custom tab bar (legit pattern) and `--priority-high` as a dedicated token rather than overloading `destructive`.
+- **#10 note:** authoring a shareable design-system *preset* is a `shadcn/create` web step (not done here); the registries wiring is the code-side portion. Use `npx shadcn docs <component>` before composing new UI.
+
+**Validation:** `npm run typecheck` ✓ and `npm run build` ✓.
+
+---
+
 ## Session: 2026-06-28 (search notes by tag)
 
 ### Added tag-based filtering to the Notes tab

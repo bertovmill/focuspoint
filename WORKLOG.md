@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (web search tool)
+
+### Added a live web search tool for the agent
+
+**Goal:** Let Cael search the live web (news, facts, current info beyond training data).
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/tools/web_search.ts` | New `defineTool`. Calls the Tavily search API (`POST https://api.tavily.com/search`), returns a synthesized `answer` plus title/url/snippet results. Auto-discovered by eve — no registration needed. |
+
+**Setup / decisions:**
+- Provider: Tavily — LLM-oriented search API, free tier (~1k searches/mo).
+  Swap to Brave/Exa/SerpAPI by changing the fetch; tool shape stays the same.
+- Requires `TAVILY_API_KEY` env var. Tool returns a graceful "not configured"
+  message (not an error) when the key is missing, so the agent degrades cleanly.
+- No native eve/Anthropic built-in web search was available, hence the custom tool.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (morning digest cron / eve schedule)
 
 ### Added a scheduled morning digest delivered over SMS

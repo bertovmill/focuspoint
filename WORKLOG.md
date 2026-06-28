@@ -4,6 +4,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (emerald/teal theme)
+
+### Added a subtle emerald/teal color palette to replace the all-grey theme
+
+**Why:** The UI was fully neutral — every semantic token had zero chroma (pure
+grey/black). User wanted to "spice it up" without losing shadcn's polish.
+
+**How:** Tinted only the CSS variables in `app/globals.css` — no component
+changes. Color (emerald/teal, oklch hue ~163–165) lives on the interactive
+tokens (`primary`, `accent`, `ring`, `secondary`) plus a barely-perceptible mint
+tint on `background`/`muted`/`border`. Cards/popovers stay pure white so they
+still pop. Both light and dark modes updated. Because every component uses
+semantic tokens, the palette flows through automatically (buttons, send button,
+active nav, focus rings, badges, hover states).
+
+**Intensity:** "Subtle & tasteful" — color concentrated on interactive elements,
+background tint minimal.
+
+**Files changed:** `app/globals.css` (`:root` light + `prefers-color-scheme: dark`).
+
+**Left as-is:** Code-block syntax highlighting in
+`components/assistant-ui/markdown-text.tsx` (One Dark `#21252b`/`#282c34`) —
+intentional, not part of the theme system.
+
+---
+
 ## Session: 2026-06-28 (multi-thread chat history)
 
 ### Built conversation history: multiple threads, switch / new / rename / delete

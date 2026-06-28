@@ -11,6 +11,13 @@ answer to the question: a casual "what is eve?" gets the one-liner plus a couple
 of capabilities; "how do I build one?" gets the quick start and the minimal
 example.
 
+## Source of truth
+
+If `node_modules/eve/docs/` is available (every eve project bundles it), read it
+**first** — it matches the installed eve version exactly and never drifts. Start
+with `node_modules/eve/docs/README.md` for the full index. Use the summary below
+when those docs aren't reachable, or for a quick conversational answer.
+
 ## What eve is
 
 eve is an **open-source, filesystem-first framework from Vercel for building

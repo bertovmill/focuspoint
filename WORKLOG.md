@@ -82,6 +82,34 @@ audiences, two files. Install command for the published skill:
 `npx skills add bertovmill/focuspoint --skill explain-eve`. Listing on skills.sh
 follows automatically as installs accrue.
 
+**Update (same session):** Compared our skill against Vercel's official `eve`
+skill (installed via `npx skills add https://github.com/vercel/eve --skill eve`).
+
+- **Official `eve` skill** = a lean ~25-line *pointer*: "Do not rely on this
+  skill — always read the bundled docs at `node_modules/eve/docs/`." Drift-proof,
+  aimed at a coding agent building eve projects. Now vendored at
+  `agent/skills/eve/SKILL.md` (+ `skills-lock.json`) for this repo's own dev use.
+- **Ours** = a self-contained explainer for the runtime agent. Different audience
+  (end users) and constraint (no file-read tool).
+
+Chose to **blend**: added a `## Source of truth` section to both our skills
+(`agent/skills/explain_eve` + published `skills/explain-eve`) instructing the
+agent to read `node_modules/eve/docs/` first when reachable and treat the
+embedded summary as the offline/quick-answer fallback. Keeps us drift-proof like
+the official skill while staying usable without filesystem access.
+
+- Reverted an unrequested side effect of the install: it added `microsandbox` to
+  `package.json` devDependencies — backed out `package.json` + `package-lock.json`.
+
+| File | Change |
+|---|---|
+| `agent/skills/eve/SKILL.md` | Vendored official eve coding-agent skill |
+| `skills-lock.json` | skills CLI lockfile pinning the official eve skill |
+| `agent/skills/explain_eve/SKILL.md` | Added Source-of-truth section |
+| `skills/explain-eve/SKILL.md` | Added Source-of-truth section |
+
+**Typecheck:** PASS ✓
+
 ---
 
 ## Session: 2026-06-28 (morning digest cron / eve schedule)

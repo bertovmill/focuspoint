@@ -115,7 +115,13 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
           if (part.type === "text") {
             parts.push({ type: "text", text: part.text });
           } else if (part.type === "image") {
-            parts.push({ type: "image", image: part.image });
+            // eve rejects type:"image" — convert to type:"file" with the data URL
+            const imageUrl =
+              typeof part.image === "string" ? part.image : String(part.image);
+            const mediaType = imageUrl.startsWith("data:")
+              ? (imageUrl.split(";")[0]?.slice(5) ?? "image/png")
+              : "image/png";
+            parts.push({ type: "file", data: imageUrl, mediaType });
           } else if (part.type === "file") {
             parts.push({
               type: "file",

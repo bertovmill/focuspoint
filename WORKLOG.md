@@ -4,6 +4,37 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (in-chat calendar widget)
+
+### Calendar results render as a visual agenda card in chat
+
+**Goal:** When the user asks about their calendar, show a little visual schedule
+widget in the chat instead of plain text.
+
+**How:** assistant-ui generative tool UI. The Thread already renders
+`part.toolUI ?? <ToolFallback>`, and assistant-ui populates `part.toolUI` when a
+tool UI is registered for that tool name.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `components/assistant-ui/calendar-tool-ui.tsx` | New. `makeAssistantToolUI({ toolName: "list_calendar_events" })` renders an agenda card: date header, per-event rows (time column, status dot, title, time range, location), plus loading-shimmer and empty ("clear day") states. |
+| `app/_components/agent-chat.tsx` | Mounts `<CalendarToolUI />` inside `AssistantRuntimeProvider` so it registers. |
+| `agent/tools/list_calendar_events.ts` | Removed `toModelOutput` so the **full** `{ success, range, count, events }` object flows to the part output (the eve→assistant-ui adapter maps `part.output` → tool `result`; with a `toModelOutput` the widget would only get the model-facing text). Added `range` for a reliable date header. |
+
+**Data-path note:** `hooks/use-eve-runtime.ts` sets `result: part.output`. eve's
+`dynamic-tool` part `output` is the model-facing output, so a tool needs to emit
+its structured shape as the actual output (no `toModelOutput`) for a widget to
+read it. The model reads the JSON fine.
+
+**Typecheck:** PASS ✓ · **eve info:** 0 errors, 0 warnings.
+
+**Next:** restart dev server, ask "what's on my calendar today?" — the agenda
+card should render. (Dashboard always-on panel was the other option; deferred.)
+
+---
+
 ## Session: 2026-06-28 (agent knows the date)
 
 ### Fixed: Cael was guessing the date (queried 2025-07-14 for "events today")

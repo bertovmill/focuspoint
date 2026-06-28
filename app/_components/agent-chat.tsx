@@ -47,9 +47,11 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
         </div>
       ) : null}
 
-      <AssistantRuntimeProvider runtime={runtime}>
-        <Thread components={{ Welcome: PersonalizedWelcome }} />
-      </AssistantRuntimeProvider>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <AssistantRuntimeProvider runtime={runtime}>
+          <Thread components={{ Welcome: PersonalizedWelcome }} />
+        </AssistantRuntimeProvider>
+      </div>
     </main>
   );
 }

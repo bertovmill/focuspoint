@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getDb, ensureSchema } from "../../../lib/db.js";
+import { getDb, ensureSchema } from "../../../lib/db";
 
 const DreamSchema = z.object({
   summary: z

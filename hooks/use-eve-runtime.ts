@@ -60,9 +60,11 @@ function convertEveMessage(
     id: message.id,
     role: message.role,
     content: parts.length > 0 ? parts : [{ type: "text", text: "" }],
-    status: isStreaming
-      ? { type: "running" }
-      : { type: "complete", reason: "stop" },
+    ...(message.role === "assistant" && {
+      status: isStreaming
+        ? { type: "running" }
+        : { type: "complete", reason: "stop" },
+    }),
   };
 }
 

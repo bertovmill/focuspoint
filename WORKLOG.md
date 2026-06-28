@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (morning digest SMS formatting)
+
+### Reworked the digest prompt for phone-friendly formatting
+
+**Goal:** Make the daily SMS multi-line, scannable, with a link and tasteful emojis.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/schedules/morning-digest.ts` | Rewrote the prompt with explicit SMS formatting rules: plain text only (SMS renders no markdown — no `*`/`**`/`#`; use CAPS or an emoji for emphasis), multi-line with blank lines between sections (joined with `\n` instead of spaces), include the AINews issue link on its own line, 2-4 tasteful emojis max (≤1 per line), TODAY section with 1-3 focus items, warm open/close. Quietly skip calendar if the tool isn't connected. |
+
+**Note on bold:** SMS/iMessage do **not** render markdown or rich text, so true
+bold isn't possible without ugly Unicode-math hacks. Emphasis via CAPS/emoji instead.
+
+**Verified:** earlier this session a manual dev dispatch generated and Twilio
+**delivered** the digest (AI headline + focus) to the user's number.
+
+**Open:** calendar reading needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/
+`GOOGLE_REFRESH_TOKEN` (not yet set) — the tool exists but can't auth until then.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (morning digest leads with AI news)
 
 ### Morning digest now opens with the top AINews headline

@@ -224,7 +224,7 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function deriveTitle(text: string): string {
+export function deriveTitle(text: string): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   return cleaned.length > 48 ? `${cleaned.slice(0, 48)}…` : cleaned;
 }

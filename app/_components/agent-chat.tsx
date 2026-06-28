@@ -3,10 +3,10 @@
 import { useEveAgent } from "eve/react";
 import { AlertCircleIcon, DatabaseIcon, PanelLeftIcon, XIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
-import { useThreads } from "@/app/_components/threads-provider";
+import { deriveTitle, useThreads } from "@/app/_components/threads-provider";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
@@ -22,7 +22,7 @@ export function AgentChat({
   hasMobileNav?: boolean;
   threadId: string;
 }) {
-  const { getThread, saveSnapshot } = useThreads();
+  const { getThread, saveSnapshot, rename } = useThreads();
   const thread = getThread(threadId);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -32,16 +32,26 @@ export function AgentChat({
     onFinish: (snapshot) => {
       const firstUser = snapshot.data.messages.find((m) => m.role === "user");
       const textPart = firstUser?.parts.find((p) => p.type === "text");
-      const firstUserText =
-        textPart && "text" in textPart ? textPart.text : undefined;
-      console.log("[onFinish] messages:", snapshot.data.messages.length, "firstUser:", firstUser?.id, "textPart:", textPart?.type, "firstUserText:", firstUserText);
       saveSnapshot(threadId, {
         session: snapshot.session,
         events: snapshot.events,
-        firstUserText,
+        firstUserText:
+          textPart && "text" in textPart ? textPart.text : undefined,
       });
     },
   });
+
+  // Set the sidebar title as soon as the first user message appears (optimistic,
+  // happens instantly on send) rather than waiting for onFinish after the full response.
+  useEffect(() => {
+    if (thread?.title) return;
+    const firstUser = agent.data.messages.find((m) => m.role === "user");
+    const textPart = firstUser?.parts.find((p) => p.type === "text");
+    if (textPart && "text" in textPart && textPart.text) {
+      rename(threadId, deriveTitle(textPart.text));
+    }
+  }, [agent.data.messages, thread?.title, threadId, rename]);
+
   const runtime = useEveRuntime(agent);
 
   return (

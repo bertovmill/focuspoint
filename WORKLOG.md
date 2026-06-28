@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-06-28 — Fix sidebar title not appearing until agent finishes
+
+**Problem:** Sending a message and immediately opening the chat history sidebar showed "New chat" instead of the derived title. The title was only set inside `onFinish`, which fires after the full agent response (30+ seconds). Users who opened the sidebar during or right after streaming never saw the title update (even though it was correctly persisted once the agent finished).
+
+**Fix:** Added a `useEffect` in `AgentChat` that watches `agent.data.messages`. As soon as eve's optimistic user-message update hits (which happens synchronously on send, ~0ms), the effect derives the title from the first user message and calls `rename(threadId, ...)`. This sets the sidebar title within 500ms of sending. The `onFinish` path still runs and handles full snapshot persistence (session cursor + events) — it just no longer needs to be the source of truth for the title.
+
+Also exported `deriveTitle` from `threads-provider.tsx` so `agent-chat.tsx` can truncate consistently.
+
+**Files changed:**
+- `app/_components/agent-chat.tsx` — added `useEffect` for early title set; removed debug `console.log`
+- `app/_components/threads-provider.tsx` — exported `deriveTitle`
+
+---
+
 ## Session: 2026-06-28 — Image paste UI fix
 
 ### Problem

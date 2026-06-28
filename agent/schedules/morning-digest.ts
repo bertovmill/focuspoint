@@ -19,7 +19,8 @@ export default defineSchedule({
     waitUntil(
       receive(twilio, {
         message: [
-          "It's the start of the day. Build and send my morning digest as a single SMS.",
+          "It's the start of the day. Compose my morning digest.",
+          "IMPORTANT: your entire reply is sent to me directly as the text message — there is no separate send step and no one will review it first. So output ONLY the finished digest text. Do NOT add any preamble like 'Here's your digest' or 'ready to send', do NOT wrap it in --- fences, do NOT ask whether to send it or for my phone number, and do NOT append notes about tools, memory, or anything you can't do. The first character of your reply is the first character I read in the text.",
           "Gather: latest_ai_news (limit 1) for the top AI story, list_todos for open todos, and list_calendar_events for today's events.",
           "",
           "Format it for reading on a phone — follow these rules exactly:",

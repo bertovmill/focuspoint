@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (digest outputs only the SMS body)
+
+### Fixed: scheduled digest no longer wraps the SMS in chatter
+
+**Bug:** In the cron, Cael's reply IS the auto-sent SMS, but it was wrapping the
+digest in "Here's your digest, ready to send… want me to send this as an SMS?
+confirm your number" plus trailing notes — all of which landed in the actual text.
+
+**Fix:** `agent/schedules/morning-digest.ts` — added an explicit instruction that
+the entire reply is sent directly as the text (no review/send step), so output
+ONLY the finished digest: no preamble, no `---` fences, no "send it?" questions,
+no notes about missing tools/memory.
+
+**Verified earlier:** a dev dispatch produced the new multi-line format (AI
+headline + link + emojis + TODAY section) and Twilio delivered it.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (morning digest SMS formatting)
 
 ### Reworked the digest prompt for phone-friendly formatting

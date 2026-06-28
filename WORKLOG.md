@@ -56,11 +56,17 @@ Installed from the `assistant-ui/skills` catalog. Kept only the top-level **rout
 
 ---
 
-## Session: 2026-06-28 (Cael avatar — Rive integration)
+## Session: 2026-06-28 (Cael avatar — Lottie animation)
 
 ### Added animated Cael avatar to the Dashboard sidebar header
 
-**What:** A `CaelAvatar` component using `@rive-app/react-canvas`. Shows a CSS-animated glowing orb placeholder now; automatically switches to a real Rive animation when `/public/cael.riv` exists.
+**What:** Generated a Lottie animation for Cael using the diffusionstudio/lottie text-to-lottie skill. The animation is a green orb with breathing scale, rotating partial arc ring, and inner highlight — 60-frame seamless loop at 30fps. Rendered in the sidebar header via `lottie-react`.
+
+**Files changed:**
+- `public/cael-avatar.json` — Lottie animation JSON (green orb character)
+- `app/_components/cael-avatar.tsx` — renders the Lottie animation via `lottie-react`
+- `app/_components/dashboard.tsx` — avatar added to sidebar header alongside "Cael" title
+- `package.json` — added `lottie-react` (and `@rive-app/react-canvas`, unused now)
 
 **Files changed:**
 - `app/_components/cael-avatar.tsx` — new component with CSS placeholder + Rive loader

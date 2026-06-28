@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+### 2026-06-28 — Chat threads persisted to Neon Postgres ✓
+
+**Problem:** Chats weren't surviving page refreshes. The `localStorage`-based thread store silently failed when the `events` JSON exceeded the 5 MB browser quota, and `onFinish` only fires after a full turn completes (mid-stream reload = lost chat).
+
+**Solution:** Moved thread storage to Neon Postgres.
+
+| File | Change |
+|---|---|
+| `lib/db.ts` | Added `threads` table to `ensureSchema` (id TEXT, title, session JSONB, events JSONB, created_at, updated_at) |
+| `app/api/threads/route.ts` | GET (list all) + POST (create) |
+| `app/api/threads/[id]/route.ts` | GET, PATCH (snapshot + rename), DELETE |
+| `app/_components/threads-provider.tsx` | Replaced localStorage with API calls; loads on mount, saves snapshot via PATCH |
+
+**Migration:** `threads` table created in Neon directly via migration script.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## 2026-06-28 — Add smile to Cael avatar
 
 Added a mouth/smile shape to `public/cael-avatar.json`. New layer `ind:3` (nm: "smile") inserted between the two eye layers and the highlight: a bezier arc path centered at (100, 108) in the 200×200 canvas with two anchor points at (−12, 0) and (12, 0), tangent handles curving downward by 7 units to form a U-shaped arc. Rendered as a white stroke (`w: 6`, rounded line caps) at 85% opacity — no fill. Layer order (first=top): right eye → left eye → smile → highlight → orb → glow. Renumbered existing layer `ind` values to stay unique (5, 6, 7).

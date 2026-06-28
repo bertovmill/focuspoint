@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (AINews tool + web search removed)
+
+### Added a tool to read the latest from AINews (news.smol.ai)
+
+**Goal:** Let Cael pull the latest AI news digest from https://news.smol.ai on request.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/tools/latest_ai_news.ts` | New `defineTool`. Fetches the AINews RSS feed (`https://news.smol.ai/rss.xml`) and returns the latest N issues (title, link, date, and the feed's per-issue summary). Regex-parsed — no XML dependency, no API key. Auto-discovered by eve. |
+
+**Decisions:**
+- Source: the site's RSS feed rather than scraping HTML — stable structure, and each
+  item already carries a concise summary, so Cael gets digestible output cheaply.
+- Verified the parser against the live feed (extracts titles/links/dates/summaries).
+
+### Temporarily removed the Tavily web search tool
+
+- Deleted `agent/tools/web_search.ts` so the user can test without it. Recoverable
+  from git (commit `9dcbdc1` introduced it). Native Anthropic web search via eve is
+  still an open option to investigate.
+
+---
+
 ## Session: 2026-06-28 (chat UI gaps — remove non-functional controls + dead code)
 
 ### Removed controls eve's runtime can't support, and deleted orphaned UI
@@ -113,6 +138,34 @@ Kept the Cael-flavored `agent/skills/explain_eve/` for this app's own use — tw
 audiences, two files. Install command for the published skill:
 `npx skills add bertovmill/focuspoint --skill explain-eve`. Listing on skills.sh
 follows automatically as installs accrue.
+
+**Update (same session):** Compared our skill against Vercel's official `eve`
+skill (installed via `npx skills add https://github.com/vercel/eve --skill eve`).
+
+- **Official `eve` skill** = a lean ~25-line *pointer*: "Do not rely on this
+  skill — always read the bundled docs at `node_modules/eve/docs/`." Drift-proof,
+  aimed at a coding agent building eve projects. Now vendored at
+  `agent/skills/eve/SKILL.md` (+ `skills-lock.json`) for this repo's own dev use.
+- **Ours** = a self-contained explainer for the runtime agent. Different audience
+  (end users) and constraint (no file-read tool).
+
+Chose to **blend**: added a `## Source of truth` section to both our skills
+(`agent/skills/explain_eve` + published `skills/explain-eve`) instructing the
+agent to read `node_modules/eve/docs/` first when reachable and treat the
+embedded summary as the offline/quick-answer fallback. Keeps us drift-proof like
+the official skill while staying usable without filesystem access.
+
+- Reverted an unrequested side effect of the install: it added `microsandbox` to
+  `package.json` devDependencies — backed out `package.json` + `package-lock.json`.
+
+| File | Change |
+|---|---|
+| `agent/skills/eve/SKILL.md` | Vendored official eve coding-agent skill |
+| `skills-lock.json` | skills CLI lockfile pinning the official eve skill |
+| `agent/skills/explain_eve/SKILL.md` | Added Source-of-truth section |
+| `skills/explain-eve/SKILL.md` | Added Source-of-truth section |
+
+**Typecheck:** PASS ✓
 
 ---
 

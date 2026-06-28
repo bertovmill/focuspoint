@@ -268,7 +268,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           <ModeToggle />
         </div>
         <div className="flex items-center gap-3">
-          <CaelAvatar size={52} />
+          <CaelAvatar size={72} />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
             {!loading && (

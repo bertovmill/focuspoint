@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (assistant-ui skill installed)
+
+### Added the assistant-ui router skill via the skills CLI
+
+Installed from the `assistant-ui/skills` catalog. That repo ships ~13 skills
+(assistant-ui, runtime, primitives, streaming, tools, cloud, setup, etc.); kept
+only the top-level **router** skill (`assistant-ui`) to match what was intended
+and avoid cluttering Cael's runtime skill set — `agent/skills/` is eve's runtime
+skill dir, so everything there is advertised to the live agent. The full catalog
+can be re-added later with `npx skills add assistant-ui/skills` if dev-time
+coverage is wanted.
+
+| File | Change |
+|---|---|
+| `agent/skills/assistant-ui/SKILL.md` | Router skill — assistant-ui architecture/runtime/primitives overview |
+| `agent/skills/assistant-ui/references/architecture.md` | Bundled reference |
+| `agent/skills/assistant-ui/references/packages.md` | Bundled reference |
+| `skills-lock.json` | Added `assistant-ui` entry (source `assistant-ui/skills`) |
+
+---
+
 ## Session: 2026-06-28 (AINews tool + web search removed)
 
 ### Added a tool to read the latest from AINews (news.smol.ai)

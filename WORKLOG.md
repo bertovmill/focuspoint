@@ -4,6 +4,38 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (chat UI gaps — remove non-functional controls + dead code)
+
+### Removed controls eve's runtime can't support, and deleted orphaned UI
+
+**Why:** Investigated wiring the remaining assistant-ui controls (edit /
+regenerate / branch) and the conversation-history sidebar. eve's `ClientSession`
+is **append-only** — it exposes only `send` / `stream` / `reset`, with no edit,
+regenerate, fork, truncate, or session-listing. Because the model replays full
+durable session history server-side, any client-side edit/truncate would leave
+the model seeing stale context (silently wrong), and branching is impossible.
+So the correct move was to remove the visible-but-broken controls rather than
+fake them.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `components/assistant-ui/thread.tsx` | Removed the Edit button (`UserActionBar`), the Reload/regenerate button, the `EditComposer`, and the `isEditing` branch in `ThreadMessage`. Dropped now-unused `PencilIcon` / `RefreshCwIcon` imports. Kept Copy + Export-as-Markdown (both work). `BranchPicker` left in place — it has `hideWhenSingleBranch`, so with eve's single-branch sessions it stays invisible (not misleading). |
+| `components/ai-elements/*` (9 files), `app/_components/agent-message.tsx`, `app/_components/thinking-message.tsx` | Deleted. Orphaned earlier-iteration UI (Vercel AI Elements), imported nowhere since the assistant-ui `Thread` became the chat surface. |
+
+**Not done — needs eve capabilities, not just wiring:**
+- **Edit / regenerate / branch:** blocked until eve supports history editing
+  (truncate/fork) server-side. Revisit if eve adds it.
+- **Conversation-history sidebar (`thread-list.tsx`):** eve has no client
+  session-listing and binds one session per mount, so this needs a client-side
+  multi-session persistence layer (track session cursors + remount on switch).
+  A real feature, scoped for later; `thread-list.tsx` stays unmounted for now.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (chat UI gaps — attachments + suggestions)
 
 ### Wired two already-present assistant-ui components that weren't functional

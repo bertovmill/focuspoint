@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-06-28 — Add smile to Cael avatar
+
+Added a mouth/smile shape to `public/cael-avatar.json`. New layer `ind:3` (nm: "smile") inserted between the two eye layers and the highlight: a bezier arc path centered at (100, 108) in the 200×200 canvas with two anchor points at (−12, 0) and (12, 0), tangent handles curving downward by 7 units to form a U-shaped arc. Rendered as a white stroke (`w: 6`, rounded line caps) at 85% opacity — no fill. Layer order (first=top): right eye → left eye → smile → highlight → orb → glow. Renumbered existing layer `ind` values to stay unique (5, 6, 7).
+
+**Files changed:** `public/cael-avatar.json`
+**Commit:** bc3d4fb
+
+---
+
 ## 2026-06-28 — Add nightly dreaming cycle for Cael
 
 Implemented agent dreaming — a nightly cron that consolidates the user's recent thoughts and todos into structured patterns and insights that Cael loads at the start of each session.

@@ -33,6 +33,22 @@ section (`npx eve@latest init`) with the minimal three-file example (instruction
 docs/community links, and depth-matching guidance so quick questions get short
 answers. Tightened the `description` to also route on "how to build an eve agent".
 
+**Update (same session):** Published the skill to the skills.sh ecosystem. Key
+fact: skills.sh has **no manual publish/auth step** — it's a directory +
+leaderboard that lists skills automatically once they live in a public GitHub
+repo and people install them via `npx skills add`. The skills.sh CLI
+(`github.com/vercel-labs/skills`) scans a **top-level `skills/`** dir (not eve's
+`agent/skills/`) and requires a `name` frontmatter field.
+
+| File | Change |
+|---|---|
+| `skills/explain-eve/SKILL.md` | New registry copy at the CLI-discoverable top-level path. Adds `name: explain-eve` frontmatter and is generalized (Cael self-references removed) since it installs into other people's agents. Verified discoverable via `npx skills list`. |
+
+Kept the Cael-flavored `agent/skills/explain_eve/` for this app's own use — two
+audiences, two files. Install command for the published skill:
+`npx skills add bertovmill/focuspoint --skill explain-eve`. Listing on skills.sh
+follows automatically as installs accrue.
+
 ---
 
 ## Session: 2026-06-28 (morning digest cron / eve schedule)

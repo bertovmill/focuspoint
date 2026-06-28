@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (agent knows the date)
+
+### Fixed: Cael was guessing the date (queried 2025-07-14 for "events today")
+
+**Problem:** The model has no reliable sense of the current date, so calendar
+queries used a hallucinated date and returned nothing.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/lib/now.ts` | New. Timezone-aware helpers from the server clock: `todayISO()`, `nowHuman()`, and `zonedDayBounds()` (RFC3339 day bounds anchored to the configured TZ offset — correct in local TZ and in UTC on Vercel). Single source of `TIME_ZONE`. |
+| `agent/instructions/current-date.ts` | New. Dynamic instructions (`defineInstructions` on `turn.started`) that inject the real date/time every turn so the model never guesses. Coexists with the static `instructions.md` (eve discovery: 0 errors/0 warnings). |
+| `agent/tools/list_calendar_events.ts` | `start_date` now optional → defaults to today (server). Range bounds use `zonedDayBounds` so the day window is timezone-correct everywhere. |
+| `agent/lib/google-calendar.ts` | Imports `TIME_ZONE` from `now.ts` (was a duplicate local const). |
+
+**Verified:** helper output is correct (`todayISO`→`2026-06-28`, bounds at
+`-04:00`). Calendar read was already confirmed live end-to-end earlier this day.
+
+**Note:** Vercel deploy still needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+`GOOGLE_REFRESH_TOKEN` set in project env for the morning-digest cron.
+
+**Typecheck:** PASS ✓ (after refreshing local node_modules; `next-themes` /
+`sonner` are declared in package.json and resolve on a clean install.)
+
+---
+
 ## Session: 2026-06-28 (semantic memory upgrade + tag-filtered search)
 
 ### Moved semantic search to stored pgvector embeddings; gave the agent semantic recall; made tag + meaning search compose

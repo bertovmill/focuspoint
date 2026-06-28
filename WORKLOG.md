@@ -133,3 +133,16 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 **Also done:**
 - Strengthened `CLAUDE.md` post-feature rule: update WORKLOG + push to main, non-negotiable.
+
+---
+
+### 2026-06-28 — Fix "relation does not exist" DB errors
+
+**Problem:** Agent tools (`list_folders`, `create_folder`, `capture_thought`) failing with `NeonDbError: relation "X" does not exist` because `ensureSchema()` was defined in `lib/db.ts` but never called — tables never created.
+
+**Fix:** Added `instrumentation.ts` at project root. Next.js runs `register()` once on server startup (nodejs runtime only), calling `ensureSchema()` to create all tables idempotently via `CREATE TABLE IF NOT EXISTS`.
+
+**Files changed:**
+- `instrumentation.ts` — new file
+
+**Pushed to:** main

@@ -1,5 +1,12 @@
 import { defineTool } from "eve/tools";
+import { once } from "eve/tools/approval";
 import { z } from "zod";
+
+import {
+  CALENDAR_NOT_CONNECTED,
+  createCalendarEvent,
+  resolveGoogleToken,
+} from "../lib/google-calendar.js";
 
 export default defineTool({
   description:
@@ -11,46 +18,22 @@ export default defineTool({
     duration_minutes: z.number().int().default(30).describe("Duration in minutes (ignored for all-day events)"),
     description: z.string().optional().describe("Optional event description or notes"),
   }),
+  // Writing to the real calendar is an outward action — confirm once per session.
+  approval: once(),
   async execute({ title, date, time, duration_minutes, description }) {
-    const accessToken = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN;
-    if (!accessToken) {
-      return {
-        success: false,
-        message:
-          "Google Calendar is not connected yet. To connect it, add GOOGLE_CALENDAR_ACCESS_TOKEN to your environment variables.",
-      };
-    }
+    const token = await resolveGoogleToken();
+    if (!token) return { success: false, message: CALENDAR_NOT_CONNECTED };
 
-    const isAllDay = !time;
-    const start = isAllDay ? { date } : { dateTime: `${date}T${time}:00`, timeZone: "America/Toronto" };
-    const end = isAllDay
-      ? { date }
-      : {
-          dateTime: new Date(
-            new Date(`${date}T${time}:00`).getTime() + duration_minutes * 60000,
-          ).toISOString(),
-          timeZone: "America/Toronto",
-        };
+    const result = await createCalendarEvent(token, {
+      title,
+      date,
+      time,
+      durationMinutes: duration_minutes,
+      description,
+    });
 
-    const res = await fetch(
-      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ summary: title, description, start, end }),
-      },
-    );
-
-    if (!res.ok) {
-      const err = await res.text();
-      return { success: false, message: `Calendar API error: ${err}` };
-    }
-
-    const event = await res.json();
-    return { success: true, eventId: event.id, link: event.htmlLink };
+    if (!result.success) return { success: false, message: `Calendar API error: ${result.message}` };
+    return { success: true, eventId: result.eventId, link: result.link };
   },
   toModelOutput(output) {
     if (!output.success) return { type: "text" as const, value: output.message ?? "Failed to add event." };

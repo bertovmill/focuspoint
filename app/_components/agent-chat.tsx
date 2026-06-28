@@ -15,16 +15,8 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestions";
 import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
-
-const QUICK_SUGGESTIONS = [
-  "Capture a thought",
-  "What's on my todo list?",
-  "Add a reminder for later",
-  "What did I think about recently?",
-];
 
 const AGENT_NAME = "focuspoint-agent";
 

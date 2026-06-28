@@ -28,12 +28,33 @@ const QUICK_SUGGESTIONS = [
 
 const AGENT_NAME = "focuspoint-agent";
 
+const QUICK_SUGGESTIONS = [
+  "What's on my plate today?",
+  "Add a quick thought",
+  "What did I work on recently?",
+  "Help me prioritize",
+];
+
+function getGreeting(): { greeting: string; date: string } {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const date = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  return { greeting, date };
+}
+
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
 export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
   const agent = useEveAgent();
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
   const isEmpty = agent.data.messages.length === 0;
+  const { greeting, date } = getGreeting();
 
   const handleSubmit = async (message: PromptInputMessage) => {
     const text = message.text.trim();
@@ -48,7 +69,7 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
 
   const composer = (
     <PromptInput onSubmit={handleSubmit}>
-      <PromptInputTextarea placeholder="Send a message…" />
+      <PromptInputTextarea placeholder="What's on your mind?" />
       <PromptInputSubmit onStop={agent.stop} status={agent.status} />
     </PromptInput>
   );
@@ -115,18 +136,33 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
         className={cn(
           "mx-auto w-full px-4 sm:px-6",
           isEmpty
-            ? "flex max-w-xl flex-1 flex-col items-center justify-center gap-8 pb-[10vh]"
+            ? "flex max-w-xl flex-1 flex-col items-center justify-center gap-6 pb-[10vh]"
             : cn("max-w-3xl shrink-0", hasMobileNav ? "pb-20 lg:pb-6" : "pb-6"),
         )}
       >
         {isEmpty ? (
           <div className="flex flex-col items-center gap-6 text-center">
-            <h1 className="font-medium text-5xl tracking-tighter">{AGENT_NAME}</h1>
-            <Suggestions>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-sm text-muted-foreground">{date}</p>
+              <h1 className="text-4xl font-semibold tracking-tight">
+                {greeting}, Berto
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                What would you like to do today?
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
               {QUICK_SUGGESTIONS.map((text) => (
-                <Suggestion key={text} text={text} onSelect={handleSuggestion} />
+                <button
+                  key={text}
+                  onClick={() => handleSuggestion(text)}
+                  disabled={isBusy}
+                  className="rounded-full border border-border bg-background px-4 py-1.5 text-sm text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {text}
+                </button>
               ))}
-            </Suggestions>
+            </div>
           </div>
         ) : null}
         <div className="w-full">{composer}</div>

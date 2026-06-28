@@ -8,10 +8,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read `WORKLOG.md` in the project root first. It contains a timestamped log of everything built so far, decisions made, and next steps. Use it to get up to speed before making any changes.
 
-## After completing a feature
+## After completing any feature or change — required, no exceptions
 
-1. Update `WORKLOG.md` with a timestamped entry describing what was built, decisions made, and any next steps.
-2. Commit all changes and merge to `main`.
+1. **Update `WORKLOG.md`** with a timestamped entry: what was built, decisions made, files changed, and any next steps.
+2. **Commit all changes to `main`** and push to origin. Do not leave work on a branch or worktree without merging.
+
+This is non-negotiable. Every session ends with WORKLOG.md updated and main pushed.
 
 ## Commands
 

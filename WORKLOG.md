@@ -56,26 +56,6 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 ---
 
-### 14:15 — Mobile-friendly layout + bottom nav ✓
-
-**Goal:** Make the app usable on mobile with a native-feeling bottom tab bar.
-
-**Changes:**
-
-| File | Change |
-|---|---|
-| `app/page.tsx` | Converted to client component; added `mobileTab` state (`chat \| tasks \| notes`); mobile bottom nav bar (`lg:hidden`); conditional panel visibility per tab |
-| `app/_components/dashboard.tsx` | Accepts optional `activeTab` prop synced from nav; added `pb-16 lg:pb-0` to scrollable content to clear nav |
-| `app/_components/agent-chat.tsx` | Accepts `hasMobileNav` prop; adds `pb-20 lg:pb-6` to composer so chat input clears the nav bar |
-
-**Behaviour:**
-- Mobile (`< lg`): bottom nav with Chat / Tasks / Notes tabs. Tapping Tasks or Notes shows the Dashboard full-screen on that tab; tapping Chat switches back to the agent.
-- Desktop (`lg+`): layout unchanged — sidebar Dashboard + full chat panel, no bottom nav.
-
-**Typecheck:** PASS ✓
-
----
-
 ### Next steps (to get it running)
 
 1. **Set up Neon Postgres**
@@ -118,3 +98,38 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 - Provisioned Neon Postgres under correct account
 - Updated `CLAUDE.md` to require agents to read `WORKLOG.md` before starting work
 
+---
+
+### 14:15 — Mobile-friendly layout + bottom nav ✓
+
+**Goal:** Make the app usable on mobile with a native-feeling bottom tab bar.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/page.tsx` | Converted to client component; added `mobileTab` state (`chat \| tasks \| notes`); mobile bottom nav bar (`lg:hidden`); conditional panel visibility per tab |
+| `app/_components/dashboard.tsx` | Accepts optional `activeTab` prop synced from nav; added `pb-16 lg:pb-0` to scrollable content to clear nav |
+| `app/_components/agent-chat.tsx` | Accepts `hasMobileNav` prop; adds `pb-20 lg:pb-6` to composer so chat input clears the nav bar |
+
+**Behaviour:**
+- Mobile (`< lg`): bottom nav with Chat / Tasks / Notes tabs. Tapping Tasks or Notes shows the Dashboard full-screen on that tab; tapping Chat switches back to the agent.
+- Desktop (`lg+`): layout unchanged — sidebar Dashboard + full chat panel, no bottom nav.
+
+**Typecheck:** PASS ✓
+
+---
+
+### 14:30 — App icon added ✓
+
+**Files created/modified:**
+
+| File | Purpose |
+|---|---|
+| `public/icon.svg` | App icon — camera-viewfinder bracket motif on dark ground |
+| `app/layout.tsx` | Added `icons` metadata (favicon + apple-touch) pointing to `/icon.svg` |
+
+**Design decision:** Four L-shaped corner brackets converging on a center dot — the camera autofocus viewfinder frame. Chosen over crosshair/bullseye because brackets signal attentiveness rather than targeting, which fits an agent that pays close attention to your life. Dark self-contained ground works on any background without a light-mode variant. Bracket arms sized at 14px (on 512 grid) to hold legibility at 16×16 favicon.
+
+**Also done:**
+- Strengthened `CLAUDE.md` post-feature rule: update WORKLOG + push to main, non-negotiable.

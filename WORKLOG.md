@@ -844,3 +844,24 @@ Cron Job (visible under Settings → Cron Jobs; runs evaluated in **UTC**).
 - `isRunning` from `agent.status === "submitted" | "streaming"` drives the loading indicator
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-06-28 — GitHub OpenAPI connection
+
+**What was built:**
+Added `agent/connections/github.ts` — an eve OpenAPI connection that gives Cael read/write access to the bertovmill/focuspoint GitHub repo using the GitHub REST API.
+
+**Files changed:**
+- `agent/connections/github.ts` — new file; `defineOpenAPIConnection` pointed at GitHub's OpenAPI spec with PAT auth and `once()` approval gate for writes
+- `agent/instructions.md` — added GitHub to Cael's capabilities list
+
+**Decisions:**
+- Used OpenAPI connection (not MCP) to avoid requiring a GitHub Copilot subscription
+- `approval: once()` means Cael asks the user once per session before making any write (commit, PR, file edit)
+- Auth via `GITHUB_TOKEN` env var (fine-grained PAT with Contents + Pull requests read/write on bertovmill/focuspoint)
+
+**Typecheck:** PASS ✓
+
+**Next steps:**
+- Add `GITHUB_TOKEN` to Vercel env for production: `vercel env add GITHUB_TOKEN`

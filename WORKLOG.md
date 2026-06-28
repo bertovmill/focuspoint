@@ -136,67 +136,47 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 ---
 
-### Session: 2026-06-28 (later) — Personal home screen greeting ✓
+### Session: 2026-06-28 — assistant-ui components installed ✓
 
-**Goal:** Replace the cold generic "focuspoint-agent" title on the empty chat state with a warm, personal welcome experience.
+**Goal:** Replace the custom AI element components with industry-standard assistant-ui components built on shadcn.
 
-**Changes:**
+**What was installed:**
+
+| Package | Purpose |
+|---|---|
+| `@assistant-ui/react` | Core primitives: Thread, Message, Composer, ActionBar, BranchPicker, Reasoning, ToolGroup |
+| `@assistant-ui/react-markdown` | Markdown rendering in messages |
+| `tw-shimmer` | Shimmer/loading animations |
+| `zustand` | State management (required by assistant-ui) |
+
+**shadcn components added to `components/assistant-ui/`:**
+
+| Component | What it does |
+|---|---|
+| `thread.tsx` | Full chat thread — messages, scroll, composer, welcome screen, branch picker |
+| `thread-list.tsx` | Multi-thread sidebar |
+| `attachment.tsx` | File/image attachment rendering |
+| `markdown-text.tsx` | Streaming markdown with code highlighting |
+| `reasoning.tsx` | Collapsible reasoning/thinking display |
+| `tool-fallback.tsx` | Default tool call display |
+| `tool-group.tsx` | Grouped tool calls with expand/collapse |
+| `tooltip-icon-button.tsx` | Icon button with tooltip |
+
+**New files:**
+
+| File | Purpose |
+|---|---|
+| `hooks/use-eve-runtime.ts` | Eve → assistant-ui runtime adapter. Converts `EveMessage[]` to `ThreadMessageLike[]` and bridges `agent.send`/`agent.stop` to assistant-ui's `ExternalStoreAdapter`. |
+
+**Key changes:**
 
 | File | Change |
 |---|---|
-| `app/_components/agent-chat.tsx` | Replaced static `h1` title with time-aware greeting ("Good morning/afternoon/evening, Berto"), today's date, a "What would you like to do today?" subtitle, and four quick-action pill prompt buttons. Updated input placeholder from "Send a message…" to "What's on your mind?". |
+| `app/_components/agent-chat.tsx` | Replaced custom message rendering with `AssistantRuntimeProvider` + `Thread`. Kept custom header and error banner outside the thread. `PersonalizedWelcome` component passed as `Thread`'s `Welcome` slot. |
 
 **Design decisions:**
-- Greeting uses live `new Date()` — no hydration issues since it's a client component
-- Pill buttons replace the default suggestions chip component for simplicity (no external dependency in this branch)
-- Quick prompts: "What's on my plate today?", "Add a quick thought", "What did I work on recently?", "Help me prioritize"
-- Name hardcoded as "Berto" — this is a personal app, no auth/profile system yet
-
-**Typecheck:** PASS ✓  
-**Pushed to:** main
-
-
----
-
-### Session: 2026-06-28 (later) — Twilio SMS/voice channel ✓
-
-**Goal:** Connect the focuspoint agent to Twilio so it can receive and reply to SMS messages (and voice calls).
-
-**Changes:**
-
-| File | Change |
-|---|---|
-| `agent/channels/twilio.ts` | New Twilio channel — mounts `/eve/v1/twilio/messages` (SMS) and `/eve/v1/twilio/voice` (calls). `allowFrom` and `from` number pulled from env vars. |
-| `.env.local` | Added `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `TWILIO_ALLOW_FROM` |
-
-**Decisions:**
-- Used Twilio CLI to authenticate and fetch the phone number (+17093703880)
-- `TWILIO_ALLOW_FROM` set to own number — gates inbound to prevent abuse
-- Auth Token stored in `.env.local` (not committed)
-
-**Next steps:**
-- Deploy to Vercel to get a public URL
-- Point Twilio number's Messaging webhook at `https://<deployed-url>/eve/v1/twilio/messages`
-
----
-
-### Session: 2026-06-28 (later) — Thinking indicator bubble ✓
-
-**Goal:** Show a loading indicator in the chat when the agent is processing but hasn't returned any tokens yet (`submitted` state).
-
-**Changes:**
-
-| File | Change |
-|---|---|
-| `app/_components/thinking-message.tsx` | New component — renders an assistant `Message` bubble with three staggered-bounce dots using existing `Message`/`MessageContent` primitives. |
-| `app/_components/agent-chat.tsx` | Imported `ThinkingMessage` and conditionally renders it after the message list when `agent.status === "submitted"`. |
-
-**Decisions:**
-- Uses existing `Message`/`MessageContent` from `components/ai-elements/message.tsx` (shadcn/assistant-ui pattern) — visually consistent with assistant messages.
-- Three dots with `animate-bounce` and Tailwind arbitrary `[animation-delay]` values for the stagger effect — standard industry typing indicator.
-- Only shown during `submitted` (not `streaming`), so it disappears the moment the first token arrives.
+- Used `useExternalStoreRuntime` (not `useChatRuntime`) since eve's transport doesn't speak AI SDK's streaming protocol
+- `dynamic-tool` eve parts map to `tool-call` assistant-ui parts; `output-error` state maps to `isError: true`
+- `isRunning` from `agent.status === "submitted" | "streaming"` drives the loading indicator
 
 **Typecheck:** PASS ✓
-- Add Twilio env vars to Vercel project via `vercel env add`
-
-**Pushed to:** main

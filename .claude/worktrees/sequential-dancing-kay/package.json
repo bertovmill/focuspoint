@@ -13,8 +13,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@assistant-ui/react": "^0.14.24",
-    "@assistant-ui/react-markdown": "^0.14.5",
     "@neondatabase/serverless": "^1.1.0",
     "@radix-ui/react-use-controllable-state": "1.2.2",
     "@shikijs/core": "4.1.0",
@@ -27,7 +25,7 @@
     "@tailwindcss/postcss": "4.3.0",
     "@vercel/connect": "0.2.2",
     "ai": "^7.0.0",
-    "class-variance-authority": "^0.7.1",
+    "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
     "eve": "^0.16.2",
@@ -38,15 +36,12 @@
     "radix-ui": "1.4.3",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "remark-gfm": "^4.0.1",
     "shiki": "4.1.0",
     "streamdown": "2.5.0",
     "tailwind-merge": "3.6.0",
     "tailwindcss": "4.3.0",
-    "tw-shimmer": "^0.4.11",
     "use-stick-to-bottom": "1.1.4",
-    "zod": "4.4.3",
-    "zustand": "^5.0.14"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "24.x",

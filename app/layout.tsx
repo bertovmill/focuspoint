@@ -22,6 +22,10 @@ const mono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FocusPoint",
   description: "Your personal AI agent — captures thoughts, manages todos, and knows your life.",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {

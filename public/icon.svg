@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141418"/>
+      <stop offset="100%" stop-color="#0a0a0d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- Subtle inner circle guide -->
+  <circle cx="256" cy="256" r="128" stroke="#f2f2f5" stroke-opacity="0.06" stroke-width="1" fill="none"/>
+
+  <!-- Top-left bracket -->
+  <path d="M148 148 L148 196 M148 148 L196 148" stroke="#f2f2f5" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Top-right bracket -->
+  <path d="M364 148 L364 196 M364 148 L316 148" stroke="#f2f2f5" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Bottom-left bracket -->
+  <path d="M148 364 L148 316 M148 364 L196 364" stroke="#f2f2f5" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Bottom-right bracket -->
+  <path d="M364 364 L364 316 M364 364 L316 364" stroke="#f2f2f5" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Center crosshair tick — horizontal -->
+  <line x1="232" y1="256" x2="246" y2="256" stroke="#f2f2f5" stroke-opacity="0.5" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="266" y1="256" x2="280" y2="256" stroke="#f2f2f5" stroke-opacity="0.5" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Center crosshair tick — vertical -->
+  <line x1="256" y1="232" x2="256" y2="246" stroke="#f2f2f5" stroke-opacity="0.5" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="256" y1="266" x2="256" y2="280" stroke="#f2f2f5" stroke-opacity="0.5" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="9" fill="#ffffff"/>
+</svg>

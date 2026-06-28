@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (Slack channel)
+
+### Added Cael to Slack via Vercel Connect
+
+**What:** Wired up `agent/channels/slack.ts` so Cael responds to `@mentions` and DMs in Slack. Restricted to owner only (Slack user `U0AP776N28L`) — all other users are silently dropped.
+
+**Files changed:**
+- `agent/channels/slack.ts` — new channel file with `onAppMention` / `onDirectMessage` owner guard
+
+**Setup performed:**
+- Created Vercel Connect client `slack/cael-51b8` via `vercel connect create slack --triggers`
+- Detached and re-attached with `--trigger-path /eve/v1/slack`
+- Deployed to production
+
+---
+
 ## Session: 2026-06-28 (Cael avatar — Rive integration)
 
 ### Added animated Cael avatar to the Dashboard sidebar header

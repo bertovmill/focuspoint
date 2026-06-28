@@ -133,3 +133,25 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 **Also done:**
 - Strengthened `CLAUDE.md` post-feature rule: update WORKLOG + push to main, non-negotiable.
+
+---
+
+### Session: 2026-06-28 (later) — Personal home screen greeting ✓
+
+**Goal:** Replace the cold generic "focuspoint-agent" title on the empty chat state with a warm, personal welcome experience.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/agent-chat.tsx` | Replaced static `h1` title with time-aware greeting ("Good morning/afternoon/evening, Berto"), today's date, a "What would you like to do today?" subtitle, and four quick-action pill prompt buttons. Updated input placeholder from "Send a message…" to "What's on your mind?". |
+
+**Design decisions:**
+- Greeting uses live `new Date()` — no hydration issues since it's a client component
+- Pill buttons replace the default suggestions chip component for simplicity (no external dependency in this branch)
+- Quick prompts: "What's on my plate today?", "Add a quick thought", "What did I work on recently?", "Help me prioritize"
+- Name hardcoded as "Berto" — this is a personal app, no auth/profile system yet
+
+**Typecheck:** PASS ✓  
+**Pushed to:** main
+

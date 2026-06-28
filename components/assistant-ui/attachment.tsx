@@ -129,24 +129,22 @@ const MessageImageAttachment: FC = () => {
   return (
     <AttachmentPreviewDialog>
       <AttachmentPrimitive.Root className="aui-attachment-root relative">
-        <TooltipTrigger asChild>
-          <div
-            className="cursor-pointer overflow-hidden rounded-2xl transition-opacity hover:opacity-90"
-            role="button"
-            tabIndex={0}
-            aria-label="Image attachment"
-          >
-            {src ? (
-              <img
-                src={src}
-                alt="Sent image"
-                className="block h-auto max-h-[300px] max-w-[240px] w-auto rounded-2xl object-contain"
-              />
-            ) : (
-              <div className="size-24 animate-pulse rounded-2xl bg-muted" />
-            )}
-          </div>
-        </TooltipTrigger>
+        <div
+          className="cursor-pointer overflow-hidden rounded-2xl transition-opacity hover:opacity-90"
+          role="button"
+          tabIndex={0}
+          aria-label="Image attachment"
+        >
+          {src ? (
+            <img
+              src={src}
+              alt="Sent image"
+              className="block h-auto max-h-[300px] max-w-[240px] w-auto rounded-2xl object-contain"
+            />
+          ) : (
+            <div className="size-24 animate-pulse rounded-2xl bg-muted" />
+          )}
+        </div>
       </AttachmentPrimitive.Root>
     </AttachmentPreviewDialog>
   );

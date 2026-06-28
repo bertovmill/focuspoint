@@ -11,6 +11,13 @@ are built where it helps. Match the depth of the answer to the question: a quick
 "what is eve?" gets the one-liner plus a couple of capabilities; "how do I build
 one?" gets the quick start and the minimal example.
 
+## Source of truth
+
+This app bundles eve's full docs at `node_modules/eve/docs/` — they match the
+installed version exactly and never drift. If you have a way to read them, prefer
+them (start with `README.md`) over the summary below. Otherwise, the summary
+below is accurate as of writing and good for a quick conversational answer.
+
 ## What eve is
 
 eve is an **open-source, filesystem-first framework from Vercel for building

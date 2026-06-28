@@ -7,6 +7,7 @@ import { useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { useThreads } from "@/app/_components/threads-provider";
+import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,8 @@ export function AgentChat({
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <AssistantRuntimeProvider runtime={runtime}>
+          {/* Registers the in-chat calendar widget for list_calendar_events. */}
+          <CalendarToolUI />
           <Thread components={{ Welcome: PersonalizedWelcome }} />
         </AssistantRuntimeProvider>
       </div>

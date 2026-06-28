@@ -4,6 +4,35 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (eve explainer skill)
+
+### Added an eve skill so Cael can explain what eve is capable of
+
+**Goal:** When the user asks what eve is / what eve agents can do, Cael should
+explain the framework clearly instead of guessing.
+
+**How eve does skills:** Skills live under `agent/skills/`. eve advertises each
+skill's `description` to the model and exposes a framework-owned `load_skill`
+tool; the full markdown body is pulled into context only when a turn matches.
+This is progressive disclosure — the explainer content costs nothing until it's
+needed.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/skills/explain_eve/SKILL.md` | New packaged skill. `description` routes on "what is eve / what can eve do / how is this app built". Body is a plain-language primer: what eve is ("Next.js for agents"), what eve agents can do (multi-channel, typed tools, skills, subagents, schedules, durability, connections), the project layout table, and guidance to answer conversationally. Links the GitHub repo (vercel/eve). |
+
+**Decisions:**
+- Packaged dir (`explain_eve/SKILL.md`) over a flat `.md` so it can grow sibling
+  reference files later; packaged skills require `description` frontmatter.
+- Tied capability descriptions back to Cael's own tools/schedules so the agent
+  can give concrete, self-referential examples.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (morning digest cron / eve schedule)
 
 ### Added a scheduled morning digest delivered over SMS

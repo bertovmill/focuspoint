@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-06-28 — Fix notes overflow on mobile
+
+Note cards and the tag filter bar overflowed the viewport horizontally on mobile. Three fixes in `app/_components/dashboard.tsx`:
+- Added `overflow-x-hidden` to the notes TabsContent so content can't scroll past the container
+- Added `overflow-hidden` to each note Card so long content is clipped within the card
+- Added `flex-wrap` to the per-card tags row (timestamp + tag chips) and `shrink-0` to the timestamp, so tags wrap to the next line instead of running off screen
+- Added `break-words` to the note text `<p>` for long-word wrapping
+
+---
+
 ## 2026-06-28 — Fix sidebar title not appearing until agent finishes
 
 **Problem:** Sending a message and immediately opening the chat history sidebar showed "New chat" instead of the derived title. The title was only set inside `onFinish`, which fires after the full agent response (30+ seconds). Users who opened the sidebar during or right after streaming never saw the title update (even though it was correctly persisted once the agent finished).

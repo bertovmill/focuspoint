@@ -255,7 +255,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           <ModeToggle />
         </div>
         <div className="flex items-center gap-3">
-          <CaelAvatar src="/cael.riv" size={52} />
+          <CaelAvatar size={52} />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
             {!loading && (
@@ -360,7 +360,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
             )}
         </TabsContent>
 
-        <TabsContent value="notes" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
+        <TabsContent value="notes" className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 pb-16 lg:pb-0">
             {/* Semantic search box */}
             {!loading && thoughts.length > 0 && (
               <InputGroup className="mb-3">
@@ -463,7 +463,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
             ) : (
               <div className="space-y-3">
                 {displayedThoughts.map((thought) => (
-                  <Card key={thought.id} className="gap-0 rounded-lg px-3 py-2.5 shadow-none group">
+                  <Card key={thought.id} className="gap-0 rounded-lg px-3 py-2.5 shadow-none group overflow-hidden">
                     {editingId === thought.id ? (
                       <div>
                         <Textarea
@@ -488,9 +488,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm leading-relaxed">{thought.content}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">
+                        <p className="text-sm leading-relaxed break-words">{thought.content}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className="text-xs text-muted-foreground shrink-0">
                             {formatRelativeTime(thought.created_at)}
                           </span>
                           {thought.tags?.map((tag) => (

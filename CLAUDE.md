@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+## Before starting any work
+
+Read `WORKLOG.md` in the project root first. It contains a timestamped log of everything built so far, decisions made, and next steps. Use it to get up to speed before making any changes.
+
 ## Commands
 
 ```bash

@@ -40,4 +40,16 @@ export async function ensureSchema() {
       completed_at TIMESTAMPTZ
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS dreams (
+      id SERIAL PRIMARY KEY,
+      dream_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      summary TEXT NOT NULL,
+      patterns JSONB DEFAULT '[]',
+      insights TEXT[] DEFAULT '{}',
+      thoughts_analyzed INTEGER DEFAULT 0,
+      todos_analyzed INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }

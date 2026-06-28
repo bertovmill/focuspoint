@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-06-28 — Add nightly dreaming cycle for Cael
+
+Implemented agent dreaming — a nightly cron that consolidates the user's recent thoughts and todos into structured patterns and insights that Cael loads at the start of each session.
+
+**What was built:**
+- **`app/api/dream/route.ts`** — Vercel Cron endpoint (runs 8 AM UTC daily). Pulls last 30 days of thoughts + todos from Neon Postgres, calls Claude via AI SDK to find recurring themes, patterns, and insights, writes a structured report to the `dreams` table.
+- **`lib/db.ts`** — Added `dreams` table with `summary`, `patterns` (JSONB), `insights` (TEXT[]), and metadata fields.
+- **`agent/tools/get_dream_summary.ts`** — Tool for Cael to fetch the latest dream report at session start.
+- **`vercel.json`** — Added `crons` config: `/api/dream` runs on `0 8 * * *` (8 AM UTC = 3 AM ET).
+- **`agent/instructions.md`** — Told Cael to call `get_dream_summary` at session start and weave insights naturally into guidance.
+
+**How it works:**
+1. Cron fires nightly, reads up to 200 thoughts + 100 todos from the last 30 days
+2. Claude analyzes for recurring themes (e.g. "flow + coding + exercise appear together"), scores by frequency, and writes specific insights
+3. Report stored in `dreams` table
+4. Next session: Cael calls `get_dream_summary` and references patterns proactively
+
+**Required env var:** `CRON_SECRET` — Vercel sets this automatically; the cron route validates it to block unauthorized triggers.
+
+**Next steps:** Run `ensureSchema()` once to create the `dreams` table (or deploy and let the cron route call it on first run). Could add a `/api/dream?manual=true` path for triggering manually during dev.
+
+---
+
 ## 2026-06-28 — Fix notes overflow on mobile
 
 Note cards and the tag filter bar overflowed the viewport horizontally on mobile. Three fixes in `app/_components/dashboard.tsx`:

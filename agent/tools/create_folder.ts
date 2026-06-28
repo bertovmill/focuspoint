@@ -15,9 +15,9 @@ export default defineTool({
       INSERT INTO folders (name, parent_id)
       VALUES (${name}, ${parent_id ?? null})
       ON CONFLICT (name, parent_id) DO UPDATE SET name = EXCLUDED.name
-      RETURNING id, name, parent_id, created_at
+      RETURNING id, name, parent_id
     `;
-    return row;
+    return { id: Number(row.id), name: String(row.name), parent_id: row.parent_id != null ? Number(row.parent_id) : null };
   },
   toModelOutput(output) {
     return {

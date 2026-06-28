@@ -15,9 +15,9 @@ export default defineTool({
     const [row] = await sql`
       INSERT INTO thoughts (content, tags, folder_id)
       VALUES (${content}, ${tags ?? []}, ${folder_id ?? null})
-      RETURNING id, folder_id, created_at
+      RETURNING id, folder_id
     `;
-    return { id: row.id, folder_id: row.folder_id, captured: true, timestamp: row.created_at };
+    return { id: Number(row.id), folder_id: row.folder_id != null ? Number(row.folder_id) : null, captured: true };
   },
   toModelOutput(output) {
     return {

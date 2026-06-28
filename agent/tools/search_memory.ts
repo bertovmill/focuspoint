@@ -19,6 +19,12 @@ export default defineTool({
       ORDER BY created_at DESC
       LIMIT ${limit}
     `;
-    return { results: rows, count: rows.length };
+    const results = rows.map((r) => ({
+      id: Number(r.id),
+      content: String(r.content),
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    }));
+    return { results, count: results.length };
   },
 });

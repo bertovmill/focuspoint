@@ -9,10 +9,11 @@ export default defineTool({
   async execute() {
     const sql = getDb();
     const rows = await sql`
-      SELECT id, name, parent_id, created_at
+      SELECT id, name, parent_id
       FROM folders
       ORDER BY parent_id NULLS FIRST, name ASC
     `;
-    return { folders: rows, count: rows.length };
+    const folders = rows.map((r) => ({ id: Number(r.id), name: String(r.name), parent_id: r.parent_id != null ? Number(r.parent_id) : null }));
+    return { folders, count: folders.length };
   },
 });

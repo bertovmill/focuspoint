@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (emerald theme actually shows on active states)
+
+### Wired the dashboard/nav active states to the `primary` token
+
+**Why:** After tinting the theme tokens emerald, the app still looked grey —
+because the hand-rolled buttons/pills/tabs in the dashboard hardcoded
+`bg-foreground`/`border-foreground`/`text-foreground` (near-black) for their
+active/primary state instead of the semantic `primary` token. The new emerald
+`--primary` never reached them. (shadcn primitives like the chat send button use
+`variant="default"` → `bg-primary`, so they picked up emerald automatically; only
+the custom markup was bypassing it.)
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/dashboard.tsx` | Active Tasks/Notes tab underline + label, the quick-add submit button, the "All" + tag filter pills (and inline note tags), and the Save button now use `bg-primary`/`text-primary-foreground`/`border-primary`/`text-primary` instead of `*-foreground`. Todo checkbox hover border + tick now tint with `primary`. Kept `text-red-500` for high-priority (urgency semantics). |
+| `app/page.tsx` | Bottom-nav active item: `text-foreground` → `text-primary` (active Chat/Tasks/Notes icon now emerald). |
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (fix: inbound SMS silently dropped)
 
 ### Texting Cael got no reply — `TWILIO_ALLOW_FROM` was malformed

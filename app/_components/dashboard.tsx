@@ -50,6 +50,16 @@ interface Thought {
   score?: number;
 }
 
+interface DreamReport {
+  dream_date: string;
+  summary: string;
+  patterns: Array<{ theme: string; evidence: string; frequency: number }>;
+  insights: string[];
+  thoughts_analyzed: number;
+  todos_analyzed: number;
+  created_at: string;
+}
+
 function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -71,12 +81,13 @@ function priorityColor(p: string) {
   return "text-foreground";
 }
 
-export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | "notes" }) {
+export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | "notes" | "dreams" }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
+  const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams">(controlledTab ?? "todos");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -92,12 +103,14 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
 
   const fetchData = useCallback(async () => {
     try {
-      const [todosRes, thoughtsRes] = await Promise.all([
+      const [todosRes, thoughtsRes, dreamRes] = await Promise.all([
         fetch("/api/todos"),
         fetch("/api/thoughts"),
+        fetch("/api/dreams"),
       ]);
       if (todosRes.ok) setTodos(await todosRes.json());
       if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
+      if (dreamRes.ok) setDream(await dreamRes.json());
     } catch {
       // silently fail — agent can still be used
     } finally {
@@ -272,7 +285,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       {/* Tabs */}
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "todos" | "notes")}
+        onValueChange={(v) => setActiveTab(v as "todos" | "notes" | "dreams")}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="border-b border-border px-5">
@@ -288,6 +301,12 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
               className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
             >
               Notes
+            </TabsTrigger>
+            <TabsTrigger
+              value="dreams"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
+              Dreams
             </TabsTrigger>
           </TabsList>
         </div>
@@ -550,6 +569,80 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 ))}
               </div>
             )}
+        </TabsContent>
+
+        <TabsContent value="dreams" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
+          {loading || dream === undefined ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-32 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+          ) : dream === null ? (
+            <Empty className="py-12">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BrainIcon className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>No dreams yet</EmptyTitle>
+                <EmptyDescription>
+                  The first dream runs tonight at 3 AM. Cael will consolidate your notes and surface patterns.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {new Date(dream.dream_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
+                </p>
+              </div>
+
+              {/* Summary */}
+              <Card className="p-4">
+                <p className="text-sm leading-relaxed text-foreground">{dream.summary}</p>
+              </Card>
+
+              {/* Patterns */}
+              {dream.patterns.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Patterns</h3>
+                  <div className="space-y-2">
+                    {dream.patterns.map((p, i) => (
+                      <Card key={i} className="p-3">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-sm font-medium">{p.theme}</p>
+                          <Badge variant="secondary" className="shrink-0 text-xs">{p.frequency}×</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{p.evidence}</p>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Insights */}
+              {dream.insights.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Insights</h3>
+                  <Card className="p-3">
+                    <ul className="space-y-2">
+                      {dream.insights.map((insight, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="text-primary mt-0.5 shrink-0">·</span>
+                          <span className="leading-relaxed">{insight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

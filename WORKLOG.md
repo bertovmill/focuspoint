@@ -4,6 +4,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (semantic memory upgrade + tag-filtered search)
+
+### Moved semantic search to stored pgvector embeddings; gave the agent semantic recall; made tag + meaning search compose
+
+**Research first (Vercel/Neon/AI SDK docs):** Confirmed the best-practice approach is to **store** a `vector` column and query with pgvector's `<=>` cosine operator (pgvector is free on Neon, no setup), embed **once at write-time** rather than re-embedding all notes per request, use the AI SDK's `embed`/`embedMany` + `cosineSimilarity`, and add an HNSW index only past ~10k–50k notes. Adopted this over the earlier on-the-fly approach.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `lib/embeddings.ts` | New shared helper: `embedText`/`embedTexts` (AI SDK `embed`/`embedMany` through the Vercel AI Gateway, `text-embedding-3-small`, 1536 dims) + `toVectorLiteral` for pgvector SQL. |
+| `lib/db.ts` | `ensureSchema()` enables `vector` extension + adds `thoughts.embedding vector(1536)`. |
+| `agent/tools/capture_thought.ts` | Embeds note content at write-time (best-effort; capture never fails on gateway error). |
+| `app/api/thoughts/[id]/route.ts` | PATCH re-embeds on content edit so search stays in sync. |
+| `agent/tools/search_memory.ts` | **Cael now recalls by meaning** — semantic pgvector query, with an ILIKE keyword fallback when embeddings are absent/unavailable. |
+| `app/api/thoughts/semantic-search/route.ts` | Rewritten to query the stored embeddings via `<=>` (no per-request re-embedding). Accepts `?tag=` to compose tag + semantic search. |
+| `app/_components/dashboard.tsx` | Tag filter bar now stays active during semantic search and passes the selected tag to the API, so you can search "about X" within a tag. |
+
+**Migration:** Applied `CREATE EXTENSION vector` + the column to the live Neon DB and backfilled embeddings for existing notes.
+
+**Verified:** Typecheck PASS ✓. Live pgvector query sanity-checked — "how should I treat other people" ranks the relationships/philosophy notes top, work note bottom; `?tag=philosophy` correctly narrows.
+
+**Note:** Backend pieces above were committed in `5d1180e` (landed by a concurrent session); this entry documents the full feature + the dashboard tag-filter wiring.
+
+---
+
 ## Session: 2026-06-28 (emerald theme actually shows on active states)
 
 ### Wired the dashboard/nav active states to the `primary` token

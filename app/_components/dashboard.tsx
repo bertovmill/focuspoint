@@ -103,7 +103,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     setSearchError(false);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/thoughts/semantic-search?q=${encodeURIComponent(q)}`);
+        const params = new URLSearchParams({ q });
+        if (tagFilter) params.set("tag", tagFilter);
+        const res = await fetch(`/api/thoughts/semantic-search?${params}`);
         if (!res.ok) throw new Error("search failed");
         setSemanticResults(await res.json());
       } catch {
@@ -114,7 +116,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, tagFilter]);
 
   const clearSearch = () => {
     setQuery("");
@@ -334,8 +336,8 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
               </InputGroup>
             )}
 
-            {/* Tag filter bar — hidden during semantic search */}
-            {!loading && !searchActive && allTags.length > 0 && (
+            {/* Tag filter bar — stays active during search to narrow results by tag */}
+            {!loading && allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <button
                   onClick={() => setTagFilter(null)}

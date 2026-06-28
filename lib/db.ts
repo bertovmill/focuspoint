@@ -9,10 +9,20 @@ export function getDb() {
 export async function ensureSchema() {
   const sql = getDb();
   await sql`
+    CREATE TABLE IF NOT EXISTS folders (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(name, parent_id)
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS thoughts (
       id SERIAL PRIMARY KEY,
       content TEXT NOT NULL,
       tags TEXT[],
+      folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;

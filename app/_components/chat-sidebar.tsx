@@ -44,7 +44,7 @@ export const ChatSidebar: FC<{
   return (
     <div className={cn("relative flex flex-col h-full", className)}>
       {/* Scrollable thread list */}
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div className="flex-1 overflow-y-auto pb-32 lg:pb-20">
         <div className="flex flex-col gap-0.5 p-2">
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col gap-0.5">
@@ -68,7 +68,7 @@ export const ChatSidebar: FC<{
       </div>
 
       {/* Pinned "New chat" pill */}
-      <div className="absolute bottom-0 inset-x-0 flex justify-center pb-4 pointer-events-none">
+      <div className="absolute bottom-0 inset-x-0 flex justify-center pb-20 lg:pb-4 pointer-events-none">
         <Button
           onClick={handleNew}
           className="pointer-events-auto rounded-full px-5 h-10 gap-2 shadow-md text-sm font-medium"

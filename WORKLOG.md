@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (mobile composer layout fix)
+
+### Fixed: chat input hidden behind bottom nav bar on mobile
+
+**Problem:** On mobile, the "Send a message..." text box was being covered by the fixed bottom navigation bar (Chat / Tasks / Notes).
+
+**Root cause:** `ThreadPrimitive.Root` uses `h-full`, which resolves against AgentChat's `<main>` content height (`dvh - 64px` after nav padding). But the 56px header inside the same flex column also consumes space. So the Thread was 56px taller than the available space, pushing the sticky composer footer 56px below the nav-compensation line — directly behind the nav bar.
+
+**Fix:** Wrapped `<AssistantRuntimeProvider>` in a `flex-1 min-h-0 flex flex-col overflow-hidden` div. This makes the Thread take only the remaining vertical space after the header, so the sticky composer footer correctly lands at the top of the nav bar.
+
+**Files changed:**
+- `app/_components/agent-chat.tsx` — added wrapper div around provider
+
+---
+
 ## Session: 2026-06-28 (rename to Cael)
 
 ### Renamed app from FocusPoint → Cael

@@ -1,29 +1,63 @@
 "use client";
 
 import { useEveAgent } from "eve/react";
-import { AlertCircleIcon, DatabaseIcon } from "lucide-react";
+import { AlertCircleIcon, DatabaseIcon, PanelLeftIcon, XIcon } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { useThreads } from "@/app/_components/threads-provider";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
 import { cn } from "@/lib/utils";
 
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
-export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
-  const agent = useEveAgent();
+export function AgentChat({
+  hasMobileNav,
+  threadId,
+}: {
+  hasMobileNav?: boolean;
+  threadId: string;
+}) {
+  const { getThread, saveSnapshot } = useThreads();
+  const thread = getThread(threadId);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const agent = useEveAgent({
+    initialSession: thread?.session,
+    initialEvents: thread?.events,
+    onFinish: (snapshot) => {
+      const firstUser = snapshot.data.messages.find((m) => m.role === "user");
+      const textPart = firstUser?.parts.find((p) => p.type === "text");
+      saveSnapshot(threadId, {
+        session: snapshot.session,
+        events: snapshot.events,
+        firstUserText:
+          textPart && "text" in textPart ? textPart.text : undefined,
+      });
+    },
+  });
   const runtime = useEveRuntime(agent);
 
   return (
     <main
       className={cn(
-        "flex h-dvh flex-col overflow-hidden bg-background text-foreground",
+        "relative flex h-dvh flex-col overflow-hidden bg-background text-foreground",
         hasMobileNav && "pb-16 lg:pb-0",
       )}
     >
-      <header className="flex h-14 shrink-0 items-center justify-between pl-4 pr-3 border-b border-border">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-muted-foreground text-sm">Cael</span>
+      <header className="flex h-14 shrink-0 items-center justify-between pl-2 pr-3 border-b border-border">
+        <span className="flex min-w-0 items-center gap-1">
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
+            title="Chat history"
+            aria-label="Chat history"
+          >
+            <PanelLeftIcon className="size-4" />
+          </button>
+          <span className="truncate text-muted-foreground text-sm pl-1">Cael</span>
           <StatusDot status={agent.status} />
         </span>
         <Link
@@ -52,6 +86,29 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
           <Thread components={{ Welcome: PersonalizedWelcome }} />
         </AssistantRuntimeProvider>
       </div>
+
+      {/* Mobile chat-history overlay */}
+      {historyOpen ? (
+        <div className="absolute inset-0 z-50 flex lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setHistoryOpen(false)}
+          />
+          <div className="relative flex w-72 max-w-[80%] flex-col overflow-y-auto border-r border-border bg-background">
+            <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
+              <span className="text-muted-foreground text-sm">Chats</span>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                aria-label="Close chat history"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <ChatSidebar onNavigate={() => setHistoryOpen(false)} />
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

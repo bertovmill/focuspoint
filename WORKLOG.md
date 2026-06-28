@@ -4,6 +4,44 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (multi-thread chat history)
+
+### Built conversation history: multiple threads, switch / new / rename / delete
+
+**Why:** eve sessions are single-per-mount and there's no server "list my
+sessions" API, so multi-thread had to be an **app-owned registry** with the eve
+agent **remounted per thread**. Used Option A from the spec — cache each thread's
+event log client-side and seed `initialEvents` to rehydrate the transcript;
+`SessionState` (the eve cursor) is the durable key the next turn resumes from.
+
+**New / changed files:**
+
+| File | Change |
+|---|---|
+| `app/_components/threads-provider.tsx` | New. Context store owning the thread list + `activeId`, persisted to `localStorage` (`cael.threads.v1`). CRUD: `newThread` / `switchTo` / `rename` / `remove` / `saveSnapshot`. Prunes empty threads, derives titles from the first user message, handles quota errors (prune oldest + retry), and seeds a fresh thread when storage is empty/corrupt. Event/session types derived from `UseEveAgentSnapshot` to avoid deep eve imports. |
+| `app/_components/chat-sidebar.tsx` | New. Provider-backed sidebar (date-grouped Today/Yesterday/Earlier), new-chat button, per-item switch + inline rename + delete. Mirrors the old assistant-ui thread-list styling. |
+| `app/_components/agent-chat.tsx` | Takes `threadId`; passes `initialSession` / `initialEvents` to `useEveAgent` and persists `session` + `events` (+ derived title) in `onFinish`. Added a mobile chat-history overlay (toggle in the header). |
+| `app/page.tsx` | Wrapped in `<ThreadsProvider>`; desktop chat-history rail (lg+) left of the chat; `<AgentChat key={activeId}>` so switching remounts the eve agent onto the selected session. Gated on `hydrated` to avoid mounting before localStorage loads. |
+| `components/assistant-ui/thread-list.tsx` | Deleted. Runtime-bound (`useAuiState(s.threads)`) so it can't drive eve's per-mount session model; replaced by the provider-backed `ChatSidebar`. |
+
+**Architecture:** app-owned registry → `key={activeId}` remounts the agent on
+switch → sidebar lives in the provider (outside the keyed subtree) so it doesn't
+remount/flash. Switching threads = remount with that thread's
+`initialSession`/`initialEvents`.
+
+**Validation:** `npm run typecheck` PASS. ⚠️ Production build can't run inside the
+worktree (no local `node_modules`; `globals.css`'s relative `tw-shimmer` import
+won't resolve) — built in the main checkout post-merge instead. **Still needs
+interactive/browser verification** (I can't launch a browser here): confirm a
+reopened thread replays its transcript AND the next turn continues the same
+server session (model sees prior context). This is the one unverified assumption
+behind Option A.
+
+**Deferred:** archive (delete only for v1); moving the registry from localStorage
+to a Neon `threads` table if transcripts outgrow the ~5MB cap.
+
+---
+
 ## Session: 2026-06-28 (assistant-ui skill installed)
 
 Installed the `assistant-ui` skill via `npx skills add https://github.com/assistant-ui/skills --skill assistant-ui`.

@@ -3,13 +3,24 @@
 import { useState } from "react";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
+import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
+import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
 type MobileTab = "chat" | "tasks" | "notes";
 
 export default function Page() {
+  return (
+    <ThreadsProvider>
+      <Workspace />
+    </ThreadsProvider>
+  );
+}
+
+function Workspace() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+  const { hydrated, activeId } = useThreads();
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
@@ -27,12 +38,21 @@ export default function Page() {
       {/* Chat panel — full width on mobile (when chat tab active), remainder on desktop */}
       <div
         className={cn(
-          "flex-col min-w-0",
+          "min-w-0 flex-row",
           mobileTab === "chat" ? "flex flex-1" : "hidden",
           "lg:flex lg:flex-1",
         )}
       >
-        <AgentChat hasMobileNav />
+        {/* Desktop chat-history rail */}
+        <div className="hidden lg:flex lg:w-64 shrink-0 flex-col overflow-y-auto border-r border-border">
+          <ChatSidebar />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {hydrated && activeId ? (
+            <AgentChat key={activeId} threadId={activeId} hasMobileNav />
+          ) : null}
+        </div>
       </div>
 
       {/* Mobile bottom navigation bar */}

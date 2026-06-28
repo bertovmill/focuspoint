@@ -4,6 +4,28 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (search notes by tag)
+
+### Added tag-based filtering to the Notes tab
+
+**Goal:** Let the user search/filter their notes by tag.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/dashboard.tsx` | Added a `tagFilter` state + a filter bar at the top of the Notes tab. Derives the distinct sorted tag set (`allTags`) from loaded thoughts and renders one pill per tag plus an "All" pill. Selecting a tag filters the list to notes containing it (`filteredThoughts`); tags rendered inside each note card are now clickable buttons that set the same filter (active tag highlighted). Added an empty-state for "no notes tagged X". |
+
+**Decisions:**
+- Client-side filtering — the dashboard already fetches all thoughts, so no new
+  API param/round-trip was needed. If the note volume grows large enough that
+  the client cap (limit 30) hides notes, revisit with a server-side `?tag=` query
+  on `GET /api/thoughts`.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (assistant-ui skill installed)
 
 Installed the `assistant-ui` skill via `npx skills add https://github.com/assistant-ui/skills --skill assistant-ui`.

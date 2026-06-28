@@ -49,6 +49,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const [activeTab, setActiveTab] = useState<"todos" | "notes">(controlledTab ?? "todos");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -137,6 +138,13 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
 
   const activeTodos = todos.filter((t) => !t.completed);
   const highPriority = activeTodos.filter((t) => t.priority === "high");
+
+  const allTags = Array.from(
+    new Set(thoughts.flatMap((t) => t.tags ?? [])),
+  ).sort();
+  const filteredThoughts = tagFilter
+    ? thoughts.filter((t) => t.tags?.includes(tagFilter))
+    : thoughts;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -247,6 +255,37 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           </div>
         ) : (
           <div className="px-5 py-4">
+            {/* Tag filter bar */}
+            {!loading && allTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                <button
+                  onClick={() => setTagFilter(null)}
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-full border transition-colors",
+                    tagFilter === null
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+                  )}
+                >
+                  All
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setTagFilter(tag)}
+                    className={cn(
+                      "text-xs px-2 py-0.5 rounded-full border transition-colors",
+                      tagFilter === tag
+                        ? "bg-foreground text-background border-foreground"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -259,9 +298,14 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 <p className="text-sm">No notes yet</p>
                 <p className="text-xs mt-1">Share a thought with your agent to capture it</p>
               </div>
+            ) : filteredThoughts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <BrainIcon className="size-8 mb-3 opacity-30" />
+                <p className="text-sm">No notes tagged &ldquo;{tagFilter}&rdquo;</p>
+              </div>
             ) : (
               <ul className="space-y-3">
-                {thoughts.map((thought) => (
+                {filteredThoughts.map((thought) => (
                   <li key={thought.id} className="rounded-lg border border-border px-3 py-2.5 group">
                     {editingId === thought.id ? (
                       <div>
@@ -299,12 +343,18 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                             {formatRelativeTime(thought.created_at)}
                           </span>
                           {thought.tags?.map((tag) => (
-                            <span
+                            <button
                               key={tag}
-                              className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground"
+                              onClick={() => setTagFilter(tag)}
+                              className={cn(
+                                "text-xs px-1.5 py-0.5 rounded transition-colors",
+                                tagFilter === tag
+                                  ? "bg-foreground text-background"
+                                  : "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
+                              )}
                             >
                               {tag}
-                            </span>
+                            </button>
                           ))}
                           <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button

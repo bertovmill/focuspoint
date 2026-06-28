@@ -4,30 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
-## Session: 2026-06-28 (eve explainer skill)
+## Session: 2026-06-28 (web search tool)
 
-### Added an eve skill so Cael can explain what eve is capable of
+### Added a live web search tool for the agent
 
-**Goal:** When the user asks what eve is / what eve agents can do, Cael should
-explain the framework clearly instead of guessing.
-
-**How eve does skills:** Skills live under `agent/skills/`. eve advertises each
-skill's `description` to the model and exposes a framework-owned `load_skill`
-tool; the full markdown body is pulled into context only when a turn matches.
-This is progressive disclosure — the explainer content costs nothing until it's
-needed.
+**Goal:** Let Cael search the live web (news, facts, current info beyond training data).
 
 **Changes:**
 
 | File | Change |
 |---|---|
-| `agent/skills/explain_eve/SKILL.md` | New packaged skill. `description` routes on "what is eve / what can eve do / how is this app built". Body is a plain-language primer: what eve is ("Next.js for agents"), what eve agents can do (multi-channel, typed tools, skills, subagents, schedules, durability, connections), the project layout table, and guidance to answer conversationally. Links the GitHub repo (vercel/eve). |
+| `agent/tools/web_search.ts` | New `defineTool`. Calls the Tavily search API (`POST https://api.tavily.com/search`), returns a synthesized `answer` plus title/url/snippet results. Auto-discovered by eve — no registration needed. |
 
-**Decisions:**
-- Packaged dir (`explain_eve/SKILL.md`) over a flat `.md` so it can grow sibling
-  reference files later; packaged skills require `description` frontmatter.
-- Tied capability descriptions back to Cael's own tools/schedules so the agent
-  can give concrete, self-referential examples.
+**Setup / decisions:**
+- Provider: Tavily — LLM-oriented search API, free tier (~1k searches/mo).
+  Swap to Brave/Exa/SerpAPI by changing the fetch; tool shape stays the same.
+- Requires `TAVILY_API_KEY` env var. Tool returns a graceful "not configured"
+  message (not an error) when the key is missing, so the agent degrades cleanly.
+- No native eve/Anthropic built-in web search was available, hence the custom tool.
 
 **Typecheck:** PASS ✓
 

@@ -32,7 +32,6 @@ import {
   ErrorPrimitive,
   groupPartByType,
   MessagePrimitive,
-  SuggestionPrimitive,
   ThreadPrimitive,
   type ToolCallMessagePartComponent,
   useAuiState,
@@ -197,28 +196,28 @@ const ThreadWelcome: FC = () => {
   );
 };
 
+// Static welcome prompts for Cael. The eve runtime provides no dynamic
+// suggestions, so the empty-state shows these ready-to-send starters.
+const WELCOME_SUGGESTIONS = [
+  "What's on my plate today?",
+  "What did I say I wanted to focus on?",
+  "Summarize my recent thoughts",
+  "What's on my calendar today?",
+] as const;
+
 const ThreadSuggestions: FC = () => {
   return (
     <div className="aui-thread-welcome-suggestions flex w-full flex-wrap items-center justify-center gap-2 px-4">
-      <ThreadPrimitive.Suggestions>
-        {() => <ThreadSuggestionItem />}
-      </ThreadPrimitive.Suggestions>
-    </div>
-  );
-};
-
-const ThreadSuggestionItem: FC = () => {
-  return (
-    <div className="aui-thread-welcome-suggestion-display fade-in slide-in-from-bottom-2 animate-in fill-mode-both duration-200">
-      <SuggestionPrimitive.Trigger send asChild>
-        <Button
-          variant="ghost"
-          className="aui-thread-welcome-suggestion text-foreground hover:bg-muted border-border/60 h-auto gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-normal whitespace-nowrap transition-colors"
-        >
-          <SuggestionPrimitive.Title className="aui-thread-welcome-suggestion-text-1" />
-          <SuggestionPrimitive.Description className="aui-thread-welcome-suggestion-text-2 empty:hidden" />
-        </Button>
-      </SuggestionPrimitive.Trigger>
+      {WELCOME_SUGGESTIONS.map((prompt) => (
+        <ThreadPrimitive.Suggestion key={prompt} prompt={prompt} send asChild>
+          <Button
+            variant="ghost"
+            className="aui-thread-welcome-suggestion text-foreground hover:bg-muted border-border/60 fade-in slide-in-from-bottom-2 animate-in fill-mode-both h-auto gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-normal whitespace-nowrap transition-colors duration-200"
+          >
+            {prompt}
+          </Button>
+        </ThreadPrimitive.Suggestion>
+      ))}
     </div>
   );
 };

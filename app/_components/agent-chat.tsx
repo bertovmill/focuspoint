@@ -3,48 +3,27 @@
 import { useEveAgent } from "eve/react";
 import { AlertCircleIcon, DatabaseIcon } from "lucide-react";
 import Link from "next/link";
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from "@/components/ai-elements/conversation";
-import {
-  PromptInput,
-  type PromptInputMessage,
-  PromptInputSubmit,
-  PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { Thread } from "@/components/assistant-ui/thread";
+import { useEveRuntime } from "@/hooks/use-eve-runtime";
 import { cn } from "@/lib/utils";
-import { AgentMessage } from "./agent-message";
-
-const AGENT_NAME = "focuspoint-agent";
 
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
 export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
   const agent = useEveAgent();
-  const isBusy = agent.status === "submitted" || agent.status === "streaming";
-  const isEmpty = agent.data.messages.length === 0;
-
-  const handleSubmit = async (message: PromptInputMessage) => {
-    const text = message.text.trim();
-    if (!text || isBusy) return;
-
-    await agent.send({ message: text });
-  };
-
-  const composer = (
-    <PromptInput onSubmit={handleSubmit}>
-      <PromptInputTextarea placeholder="Send a message…" />
-      <PromptInputSubmit onStop={agent.stop} status={agent.status} />
-    </PromptInput>
-  );
+  const runtime = useEveRuntime(agent);
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+    <main
+      className={cn(
+        "flex h-dvh flex-col overflow-hidden bg-background text-foreground",
+        hasMobileNav && "pb-16 lg:pb-0",
+      )}
+    >
       <header className="flex h-14 shrink-0 items-center justify-between pl-4 pr-3 border-b border-border">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
+          <span className="truncate text-muted-foreground text-sm">focuspoint</span>
           <StatusDot status={agent.status} />
         </span>
         <Link
@@ -68,41 +47,32 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
         </div>
       ) : null}
 
-      {isEmpty ? null : (
-        <Conversation className="min-h-0 flex-1">
-          <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 py-6 sm:px-6">
-            {agent.data.messages.map((message, index) => (
-              <AgentMessage
-                canRespond={!isBusy}
-                isStreaming={
-                  agent.status === "streaming" && index === agent.data.messages.length - 1
-                }
-                key={message.id}
-                message={message}
-                onInputResponses={(inputResponses) => agent.send({ inputResponses })}
-              />
-            ))}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-      )}
-
-      <div
-        className={cn(
-          "mx-auto w-full px-4 sm:px-6",
-          isEmpty
-            ? "flex max-w-xl flex-1 flex-col items-center justify-center gap-8 pb-[10vh]"
-            : cn("max-w-3xl shrink-0", hasMobileNav ? "pb-20 lg:pb-6" : "pb-6"),
-        )}
-      >
-        {isEmpty ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <h1 className="font-medium text-5xl tracking-tighter">{AGENT_NAME}</h1>
-          </div>
-        ) : null}
-        <div className="w-full">{composer}</div>
-      </div>
+      <AssistantRuntimeProvider runtime={runtime}>
+        <Thread components={{ Welcome: PersonalizedWelcome }} />
+      </AssistantRuntimeProvider>
     </main>
+  );
+}
+
+function PersonalizedWelcome() {
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 text-center mb-6">
+      <h1 className="font-medium text-4xl tracking-tighter">
+        {greeting}, Berto.
+      </h1>
+      <p className="text-muted-foreground text-sm">{today}</p>
+      <p className="text-muted-foreground">What would you like to do today?</p>
+    </div>
   );
 }
 

@@ -133,3 +133,50 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 **Also done:**
 - Strengthened `CLAUDE.md` post-feature rule: update WORKLOG + push to main, non-negotiable.
+
+---
+
+### Session: 2026-06-28 — assistant-ui components installed ✓
+
+**Goal:** Replace the custom AI element components with industry-standard assistant-ui components built on shadcn.
+
+**What was installed:**
+
+| Package | Purpose |
+|---|---|
+| `@assistant-ui/react` | Core primitives: Thread, Message, Composer, ActionBar, BranchPicker, Reasoning, ToolGroup |
+| `@assistant-ui/react-markdown` | Markdown rendering in messages |
+| `tw-shimmer` | Shimmer/loading animations |
+| `zustand` | State management (required by assistant-ui) |
+
+**shadcn components added to `components/assistant-ui/`:**
+
+| Component | What it does |
+|---|---|
+| `thread.tsx` | Full chat thread — messages, scroll, composer, welcome screen, branch picker |
+| `thread-list.tsx` | Multi-thread sidebar |
+| `attachment.tsx` | File/image attachment rendering |
+| `markdown-text.tsx` | Streaming markdown with code highlighting |
+| `reasoning.tsx` | Collapsible reasoning/thinking display |
+| `tool-fallback.tsx` | Default tool call display |
+| `tool-group.tsx` | Grouped tool calls with expand/collapse |
+| `tooltip-icon-button.tsx` | Icon button with tooltip |
+
+**New files:**
+
+| File | Purpose |
+|---|---|
+| `hooks/use-eve-runtime.ts` | Eve → assistant-ui runtime adapter. Converts `EveMessage[]` to `ThreadMessageLike[]` and bridges `agent.send`/`agent.stop` to assistant-ui's `ExternalStoreAdapter`. |
+
+**Key changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/agent-chat.tsx` | Replaced custom message rendering with `AssistantRuntimeProvider` + `Thread`. Kept custom header and error banner outside the thread. `PersonalizedWelcome` component passed as `Thread`'s `Welcome` slot. |
+
+**Design decisions:**
+- Used `useExternalStoreRuntime` (not `useChatRuntime`) since eve's transport doesn't speak AI SDK's streaming protocol
+- `dynamic-tool` eve parts map to `tool-call` assistant-ui parts; `output-error` state maps to `isError: true`
+- `isRunning` from `agent.status === "submitted" | "streaming"` drives the loading indicator
+
+**Typecheck:** PASS ✓

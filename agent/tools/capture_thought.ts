@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
+import { sessionMemory } from "../lib/session-state.js";
 
 export default defineTool({
   description:
@@ -17,6 +18,7 @@ export default defineTool({
       VALUES (${content}, ${tags ?? []}, ${folder_id ?? null})
       RETURNING id, folder_id
     `;
+    sessionMemory.update((s) => ({ ...s, thoughtsCaptured: s.thoughtsCaptured + 1 }));
     return { id: Number(row.id), folder_id: row.folder_id != null ? Number(row.folder_id) : null, captured: true };
   },
   toModelOutput(output) {

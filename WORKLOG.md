@@ -14,13 +14,132 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 | File | Change |
 |---|---|
-| `agent/schedules/morning-digest.ts` | Updated the schedule prompt: Cael first calls `latest_ai_news` (limit 1) and opens the SMS with one sentence on the top AI headline, then continues with todos/calendar focus. Falls back to headline + warm good-morning if nothing's on the docket. |
+| `agent/schedules/morning-digest.ts` | Updated the schedule prompt: Cael first calls `latest_ai_news` (limit 1) and opens the SMS with one sentence on the top AI headline, then reviews todos + today's calendar (`list_calendar_events`). Falls back to headline + warm good-morning if nothing's on the docket. (Merged with a parallel change that added the calendar tool.) |
 
 **Verified earlier this session:** the schedule fires end-to-end — manually
 dispatched via eve's dev route, Cael generated the digest and Twilio **delivered**
 the SMS to the configured number.
 
 **Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-06-28 (calendar auth → refresh token)
+
+### Switched Google Calendar to refresh-token auth (reliable, unattended)
+
+**Why:** The Vercel Connect path needed Google to be set up as a generic OAuth
+connector (not a managed service) and app-scoped Connect doesn't cleanly map to
+a *user-owned* personal calendar. Raw access tokens expire in ~1h, so the old
+static-token approach couldn't keep the morning-digest cron working. A stored
+OAuth **refresh token** exchanged for short-lived access tokens on demand works
+identically in chat and cron (no logged-in browser needed) and is the standard
+single-user pattern.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/lib/google-calendar.ts` | Dropped `@vercel/connect/eve`. Added `mintAccessTokenFromRefresh()` — exchanges `GOOGLE_REFRESH_TOKEN` (+ client id/secret) at `oauth2.googleapis.com/token`, caches the access token in-process until ~1min before expiry. `resolveGoogleToken()` now takes no ctx: `GOOGLE_CALENDAR_ACCESS_TOKEN` override → refresh-token mint → null. |
+| `agent/tools/add_calendar_event.ts`, `agent/tools/list_calendar_events.ts` | Call `resolveGoogleToken()` (no ctx); removed the Connect `requireAuth` 401 path (access tokens are auto-minted fresh, so a stale token just re-mints on the next call). |
+
+**Setup the user must do once (Google Cloud):**
+1. Create a Google Cloud project; enable the **Google Calendar API**.
+2. Configure the **OAuth consent screen** (External; add yourself as a test user).
+3. Create an **OAuth client ID** (type: Desktop app).
+4. Authorize once for scope `https://www.googleapis.com/auth/calendar` (e.g. via
+   the OAuth Playground with "Use your own OAuth credentials") to obtain a
+   **refresh token**.
+5. Set env (`.env.local` and Vercel): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `GOOGLE_REFRESH_TOKEN`. (`GOOGLE_CALENDAR_ACCESS_TOKEN` remains a manual
+   override for quick tests.)
+
+**Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-06-28 (code-block syntax highlighting)
+
+Added per-language syntax highlighting to assistant markdown code blocks — the
+one low-effort assistant-ui registry capability we were missing (highlighting
+was the only quick win not blocked on eve's append-only sessions).
+
+**Packages:** `@assistant-ui/react-syntax-highlighter`, `react-syntax-highlighter`,
+`@types/react-syntax-highlighter` (dev).
+
+| File | Change |
+|---|---|
+| `components/assistant-ui/syntax-highlighter.tsx` | New. Exports a `SyntaxHighlighter` built via `makePrismAsyncSyntaxHighlighter` (the `/full` entry — bundles all languages, code-split/async, so no manual language registration). Theme `oneDark`; `customStyle` strips the theme's own background/padding so only token colors apply. |
+| `components/assistant-ui/markdown-text.tsx` | Plugged `SyntaxHighlighter` into `memoizeMarkdownComponents`. Made the code block consistently dark in both light/dark app themes (the app uses `prefers-color-scheme`, and a fixed-dark prism theme would be unreadable on a light surface otherwise): `pre` → `bg-[#282c34] text-zinc-100`, `CodeHeader` → `bg-[#21252b] text-zinc-400`. |
+
+**Decision:** Consistently-dark code blocks rather than swapping prism themes per
+color-scheme — simpler, and dark code on a light page is a common, clean look.
+Used the all-languages async highlighter over the "light" variant to avoid
+maintaining a per-language `registerLanguage` list; it's code-split so the cost
+is deferred.
+
+**Verified:** `npm run typecheck` PASS, `npm run build` PASS.
+
+---
+
+## Session: 2026-06-28 (semantic search for notes)
+
+### Added meaning-based (semantic) search to the Notes tab
+
+**Goal:** Let the user search notes by meaning, not just exact text/tags.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/api/thoughts/semantic-search/route.ts` | New `GET ?q=` route. Fetches notes, embeds the query + each note's content via the Vercel AI Gateway (`openai/text-embedding-3-small`, no provider key — authed by `VERCEL_OIDC_TOKEN`), ranks by cosine similarity, returns top N with a `score`. Note embeddings are cached in a module-level `Map` keyed by `id:content`, so unchanged notes aren't re-embedded across warm invocations. Returns `503` on failure so the UI degrades gracefully. |
+| `app/_components/dashboard.tsx` | Added a search box (shadcn `InputGroup` + `Spinner` + sparkles/clear icons) above the tag bar in the Notes tab. Typing debounces 350ms then calls the semantic-search API; results replace the list, ranked by relevance. Tag filter bar is hidden while searching. Added searching (skeletons), no-match, and unavailable empty states. Clear button (X) exits search. |
+
+**Decisions:**
+- **On-the-fly embedding, no pgvector/migration.** At personal note scale this is
+  simple and robust — no schema change, no backfill. The in-memory cache keeps
+  repeat searches cheap. If note volume grows large, migrate to a stored
+  `vector` column + pgvector index and an ANN query.
+- **Embeddings via AI Gateway** (`ai` v7 `embed`/`embedMany`) using the existing
+  OIDC token — verified live (returns 1536-dim vectors), no new env var or key.
+- Used the already-installed `input-group` shadcn component for the search box
+  (idiomatic search input per the shadcn skill) rather than custom markup.
+
+**Typecheck:** PASS ✓  ·  **Embeddings:** verified against live gateway ✓
+
+---
+
+## Session: 2026-06-28 (search notes by tag)
+
+### Added tag-based filtering to the Notes tab
+
+**Goal:** Let the user search/filter their notes by tag.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/dashboard.tsx` | Added a `tagFilter` state + a filter bar at the top of the Notes tab. Derives the distinct sorted tag set (`allTags`) from loaded thoughts and renders one pill per tag plus an "All" pill. Selecting a tag filters the list to notes containing it (`filteredThoughts`); tags rendered inside each note card are now clickable buttons that set the same filter (active tag highlighted). Added an empty-state for "no notes tagged X". |
+
+**Decisions:**
+- Client-side filtering — the dashboard already fetches all thoughts, so no new
+  API param/round-trip was needed. If the note volume grows large enough that
+  the client cap (limit 30) hides notes, revisit with a server-side `?tag=` query
+  on `GET /api/thoughts`.
+
+**Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-06-28 (assistant-ui skill installed)
+
+Installed the `assistant-ui` skill via `npx skills add https://github.com/assistant-ui/skills --skill assistant-ui`.
+
+- Landed at `agent/skills/assistant-ui/` — `SKILL.md` (router/overview for the assistant-ui React library: primitives, runtimes, hooks) plus `references/architecture.md` and `references/packages.md`.
+- `skills-lock.json` updated to track the install.
+- Security scans clean (Socket: 0 alerts, Snyk: Low Risk, Gen: Safe).
+
+Reference/guidance for the assistant-ui integration already in use; no runtime code changed.
 
 ---
 
@@ -47,7 +166,72 @@ the SMS to the configured number.
   from git (commit `9dcbdc1` introduced it). Native Anthropic web search via eve is
   still an open option to investigate.
 
+---
+
+## Session: 2026-06-28 (chat UI gaps — remove non-functional controls + dead code)
+
+### Removed controls eve's runtime can't support, and deleted orphaned UI
+
+**Why:** Investigated wiring the remaining assistant-ui controls (edit /
+regenerate / branch) and the conversation-history sidebar. eve's `ClientSession`
+is **append-only** — it exposes only `send` / `stream` / `reset`, with no edit,
+regenerate, fork, truncate, or session-listing. Because the model replays full
+durable session history server-side, any client-side edit/truncate would leave
+the model seeing stale context (silently wrong), and branching is impossible.
+So the correct move was to remove the visible-but-broken controls rather than
+fake them.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `components/assistant-ui/thread.tsx` | Removed the Edit button (`UserActionBar`), the Reload/regenerate button, the `EditComposer`, and the `isEditing` branch in `ThreadMessage`. Dropped now-unused `PencilIcon` / `RefreshCwIcon` imports. Kept Copy + Export-as-Markdown (both work). `BranchPicker` left in place — it has `hideWhenSingleBranch`, so with eve's single-branch sessions it stays invisible (not misleading). |
+| `components/ai-elements/*` (9 files), `app/_components/agent-message.tsx`, `app/_components/thinking-message.tsx` | Deleted. Orphaned earlier-iteration UI (Vercel AI Elements), imported nowhere since the assistant-ui `Thread` became the chat surface. |
+
+**Not done — needs eve capabilities, not just wiring:**
+- **Edit / regenerate / branch:** blocked until eve supports history editing
+  (truncate/fork) server-side. Revisit if eve adds it.
+- **Conversation-history sidebar (`thread-list.tsx`):** eve has no client
+  session-listing and binds one session per mount, so this needs a client-side
+  multi-session persistence layer (track session cursors + remount on switch).
+  A real feature, scoped for later; `thread-list.tsx` stays unmounted for now.
+
 **Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-06-28 (eve capability gap-fill)
+
+### Crawled the eve framework and implemented the unused capabilities
+
+**Goal:** Compare Cael against eve 0.16.2's full surface area and adopt the
+high-value capabilities we hadn't used. Cael was using ~20% of eve (tools, web +
+Twilio channels, one schedule, skills).
+
+**What was added (each typechecked; `eve info` = 0 errors, 0 warnings):**
+
+| Area | Change | Files |
+|---|---|---|
+| **Connections / OAuth** | Google Calendar now resolves its token through **Vercel Connect** (app-scoped, auto-refresh) instead of a static `GOOGLE_CALENDAR_ACCESS_TOKEN` that silently expired. Static token kept as an optional fallback. Implemented as **inline provider auth** (`ctx.getToken(connect(...))`) inside the tools — the right fit for a REST API with no MCP server — rather than a `connections/` file. Re-challenges on 401 via `ctx.requireAuth`. | `agent/lib/google-calendar.ts`, `agent/tools/add_calendar_event.ts` |
+| **Calendar read** | New `list_calendar_events` tool. The morning-digest cron asked Cael to "check the calendar" but had no read tool — it now does. | `agent/tools/list_calendar_events.ts`, `agent/schedules/morning-digest.ts` |
+| **Human-in-the-loop** | `add_calendar_event` gated behind `once()` approval (outward write). | `agent/tools/add_calendar_event.ts` |
+| **Built-in web_search** | Confirmed the provider-managed built-in (the custom Tavily tool was already removed); documented it for the agent. | `agent/instructions.md` |
+| **Durable state** | `defineState` slot (`focus` + `thoughtsCaptured`) for per-session working memory; `set_focus` tool writes it; `capture_thought` increments the counter (cross-tool state). | `agent/lib/session-state.ts`, `agent/tools/set_focus.ts`, `agent/tools/capture_thought.ts` |
+| **Subagent** | `planner` specialist (own instructions, Opus model) for open decisions / weekly prioritization / project breakdowns. Cael gathers context, delegates, relays the plan. | `agent/subagents/planner/` |
+| **Hooks** | Observe-only `audit` hook logging `session.started` + every `action.result` (tool call), guarded so logging can't fail a turn. | `agent/hooks/audit.ts` |
+| **Telegram channel** | `telegramChannel` with image/pdf upload policy — richer personal surface than SMS (inline-keyboard HITL, attachments, free). Setup + setWebhook steps in the file header. | `agent/channels/telegram.ts` |
+| **Evals** | `eve eval` harness: config + two smoke evals (task→`add_todo`, reflection→`capture_thought`). Drive a real server, so they execute tools against `DATABASE_URL` — point at a dev/test DB. | `evals/evals.config.ts`, `evals/smoke/*.eval.ts` |
+
+**Setup the user still needs to do for new env-gated features:**
+- **Google Calendar via Connect:** `vercel connect create accounts.google.com --name google-calendar`, attach, `vercel env pull`, then set `GOOGLE_CONNECT_CONNECTOR` to the connector UID. (Until then, the static `GOOGLE_CALENDAR_ACCESS_TOKEN` fallback still works.)
+- **Telegram:** create a BotFather bot, set `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET_TOKEN` / `TELEGRAM_BOT_USERNAME`, then register the webhook (see file header).
+
+**Discovered surface after the work:** 11 tools, 3 channels, 1 hook, 1 subagent,
+1 schedule, 2 skills.
+
+**Still deliberately skipped (low ROI for a single-user app):** multi-tenant
+patterns, dynamic capabilities, OpenAPI connections, remote agents, OTel
+instrumentation, sandbox/code-execution tuning, structured output.
 
 ---
 

@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (assistant-ui skill installed)
+
+### Added the assistant-ui router skill via the skills CLI
+
+Installed from the `assistant-ui/skills` catalog. Kept only the top-level **router** skill (`assistant-ui`) — `agent/skills/` is eve's runtime skill dir, so everything there is advertised to the live agent.
+
+| File | Change |
+|---|---|
+| `agent/skills/assistant-ui/SKILL.md` | Router skill — assistant-ui architecture/runtime/primitives overview |
+| `agent/skills/assistant-ui/references/architecture.md` | Bundled reference |
+| `agent/skills/assistant-ui/references/packages.md` | Bundled reference |
+| `skills-lock.json` | Added `assistant-ui` entry |
+
+---
+
 ## 2026-06-28 — Fix image paste support
 
 **What:** Pasting images into Cael chat was throwing "Unsupported message part type 'image'" from the eve framework.

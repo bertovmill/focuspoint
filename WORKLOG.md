@@ -4,6 +4,29 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 
 ---
 
+## Session: 2026-06-28 (inline memory editing)
+
+### Added inline edit and delete for Notes (memories)
+
+**Goal:** Let the user edit and delete captured thoughts/memories directly from the Notes tab.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/api/thoughts/[id]/route.ts` | Added `PATCH` handler — updates thought content, returns updated row |
+| `app/_components/dashboard.tsx` | Edit/delete UX on each note card; inline textarea editor with Save/Cancel |
+
+**UX details:**
+- Hover a note card → pencil (edit) and trash (delete) icons appear
+- Click pencil → card flips to inline textarea; Enter saves, Escape cancels, Shift+Enter newline
+- Optimistic UI: state updates immediately before the API call
+- Delete removes the card instantly from the list
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28
 
 ### 12:25 — Project kick-off

@@ -4,6 +4,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (chat UI gaps — attachments + suggestions)
+
+### Wired two already-present assistant-ui components that weren't functional
+
+**Context:** Audited our chat UI against the assistant-ui standard component set.
+Finding: we already ship nearly the whole registry (composer, branch picker,
+action bar, reasoning, tool UI, attachments UI, dictation, scroll-to-bottom),
+but several controls render without the runtime adapters that make them work.
+The two quickest high-impact gaps were fixed this session.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `hooks/use-eve-runtime.ts` | (1) Registered an attachment adapter: `adapters.attachments = new CompositeAttachmentAdapter([SimpleImageAttachmentAdapter, SimpleTextAttachmentAdapter])`. Previously the composer's attachment dropzone/UI was wired but no adapter ingested files. (2) Rewrote `onNew` to forward attachment content to `agent.send` as multimodal `UserContent` — images become data-URL `image` parts, text-like files become inlined `<attachment>` text parts. Before, `onNew` sent text only, so any attached file was silently dropped. A lone text part still collapses to a plain string. |
+| `components/assistant-ui/thread.tsx` | Replaced the dynamic `ThreadPrimitive.Suggestions` (which rendered nothing — the eve external store provides no runtime suggestions) with four static `ThreadPrimitive.Suggestion` starters (auto-send) tailored to Cael: today's plate, focus, recent thoughts, calendar. Removed the now-unused `SuggestionPrimitive` import + `ThreadSuggestionItem`. |
+
+**Decisions:**
+- Used assistant-ui's built-in `Simple*AttachmentAdapter`s rather than a custom
+  upload pipeline — no blob storage needed; images/files ride inline in the turn.
+- Mapped assistant-ui's `FileMessagePart.mimeType` → AI SDK `FilePart.mediaType`.
+- Suggestions kept as a static `WELCOME_SUGGESTIONS` array (no adapter) since
+  this is a single-purpose personal agent.
+
+**Still open (noted, not done):** Edit / regenerate / branch buttons still lack
+`onEdit`/`onReload`/branch adapters; `thread-list.tsx` exists but isn't mounted
+(needs eve multi-thread persistence); `components/ai-elements/*` +
+`agent-message.tsx` / `thinking-message.tsx` are orphaned dead code.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (web search tool)
 
 ### Added a live web search tool for the agent

@@ -28,10 +28,19 @@ type ContentPart = Extract<
   readonly unknown[]
 >[number];
 
-function convertEvePart(part: EveMessagePart): ContentPart | null {
+// eve's summarizeUserContent appends [file: ...] and [image: ...] markers to
+// user message text. Strip them so they don't leak into the rendered bubble.
+function stripEveAttachmentMarkers(text: string): string {
+  return text.replace(/\n?\[file:[^\]]*\]/g, "").replace(/\n?\[image:[^\]]*\]/g, "").trim();
+}
+
+function convertEvePart(part: EveMessagePart, role?: string): ContentPart | null {
   switch (part.type) {
     case "text":
-      return { type: "text", text: part.text };
+      return {
+        type: "text",
+        text: role === "user" ? stripEveAttachmentMarkers(part.text) : part.text,
+      };
     case "reasoning":
       return { type: "reasoning", text: part.text };
     case "dynamic-tool": {
@@ -64,7 +73,7 @@ function convertEveMessage(
   const isStreaming = isLast && isRunning && message.role === "assistant";
 
   const parts = message.parts
-    .map(convertEvePart)
+    .map((p) => convertEvePart(p, message.role))
     .filter((p): p is ContentPart => p !== null);
 
   return {

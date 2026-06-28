@@ -7,11 +7,11 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 ## Session: 2026-06-28 — Image paste UI fix
 
 ### Problem
-Pasted images showed as `[file: image/png (image/png)]` text inside the sent-message bubble alongside a small 56px attachment tile.
+Pasted images showed as `[file: image/png (image/png)]` text inside the sent-message bubble. First fix attempt (suppressing `File` in `MessagePrimitive.Parts`) didn't work because the text was in the **text part** itself — eve's `summarizeUserContent` serializes file attachments into the user message text string before sending to the server.
 
-### Fix
-1. **`components/assistant-ui/thread.tsx`** — `UserMessage` passes `components={{ File: () => null, Image: () => null }}` to `MessagePrimitive.Parts` to suppress the fallback text.
-2. **`components/assistant-ui/attachment.tsx`** — Added `MessageImageAttachment` component. In message context, image attachments now render as a proper inline `<img>` (`max-w-[240px] max-h-[300px] rounded-2xl`) instead of the old 56px tile. Composer thumbnails and non-image attachments unchanged.
+### Fix (final)
+1. **`hooks/use-eve-runtime.ts`** — added `stripEveAttachmentMarkers()` which strips `\n[file: ...]` and `\n[image: ...]` patterns from user message text parts during `convertEvePart`. Role is threaded through from `convertEveMessage` so this only runs on user messages.
+2. **`components/assistant-ui/attachment.tsx`** — Added `MessageImageAttachment` component. In message context, image attachments now render as a proper inline `<img>` (`max-w-[240px] max-h-[300px] rounded-2xl`) for when the attachment is still live in memory (optimistic/new messages).
 
 ---
 

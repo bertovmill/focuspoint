@@ -41,12 +41,16 @@ function priorityColor(p: string) {
   return "text-foreground";
 }
 
-export function Dashboard() {
+export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | "notes" }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [newTodo, setNewTodo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes">("todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes">(controlledTab ?? "todos");
+
+  useEffect(() => {
+    if (controlledTab) setActiveTab(controlledTab);
+  }, [controlledTab]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -145,7 +149,7 @@ export function Dashboard() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-16 lg:pb-0">
         {activeTab === "todos" ? (
           <div className="px-5 py-4">
             {/* Quick add */}

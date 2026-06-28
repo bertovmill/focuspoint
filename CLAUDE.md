@@ -40,7 +40,7 @@ The Next.js config wraps with `withEve()` in `next.config.ts`, which registers t
 
 ### Web UI
 
-- `app/page.tsx` — split-pane layout: `<Dashboard>` (sidebar, desktop only) + `<AgentChat>` (main panel).
+- `app/page.tsx` — responsive layout: `<Dashboard>` (sidebar on desktop; full-screen panel on mobile via bottom nav) + `<AgentChat>` (main panel). Client component — manages `mobileTab` state and renders the bottom nav bar on mobile.
 - `app/_components/agent-chat.tsx` — connects to the agent via `useEveAgent()` (eve's React hook).
 - `app/_components/dashboard.tsx` — fetches from the REST API routes to show todos/thoughts.
 - `app/api/thoughts/route.ts`, `app/api/todos/route.ts` — Next.js route handlers that read from Neon Postgres directly (bypassing the agent).

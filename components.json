@@ -18,5 +18,12 @@
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
-  "registries": {}
+  "registries": {
+    "ai-elements": {
+      "url": "https://elements.ai-sdk.dev/api/registry/{name}.json"
+    },
+    "v0": {
+      "url": "https://v0.dev/chat/api/registry/{name}.json"
+    }
+  }
 }

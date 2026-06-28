@@ -1,15 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
+import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
+import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
-type MobileTab = "chat" | "tasks" | "notes";
+type MobileTab = "chat" | "tasks" | "notes" | "dreams";
 
 export default function Page() {
+  return (
+    <ThreadsProvider>
+      <Workspace />
+    </ThreadsProvider>
+  );
+}
+
+function Workspace() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+  const { hydrated, activeId } = useThreads();
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
@@ -21,18 +32,27 @@ export default function Page() {
           "lg:flex lg:flex-none lg:w-[380px] xl:w-[420px]",
         )}
       >
-        <Dashboard activeTab={mobileTab === "notes" ? "notes" : "todos"} />
+        <Dashboard activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : "todos"} />
       </aside>
 
       {/* Chat panel — full width on mobile (when chat tab active), remainder on desktop */}
       <div
         className={cn(
-          "flex-col min-w-0",
+          "min-w-0 flex-row",
           mobileTab === "chat" ? "flex flex-1" : "hidden",
           "lg:flex lg:flex-1",
         )}
       >
-        <AgentChat hasMobileNav />
+        {/* Desktop chat-history rail */}
+        <div className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-border">
+          <ChatSidebar className="h-full" />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {hydrated && activeId ? (
+            <AgentChat key={activeId} threadId={activeId} hasMobileNav />
+          ) : null}
+        </div>
       </div>
 
       {/* Mobile bottom navigation bar */}
@@ -55,6 +75,12 @@ export default function Page() {
           active={mobileTab === "notes"}
           onClick={() => setMobileTab("notes")}
         />
+        <NavButton
+          label="Dreams"
+          icon={<BrainIcon className="size-5" />}
+          active={mobileTab === "dreams"}
+          onClick={() => setMobileTab("dreams")}
+        />
       </nav>
     </main>
   );
@@ -76,7 +102,7 @@ function NavButton({
       onClick={onClick}
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
-        active ? "text-foreground" : "text-muted-foreground",
+        active ? "text-primary" : "text-muted-foreground",
       )}
     >
       {icon}

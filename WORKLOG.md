@@ -4,6 +4,46 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (Slack channel — Cael in the workspace)
+
+### Added a Slack surface so Cael answers @mentions and DMs in Slack
+
+**Why:** Wanted Cael reachable where work happens, not just SMS.
+
+**How:** eve's `slackChannel` with credentials via **Vercel Connect** — no
+`SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` to manage. Connect handles the
+outbound bot token (`getToken` per inbound webhook) and inbound webhook
+verification (Vercel OIDC).
+
+**New file:** `agent/channels/slack.ts` — `slackChannel({ credentials:
+connectSlackCredentials("slack/cael"), threadContext: { since:
+"last-agent-reply" } })`. (`@vercel/connect@0.2.2` was already a dep.)
+
+**Connect setup (one-time):**
+1. `FF_CONNECT_ENABLED=1 vercel connect create slack --triggers --name cael`
+   → browser flow installed the managed Slack app; connector
+   `slack/cael` (id `scl_Nhn768M88TVntggLtJ7YQ`).
+2. `vercel connect detach slack/cael --yes` then
+   `vercel connect attach slack/cael --triggers --trigger-path /eve/v1/slack --yes`
+   — re-points the trigger at eve's route (eve doesn't serve Connect's default path).
+
+**Deploy:** committed `slack.ts` to `main` and let the git production build ship
+it (a one-off `VERCEL_USE_EXPERIMENTAL_FRAMEWORKS=1 vercel deploy --prod` got
+superseded by concurrent git deploys — committing is what makes it stick).
+
+**Verified:** `POST /eve/v1/slack` on the prod alias `focuspoint-sigma.vercel.app`
+returns **401** (route mounted + verifying signatures), matching the healthy
+Twilio route. Also confirmed inbound Twilio route is reachable there (401, not the
+SSO 302 seen on per-deployment `*.vercel.app` URLs — Deployment Protection only
+gates the generated URLs, not the prod alias).
+
+**Still verify by hand:** in Slack, `/invite @cael` to a channel then
+`@cael what's on my todo list?`, or DM the Cael app. If DMs or thread context
+don't respond, the managed Connect Slack app may need extra scopes
+(`im:history`, `channels:history`) + reinstall.
+
+---
+
 ## Session: 2026-06-28 (in-chat calendar widget)
 
 ### Calendar results render as a visual agenda card in chat

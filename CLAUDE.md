@@ -8,6 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read `WORKLOG.md` in the project root first. It contains a timestamped log of everything built so far, decisions made, and next steps. Use it to get up to speed before making any changes.
 
+## After completing a feature
+
+1. Update `WORKLOG.md` with a timestamped entry describing what was built, decisions made, and any next steps.
+2. Commit all changes and merge to `main`.
+
 ## Commands
 
 ```bash
@@ -35,7 +40,7 @@ The Next.js config wraps with `withEve()` in `next.config.ts`, which registers t
 
 ### Web UI
 
-- `app/page.tsx` — split-pane layout: `<Dashboard>` (sidebar, desktop only) + `<AgentChat>` (main panel).
+- `app/page.tsx` — responsive layout: `<Dashboard>` (sidebar on desktop; full-screen panel on mobile via bottom nav) + `<AgentChat>` (main panel). Client component — manages `mobileTab` state and renders the bottom nav bar on mobile.
 - `app/_components/agent-chat.tsx` — connects to the agent via `useEveAgent()` (eve's React hook).
 - `app/_components/dashboard.tsx` — fetches from the REST API routes to show todos/thoughts.
 - `app/api/thoughts/route.ts`, `app/api/todos/route.ts` — Next.js route handlers that read from Neon Postgres directly (bypassing the agent).

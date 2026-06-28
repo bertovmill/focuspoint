@@ -21,7 +21,7 @@ const AGENT_NAME = "focuspoint-agent";
 
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
-export function AgentChat() {
+export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
   const agent = useEveAgent();
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
   const isEmpty = agent.data.messages.length === 0;
@@ -92,7 +92,7 @@ export function AgentChat() {
           "mx-auto w-full px-4 sm:px-6",
           isEmpty
             ? "flex max-w-xl flex-1 flex-col items-center justify-center gap-8 pb-[10vh]"
-            : "max-w-3xl shrink-0 pb-6",
+            : cn("max-w-3xl shrink-0", hasMobileNav ? "pb-20 lg:pb-6" : "pb-6"),
         )}
       >
         {isEmpty ? (

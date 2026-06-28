@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (assistant-ui skill installed)
+
+Installed the `assistant-ui` skill via `npx skills add https://github.com/assistant-ui/skills --skill assistant-ui`.
+
+- Landed at `agent/skills/assistant-ui/` — `SKILL.md` (router/overview for the assistant-ui React library: primitives, runtimes, hooks) plus `references/architecture.md` and `references/packages.md`.
+- `skills-lock.json` updated to track the install.
+- Security scans clean (Socket: 0 alerts, Snyk: Low Risk, Gen: Safe).
+
+Reference/guidance for the assistant-ui integration already in use; no runtime code changed.
+
+---
+
 ## Session: 2026-06-28 (AINews tool + web search removed)
 
 ### Added a tool to read the latest from AINews (news.smol.ai)

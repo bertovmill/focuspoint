@@ -96,7 +96,7 @@ function NavButton({
       onClick={onClick}
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
-        active ? "text-foreground" : "text-muted-foreground",
+        active ? "text-primary" : "text-muted-foreground",
       )}
     >
       {icon}

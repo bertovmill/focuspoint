@@ -219,7 +219,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           className={cn(
             "py-2.5 text-sm font-medium border-b-2 mr-5 transition-colors",
             activeTab === "todos"
-              ? "border-foreground text-foreground"
+              ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
@@ -230,7 +230,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           className={cn(
             "py-2.5 text-sm font-medium border-b-2 transition-colors",
             activeTab === "notes"
-              ? "border-foreground text-foreground"
+              ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
@@ -252,7 +252,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
               />
               <button
                 type="submit"
-                className="p-2 rounded-lg bg-foreground text-background hover:opacity-80 transition-opacity"
+                className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-80 transition-opacity"
               >
                 <PlusIcon className="size-4" />
               </button>
@@ -278,9 +278,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                   >
                     <button
                       onClick={() => handleComplete(todo.id)}
-                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-foreground/40 transition-colors flex items-center justify-center"
+                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
                     >
-                      <CircleIcon className="size-2.5 opacity-0 group-hover:opacity-30 transition-opacity" />
+                      <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
@@ -342,8 +342,8 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                   className={cn(
                     "text-xs px-2 py-0.5 rounded-full border transition-colors",
                     tagFilter === null
-                      ? "bg-foreground text-background border-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
                   )}
                 >
                   All
@@ -355,8 +355,8 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                     className={cn(
                       "text-xs px-2 py-0.5 rounded-full border transition-colors",
                       tagFilter === tag
-                        ? "bg-foreground text-background border-foreground"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
                     )}
                   >
                     {tag}
@@ -418,7 +418,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={() => saveEdit(thought.id)}
-                            className="text-xs px-2 py-1 rounded bg-foreground text-background hover:opacity-80 transition-opacity"
+                            className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-80 transition-opacity"
                           >
                             Save
                           </button>
@@ -444,7 +444,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                               className={cn(
                                 "text-xs px-1.5 py-0.5 rounded transition-colors",
                                 tagFilter === tag
-                                  ? "bg-foreground text-background"
+                                  ? "bg-primary text-primary-foreground"
                                   : "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
                               )}
                             >

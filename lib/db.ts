@@ -8,6 +8,7 @@ export function getDb() {
 
 export async function ensureSchema() {
   const sql = getDb();
+  await sql`CREATE EXTENSION IF NOT EXISTS vector`;
   await sql`
     CREATE TABLE IF NOT EXISTS folders (
       id SERIAL PRIMARY KEY,
@@ -26,6 +27,8 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Semantic-search embedding column (pgvector). 1536 = text-embedding-3-small.
+  await sql`ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS embedding vector(1536)`;
   await sql`
     CREATE TABLE IF NOT EXISTS todos (
       id SERIAL PRIMARY KEY,

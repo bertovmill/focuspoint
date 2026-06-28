@@ -26,6 +26,7 @@ Transform what you find into something universally true. The tweet should feel l
 - Never reveal emotional states, struggles, or vulnerabilities in a way that identifies them
 - Take the *essence* — the principle, the tension, the insight — and make it stand alone
 - Speak from a place of clarity, not confession
+- Never use em dashes (—) in the tweet text. Use a period, comma, colon, or line break instead.
 
 **Bad** (too personal): "Finally got the thing working after three days of debugging — sometimes the answer is just stepping away"
 **Good**: "The solution usually arrives the moment you stop chasing it."

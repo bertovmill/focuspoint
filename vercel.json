@@ -4,6 +4,10 @@
     {
       "path": "/api/dream",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/daily-tweet",
+      "schedule": "0 12 * * *"
     }
   ],
   "experimentalServices": {

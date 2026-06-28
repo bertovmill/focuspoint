@@ -5,7 +5,6 @@ import { z } from "zod";
 import {
   CALENDAR_NOT_CONNECTED,
   createCalendarEvent,
-  googleCalendarAuth,
   resolveGoogleToken,
 } from "../lib/google-calendar.js";
 
@@ -21,8 +20,8 @@ export default defineTool({
   }),
   // Writing to the real calendar is an outward action — confirm once per session.
   approval: once(),
-  async execute({ title, date, time, duration_minutes, description }, ctx) {
-    const token = await resolveGoogleToken(ctx);
+  async execute({ title, date, time, duration_minutes, description }) {
+    const token = await resolveGoogleToken();
     if (!token) return { success: false, message: CALENDAR_NOT_CONNECTED };
 
     const result = await createCalendarEvent(token, {
@@ -32,9 +31,6 @@ export default defineTool({
       durationMinutes: duration_minutes,
       description,
     });
-
-    // Token rejected since it was resolved: re-challenge through Connect.
-    if (!result.success && result.status === 401) ctx.requireAuth(googleCalendarAuth);
 
     if (!result.success) return { success: false, message: `Calendar API error: ${result.message}` };
     return { success: true, eventId: result.eventId, link: result.link };

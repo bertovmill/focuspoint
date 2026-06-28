@@ -1,47 +1,85 @@
-import { connect } from "@vercel/connect/eve";
-import type { ToolContext } from "eve/tools";
-
-// Vercel Connect provider for Google Calendar.
+// Google Calendar auth for a single-user personal app.
 //
-// App-scoped (non-interactive) so it also works from background runs like the
-// morning-digest schedule, which carry the app principal rather than an
-// end-user principal. Register the connector once with the Vercel CLI:
+// Google access tokens expire in ~1 hour, so we don't store one — we store a
+// long-lived OAuth *refresh token* and exchange it for a fresh access token on
+// demand (cached in-process until just before it expires). This works the same
+// in chat and in the morning-digest cron, neither of which has a logged-in
+// browser session.
 //
-//   vercel connect create accounts.google.com --name google-calendar
-//   vercel connect attach <connector-uid> --yes
-//   vercel env pull
+// One-time setup (see WORKLOG / the README for the click-by-click version):
+//   1. Google Cloud Console: create a project, enable the Google Calendar API.
+//   2. Create an OAuth client (Desktop app) and an OAuth consent screen; add
+//      yourself as a test user.
+//   3. Authorize once (e.g. via the OAuth Playground using your own client id/
+//      secret, scope https://www.googleapis.com/auth/calendar) to get a
+//      refresh token.
+//   4. Set env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN.
 //
-// Then set GOOGLE_CONNECT_CONNECTOR to the connector UID the CLI prints. Connect
-// owns the OAuth consent, encrypted token storage, and refresh — so unlike the
-// old static GOOGLE_CALENDAR_ACCESS_TOKEN, the token never silently expires.
-export const googleCalendarAuth = connect({
-  connector: process.env.GOOGLE_CONNECT_CONNECTOR ?? "google-calendar/cael",
-  principalType: "app",
-});
+// GOOGLE_CALENDAR_ACCESS_TOKEN still works as a manual override (handy for a
+// quick test), and takes precedence when set.
 
 const CAL_BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const TIME_ZONE = process.env.GOOGLE_CALENDAR_TIMEZONE ?? "America/Toronto";
 
+// In-process cache of the last minted access token. Survives across warm
+// invocations on Fluid Compute; a cold start just mints a new one.
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function mintAccessTokenFromRefresh(): Promise<string | null> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  const now = Date.now();
+  if (cachedToken && now < cachedToken.expiresAt - 60_000) return cachedToken.token;
+
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!res.ok) {
+    // Don't cache failures; surface as "not connected" to the model.
+    return null;
+  }
+
+  const data = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!data.access_token) return null;
+
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: now + (data.expires_in ?? 3600) * 1000,
+  };
+  return cachedToken.token;
+}
+
 /**
- * Resolve a Google access token. Prefers a static GOOGLE_CALENDAR_ACCESS_TOKEN
- * (backwards-compatible, easiest for local dev) and otherwise resolves a fresh,
- * auto-refreshed token through Vercel Connect. Returns null when neither is
- * available so callers can degrade gracefully instead of throwing.
+ * Resolve a Google access token. Prefers an explicit GOOGLE_CALENDAR_ACCESS_TOKEN
+ * override, otherwise mints a fresh, auto-refreshed token from the stored
+ * refresh-token credentials. Returns null when nothing is configured so callers
+ * degrade gracefully instead of throwing.
  */
-export async function resolveGoogleToken(ctx: ToolContext): Promise<string | null> {
-  const staticToken = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN;
-  if (staticToken) return staticToken;
+export async function resolveGoogleToken(): Promise<string | null> {
+  const override = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN;
+  if (override) return override;
   try {
-    const { token } = await ctx.getToken(googleCalendarAuth);
-    return token ?? null;
+    return await mintAccessTokenFromRefresh();
   } catch {
     return null;
   }
 }
 
 export const CALENDAR_NOT_CONNECTED =
-  "Google Calendar isn't connected yet. Set up the Vercel Connect connector " +
-  "(see agent/lib/google-calendar.ts) or set GOOGLE_CALENDAR_ACCESS_TOKEN.";
+  "Google Calendar isn't connected yet. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, " +
+  "and GOOGLE_REFRESH_TOKEN (see agent/lib/google-calendar.ts for setup).";
 
 export interface CalendarEventInput {
   title: string;

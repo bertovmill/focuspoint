@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (calendar auth → refresh token)
+
+### Switched Google Calendar to refresh-token auth (reliable, unattended)
+
+**Why:** The Vercel Connect path needed Google to be set up as a generic OAuth
+connector (not a managed service) and app-scoped Connect doesn't cleanly map to
+a *user-owned* personal calendar. Raw access tokens expire in ~1h, so the old
+static-token approach couldn't keep the morning-digest cron working. A stored
+OAuth **refresh token** exchanged for short-lived access tokens on demand works
+identically in chat and cron (no logged-in browser needed) and is the standard
+single-user pattern.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/lib/google-calendar.ts` | Dropped `@vercel/connect/eve`. Added `mintAccessTokenFromRefresh()` — exchanges `GOOGLE_REFRESH_TOKEN` (+ client id/secret) at `oauth2.googleapis.com/token`, caches the access token in-process until ~1min before expiry. `resolveGoogleToken()` now takes no ctx: `GOOGLE_CALENDAR_ACCESS_TOKEN` override → refresh-token mint → null. |
+| `agent/tools/add_calendar_event.ts`, `agent/tools/list_calendar_events.ts` | Call `resolveGoogleToken()` (no ctx); removed the Connect `requireAuth` 401 path (access tokens are auto-minted fresh, so a stale token just re-mints on the next call). |
+
+**Setup the user must do once (Google Cloud):**
+1. Create a Google Cloud project; enable the **Google Calendar API**.
+2. Configure the **OAuth consent screen** (External; add yourself as a test user).
+3. Create an **OAuth client ID** (type: Desktop app).
+4. Authorize once for scope `https://www.googleapis.com/auth/calendar` (e.g. via
+   the OAuth Playground with "Use your own OAuth credentials") to obtain a
+   **refresh token**.
+5. Set env (`.env.local` and Vercel): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `GOOGLE_REFRESH_TOKEN`. (`GOOGLE_CALENDAR_ACCESS_TOKEN` remains a manual
+   override for quick tests.)
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (code-block syntax highlighting)
 
 Added per-language syntax highlighting to assistant markdown code blocks — the

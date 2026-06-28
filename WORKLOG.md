@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-06-28 — Fix image paste support
+
+**What:** Pasting images into Cael chat was throwing "Unsupported message part type 'image'" from the eve framework.
+
+**Fix:** In `hooks/use-eve-runtime.ts`, converted `type:"image"` attachment parts to `type:"file"` with the extracted media type (e.g. `image/png`) before sending to eve. Eve only accepts `text` and `file` part types; it rejects `image`.
+
+**Files changed:** `hooks/use-eve-runtime.ts`, `next-env.d.ts` (auto-updated by Next.js dev server)
+
+---
+
 ## Session: 2026-06-28 (Slack channel)
 
 ### Added Cael to Slack via Vercel Connect

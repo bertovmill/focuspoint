@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
+import { embedText, toVectorLiteral } from "../../lib/embeddings.js";
 import { sessionMemory } from "../lib/session-state.js";
 
 export default defineTool({
@@ -18,6 +19,15 @@ export default defineTool({
       VALUES (${content}, ${tags ?? []}, ${folder_id ?? null})
       RETURNING id, folder_id
     `;
+    // Best-effort embedding for semantic search — never fail the capture if the
+    // embeddings gateway is unavailable; the note just stays unsearchable by
+    // meaning until re-embedded.
+    try {
+      const lit = toVectorLiteral(await embedText(content));
+      await sql`UPDATE thoughts SET embedding = ${lit}::vector WHERE id = ${row.id}`;
+    } catch (err) {
+      console.error("capture_thought: embedding failed", err);
+    }
     sessionMemory.update((s) => ({ ...s, thoughtsCaptured: s.thoughtsCaptured + 1 }));
     return { id: Number(row.id), folder_id: row.folder_id != null ? Number(row.folder_id) : null, captured: true };
   },

@@ -269,10 +269,16 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       >
         <div className="border-b border-border px-5">
           <TabsList variant="line" className="h-auto gap-5 bg-transparent p-0">
-            <TabsTrigger value="todos" className="flex-none rounded-none px-0 py-2.5">
+            <TabsTrigger
+              value="todos"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
               Tasks
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex-none rounded-none px-0 py-2.5">
+            <TabsTrigger
+              value="notes"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
               Notes
             </TabsTrigger>
           </TabsList>
@@ -317,9 +323,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                   >
                     <button
                       onClick={() => handleComplete(todo.id)}
-                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-foreground/40 transition-colors flex items-center justify-center"
+                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
                     >
-                      <CircleIcon className="size-2.5 opacity-0 group-hover:opacity-30 transition-opacity" />
+                      <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>

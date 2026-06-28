@@ -23,7 +23,7 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
     >
       <header className="flex h-14 shrink-0 items-center justify-between pl-4 pr-3 border-b border-border">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-muted-foreground text-sm">focuspoint</span>
+          <span className="truncate text-muted-foreground text-sm">Cael</span>
           <StatusDot status={agent.status} />
         </span>
         <Link

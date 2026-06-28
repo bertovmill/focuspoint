@@ -146,7 +146,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           <CalendarIcon className="size-3" />
           <span>{today}</span>
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">FocusPoint</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
         {!loading && (
           <p className="text-sm text-muted-foreground mt-0.5">
             {activeTodos.length === 0

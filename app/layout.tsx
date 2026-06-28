@@ -20,8 +20,8 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FocusPoint",
-  description: "Your personal AI agent — captures thoughts, manages todos, and knows your life.",
+  title: "Cael",
+  description: "Your personal guide — boundless perspective, clarity on what matters, and a clear path toward your dreams.",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",

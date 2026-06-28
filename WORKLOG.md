@@ -14,6 +14,27 @@ Note cards and the tag filter bar overflowed the viewport horizontally on mobile
 
 ---
 
+## 2026-06-28 — Add X (Twitter) post_tweet tool
+
+Added a `post_tweet` tool so the agent can post tweets on the user's behalf.
+
+**Implementation:**
+- OAuth 1.0a signing implemented from scratch using Node's built-in `crypto` (no extra deps). Builds the HMAC-SHA1 signature over the base string, constructs the `Authorization: OAuth ...` header, and POSTs to `https://api.twitter.com/2/tweets`.
+- Tool description instructs the agent to confirm tweet text with the user before posting.
+- Missing credentials return a helpful error rather than throwing.
+
+**Files changed:**
+- `agent/tools/post_tweet.ts` — new tool
+- `.env.local` — placeholder comments for X credential env vars
+
+**Required env vars (get from developer.x.com):**
+- `X_API_KEY`, `X_API_KEY_SECRET` (API Key / Secret)
+- `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET` (Access Token / Secret — generate with "Read and Write" permissions)
+
+**Next steps:** Fill in the four X env vars in `.env.local` and set them in Vercel dashboard (or via `vercel env add`).
+
+---
+
 ## 2026-06-28 — Fix sidebar title not appearing until agent finishes
 
 **Problem:** Sending a message and immediately opening the chat history sidebar showed "New chat" instead of the derived title. The title was only set inside `onFinish`, which fires after the full agent response (30+ seconds). Users who opened the sidebar during or right after streaming never saw the title update (even though it was correctly persisted once the agent finished).

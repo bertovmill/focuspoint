@@ -4,6 +4,30 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (code-block syntax highlighting)
+
+Added per-language syntax highlighting to assistant markdown code blocks — the
+one low-effort assistant-ui registry capability we were missing (highlighting
+was the only quick win not blocked on eve's append-only sessions).
+
+**Packages:** `@assistant-ui/react-syntax-highlighter`, `react-syntax-highlighter`,
+`@types/react-syntax-highlighter` (dev).
+
+| File | Change |
+|---|---|
+| `components/assistant-ui/syntax-highlighter.tsx` | New. Exports a `SyntaxHighlighter` built via `makePrismAsyncSyntaxHighlighter` (the `/full` entry — bundles all languages, code-split/async, so no manual language registration). Theme `oneDark`; `customStyle` strips the theme's own background/padding so only token colors apply. |
+| `components/assistant-ui/markdown-text.tsx` | Plugged `SyntaxHighlighter` into `memoizeMarkdownComponents`. Made the code block consistently dark in both light/dark app themes (the app uses `prefers-color-scheme`, and a fixed-dark prism theme would be unreadable on a light surface otherwise): `pre` → `bg-[#282c34] text-zinc-100`, `CodeHeader` → `bg-[#21252b] text-zinc-400`. |
+
+**Decision:** Consistently-dark code blocks rather than swapping prism themes per
+color-scheme — simpler, and dark code on a light page is a common, clean look.
+Used the all-languages async highlighter over the "light" variant to avoid
+maintaining a per-language `registerLanguage` list; it's code-split so the cost
+is deferred.
+
+**Verified:** `npm run typecheck` PASS, `npm run build` PASS.
+
+---
+
 ## Session: 2026-06-28 (semantic search for notes)
 
 ### Added meaning-based (semantic) search to the Notes tab

@@ -10,7 +10,8 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

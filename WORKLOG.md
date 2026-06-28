@@ -42,6 +42,26 @@ to a Neon `threads` table if transcripts outgrow the ~5MB cap.
 
 ---
 
+## Session: 2026-06-28 (morning digest leads with AI news)
+
+### Morning digest now opens with the top AINews headline
+
+**Goal:** Have the daily SMS lead with what's new in AI before the focus summary.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/schedules/morning-digest.ts` | Updated the schedule prompt: Cael first calls `latest_ai_news` (limit 1) and opens the SMS with one sentence on the top AI headline, then reviews todos + today's calendar (`list_calendar_events`). Falls back to headline + warm good-morning if nothing's on the docket. (Merged with a parallel change that added the calendar tool.) |
+
+**Verified earlier this session:** the schedule fires end-to-end — manually
+dispatched via eve's dev route, Cael generated the digest and Twilio **delivered**
+the SMS to the configured number.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (calendar auth → refresh token)
 
 ### Switched Google Calendar to refresh-token auth (reliable, unattended)

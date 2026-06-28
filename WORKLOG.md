@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (semantic search for notes)
+
+### Added meaning-based (semantic) search to the Notes tab
+
+**Goal:** Let the user search notes by meaning, not just exact text/tags.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/api/thoughts/semantic-search/route.ts` | New `GET ?q=` route. Fetches notes, embeds the query + each note's content via the Vercel AI Gateway (`openai/text-embedding-3-small`, no provider key — authed by `VERCEL_OIDC_TOKEN`), ranks by cosine similarity, returns top N with a `score`. Note embeddings are cached in a module-level `Map` keyed by `id:content`, so unchanged notes aren't re-embedded across warm invocations. Returns `503` on failure so the UI degrades gracefully. |
+| `app/_components/dashboard.tsx` | Added a search box (shadcn `InputGroup` + `Spinner` + sparkles/clear icons) above the tag bar in the Notes tab. Typing debounces 350ms then calls the semantic-search API; results replace the list, ranked by relevance. Tag filter bar is hidden while searching. Added searching (skeletons), no-match, and unavailable empty states. Clear button (X) exits search. |
+
+**Decisions:**
+- **On-the-fly embedding, no pgvector/migration.** At personal note scale this is
+  simple and robust — no schema change, no backfill. The in-memory cache keeps
+  repeat searches cheap. If note volume grows large, migrate to a stored
+  `vector` column + pgvector index and an ANN query.
+- **Embeddings via AI Gateway** (`ai` v7 `embed`/`embedMany`) using the existing
+  OIDC token — verified live (returns 1536-dim vectors), no new env var or key.
+- Used the already-installed `input-group` shadcn component for the search box
+  (idiomatic search input per the shadcn skill) rather than custom markup.
+
+**Typecheck:** PASS ✓  ·  **Embeddings:** verified against live gateway ✓
+
+---
+
 ## Session: 2026-06-28 (search notes by tag)
 
 ### Added tag-based filtering to the Notes tab

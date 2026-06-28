@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupButton,
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Todo {
   id: number;
@@ -18,6 +25,7 @@ interface Thought {
   content: string;
   tags: string[];
   created_at: string;
+  score?: number;
 }
 
 function formatRelativeTime(iso: string) {
@@ -50,6 +58,10 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [semanticResults, setSemanticResults] = useState<Thought[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -76,6 +88,39 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Debounced semantic search: when the user types a query, search notes by
+  // meaning via the embeddings API rather than exact text/tag match.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setSemanticResults(null);
+      setSearching(false);
+      setSearchError(false);
+      return;
+    }
+    setSearching(true);
+    setSearchError(false);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/thoughts/semantic-search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error("search failed");
+        setSemanticResults(await res.json());
+      } catch {
+        setSearchError(true);
+        setSemanticResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const clearSearch = () => {
+    setQuery("");
+    setSemanticResults(null);
+    setSearchError(false);
+  };
 
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,9 +187,12 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const allTags = Array.from(
     new Set(thoughts.flatMap((t) => t.tags ?? [])),
   ).sort();
-  const filteredThoughts = tagFilter
-    ? thoughts.filter((t) => t.tags?.includes(tagFilter))
-    : thoughts;
+  const searchActive = query.trim().length > 0;
+  const displayedThoughts = searchActive
+    ? semanticResults ?? []
+    : tagFilter
+      ? thoughts.filter((t) => t.tags?.includes(tagFilter))
+      : thoughts;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -255,8 +303,39 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
           </div>
         ) : (
           <div className="px-5 py-4">
-            {/* Tag filter bar */}
-            {!loading && allTags.length > 0 && (
+            {/* Semantic search box */}
+            {!loading && thoughts.length > 0 && (
+              <InputGroup className="mb-3">
+                {searching ? (
+                  <InputGroupAddon>
+                    <Spinner />
+                  </InputGroupAddon>
+                ) : (
+                  <InputGroupAddon>
+                    <SparklesIcon />
+                  </InputGroupAddon>
+                )}
+                <InputGroupInput
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search notes by meaning…"
+                />
+                {searchActive && (
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      onClick={clearSearch}
+                      aria-label="Clear search"
+                    >
+                      <XIcon />
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                )}
+              </InputGroup>
+            )}
+
+            {/* Tag filter bar — hidden during semantic search */}
+            {!loading && !searchActive && allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <button
                   onClick={() => setTagFilter(null)}
@@ -298,14 +377,30 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 <p className="text-sm">No notes yet</p>
                 <p className="text-xs mt-1">Share a thought with your agent to capture it</p>
               </div>
-            ) : filteredThoughts.length === 0 ? (
+            ) : searchActive && searchError ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                <SparklesIcon className="size-8 mb-3 opacity-30" />
+                <p className="text-sm">Semantic search is unavailable</p>
+                <p className="text-xs mt-1">Try again, or filter by tag instead</p>
+              </div>
+            ) : searchActive && searching && displayedThoughts.length === 0 ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 rounded-lg bg-muted/40 animate-pulse" />
+                ))}
+              </div>
+            ) : displayedThoughts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                 <BrainIcon className="size-8 mb-3 opacity-30" />
-                <p className="text-sm">No notes tagged &ldquo;{tagFilter}&rdquo;</p>
+                <p className="text-sm">
+                  {searchActive
+                    ? `No notes match "${query.trim()}"`
+                    : `No notes tagged "${tagFilter}"`}
+                </p>
               </div>
             ) : (
               <ul className="space-y-3">
-                {filteredThoughts.map((thought) => (
+                {displayedThoughts.map((thought) => (
                   <li key={thought.id} className="rounded-lg border border-border px-3 py-2.5 group">
                     {editingId === thought.id ? (
                       <div>

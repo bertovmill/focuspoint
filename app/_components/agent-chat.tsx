@@ -1,7 +1,8 @@
 "use client";
 
 import { useEveAgent } from "eve/react";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, DatabaseIcon } from "lucide-react";
+import Link from "next/link";
 import {
   Conversation,
   ConversationContent,
@@ -41,14 +42,19 @@ export function AgentChat() {
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      {isEmpty ? null : (
-        <header className="flex h-14 shrink-0 items-center justify-center gap-3 pl-4 pr-2">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
-            <StatusDot status={agent.status} />
-          </span>
-        </header>
-      )}
+      <header className="flex h-14 shrink-0 items-center justify-between pl-4 pr-3 border-b border-border">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
+          <StatusDot status={agent.status} />
+        </span>
+        <Link
+          href="/explore"
+          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          title="Database Explorer"
+        >
+          <DatabaseIcon className="size-4" />
+        </Link>
+      </header>
 
       {agent.error ? (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">

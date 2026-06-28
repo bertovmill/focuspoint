@@ -6,8 +6,15 @@ import type {
   EveMessage,
   EveMessagePart,
 } from "eve/react";
-import { CheckCircleIcon, ExternalLinkIcon, KeyRoundIcon, XCircleIcon } from "lucide-react";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { CheckCircleIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon, XCircleIcon } from "lucide-react";
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+  MessageToolbar,
+} from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import {
   Tool,
@@ -18,6 +25,7 @@ import {
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCallback, useState } from "react";
 
 export type AgentInputResponse = {
   readonly optionId?: string;
@@ -36,10 +44,22 @@ export function AgentMessage({
   readonly message: EveMessage;
   readonly onInputResponses: (responses: readonly AgentInputResponse[]) => void | Promise<void>;
 }) {
+  const [copied, setCopied] = useState(false);
+
   const lastTextIndex = message.parts.reduce(
     (last, part, index) => (part.type === "text" ? index : last),
     -1,
   );
+
+  const handleCopy = useCallback(() => {
+    const text = message.parts
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { text: string }).text)
+      .join("");
+    void navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [message.parts]);
 
   return (
     <Message
@@ -57,6 +77,15 @@ export function AgentMessage({
           />
         ))}
       </MessageContent>
+      {message.role === "assistant" && !isStreaming && lastTextIndex >= 0 && (
+        <MessageToolbar className="opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+          <MessageActions>
+            <MessageAction tooltip={copied ? "Copied!" : "Copy"} onClick={handleCopy}>
+              <CopyIcon className="size-3.5" />
+            </MessageAction>
+          </MessageActions>
+        </MessageToolbar>
+      )}
     </Message>
   );
 }

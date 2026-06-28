@@ -17,6 +17,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
+import { ThinkingMessage } from "./thinking-message";
 
 const AGENT_NAME = "focuspoint-agent";
 
@@ -119,6 +120,7 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
                 onInputResponses={(inputResponses) => agent.send({ inputResponses })}
               />
             ))}
+            {agent.status === "submitted" && <ThinkingMessage />}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>

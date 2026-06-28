@@ -177,19 +177,26 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 **Next steps:**
 - Deploy to Vercel to get a public URL
 - Point Twilio number's Messaging webhook at `https://<deployed-url>/eve/v1/twilio/messages`
-- Add Twilio env vars to Vercel project via `vercel env add`
-
-**Pushed to:** main
 
 ---
 
-### 2026-06-28 — Fix "relation does not exist" DB errors
+### Session: 2026-06-28 (later) — Thinking indicator bubble ✓
 
-**Problem:** Agent tools (`list_folders`, `create_folder`, `capture_thought`) failing with `NeonDbError: relation "X" does not exist` because `ensureSchema()` was defined in `lib/db.ts` but never called — tables never created.
+**Goal:** Show a loading indicator in the chat when the agent is processing but hasn't returned any tokens yet (`submitted` state).
 
-**Fix:** Added `instrumentation.ts` at project root. Next.js runs `register()` once on server startup (nodejs runtime only), calling `ensureSchema()` to create all tables idempotently via `CREATE TABLE IF NOT EXISTS`.
+**Changes:**
 
-**Files changed:**
-- `instrumentation.ts` — new file
+| File | Change |
+|---|---|
+| `app/_components/thinking-message.tsx` | New component — renders an assistant `Message` bubble with three staggered-bounce dots using existing `Message`/`MessageContent` primitives. |
+| `app/_components/agent-chat.tsx` | Imported `ThinkingMessage` and conditionally renders it after the message list when `agent.status === "submitted"`. |
+
+**Decisions:**
+- Uses existing `Message`/`MessageContent` from `components/ai-elements/message.tsx` (shadcn/assistant-ui pattern) — visually consistent with assistant messages.
+- Three dots with `animate-bounce` and Tailwind arbitrary `[animation-delay]` values for the stagger effect — standard industry typing indicator.
+- Only shown during `submitted` (not `streaming`), so it disappears the moment the first token arrives.
+
+**Typecheck:** PASS ✓
+- Add Twilio env vars to Vercel project via `vercel env add`
 
 **Pushed to:** main

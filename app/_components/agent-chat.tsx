@@ -71,7 +71,7 @@ export function AgentChat({
           >
             <PanelLeftIcon className="size-4" />
           </button>
-          <CaelAvatar size={28} />
+          <CaelAvatar size={28} active={agent.status === "submitted" || agent.status === "streaming"} />
           <span className="truncate text-muted-foreground text-sm">Cael</span>
           <StatusDot status={agent.status} />
         </span>

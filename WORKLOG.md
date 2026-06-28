@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (fix: inbound SMS silently dropped)
+
+### Texting Cael got no reply — `TWILIO_ALLOW_FROM` was malformed
+
+**Symptom:** Outbound worked (morning digest delivered), but texting the agent
+("What are my notes") never got a reply.
+
+**Root cause:** eve's `twilioChannel` gates every inbound SMS against
+`allowFrom` (`agent/channels/twilio.ts` → `process.env.TWILIO_ALLOW_FROM`).
+The value was `+5199908727` — missing the leading `1` after the `+` (a
+transposed/dropped digit). The real sender is `+15199908727` (= `MY_PHONE_NUMBER`),
+so the allowlist never matched and eve dropped the message **before the agent ran**.
+Outbound is unaffected because that path doesn't consult `allowFrom`.
+
+**Fix:** Corrected `TWILIO_ALLOW_FROM` to `+15199908727` in both `.env.local`
+and Vercel **Production**, then **redeployed production** (env changes only apply
+to new deployments).
+
+**No code change** — config only. iMessage itself is not used; this is Twilio SMS
+(green bubble in the screenshot = SMS, as expected).
+
+**Still verify by hand:** text the Twilio number `+17093703880` from `+15199908727`
+and confirm a reply. If still silent, check the Twilio console Messaging webhook
+points at `https://<prod-domain>/eve/v1/twilio/messages`.
+
+---
+
 ## Session: 2026-06-28 (emerald/teal theme)
 
 ### Added a subtle emerald/teal color palette to replace the all-grey theme

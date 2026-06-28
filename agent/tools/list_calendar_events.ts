@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import {
   CALENDAR_NOT_CONNECTED,
-  googleCalendarAuth,
   listCalendarEvents,
   resolveGoogleToken,
 } from "../lib/google-calendar.js";
@@ -21,8 +20,8 @@ export default defineTool({
       .describe("End of the range, ISO date. Defaults to the same day as start_date (just that day)."),
     max_results: z.number().int().max(50).default(20).describe("Maximum number of events to return."),
   }),
-  async execute({ start_date, end_date, max_results }, ctx) {
-    const token = await resolveGoogleToken(ctx);
+  async execute({ start_date, end_date, max_results }) {
+    const token = await resolveGoogleToken();
     if (!token) return { success: false, message: CALENDAR_NOT_CONNECTED };
 
     const end = end_date ?? start_date;
@@ -31,7 +30,6 @@ export default defineTool({
 
     const result = await listCalendarEvents(token, { timeMin, timeMax, maxResults: max_results });
 
-    if (!result.success && result.status === 401) ctx.requireAuth(googleCalendarAuth);
     if (!result.success) return { success: false, message: `Calendar API error: ${result.message}` };
 
     return { success: true, count: result.events.length, events: result.events };

@@ -10,6 +10,7 @@ import { useThreads } from "@/app/_components/threads-provider";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
+import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { cn } from "@/lib/utils";
 
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
@@ -31,11 +32,13 @@ export function AgentChat({
     onFinish: (snapshot) => {
       const firstUser = snapshot.data.messages.find((m) => m.role === "user");
       const textPart = firstUser?.parts.find((p) => p.type === "text");
+      const firstUserText =
+        textPart && "text" in textPart ? textPart.text : undefined;
+      console.log("[onFinish] messages:", snapshot.data.messages.length, "firstUser:", firstUser?.id, "textPart:", textPart?.type, "firstUserText:", firstUserText);
       saveSnapshot(threadId, {
         session: snapshot.session,
         events: snapshot.events,
-        firstUserText:
-          textPart && "text" in textPart ? textPart.text : undefined,
+        firstUserText,
       });
     },
   });
@@ -58,7 +61,8 @@ export function AgentChat({
           >
             <PanelLeftIcon className="size-4" />
           </button>
-          <span className="truncate text-muted-foreground text-sm pl-1">Cael</span>
+          <CaelAvatar size={28} />
+          <span className="truncate text-muted-foreground text-sm">Cael</span>
           <StatusDot status={agent.status} />
         </span>
         <Link

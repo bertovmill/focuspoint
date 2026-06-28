@@ -11,10 +11,11 @@ import {
   SimpleImageAttachmentAdapter,
   SimpleTextAttachmentAdapter,
   useExternalStoreRuntime,
+  type CompleteAttachment,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
 import type { UserContent } from "ai";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 // Stateless adapters — instantiate once at module scope. Images ride along as
 // data-URL image parts; text-like files are inlined as <attachment> text.
@@ -68,6 +69,7 @@ function convertEveMessage(
   index: number,
   total: number,
   isRunning: boolean,
+  imageStore?: Map<number, string[]>,
 ): ThreadMessageLike {
   const isLast = index === total - 1;
   const isStreaming = isLast && isRunning && message.role === "assistant";
@@ -76,10 +78,24 @@ function convertEveMessage(
     .map((p) => convertEvePart(p, message.role))
     .filter((p): p is ContentPart => p !== null);
 
+  // Restore image attachments from the in-session store so they render after
+  // the agent responds (eve only stores a text summary, not the image bytes).
+  const storedImages = message.role === "user" ? imageStore?.get(index) : undefined;
+  const attachments: CompleteAttachment[] | undefined = storedImages?.map(
+    (image, i) => ({
+      id: `img-${index}-${i}`,
+      type: "image" as const,
+      name: "image.png",
+      status: { type: "complete" as const },
+      content: [{ type: "image" as const, image }],
+    }),
+  );
+
   return {
     id: message.id,
     role: message.role,
     content: parts.length > 0 ? parts : [{ type: "text", text: "" }],
+    ...(message.role === "user" && attachments && { attachments }),
     ...(message.role === "assistant" && {
       status: isStreaming
         ? { type: "running" }
@@ -92,10 +108,14 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
   const isRunning =
     agent.status === "submitted" || agent.status === "streaming";
 
+  // Maps message index → image data URLs captured at send time.
+  // Eve discards image bytes; this keeps them alive for the current session.
+  const imageStoreRef = useRef<Map<number, string[]>>(new Map());
+
   const messages = useMemo(
     () =>
       agent.data.messages.map((msg, i) =>
-        convertEveMessage(msg, i, agent.data.messages.length, isRunning),
+        convertEveMessage(msg, i, agent.data.messages.length, isRunning, imageStoreRef.current),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agent.data.messages, isRunning],
@@ -119,6 +139,9 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
       // Attachment content (images + inlined text-like files).
       const attachments =
         (appendMessage.role === "user" && appendMessage.attachments) || [];
+
+      // Capture image URLs before the composer state is cleared.
+      const capturedImages: string[] = [];
       for (const attachment of attachments) {
         for (const part of attachment.content) {
           if (part.type === "text") {
@@ -131,6 +154,7 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
               ? (imageUrl.split(";")[0]?.slice(5) ?? "image/png")
               : "image/png";
             parts.push({ type: "file", data: imageUrl, mediaType });
+            capturedImages.push(imageUrl);
           } else if (part.type === "file") {
             parts.push({
               type: "file",
@@ -139,6 +163,10 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
             });
           }
         }
+      }
+
+      if (capturedImages.length > 0) {
+        imageStoreRef.current.set(agent.data.messages.length, capturedImages);
       }
 
       if (parts.length === 0) return;

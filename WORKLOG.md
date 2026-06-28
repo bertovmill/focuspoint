@@ -31,6 +31,14 @@ needed.
 
 **Typecheck:** PASS ✓
 
+**Update (same session):** Expanded the skill to be more in-depth using the eve
+README. Added the full annotated project-layout tree, a "Getting started"
+section (`npx eve@latest init`) with the minimal three-file example (instructions
++ `get_weather` tool + `defineAgent` model choice), more capabilities
+(human-in-the-loop pause/resume, Telegram, Workflow SDK durability), beta status,
+docs/community links, and depth-matching guidance so quick questions get short
+answers. Tightened the `description` to also route on "how to build an eve agent".
+
 ---
 
 ## Session: 2026-06-28 (morning digest cron / eve schedule)

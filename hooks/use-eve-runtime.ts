@@ -7,10 +7,21 @@ import {
   type UseEveAgentHelpers,
 } from "eve/react";
 import {
+  CompositeAttachmentAdapter,
+  SimpleImageAttachmentAdapter,
+  SimpleTextAttachmentAdapter,
   useExternalStoreRuntime,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
+import type { UserContent } from "ai";
 import { useMemo } from "react";
+
+// Stateless adapters — instantiate once at module scope. Images ride along as
+// data-URL image parts; text-like files are inlined as <attachment> text.
+const attachmentAdapter = new CompositeAttachmentAdapter([
+  new SimpleImageAttachmentAdapter(),
+  new SimpleTextAttachmentAdapter(),
+]);
 
 type ContentPart = Extract<
   ThreadMessageLike["content"],
@@ -85,10 +96,45 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
     isRunning,
     messages,
     convertMessage: (msg) => msg,
+    adapters: { attachments: attachmentAdapter },
     onNew: async (appendMessage) => {
-      const textPart = appendMessage.content.find((p) => p.type === "text");
-      const text = textPart?.type === "text" ? textPart.text.trim() : "";
-      if (text) await agent.send({ message: text });
+      const parts: Exclude<UserContent, string> = [];
+
+      // Composer text.
+      for (const part of appendMessage.content) {
+        if (part.type === "text" && part.text.trim()) {
+          parts.push({ type: "text", text: part.text });
+        }
+      }
+
+      // Attachment content (images + inlined text-like files).
+      const attachments =
+        (appendMessage.role === "user" && appendMessage.attachments) || [];
+      for (const attachment of attachments) {
+        for (const part of attachment.content) {
+          if (part.type === "text") {
+            parts.push({ type: "text", text: part.text });
+          } else if (part.type === "image") {
+            parts.push({ type: "image", image: part.image });
+          } else if (part.type === "file") {
+            parts.push({
+              type: "file",
+              data: part.data,
+              mediaType: part.mimeType,
+            });
+          }
+        }
+      }
+
+      if (parts.length === 0) return;
+
+      // Collapse a lone text part to a plain string (eve's simplest input form).
+      const message: UserContent =
+        parts.length === 1 && parts[0]!.type === "text"
+          ? parts[0]!.text
+          : parts;
+
+      await agent.send({ message });
     },
     onCancel: async () => {
       agent.stop();

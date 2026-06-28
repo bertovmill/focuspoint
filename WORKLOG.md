@@ -31,6 +31,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (chat UI gaps — attachments + suggestions)
+
+### Wired two already-present assistant-ui components that weren't functional
+
+**Context:** Audited our chat UI against the assistant-ui standard component set.
+Finding: we already ship nearly the whole registry (composer, branch picker,
+action bar, reasoning, tool UI, attachments UI, dictation, scroll-to-bottom),
+but several controls render without the runtime adapters that make them work.
+The two quickest high-impact gaps were fixed this session.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `hooks/use-eve-runtime.ts` | (1) Registered an attachment adapter: `adapters.attachments = new CompositeAttachmentAdapter([SimpleImageAttachmentAdapter, SimpleTextAttachmentAdapter])`. Previously the composer's attachment dropzone/UI was wired but no adapter ingested files. (2) Rewrote `onNew` to forward attachment content to `agent.send` as multimodal `UserContent` — images become data-URL `image` parts, text-like files become inlined `<attachment>` text parts. Before, `onNew` sent text only, so any attached file was silently dropped. A lone text part still collapses to a plain string. |
+| `components/assistant-ui/thread.tsx` | Replaced the dynamic `ThreadPrimitive.Suggestions` (which rendered nothing — the eve external store provides no runtime suggestions) with four static `ThreadPrimitive.Suggestion` starters (auto-send) tailored to Cael: today's plate, focus, recent thoughts, calendar. Removed the now-unused `SuggestionPrimitive` import + `ThreadSuggestionItem`. |
+
+**Decisions:**
+- Used assistant-ui's built-in `Simple*AttachmentAdapter`s rather than a custom
+  upload pipeline — no blob storage needed; images/files ride inline in the turn.
+- Mapped assistant-ui's `FileMessagePart.mimeType` → AI SDK `FilePart.mediaType`.
+- Suggestions kept as a static `WELCOME_SUGGESTIONS` array (no adapter) since
+  this is a single-purpose personal agent.
+
+**Still open (noted, not done):** Edit / regenerate / branch buttons still lack
+`onEdit`/`onReload`/branch adapters; `thread-list.tsx` exists but isn't mounted
+(needs eve multi-thread persistence); `components/ai-elements/*` +
+`agent-message.tsx` / `thinking-message.tsx` are orphaned dead code.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (web search tool)
 
 ### Added a live web search tool for the agent
@@ -49,6 +82,58 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 - Requires `TAVILY_API_KEY` env var. Tool returns a graceful "not configured"
   message (not an error) when the key is missing, so the agent degrades cleanly.
 - No native eve/Anthropic built-in web search was available, hence the custom tool.
+
+**Typecheck:** PASS ✓
+
+**Update (same session):** Expanded the skill to be more in-depth using the eve
+README. Added the full annotated project-layout tree, a "Getting started"
+section (`npx eve@latest init`) with the minimal three-file example (instructions
++ `get_weather` tool + `defineAgent` model choice), more capabilities
+(human-in-the-loop pause/resume, Telegram, Workflow SDK durability), beta status,
+docs/community links, and depth-matching guidance so quick questions get short
+answers. Tightened the `description` to also route on "how to build an eve agent".
+
+**Update (same session):** Published the skill to the skills.sh ecosystem. Key
+fact: skills.sh has **no manual publish/auth step** — it's a directory +
+leaderboard that lists skills automatically once they live in a public GitHub
+repo and people install them via `npx skills add`. The skills.sh CLI
+(`github.com/vercel-labs/skills`) scans a **top-level `skills/`** dir (not eve's
+`agent/skills/`) and requires a `name` frontmatter field.
+
+| File | Change |
+|---|---|
+| `skills/explain-eve/SKILL.md` | New registry copy at the CLI-discoverable top-level path. Adds `name: explain-eve` frontmatter and is generalized (Cael self-references removed) since it installs into other people's agents. Verified discoverable via `npx skills list`. |
+
+Kept the Cael-flavored `agent/skills/explain_eve/` for this app's own use — two
+audiences, two files. Install command for the published skill:
+`npx skills add bertovmill/focuspoint --skill explain-eve`. Listing on skills.sh
+follows automatically as installs accrue.
+
+**Update (same session):** Compared our skill against Vercel's official `eve`
+skill (installed via `npx skills add https://github.com/vercel/eve --skill eve`).
+
+- **Official `eve` skill** = a lean ~25-line *pointer*: "Do not rely on this
+  skill — always read the bundled docs at `node_modules/eve/docs/`." Drift-proof,
+  aimed at a coding agent building eve projects. Now vendored at
+  `agent/skills/eve/SKILL.md` (+ `skills-lock.json`) for this repo's own dev use.
+- **Ours** = a self-contained explainer for the runtime agent. Different audience
+  (end users) and constraint (no file-read tool).
+
+Chose to **blend**: added a `## Source of truth` section to both our skills
+(`agent/skills/explain_eve` + published `skills/explain-eve`) instructing the
+agent to read `node_modules/eve/docs/` first when reachable and treat the
+embedded summary as the offline/quick-answer fallback. Keeps us drift-proof like
+the official skill while staying usable without filesystem access.
+
+- Reverted an unrequested side effect of the install: it added `microsandbox` to
+  `package.json` devDependencies — backed out `package.json` + `package-lock.json`.
+
+| File | Change |
+|---|---|
+| `agent/skills/eve/SKILL.md` | Vendored official eve coding-agent skill |
+| `skills-lock.json` | skills CLI lockfile pinning the official eve skill |
+| `agent/skills/explain_eve/SKILL.md` | Added Source-of-truth section |
+| `skills/explain-eve/SKILL.md` | Added Source-of-truth section |
 
 **Typecheck:** PASS ✓
 

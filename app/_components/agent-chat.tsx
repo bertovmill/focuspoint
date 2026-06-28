@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Conversation,
   ConversationContent,
+  ConversationDownload,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
@@ -19,7 +20,7 @@ import { AgentMessage } from "./agent-message";
 
 const AGENT_NAME = "focuspoint-agent";
 
-const QUICK_PROMPTS = [
+const QUICK_SUGGESTIONS = [
   "What's on my plate today?",
   "Add a quick thought",
   "What did I work on recently?",
@@ -50,13 +51,12 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
   const handleSubmit = async (message: PromptInputMessage) => {
     const text = message.text.trim();
     if (!text || isBusy) return;
-
     await agent.send({ message: text });
   };
 
-  const handleQuickPrompt = async (prompt: string) => {
+  const handleSuggestion = async (text: string) => {
     if (isBusy) return;
-    await agent.send({ message: prompt });
+    await agent.send({ message: text });
   };
 
   const composer = (
@@ -73,13 +73,24 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
           <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
           <StatusDot status={agent.status} />
         </span>
-        <Link
-          href="/explore"
-          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Database Explorer"
-        >
-          <DatabaseIcon className="size-4" />
-        </Link>
+        <div className="flex items-center gap-1">
+          {!isEmpty && (
+            <ConversationDownload
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              messages={agent.data.messages as any}
+              filename="focuspoint-conversation.md"
+              className="static translate-x-0 size-8 rounded-lg"
+              title="Download conversation"
+            />
+          )}
+          <Link
+            href="/explore"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Database Explorer"
+          >
+            <DatabaseIcon className="size-4" />
+          </Link>
+        </div>
       </header>
 
       {agent.error ? (
@@ -122,7 +133,7 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
         )}
       >
         {isEmpty ? (
-          <div className="flex flex-col items-center gap-6 text-center w-full">
+          <div className="flex flex-col items-center gap-6 text-center">
             <div className="flex flex-col items-center gap-1">
               <p className="text-sm text-muted-foreground">{date}</p>
               <h1 className="text-4xl font-semibold tracking-tight">
@@ -132,15 +143,15 @@ export function AgentChat({ hasMobileNav }: { hasMobileNav?: boolean }) {
                 What would you like to do today?
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 w-full">
-              {QUICK_PROMPTS.map((prompt) => (
+            <div className="flex flex-wrap justify-center gap-2">
+              {QUICK_SUGGESTIONS.map((text) => (
                 <button
-                  key={prompt}
-                  onClick={() => handleQuickPrompt(prompt)}
+                  key={text}
+                  onClick={() => handleSuggestion(text)}
                   disabled={isBusy}
                   className="rounded-full border border-border bg-background px-4 py-1.5 text-sm text-muted-foreground hover:border-foreground/30 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                 >
-                  {prompt}
+                  {text}
                 </button>
               ))}
             </div>

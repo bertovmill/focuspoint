@@ -44,8 +44,8 @@ function Workspace() {
         )}
       >
         {/* Desktop chat-history rail */}
-        <div className="hidden lg:flex lg:w-64 shrink-0 flex-col overflow-y-auto border-r border-border">
-          <ChatSidebar />
+        <div className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-border">
+          <ChatSidebar className="h-full" />
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">

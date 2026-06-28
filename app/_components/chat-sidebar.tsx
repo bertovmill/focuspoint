@@ -36,38 +36,47 @@ export const ChatSidebar: FC<{
     else groups.push({ label, items: [t] });
   }
 
-  return (
-    <div className={cn("flex flex-col gap-0.5 p-2", className)}>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          newThread();
-          onNavigate?.();
-        }}
-        className="hover:bg-muted h-8 justify-start gap-2 rounded-md px-2.5 text-sm font-normal"
-      >
-        <PlusIcon className="size-4 shrink-0" />
-        <span className="whitespace-nowrap">New chat</span>
-      </Button>
+  const handleNew = () => {
+    newThread();
+    onNavigate?.();
+  };
 
-      {groups.map((group) => (
-        <div key={group.label} className="flex flex-col gap-0.5">
-          <div className="text-muted-foreground px-2.5 pt-3 pb-1 text-xs font-medium">
-            {group.label}
-          </div>
-          {group.items.map((t) => (
-            <ChatSidebarItem
-              key={t.id}
-              thread={t}
-              active={t.id === activeId}
-              onSwitch={() => {
-                switchTo(t.id);
-                onNavigate?.();
-              }}
-            />
+  return (
+    <div className={cn("relative flex flex-col h-full", className)}>
+      {/* Scrollable thread list */}
+      <div className="flex-1 overflow-y-auto pb-20">
+        <div className="flex flex-col gap-0.5 p-2">
+          {groups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-0.5">
+              <div className="text-muted-foreground px-2.5 pt-3 pb-1 text-xs font-medium">
+                {group.label}
+              </div>
+              {group.items.map((t) => (
+                <ChatSidebarItem
+                  key={t.id}
+                  thread={t}
+                  active={t.id === activeId}
+                  onSwitch={() => {
+                    switchTo(t.id);
+                    onNavigate?.();
+                  }}
+                />
+              ))}
+            </div>
           ))}
         </div>
-      ))}
+      </div>
+
+      {/* Pinned "New chat" pill */}
+      <div className="absolute bottom-0 inset-x-0 flex justify-center pb-4 pointer-events-none">
+        <Button
+          onClick={handleNew}
+          className="pointer-events-auto rounded-full px-5 h-10 gap-2 shadow-md text-sm font-medium"
+        >
+          <PlusIcon className="size-4 shrink-0" />
+          New chat
+        </Button>
+      </div>
     </div>
   );
 };

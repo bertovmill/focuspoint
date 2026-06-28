@@ -111,7 +111,7 @@ export function AgentChat({
             className="absolute inset-0 bg-black/40"
             onClick={() => setHistoryOpen(false)}
           />
-          <div className="relative flex w-72 max-w-[80%] flex-col overflow-y-auto border-r border-border bg-background">
+          <div className="relative flex w-72 max-w-[80%] flex-col border-r border-border bg-background">
             <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
               <span className="text-muted-foreground text-sm">Chats</span>
               <button
@@ -122,7 +122,7 @@ export function AgentChat({
                 <XIcon className="size-4" />
               </button>
             </div>
-            <ChatSidebar onNavigate={() => setHistoryOpen(false)} />
+            <ChatSidebar className="flex-1" onNavigate={() => setHistoryOpen(false)} />
           </div>
         </div>
       ) : null}

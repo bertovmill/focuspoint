@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Todo {
@@ -47,6 +47,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const [newTodo, setNewTodo] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"todos" | "notes">(controlledTab ?? "todos");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (controlledTab) setActiveTab(controlledTab);
@@ -87,6 +90,37 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       const todo = await res.json();
       setTodos((prev) => [todo, ...prev]);
     }
+  };
+
+  const startEdit = (thought: Thought) => {
+    setEditingId(thought.id);
+    setEditContent(thought.content);
+    setTimeout(() => {
+      editRef.current?.focus();
+      editRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const saveEdit = async (id: number) => {
+    const content = editContent.trim();
+    if (!content) return;
+    setThoughts((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)));
+    setEditingId(null);
+    await fetch(`/api/thoughts/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  };
+
+  const handleDeleteThought = async (id: number) => {
+    setThoughts((prev) => prev.filter((t) => t.id !== id));
+    await fetch(`/api/thoughts/${id}`, { method: "DELETE" });
   };
 
   const handleComplete = async (id: number) => {
@@ -228,21 +262,69 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
             ) : (
               <ul className="space-y-3">
                 {thoughts.map((thought) => (
-                  <li key={thought.id} className="rounded-lg border border-border px-3 py-2.5">
-                    <p className="text-sm leading-relaxed">{thought.content}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {formatRelativeTime(thought.created_at)}
-                      </span>
-                      {thought.tags?.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+                  <li key={thought.id} className="rounded-lg border border-border px-3 py-2.5 group">
+                    {editingId === thought.id ? (
+                      <div>
+                        <textarea
+                          ref={editRef}
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(thought.id); }
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                          rows={3}
+                          className="w-full text-sm leading-relaxed bg-transparent outline-none resize-none"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => saveEdit(thought.id)}
+                            className="text-xs px-2 py-1 rounded bg-foreground text-background hover:opacity-80 transition-opacity"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm leading-relaxed">{thought.content}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs text-muted-foreground">
+                            {formatRelativeTime(thought.created_at)}
+                          </span>
+                          {thought.tags?.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => startEdit(thought)}
+                              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                              title="Edit"
+                            >
+                              <PencilIcon className="size-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteThought(thought.id)}
+                              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-red-500"
+                              title="Delete"
+                            >
+                              <TrashIcon className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

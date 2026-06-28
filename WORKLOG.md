@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (AINews tool + web search removed)
+
+### Added a tool to read the latest from AINews (news.smol.ai)
+
+**Goal:** Let Cael pull the latest AI news digest from https://news.smol.ai on request.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/tools/latest_ai_news.ts` | New `defineTool`. Fetches the AINews RSS feed (`https://news.smol.ai/rss.xml`) and returns the latest N issues (title, link, date, and the feed's per-issue summary). Regex-parsed — no XML dependency, no API key. Auto-discovered by eve. |
+
+**Decisions:**
+- Source: the site's RSS feed rather than scraping HTML — stable structure, and each
+  item already carries a concise summary, so Cael gets digestible output cheaply.
+- Verified the parser against the live feed (extracts titles/links/dates/summaries).
+
+### Temporarily removed the Tavily web search tool
+
+- Deleted `agent/tools/web_search.ts` so the user can test without it. Recoverable
+  from git (commit `9dcbdc1` introduced it). Native Anthropic web search via eve is
+  still an open option to investigate.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (web search tool)
 
 ### Added a live web search tool for the agent

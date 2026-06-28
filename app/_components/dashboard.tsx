@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ModeToggle } from "@/app/_components/mode-toggle";
+import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -246,21 +247,26 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-6 pb-4 border-b border-border">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
             <CalendarIcon className="size-3" />
             <span>{today}</span>
           </div>
           <ModeToggle />
         </div>
-        <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
-        {!loading && (
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {activeTodos.length === 0
-              ? "All clear — nothing on your list"
-              : `${activeTodos.length} task${activeTodos.length !== 1 ? "s" : ""}${highPriority.length > 0 ? `, ${highPriority.length} high priority` : ""}`}
-          </p>
-        )}
+        <div className="flex items-center gap-3">
+          <CaelAvatar src="/cael.riv" size={52} />
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
+            {!loading && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {activeTodos.length === 0
+                  ? "All clear — nothing on your list"
+                  : `${activeTodos.length} task${activeTodos.length !== 1 ? "s" : ""}${highPriority.length > 0 ? `, ${highPriority.length} high priority` : ""}`}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}

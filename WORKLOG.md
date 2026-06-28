@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (Cael avatar — Rive integration)
+
+### Added animated Cael avatar to the Dashboard sidebar header
+
+**What:** A `CaelAvatar` component using `@rive-app/react-canvas`. Shows a CSS-animated glowing orb placeholder now; automatically switches to a real Rive animation when `/public/cael.riv` exists.
+
+**Files changed:**
+- `app/_components/cael-avatar.tsx` — new component with CSS placeholder + Rive loader
+- `app/_components/dashboard.tsx` — avatar added to sidebar header alongside "Cael" title
+- `package.json` — added `@rive-app/react-canvas`
+
+**Next steps for real character art:**
+1. Generate character art (Midjourney / DALL-E / Firefly)
+2. Import into [rive.app](https://rive.app), rig with idle + a few states, name the state machine `Cael_Machine`
+3. Export as `cael.riv` → drop into `/public/cael.riv`
+4. Avatar automatically switches from placeholder to real animation
+
+---
+
 ## Session: 2026-06-28 (Slack channel — Cael in the workspace)
 
 ### Added a Slack surface so Cael answers @mentions and DMs in Slack

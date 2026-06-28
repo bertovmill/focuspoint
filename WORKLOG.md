@@ -4,6 +4,37 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (morning digest cron / eve schedule)
+
+### Added a scheduled morning digest delivered over SMS
+
+**Goal:** Set up a cron job so Cael proactively texts a morning focus summary.
+
+**How eve does cron:** Schedules live in `agent/schedules/*.ts`, each carrying a
+5-field cron string. On Vercel, every `defineSchedule` auto-registers as a Vercel
+Cron Job (visible under Settings → Cron Jobs; runs evaluated in **UTC**).
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/schedules/morning-digest.ts` | New handler-form schedule. `cron: "0 12 * * *"` (= 8am US Eastern in summer). Uses `receive(twilio, { target: { phoneNumber }, auth: appAuth })` to start a proactive SMS session that asks Cael to build a digest from `list_todos` + calendar. |
+
+**Setup / decisions:**
+- Delivery: SMS via the existing Twilio channel. Requires `MY_PHONE_NUMBER`
+  (recipient) and `TWILIO_FROM_NUMBER` (sender) env vars; schedule skips the run
+  if `MY_PHONE_NUMBER` is unset.
+- Auth: `appAuth` (app principal) — single-user personal app.
+- Timezone caveat: Vercel runs cron in UTC. Adjust the hour in the cron string
+  for your zone.
+
+**Testing:** `eve dev` never fires schedules on cadence. Trigger manually with:
+`curl -X POST http://localhost:3000/eve/v1/dev/schedules/morning-digest`
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (mobile composer layout fix)
 
 ### Fixed: chat input hidden behind bottom nav bar on mobile

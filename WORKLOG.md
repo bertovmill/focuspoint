@@ -4,6 +4,109 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 (agent knows the date)
+
+### Fixed: Cael was guessing the date (queried 2025-07-14 for "events today")
+
+**Problem:** The model has no reliable sense of the current date, so calendar
+queries used a hallucinated date and returned nothing.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/lib/now.ts` | New. Timezone-aware helpers from the server clock: `todayISO()`, `nowHuman()`, and `zonedDayBounds()` (RFC3339 day bounds anchored to the configured TZ offset — correct in local TZ and in UTC on Vercel). Single source of `TIME_ZONE`. |
+| `agent/instructions/current-date.ts` | New. Dynamic instructions (`defineInstructions` on `turn.started`) that inject the real date/time every turn so the model never guesses. Coexists with the static `instructions.md` (eve discovery: 0 errors/0 warnings). |
+| `agent/tools/list_calendar_events.ts` | `start_date` now optional → defaults to today (server). Range bounds use `zonedDayBounds` so the day window is timezone-correct everywhere. |
+| `agent/lib/google-calendar.ts` | Imports `TIME_ZONE` from `now.ts` (was a duplicate local const). |
+
+**Verified:** helper output is correct (`todayISO`→`2026-06-28`, bounds at
+`-04:00`). Calendar read was already confirmed live end-to-end earlier this day.
+
+**Note:** Vercel deploy still needs `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+`GOOGLE_REFRESH_TOKEN` set in project env for the morning-digest cron.
+
+**Typecheck:** PASS ✓ (after refreshing local node_modules; `next-themes` /
+`sonner` are declared in package.json and resolve on a clean install.)
+
+---
+
+## Session: 2026-06-28 (semantic memory upgrade + tag-filtered search)
+
+### Moved semantic search to stored pgvector embeddings; gave the agent semantic recall; made tag + meaning search compose
+
+**Research first (Vercel/Neon/AI SDK docs):** Confirmed the best-practice approach is to **store** a `vector` column and query with pgvector's `<=>` cosine operator (pgvector is free on Neon, no setup), embed **once at write-time** rather than re-embedding all notes per request, use the AI SDK's `embed`/`embedMany` + `cosineSimilarity`, and add an HNSW index only past ~10k–50k notes. Adopted this over the earlier on-the-fly approach.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `lib/embeddings.ts` | New shared helper: `embedText`/`embedTexts` (AI SDK `embed`/`embedMany` through the Vercel AI Gateway, `text-embedding-3-small`, 1536 dims) + `toVectorLiteral` for pgvector SQL. |
+| `lib/db.ts` | `ensureSchema()` enables `vector` extension + adds `thoughts.embedding vector(1536)`. |
+| `agent/tools/capture_thought.ts` | Embeds note content at write-time (best-effort; capture never fails on gateway error). |
+| `app/api/thoughts/[id]/route.ts` | PATCH re-embeds on content edit so search stays in sync. |
+| `agent/tools/search_memory.ts` | **Cael now recalls by meaning** — semantic pgvector query, with an ILIKE keyword fallback when embeddings are absent/unavailable. |
+| `app/api/thoughts/semantic-search/route.ts` | Rewritten to query the stored embeddings via `<=>` (no per-request re-embedding). Accepts `?tag=` to compose tag + semantic search. |
+| `app/_components/dashboard.tsx` | Tag filter bar now stays active during semantic search and passes the selected tag to the API, so you can search "about X" within a tag. |
+
+**Migration:** Applied `CREATE EXTENSION vector` + the column to the live Neon DB and backfilled embeddings for existing notes.
+
+**Verified:** Typecheck PASS ✓. Live pgvector query sanity-checked — "how should I treat other people" ranks the relationships/philosophy notes top, work note bottom; `?tag=philosophy` correctly narrows.
+
+**Note:** Backend pieces above were committed in `5d1180e` (landed by a concurrent session); this entry documents the full feature + the dashboard tag-filter wiring.
+
+---
+
+## Session: 2026-06-28 (emerald theme actually shows on active states)
+
+### Wired the dashboard/nav active states to the `primary` token
+
+**Why:** After tinting the theme tokens emerald, the app still looked grey —
+because the hand-rolled buttons/pills/tabs in the dashboard hardcoded
+`bg-foreground`/`border-foreground`/`text-foreground` (near-black) for their
+active/primary state instead of the semantic `primary` token. The new emerald
+`--primary` never reached them. (shadcn primitives like the chat send button use
+`variant="default"` → `bg-primary`, so they picked up emerald automatically; only
+the custom markup was bypassing it.)
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/_components/dashboard.tsx` | Active Tasks/Notes tab underline + label, the quick-add submit button, the "All" + tag filter pills (and inline note tags), and the Save button now use `bg-primary`/`text-primary-foreground`/`border-primary`/`text-primary` instead of `*-foreground`. Todo checkbox hover border + tick now tint with `primary`. Kept `text-red-500` for high-priority (urgency semantics). |
+| `app/page.tsx` | Bottom-nav active item: `text-foreground` → `text-primary` (active Chat/Tasks/Notes icon now emerald). |
+
+**Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-06-28 (fix: inbound SMS silently dropped)
+
+### Texting Cael got no reply — `TWILIO_ALLOW_FROM` was malformed
+
+**Symptom:** Outbound worked (morning digest delivered), but texting the agent
+("What are my notes") never got a reply.
+
+**Root cause:** eve's `twilioChannel` gates every inbound SMS against
+`allowFrom` (`agent/channels/twilio.ts` → `process.env.TWILIO_ALLOW_FROM`).
+The value was `+5199908727` — missing the leading `1` after the `+` (a
+transposed/dropped digit). The real sender is `+15199908727` (= `MY_PHONE_NUMBER`),
+so the allowlist never matched and eve dropped the message **before the agent ran**.
+Outbound is unaffected because that path doesn't consult `allowFrom`.
+
+**Fix:** Corrected `TWILIO_ALLOW_FROM` to `+15199908727` in both `.env.local`
+and Vercel **Production**, then **redeployed production** (env changes only apply
+to new deployments).
+
+**No code change** — config only. iMessage itself is not used; this is Twilio SMS
+(green bubble in the screenshot = SMS, as expected).
+
+**Still verify by hand:** text the Twilio number `+17093703880` from `+15199908727`
+and confirm a reply. If still silent, check the Twilio console Messaging webhook
+points at `https://<prod-domain>/eve/v1/twilio/messages`.
+
+---
+
 ## Session: 2026-06-28 (emerald/teal theme)
 
 ### Added a subtle emerald/teal color palette to replace the all-grey theme
@@ -170,6 +273,41 @@ is deferred.
   (idiomatic search input per the shadcn skill) rather than custom markup.
 
 **Typecheck:** PASS ✓  ·  **Embeddings:** verified against live gateway ✓
+
+---
+
+## Session: 2026-06-28 (shadcn/ui audit — 10 upgrades)
+
+### Audited the UI against current shadcn/ui and implemented 10 improvements
+
+**Goal:** The app installed shadcn primitives but barely used them — most of the dashboard was raw HTML elements. Adopt the real components + newer shadcn capabilities.
+
+**Components added:** `card`, `alert-dialog`, `sonner`, `tabs`, `empty` (via `npx shadcn add`). `badge`/`skeleton` already existed. Deps `sonner` + `next-themes` pulled in by the CLI.
+
+**Changes:**
+
+| # | Item | File(s) | Change |
+|---|---|---|---|
+| 1 | Use installed primitives | `dashboard.tsx` | Quick-add → `Input`+`Button`; edit box → `Textarea`; Save/Cancel/edit/delete → `Button` variants |
+| 2 | Cards for notes | `dashboard.tsx` | Notes list items → compact `Card` (replaces hand-rolled bordered `<li>`) |
+| 3 | Destructive confirm | `dashboard.tsx` | Note delete now goes through `AlertDialog` (was a silent immediate delete) |
+| 4 | Toast feedback | `layout.tsx`, `dashboard.tsx` | Added `<Toaster>`; add/complete/edit/delete now toast on failure + optimistic rollback (previously a silent `catch {}`) |
+| 5 | Real Tabs | `dashboard.tsx` | Hand-rolled Tasks/Notes tab bar → `Tabs` with `variant="line"` (keeps the underline look, gains keyboard a11y) |
+| 6 | Skeleton component | `dashboard.tsx` | `animate-pulse` divs → installed `Skeleton` |
+| 7 | Empty component | `dashboard.tsx` | All empty states → `Empty`/`EmptyHeader`/`EmptyMedia`/`EmptyTitle`/`EmptyDescription` |
+| 8 | Tokenized priority + Badge | `globals.css`, `dashboard.tsx` | Added `--priority-high` token (replaces raw `text-red-500`); high-priority marker + all tag pills → `Badge` |
+| 9 | Theme toggle | `globals.css`, `layout.tsx`, `theme-provider.tsx`, `mode-toggle.tsx` | Switched dark mode from `@media (prefers-color-scheme)` to `.dark` class; added `next-themes` `ThemeProvider` (system default) + a sun/moon `ModeToggle` in the dashboard header |
+| 10 | Namespaced registries | `components.json` | Registered `ai-elements` + `v0` registries so future `add @ai-elements/x` / `@v0/x` work |
+
+**Decisions:**
+- Tabs use the `line` variant to preserve the existing underline aesthetic rather than the default segmented pill.
+- Notes `Card`s use `gap-0`/`shadow-none` + tight padding so the Card primitive matches the prior compact density (avoids the default roomy `py-6`).
+- Dark mode is now class-based (required for a manual toggle); `next-themes` injects the pre-paint script so there's no FOUC. `suppressHydrationWarning` added to `<html>`.
+- Toasts only fire on error (success is implied by optimistic UI), except delete which confirms success.
+- Left the mobile bottom-nav as a custom tab bar (legit pattern) and `--priority-high` as a dedicated token rather than overloading `destructive`.
+- **#10 note:** authoring a shareable design-system *preset* is a `shadcn/create` web step (not done here); the registries wiring is the code-side portion. Use `npx shadcn docs <component>` before composing new UI.
+
+**Validation:** `npm run typecheck` ✓ and `npm run build` ✓.
 
 ---
 

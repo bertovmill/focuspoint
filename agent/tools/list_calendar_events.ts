@@ -6,6 +6,7 @@ import {
   listCalendarEvents,
   resolveGoogleToken,
 } from "../lib/google-calendar.js";
+import { todayISO, zonedDayBounds } from "../lib/now.js";
 
 export default defineTool({
   description:
@@ -13,7 +14,8 @@ export default defineTool({
   inputSchema: z.object({
     start_date: z
       .string()
-      .describe("Start of the range, ISO date e.g. '2026-06-28'. Defaults to today if omitted."),
+      .optional()
+      .describe("Start of the range, ISO date e.g. '2026-06-28'. Defaults to today (server time) if omitted."),
     end_date: z
       .string()
       .optional()
@@ -24,9 +26,9 @@ export default defineTool({
     const token = await resolveGoogleToken();
     if (!token) return { success: false, message: CALENDAR_NOT_CONNECTED };
 
-    const end = end_date ?? start_date;
-    const timeMin = new Date(`${start_date}T00:00:00`).toISOString();
-    const timeMax = new Date(`${end}T23:59:59`).toISOString();
+    const start = start_date ?? todayISO();
+    const end = end_date ?? start;
+    const { timeMin, timeMax } = zonedDayBounds(start, end);
 
     const result = await listCalendarEvents(token, { timeMin, timeMax, maxResults: max_results });
 

@@ -1,3 +1,5 @@
+import { TIME_ZONE } from "./now.js";
+
 // Google Calendar auth for a single-user personal app.
 //
 // Google access tokens expire in ~1 hour, so we don't store one — we store a
@@ -20,7 +22,6 @@
 
 const CAL_BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-const TIME_ZONE = process.env.GOOGLE_CALENDAR_TIMEZONE ?? "America/Toronto";
 
 // In-process cache of the last minted access token. Survives across warm
 // invocations on Fluid Compute; a cold start just mints a new one.

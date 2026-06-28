@@ -2,6 +2,27 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { ModeToggle } from "@/app/_components/mode-toggle";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -44,7 +65,7 @@ function formatDate(iso: string | null) {
 }
 
 function priorityColor(p: string) {
-  if (p === "high") return "text-red-500";
+  if (p === "high") return "text-priority-high";
   if (p === "low") return "text-muted-foreground";
   return "text-foreground";
 }
@@ -103,7 +124,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     setSearchError(false);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/thoughts/semantic-search?q=${encodeURIComponent(q)}`);
+        const params = new URLSearchParams({ q });
+        if (tagFilter) params.set("tag", tagFilter);
+        const res = await fetch(`/api/thoughts/semantic-search?${params}`);
         if (!res.ok) throw new Error("search failed");
         setSemanticResults(await res.json());
       } catch {
@@ -114,7 +137,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, tagFilter]);
 
   const clearSearch = () => {
     setQuery("");
@@ -127,14 +150,18 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     const title = newTodo.trim();
     if (!title) return;
     setNewTodo("");
-    const res = await fetch("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
       const todo = await res.json();
       setTodos((prev) => [todo, ...prev]);
+    } catch {
+      setNewTodo(title);
+      toast.error("Couldn't add task. Try again.");
     }
   };
 
@@ -155,24 +182,45 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const saveEdit = async (id: number) => {
     const content = editContent.trim();
     if (!content) return;
+    const prevThoughts = thoughts;
     setThoughts((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)));
     setEditingId(null);
-    await fetch(`/api/thoughts/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
+    try {
+      const res = await fetch(`/api/thoughts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setThoughts(prevThoughts);
+      toast.error("Couldn't save note.");
+    }
   };
 
   const handleDeleteThought = async (id: number) => {
+    const prevThoughts = thoughts;
     setThoughts((prev) => prev.filter((t) => t.id !== id));
-    await fetch(`/api/thoughts/${id}`, { method: "DELETE" });
+    try {
+      const res = await fetch(`/api/thoughts/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Note deleted.");
+    } catch {
+      setThoughts(prevThoughts);
+      toast.error("Couldn't delete note.");
+    }
   };
 
   const handleComplete = async (id: number) => {
     setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
-    await fetch(`/api/todos/${id}/complete`, { method: "POST" });
-    setTimeout(() => setTodos((prev) => prev.filter((t) => t.id !== id)), 600);
+    try {
+      const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      setTimeout(() => setTodos((prev) => prev.filter((t) => t.id !== id)), 600);
+    } catch {
+      setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: false } : t)));
+      toast.error("Couldn't complete task.");
+    }
   };
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -198,9 +246,12 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="px-5 pt-6 pb-4 border-b border-border">
-        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-          <CalendarIcon className="size-3" />
-          <span>{today}</span>
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+            <CalendarIcon className="size-3" />
+            <span>{today}</span>
+          </div>
+          <ModeToggle />
         </div>
         <h1 className="text-xl font-semibold tracking-tight">Cael</h1>
         {!loading && (
@@ -213,62 +264,58 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border px-5">
-        <button
-          onClick={() => setActiveTab("todos")}
-          className={cn(
-            "py-2.5 text-sm font-medium border-b-2 mr-5 transition-colors",
-            activeTab === "todos"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Tasks
-        </button>
-        <button
-          onClick={() => setActiveTab("notes")}
-          className={cn(
-            "py-2.5 text-sm font-medium border-b-2 transition-colors",
-            activeTab === "notes"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
-        >
-          Notes
-        </button>
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "todos" | "notes")}
+        className="flex min-h-0 flex-1 flex-col gap-0"
+      >
+        <div className="border-b border-border px-5">
+          <TabsList variant="line" className="h-auto gap-5 bg-transparent p-0">
+            <TabsTrigger
+              value="todos"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
+              Tasks
+            </TabsTrigger>
+            <TabsTrigger
+              value="notes"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
+              Notes
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-16 lg:pb-0">
-        {activeTab === "todos" ? (
-          <div className="px-5 py-4">
+        <TabsContent value="todos" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
             {/* Quick add */}
             <form onSubmit={handleAddTodo} className="flex gap-2 mb-5">
-              <input
+              <Input
                 value={newTodo}
                 onChange={(e) => setNewTodo(e.target.value)}
                 placeholder="Add a task…"
-                className="flex-1 text-sm bg-muted/50 border border-border rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                className="flex-1"
               />
-              <button
-                type="submit"
-                className="p-2 rounded-lg bg-foreground text-background hover:opacity-80 transition-opacity"
-              >
+              <Button type="submit" size="icon" aria-label="Add task">
                 <PlusIcon className="size-4" />
-              </button>
+              </Button>
             </form>
 
             {loading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-10 rounded-lg bg-muted/40 animate-pulse" />
+                  <Skeleton key={i} className="h-10 rounded-lg" />
                 ))}
               </div>
             ) : activeTodos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                <CheckIcon className="size-8 mb-3 opacity-30" />
-                <p className="text-sm">All done</p>
-              </div>
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CheckIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>All done</EmptyTitle>
+                  <EmptyDescription>Nothing on your list right now.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               <ul className="space-y-1.5">
                 {activeTodos.map((todo) => (
@@ -278,9 +325,9 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                   >
                     <button
                       onClick={() => handleComplete(todo.id)}
-                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-foreground/40 transition-colors flex items-center justify-center"
+                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
                     >
-                      <CircleIcon className="size-2.5 opacity-0 group-hover:opacity-30 transition-opacity" />
+                      <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
@@ -294,15 +341,20 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                       )}
                     </div>
                     {todo.priority === "high" && (
-                      <span className="shrink-0 text-xs text-red-500 font-medium">!</span>
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-priority-high/40 text-priority-high"
+                      >
+                        High
+                      </Badge>
                     )}
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        ) : (
-          <div className="px-5 py-4">
+        </TabsContent>
+
+        <TabsContent value="notes" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
             {/* Semantic search box */}
             {!loading && thoughts.length > 0 && (
               <InputGroup className="mb-3">
@@ -334,33 +386,25 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
               </InputGroup>
             )}
 
-            {/* Tag filter bar — hidden during semantic search */}
-            {!loading && !searchActive && allTags.length > 0 && (
+            {/* Tag filter bar — stays active during search to narrow results by tag */}
+            {!loading && allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
-                <button
-                  onClick={() => setTagFilter(null)}
-                  className={cn(
-                    "text-xs px-2 py-0.5 rounded-full border transition-colors",
-                    tagFilter === null
-                      ? "bg-foreground text-background border-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
-                  )}
+                <Badge
+                  asChild
+                  variant={tagFilter === null ? "default" : "outline"}
+                  className="cursor-pointer"
                 >
-                  All
-                </button>
+                  <button onClick={() => setTagFilter(null)}>All</button>
+                </Badge>
                 {allTags.map((tag) => (
-                  <button
+                  <Badge
                     key={tag}
-                    onClick={() => setTagFilter(tag)}
-                    className={cn(
-                      "text-xs px-2 py-0.5 rounded-full border transition-colors",
-                      tagFilter === tag
-                        ? "bg-foreground text-background border-foreground"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
-                    )}
+                    asChild
+                    variant={tagFilter === tag ? "default" : "outline"}
+                    className="cursor-pointer"
                   >
-                    {tag}
-                  </button>
+                    <button onClick={() => setTagFilter(tag)}>{tag}</button>
+                  </Badge>
                 ))}
               </div>
             )}
@@ -368,43 +412,55 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 rounded-lg bg-muted/40 animate-pulse" />
+                  <Skeleton key={i} className="h-16 rounded-lg" />
                 ))}
               </div>
             ) : thoughts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                <BrainIcon className="size-8 mb-3 opacity-30" />
-                <p className="text-sm">No notes yet</p>
-                <p className="text-xs mt-1">Share a thought with your agent to capture it</p>
-              </div>
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <BrainIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>No notes yet</EmptyTitle>
+                  <EmptyDescription>Share a thought with your agent to capture it.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : searchActive && searchError ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                <SparklesIcon className="size-8 mb-3 opacity-30" />
-                <p className="text-sm">Semantic search is unavailable</p>
-                <p className="text-xs mt-1">Try again, or filter by tag instead</p>
-              </div>
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <SparklesIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>Semantic search is unavailable</EmptyTitle>
+                  <EmptyDescription>Try again, or filter by tag instead.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : searchActive && searching && displayedThoughts.length === 0 ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 rounded-lg bg-muted/40 animate-pulse" />
+                  <Skeleton key={i} className="h-16 rounded-lg" />
                 ))}
               </div>
             ) : displayedThoughts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                <BrainIcon className="size-8 mb-3 opacity-30" />
-                <p className="text-sm">
-                  {searchActive
-                    ? `No notes match "${query.trim()}"`
-                    : `No notes tagged "${tagFilter}"`}
-                </p>
-              </div>
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <BrainIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {searchActive
+                      ? `No notes match “${query.trim()}”`
+                      : `No notes tagged “${tagFilter}”`}
+                  </EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             ) : (
-              <ul className="space-y-3">
+              <div className="space-y-3">
                 {displayedThoughts.map((thought) => (
-                  <li key={thought.id} className="rounded-lg border border-border px-3 py-2.5 group">
+                  <Card key={thought.id} className="gap-0 rounded-lg px-3 py-2.5 shadow-none group">
                     {editingId === thought.id ? (
                       <div>
-                        <textarea
+                        <Textarea
                           ref={editRef}
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
@@ -413,21 +469,15 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                             if (e.key === "Escape") cancelEdit();
                           }}
                           rows={3}
-                          className="w-full text-sm leading-relaxed bg-transparent outline-none resize-none"
+                          className="text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 focus-visible:ring-0 dark:bg-transparent"
                         />
                         <div className="flex gap-2 mt-2">
-                          <button
-                            onClick={() => saveEdit(thought.id)}
-                            className="text-xs px-2 py-1 rounded bg-foreground text-background hover:opacity-80 transition-opacity"
-                          >
+                          <Button size="xs" onClick={() => saveEdit(thought.id)}>
                             Save
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors"
-                          >
+                          </Button>
+                          <Button size="xs" variant="outline" onClick={cancelEdit}>
                             Cancel
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -438,45 +488,64 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                             {formatRelativeTime(thought.created_at)}
                           </span>
                           {thought.tags?.map((tag) => (
-                            <button
+                            <Badge
                               key={tag}
-                              onClick={() => setTagFilter(tag)}
-                              className={cn(
-                                "text-xs px-1.5 py-0.5 rounded transition-colors",
-                                tagFilter === tag
-                                  ? "bg-foreground text-background"
-                                  : "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
-                              )}
+                              asChild
+                              variant={tagFilter === tag ? "default" : "secondary"}
+                              className="cursor-pointer"
                             >
-                              {tag}
-                            </button>
+                              <button onClick={() => setTagFilter(tag)}>{tag}</button>
+                            </Badge>
                           ))}
-                          <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
+                          <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
                               onClick={() => startEdit(thought)}
-                              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                              title="Edit"
+                              className="text-muted-foreground hover:text-foreground"
+                              aria-label="Edit note"
                             >
                               <PencilIcon className="size-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteThought(thought.id)}
-                              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-red-500"
-                              title="Delete"
-                            >
-                              <TrashIcon className="size-3" />
-                            </button>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  aria-label="Delete note"
+                                >
+                                  <TrashIcon className="size-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This can&rsquo;t be undone. The note will be permanently removed.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteThought(thought.id)}
+                                    className="bg-destructive text-white hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
                       </>
                     )}
-                  </li>
+                  </Card>
                 ))}
-              </ul>
+              </div>
             )}
-          </div>
-        )}
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

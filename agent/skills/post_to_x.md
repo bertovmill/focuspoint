@@ -46,11 +46,17 @@ Draft 2–3 options at different angles and let the user pick.
 
 ## Step 4 — Confirm before posting
 
-Always show the draft(s) and wait for explicit approval. Say something like:
+Show the draft(s) as plain text in your reply and wait for the user to respond in chat. Do not use `ask_question` or any interactive tool — just write something like:
 
-> "Here are a few takes — which lands for you, or want me to push it further?"
+> "Here are a few takes — which lands for you, or want me to push it further?
+>
+> 1. ...
+> 2. ...
+> 3. ..."
 
-Never call `post_tweet` without a clear "yes, post that" from the user.
+Then stop and wait. The user will reply with their choice or ask for changes.
+
+Never call `post_tweet` without a clear "yes, post that" or equivalent from the user in a follow-up message.
 
 ## Step 5 — Post
 

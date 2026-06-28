@@ -123,6 +123,35 @@ const AttachmentThumb: FC = () => {
   );
 };
 
+const MessageImageAttachment: FC = () => {
+  const src = useAttachmentSrc();
+
+  return (
+    <AttachmentPreviewDialog>
+      <AttachmentPrimitive.Root className="aui-attachment-root relative">
+        <TooltipTrigger asChild>
+          <div
+            className="cursor-pointer overflow-hidden rounded-2xl transition-opacity hover:opacity-90"
+            role="button"
+            tabIndex={0}
+            aria-label="Image attachment"
+          >
+            {src ? (
+              <img
+                src={src}
+                alt="Sent image"
+                className="block h-auto max-h-[300px] max-w-[240px] w-auto rounded-2xl object-contain"
+              />
+            ) : (
+              <div className="size-24 animate-pulse rounded-2xl bg-muted" />
+            )}
+          </div>
+        </TooltipTrigger>
+      </AttachmentPrimitive.Root>
+    </AttachmentPreviewDialog>
+  );
+};
+
 const AttachmentUI: FC = () => {
   const aui = useAui();
   const isComposer = aui.attachment.source !== "message";
@@ -142,16 +171,13 @@ const AttachmentUI: FC = () => {
     }
   });
 
+  if (isImage && !isComposer) {
+    return <MessageImageAttachment />;
+  }
+
   return (
     <Tooltip>
-      <AttachmentPrimitive.Root
-        className={cn(
-          "aui-attachment-root relative",
-          isImage &&
-            !isComposer &&
-            "aui-attachment-root-message only:*:first:size-24",
-        )}
-      >
+      <AttachmentPrimitive.Root className="aui-attachment-root relative">
         <AttachmentPreviewDialog>
           <TooltipTrigger asChild>
             <div

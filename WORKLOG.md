@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-28 — Image paste UI fix
+
+### Problem
+Pasted images showed as `[file: image/png (image/png)]` text inside the sent-message bubble alongside a small 56px attachment tile.
+
+### Fix
+1. **`components/assistant-ui/thread.tsx`** — `UserMessage` passes `components={{ File: () => null, Image: () => null }}` to `MessagePrimitive.Parts` to suppress the fallback text.
+2. **`components/assistant-ui/attachment.tsx`** — Added `MessageImageAttachment` component. In message context, image attachments now render as a proper inline `<img>` (`max-w-[240px] max-h-[300px] rounded-2xl`) instead of the old 56px tile. Composer thumbnails and non-image attachments unchanged.
+
+---
+
 ## Session: 2026-06-28 (assistant-ui skill installed)
 
 ### Added the assistant-ui router skill via the skills CLI

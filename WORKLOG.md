@@ -155,3 +155,28 @@ A personal AI agent with memory. Built with Vercel Eve + Next.js + Neon Postgres
 **Typecheck:** PASS ✓  
 **Pushed to:** main
 
+
+---
+
+### Session: 2026-06-28 (later) — Twilio SMS/voice channel ✓
+
+**Goal:** Connect the focuspoint agent to Twilio so it can receive and reply to SMS messages (and voice calls).
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `agent/channels/twilio.ts` | New Twilio channel — mounts `/eve/v1/twilio/messages` (SMS) and `/eve/v1/twilio/voice` (calls). `allowFrom` and `from` number pulled from env vars. |
+| `.env.local` | Added `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `TWILIO_ALLOW_FROM` |
+
+**Decisions:**
+- Used Twilio CLI to authenticate and fetch the phone number (+17093703880)
+- `TWILIO_ALLOW_FROM` set to own number — gates inbound to prevent abuse
+- Auth Token stored in `.env.local` (not committed)
+
+**Next steps:**
+- Deploy to Vercel to get a public URL
+- Point Twilio number's Messaging webhook at `https://<deployed-url>/eve/v1/twilio/messages`
+- Add Twilio env vars to Vercel project via `vercel env add`
+
+**Pushed to:** main

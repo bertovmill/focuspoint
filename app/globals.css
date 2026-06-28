@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "tw-shimmer/src/index.css";
+@import "../node_modules/tw-shimmer/src/index.css";
 @source "../node_modules/streamdown/dist/*.js";
 
 @theme inline {

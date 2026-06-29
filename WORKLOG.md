@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-29 — Fix Twilio SMS webhook blocked by auth middleware
+
+**Problem:** Inbound SMS messages to Cael were silently dropped. The auth middleware was intercepting `POST /eve/v1/twilio/messages` and returning 401 (previously 302) because Twilio doesn't send a session cookie.
+
+**Fix:** Added `/eve/v1/twilio/` to the middleware allowlist in `middleware.ts`, matching the existing `/eve/v1/health` bypass. Eve validates Twilio's HMAC signature itself — no cookie auth needed on this path.
+
+**Files changed:**
+- `middleware.ts` — added `pathname.startsWith("/eve/v1/twilio/")` to the bypass list
+
+**Verification:** After deploy, `POST /eve/v1/twilio/messages` with a fake payload returns 401 (eve's own signature check) instead of 302/redirect — meaning the request now reaches eve.
+
+**Deployed:** `focuspoint-mfuf812x2-bertmill19s-projects.vercel.app` (production)
+
+---
+
 ## Session: 2026-06-29 (LinkedIn posting tool)
 
 ### Added: Cael can post text + images to LinkedIn

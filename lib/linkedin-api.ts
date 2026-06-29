@@ -13,7 +13,7 @@ function linkedInHeaders(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "LinkedIn-Version": "202412",
+    "LinkedIn-Version": "202507",
     "X-Restli-Protocol-Version": "2.0.0",
   };
 }
@@ -39,11 +39,13 @@ async function uploadImage(token: string, personUrn: string, imageUrl: string): 
   const imgBuffer = await imgRes.arrayBuffer();
   const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
 
-  // Step 3: upload bytes to LinkedIn's pre-authenticated upload URL
-  // Do NOT send Authorization here — the upload URL already has auth embedded
+  // Step 3: upload bytes to LinkedIn's upload URL
   const uploadRes = await fetch(uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/octet-stream",
+    },
     body: imgBuffer,
   });
   if (!uploadRes.ok) {
@@ -77,6 +79,7 @@ export async function postToLinkedIn(
     body.content = {
       media: {
         id: imageAssetUrn,
+        altText: "",
       },
     };
   }

@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-06-29 (LinkedIn posting tool)
+
+### Added: Cael can post text + images to LinkedIn
+
+**New files:**
+
+| File | Purpose |
+|---|---|
+| `lib/linkedin-api.ts` | LinkedIn REST API v2 helper — text posts and 3-step image upload (initialize → PUT bytes → post with asset URN) |
+| `agent/tools/post_linkedin.ts` | Eve tool: `post_linkedin` — text (required, ≤3000 chars) + optional `image_url`. Cael confirms before posting. |
+| `app/api/upload/route.ts` | Next.js route: `POST /api/upload` — accepts multipart image, stores in Vercel Blob, returns public URL |
+
+**Dependency added:** `@vercel/blob@^2.5.0`
+
+**Env vars needed (not yet set):**
+- `LINKEDIN_ACCESS_TOKEN` — LinkedIn OAuth 2.0 bearer token (valid ~60 days). Obtain via LinkedIn developer portal or OAuth flow.
+- `LINKEDIN_PERSON_URN` — user's LinkedIn person URN, format `urn:li:person:XXXXX`. Find in LinkedIn API response or developer tools.
+- `BLOB_READ_WRITE_TOKEN` — Vercel Blob token. Run `vercel env pull` after enabling Blob storage in Vercel dashboard.
+
+**Workflow:** User uploads an image via `POST /api/upload` → gets a Blob URL → tells Cael "post to LinkedIn with [text] and the image at [url]". Cael calls `post_linkedin` tool.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-06-28 (digest outputs only the SMS body)
 
 ### Fixed: scheduled digest no longer wraps the SMS in chatter

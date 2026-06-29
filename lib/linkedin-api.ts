@@ -13,7 +13,7 @@ function linkedInHeaders(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "LinkedIn-Version": "202406",
+    "LinkedIn-Version": "202501",
     "X-Restli-Protocol-Version": "2.0.0",
   };
 }
@@ -26,25 +26,28 @@ async function uploadImage(token: string, personUrn: string, imageUrl: string): 
     body: JSON.stringify({ initializeUploadRequest: { owner: personUrn } }),
   });
   if (!initRes.ok) {
-    throw new Error(`LinkedIn image init failed: ${await initRes.text()}`);
+    throw new Error(`LinkedIn image init failed (${initRes.status}): ${await initRes.text()}`);
   }
   const initJson = (await initRes.json()) as {
     value: { uploadUrl: string; image: string };
   };
   const { uploadUrl, image: imageAssetUrn } = initJson.value;
 
-  // Step 2: fetch the image bytes and upload
+  // Step 2: fetch the image bytes
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imageUrl}`);
   const imgBuffer = await imgRes.arrayBuffer();
+  const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
 
+  // Step 3: upload bytes to LinkedIn's pre-authenticated upload URL
+  // Do NOT send Authorization here — the upload URL already has auth embedded
   const uploadRes = await fetch(uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": imgRes.headers.get("content-type") ?? "image/jpeg" },
+    headers: { "Content-Type": contentType },
     body: imgBuffer,
   });
   if (!uploadRes.ok) {
-    throw new Error(`LinkedIn image upload failed: HTTP ${uploadRes.status}`);
+    throw new Error(`LinkedIn image upload failed (${uploadRes.status}): ${await uploadRes.text()}`);
   }
 
   return imageAssetUrn;
@@ -55,12 +58,6 @@ export async function postToLinkedIn(
   imageUrl?: string,
 ): Promise<{ id: string; url: string }> {
   const { token, personUrn } = getCredentials();
-
-  let media: object[] | undefined;
-  if (imageUrl) {
-    const assetUrn = await uploadImage(token, personUrn, imageUrl);
-    media = [{ status: "READY", description: { text: "" }, media: assetUrn, title: { text: "" } }];
-  }
 
   const body: Record<string, unknown> = {
     author: personUrn,
@@ -75,14 +72,13 @@ export async function postToLinkedIn(
     isReshareDisabledByAuthor: false,
   };
 
-  if (media) {
+  if (imageUrl) {
+    const imageAssetUrn = await uploadImage(token, personUrn, imageUrl);
     body.content = {
       media: {
-        altText: "",
-        id: (media[0] as { media: string }).media,
+        id: imageAssetUrn,
       },
     };
-    body.mediaCategory = "IMAGE";
   }
 
   const res = await fetch(`${BASE}/rest/posts`, {
@@ -92,10 +88,9 @@ export async function postToLinkedIn(
   });
 
   if (!res.ok) {
-    throw new Error(`LinkedIn post failed: ${await res.text()}`);
+    throw new Error(`LinkedIn post failed (${res.status}): ${await res.text()}`);
   }
 
-  // LinkedIn returns the post URN in the x-restli-id header
   const postUrn = res.headers.get("x-restli-id") ?? "";
   const postId = postUrn.split(":").pop() ?? postUrn;
 

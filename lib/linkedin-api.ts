@@ -13,7 +13,7 @@ function linkedInHeaders(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    "LinkedIn-Version": "202501",
+    "LinkedIn-Version": "202412",
     "X-Restli-Protocol-Version": "2.0.0",
   };
 }

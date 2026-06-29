@@ -104,6 +104,22 @@ function convertEveMessage(
   };
 }
 
+async function uploadImageDataUrl(dataUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], "pasted-image.png", { type: blob.type || "image/png" });
+    const form = new FormData();
+    form.append("file", file);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
+    if (!uploadRes.ok) return null;
+    const json = await uploadRes.json() as { url?: string };
+    return json.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
   const isRunning =
     agent.status === "submitted" || agent.status === "streaming";
@@ -155,6 +171,11 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
               : "image/png";
             parts.push({ type: "file", data: imageUrl, mediaType });
             capturedImages.push(imageUrl);
+            // Upload to Blob and inject the public URL so Cael can use it directly
+            const blobUrl = await uploadImageDataUrl(imageUrl);
+            if (blobUrl) {
+              parts.push({ type: "text", text: `[Image uploaded — public URL: ${blobUrl}]` });
+            }
           } else if (part.type === "file") {
             parts.push({
               type: "file",

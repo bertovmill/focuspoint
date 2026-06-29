@@ -11,7 +11,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||
-    pathname === "/eve/v1/health"
+    pathname === "/eve/v1/health" ||
+    pathname.startsWith("/eve/v1/twilio/")
   ) {
     return NextResponse.next();
   }

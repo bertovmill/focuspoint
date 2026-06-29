@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -81,13 +81,24 @@ function priorityColor(p: string) {
   return "text-foreground";
 }
 
-export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | "notes" | "dreams" }) {
+interface UploadedImage {
+  url: string;
+  name: string;
+  uploadedAt: number;
+}
+
+export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | "notes" | "dreams" | "media" }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams" | "media">(controlledTab ?? "todos");
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -100,6 +111,40 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   useEffect(() => {
     if (controlledTab) setActiveTab(controlledTab);
   }, [controlledTab]);
+
+  async function handleUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Upload failed");
+      }
+      const { url, name } = await res.json();
+      setUploadedImages((prev) => [{ url, name, uploadedAt: Date.now() }, ...prev]);
+      toast.success("Image uploaded — copy the URL to share with Cael");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function copyUrl(url: string) {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2000);
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -285,7 +330,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
       {/* Tabs */}
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "todos" | "notes" | "dreams")}
+        onValueChange={(v) => setActiveTab(v as "todos" | "notes" | "dreams" | "media")}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="border-b border-border px-5">
@@ -307,6 +352,12 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
               className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
             >
               Dreams
+            </TabsTrigger>
+            <TabsTrigger
+              value="media"
+              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+            >
+              Media
             </TabsTrigger>
           </TabsList>
         </div>
@@ -642,6 +693,85 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 </div>
               )}
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="media" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUpload(file);
+              e.target.value = "";
+            }}
+          />
+
+          {/* Drop zone */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleUpload(file);
+            }}
+            className={cn(
+              "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 transition-colors",
+              dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+              uploading && "pointer-events-none opacity-60",
+            )}
+          >
+            {uploading ? (
+              <Spinner className="size-6 text-primary" />
+            ) : (
+              <UploadIcon className="size-6 text-muted-foreground" />
+            )}
+            <div className="text-center">
+              <p className="text-sm font-medium">{uploading ? "Uploading…" : "Click or drag an image here"}</p>
+              <p className="text-xs text-muted-foreground">JPEG, PNG, GIF, WebP · max 5 MB</p>
+            </div>
+          </div>
+
+          {/* Uploaded images list */}
+          {uploadedImages.length > 0 && (
+            <div className="mt-5 flex flex-col gap-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded this session</p>
+              {uploadedImages.map((img) => (
+                <Card key={img.url} className="flex items-center gap-3 p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.url} alt={img.name} className="size-12 shrink-0 rounded-md object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{img.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{img.url}</p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => copyUrl(img.url)}
+                    title="Copy URL"
+                  >
+                    {copiedUrl === img.url ? (
+                      <CheckCheck className="size-4 text-green-500" />
+                    ) : (
+                      <CopyIcon className="size-4" />
+                    )}
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {uploadedImages.length === 0 && !uploading && (
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Upload an image, copy its URL, then tell Cael to post it to LinkedIn.
+            </p>
           )}
         </TabsContent>
       </Tabs>

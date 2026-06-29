@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
-type MobileTab = "chat" | "tasks" | "notes" | "dreams";
+type MobileTab = "chat" | "tasks" | "notes" | "dreams" | "media";
 
 export default function Page() {
   return (
@@ -32,7 +32,7 @@ function Workspace() {
           "lg:flex lg:flex-none lg:w-[380px] xl:w-[420px]",
         )}
       >
-        <Dashboard activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : "todos"} />
+        <Dashboard activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : "todos"} />
       </aside>
 
       {/* Chat panel — full width on mobile (when chat tab active), remainder on desktop */}
@@ -80,6 +80,12 @@ function Workspace() {
           icon={<BrainIcon className="size-5" />}
           active={mobileTab === "dreams"}
           onClick={() => setMobileTab("dreams")}
+        />
+        <NavButton
+          label="Media"
+          icon={<ImageIcon className="size-5" />}
+          active={mobileTab === "media"}
+          onClick={() => setMobileTab("media")}
         />
       </nav>
     </main>

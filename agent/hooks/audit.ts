@@ -1,11 +1,5 @@
 import { defineHook } from "eve/hooks";
 
-// Observe-only audit trail. Hooks fire after each stream event is durably
-// recorded, so this is a safe place for logging/metrics without touching the
-// agent's behavior. Logs land in the platform logs (Vercel / `eve dev`).
-//
-// Wrapped in try/catch because a throwing hook surfaces as turn.failed — we
-// never want audit logging to break a real conversation.
 export default defineHook({
   events: {
     async "session.started"(_event, ctx) {
@@ -14,6 +8,30 @@ export default defineHook({
       } catch {
         /* never let logging fail a turn */
       }
+    },
+    async "step.completed"(event, ctx) {
+      try {
+        console.info("[audit] step.completed", {
+          sessionId: ctx.session.id,
+          finishReason: event.data.finishReason,
+          inputTokens: event.data.usage?.inputTokens,
+          outputTokens: event.data.usage?.outputTokens,
+        });
+      } catch { /* swallow */ }
+    },
+    async "turn.completed"(_event, ctx) {
+      try {
+        console.info("[audit] turn.completed", { sessionId: ctx.session.id });
+      } catch { /* swallow */ }
+    },
+    async "turn.failed"(event, ctx) {
+      try {
+        console.info("[audit] turn.failed", {
+          sessionId: ctx.session.id,
+          code: (event.data as { code?: string }).code,
+          message: (event.data as { message?: string }).message,
+        });
+      } catch { /* swallow */ }
     },
     async "action.result"(event, ctx) {
       try {

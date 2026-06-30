@@ -1,7 +1,7 @@
 "use client";
 
-import { useEveAgent } from "eve/react";
-import { AlertCircleIcon, DatabaseIcon, PanelLeftIcon, XIcon } from "lucide-react";
+import { useEveAgent, type EveMessagePart } from "eve/react";
+import { AlertCircleIcon, DatabaseIcon, InfoIcon, PanelLeftIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
@@ -54,6 +54,14 @@ export function AgentChat({
 
   const runtime = useEveRuntime(agent);
 
+  const lastMsg = agent.data.messages.at(-1);
+  const stoppedAfterTools =
+    agent.status === "ready" &&
+    !agent.error &&
+    lastMsg?.role === "assistant" &&
+    lastMsg.parts.some((p: EveMessagePart) => p.type === "dynamic-tool") &&
+    !lastMsg.parts.some((p: EveMessagePart) => p.type === "text" && "text" in p && (p as { text: string }).text.trim());
+
   return (
     <main
       className={cn(
@@ -91,6 +99,18 @@ export function AgentChat({
             <div>
               <p className="font-medium">Request failed</p>
               <p className="mt-0.5 text-muted-foreground">{agent.error.message}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {stoppedAfterTools ? (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">
+          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-sm">
+            <InfoIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
+            <div>
+              <p className="font-medium text-amber-700 dark:text-amber-400">Stopped after tool calls</p>
+              <p className="mt-0.5 text-muted-foreground">Cael ran tools but didn&apos;t reply. Check Vercel logs for <code className="text-xs bg-muted px-1 rounded">[audit] step.completed</code> → <code className="text-xs bg-muted px-1 rounded">finishReason</code>. You can ask Cael to continue.</p>
             </div>
           </div>
         </div>

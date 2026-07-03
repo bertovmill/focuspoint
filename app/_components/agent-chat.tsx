@@ -1,7 +1,7 @@
 "use client";
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
-import { ActivityIcon, AlertCircleIcon, DatabaseIcon, InfoIcon, PanelLeftIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, DatabaseIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
@@ -23,7 +23,7 @@ export function AgentChat({
   hasMobileNav?: boolean;
   threadId: string;
 }) {
-  const { getThread, saveSnapshot, rename } = useThreads();
+  const { getThread, saveSnapshot, rename, newThread } = useThreads();
   const thread = getThread(threadId);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
@@ -146,13 +146,25 @@ export function AgentChat({
           <div className="relative flex w-72 max-w-[80%] flex-col border-r border-border bg-background">
             <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
               <span className="text-muted-foreground text-sm">Chats</span>
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                aria-label="Close chat history"
-              >
-                <XIcon className="size-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    newThread();
+                    setHistoryOpen(false);
+                  }}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                  aria-label="New chat"
+                >
+                  <PlusIcon className="size-4" />
+                </button>
+                <button
+                  onClick={() => setHistoryOpen(false)}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                  aria-label="Close chat history"
+                >
+                  <XIcon className="size-4" />
+                </button>
+              </div>
             </div>
             <ChatSidebar className="flex-1" onNavigate={() => setHistoryOpen(false)} />
           </div>

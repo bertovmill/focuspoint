@@ -1179,3 +1179,19 @@ Added `agent/connections/github.ts` — an eve OpenAPI connection that gives Cae
 
 **Next steps:**
 - Add `GITHUB_TOKEN` to Vercel env for production: `vercel env add GITHUB_TOKEN`
+
+---
+
+## 2026-07-02 — Mobile chat sidebar: New chat button in header
+
+**What was built:**
+Added a "New chat" (+) icon button to the header of the mobile chat-history overlay (the "Chats" panel that slides in from the left on mobile), next to the existing close (X) button.
+
+**Files changed:**
+- `app/_components/agent-chat.tsx` — destructured `newThread` from `useThreads()`; added a `PlusIcon` button in the mobile overlay header (`historyOpen` block) that calls `newThread()` and closes the overlay.
+
+**Decisions:**
+- Reused the existing `newThread` from `useThreads()` (same handler `ChatSidebar`'s pinned bottom pill already uses) rather than adding new state/logic.
+- Placed it in the panel header (top) rather than relying solely on the bottom pinned pill, per user request for quicker access at the top of the expanded mobile sidebar.
+
+**Typecheck:** PASS ✓

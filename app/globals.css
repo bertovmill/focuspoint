@@ -79,23 +79,25 @@
   --priority-high: oklch(0.7 0.17 35);
 }
 
-* {
-  border-color: var(--border);
-}
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 
-html {
-  height: 100%;
-}
+  html {
+    height: 100%;
+  }
 
-body {
-  min-height: 100%;
-  margin: 0;
-  background: var(--background);
-  font-family: var(--font-sans);
-}
+  body {
+    min-height: 100%;
+    margin: 0;
+    background: var(--background);
+    font-family: var(--font-sans);
+  }
 
-button,
-input,
-textarea {
-  font: inherit;
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
 }

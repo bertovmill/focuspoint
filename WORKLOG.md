@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-02 — Fix scheduled tasks (morning-digest cron) not firing
+
+**Problem:** The `agent/schedules/morning-digest.ts` cron was registered correctly on Vercel (visible under Production deployment `crons`, path `/eve/v1/cron/...`, `0 12 * * *`), so it *was* firing every day — but no SMS was ever arriving.
+
+**Root cause:** Production env vars for the schedule were empty. `MY_PHONE_NUMBER` existed on Vercel for the Production target but with an empty string value (never actually set), and `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` only had real values under the **Development** target — Production had them as empty strings too. The schedule handler's `if (!phoneNumber) { console.warn(...); return; }` guard silently no-op'd every run, and the warning only ever showed up in function logs nobody was watching.
+
+**Fix:** Removed and re-added the four vars on the Production environment via `vercel env`, using the same values already working in dev (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`) plus the actual phone number for `MY_PHONE_NUMBER` (`+1 519 990 8727`). Triggered a `vercel --prod` redeploy afterward — env var changes don't apply to an already-built deployment, so a redeploy was required for the fixed values to reach the running functions.
+
+**Verification:** Confirmed via the Vercel API that all four vars now have non-empty values under the `production` target, and confirmed the new deployment (`dpl_CTQxmAd1vXD1i3yDupME2tXhyBz4`) still registers the eve cron entry (`0 12 * * *`). Could not curl the production cron path directly to force a live test — Vercel's cron invocations are internally signed and return 401 to any external caller — so full end-to-end confirmation will land with tomorrow's 12:00 UTC (8am ET) run.
+
+**Next step / things to double check if it still doesn't fire:** verify Twilio delivery in the Twilio console (a bad Twilio credential now presents as a delivery failure, not silent skip) and check the Vercel Observability → Cron Jobs run history for the `morning-digest` cron the next time it's due.
+
+**Files changed:** none (env var / deployment config fix only, no code changes).
+
+---
+
 ## Session: 2026-06-29 — Fix Twilio SMS webhook blocked by auth middleware
 
 **Problem:** Inbound SMS messages to Cael were silently dropped. The auth middleware was intercepting `POST /eve/v1/twilio/messages` and returning 401 (previously 302) because Twilio doesn't send a session cookie.

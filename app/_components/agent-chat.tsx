@@ -1,11 +1,12 @@
 "use client";
 
 import { useEveAgent } from "eve/react";
-import { AlertCircleIcon, DatabaseIcon, PanelLeftIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, DatabaseIcon, PanelLeftIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { TracePanel } from "@/app/_components/trace-panel";
 import { deriveTitle, useThreads } from "@/app/_components/threads-provider";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
@@ -25,6 +26,7 @@ export function AgentChat({
   const { getThread, saveSnapshot, rename } = useThreads();
   const thread = getThread(threadId);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(false);
 
   const agent = useEveAgent({
     initialSession: thread?.session,
@@ -75,13 +77,23 @@ export function AgentChat({
           <span className="truncate text-muted-foreground text-sm">Cael</span>
           <StatusDot status={agent.status} />
         </span>
-        <Link
-          href="/explore"
-          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Database Explorer"
-        >
-          <DatabaseIcon className="size-4" />
-        </Link>
+        <span className="flex items-center gap-1">
+          <button
+            onClick={() => setTraceOpen(true)}
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Agent trace"
+            aria-label="Agent trace"
+          >
+            <ActivityIcon className="size-4" />
+          </button>
+          <Link
+            href="/explore"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Database Explorer"
+          >
+            <DatabaseIcon className="size-4" />
+          </Link>
+        </span>
       </header>
 
       {agent.error ? (
@@ -125,6 +137,10 @@ export function AgentChat({
             <ChatSidebar className="flex-1" onNavigate={() => setHistoryOpen(false)} />
           </div>
         </div>
+      ) : null}
+
+      {traceOpen ? (
+        <TracePanel events={agent.events} onClose={() => setTraceOpen(false)} />
       ) : null}
     </main>
   );

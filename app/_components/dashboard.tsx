@@ -274,6 +274,19 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     }
   };
 
+  const handleDeleteTodo = async (id: number) => {
+    const prev = todos;
+    setTodos((t) => t.filter((x) => x.id !== id));
+    try {
+      const res = await fetch(`/api/todos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Task deleted.");
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't delete task.");
+    }
+  };
+
   const handleComplete = async (id: number) => {
     setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
     try {
@@ -463,6 +476,13 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                         High
                       </Badge>
                     )}
+                    <button
+                      onClick={() => handleDeleteTodo(todo.id)}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      aria-label="Delete task"
+                    >
+                      <TrashIcon className="size-3.5" />
+                    </button>
                   </li>
                 ))}
               </ul>

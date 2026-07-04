@@ -48,6 +48,12 @@ const CRON_JOBS = [
     schedule: "Daily at 8:00 AM UTC",
     endpoint: "/api/dream",
     icon: MoonIcon,
+    detail: `Reads your last 30 days of notes and open tasks, then asks Claude to:
+1. Identify recurring themes and emotional patterns
+2. Find connections between separate thoughts
+3. Surface 3–5 insights written back as new notes
+
+Runs automatically every morning so your next session starts with a fresh synthesis.`,
   },
   {
     key: "tweet",
@@ -56,6 +62,12 @@ const CRON_JOBS = [
     schedule: "Daily at 12:00 PM UTC",
     endpoint: "/api/daily-tweet",
     icon: SendIcon,
+    detail: `Reads your last 14 days of notes, then asks Claude (temperature 1) to:
+1. Extract the sharpest principle or tension hiding in your thoughts
+2. Compress it into one universally true statement — no personal details
+3. Post it to @berto_vmill on X automatically
+
+Each run picks a different angle and thought to keep tweets fresh and varied.`,
   },
 ];
 
@@ -129,6 +141,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [runningDream, setRunningDream] = useState(false);
   const [runningJob, setRunningJob] = useState<Record<string, boolean>>({});
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -848,33 +861,47 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                 {CRON_JOBS.map((job) => {
                   const Icon = job.icon;
                   const isRunning = !!runningJob[job.key];
+                  const isExpanded = expandedJob === job.key;
                   return (
-                    <Card key={job.key} className="p-4 flex items-start gap-3">
-                      <div className="mt-0.5 shrink-0 size-8 rounded-lg bg-muted flex items-center justify-center">
-                        <Icon className="size-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-snug">{job.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{job.description}</p>
-                        <div className="flex items-center gap-1.5 mt-2">
-                          <CalendarClockIcon className="size-3 text-muted-foreground shrink-0" />
-                          <span className="text-xs text-muted-foreground">{job.schedule}</span>
+                    <Card
+                      key={job.key}
+                      className={cn("p-4 cursor-pointer select-none transition-colors", isExpanded && "ring-1 ring-border")}
+                      onDoubleClick={() => setExpandedJob(isExpanded ? null : job.key)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 shrink-0 size-8 rounded-lg bg-muted flex items-center justify-center">
+                          <Icon className="size-4 text-muted-foreground" />
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-snug">{job.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{job.description}</p>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <CalendarClockIcon className="size-3 text-muted-foreground shrink-0" />
+                            <span className="text-xs text-muted-foreground">{job.schedule}</span>
+                            <span className="text-xs text-muted-foreground/50 ml-1">· double-click to inspect</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 gap-1.5"
+                          onClick={(e) => { e.stopPropagation(); handleRunJob(job.key, job.endpoint); }}
+                          disabled={isRunning}
+                        >
+                          {isRunning ? (
+                            <Spinner className="size-3" />
+                          ) : (
+                            <PlayIcon className="size-3" />
+                          )}
+                          {isRunning ? "Running…" : "Run now"}
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 gap-1.5"
-                        onClick={() => handleRunJob(job.key, job.endpoint)}
-                        disabled={isRunning}
-                      >
-                        {isRunning ? (
-                          <Spinner className="size-3" />
-                        ) : (
-                          <PlayIcon className="size-3" />
-                        )}
-                        {isRunning ? "Running…" : "Run now"}
-                      </Button>
+                      {isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">What this does</p>
+                          <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">{job.detail}</pre>
+                        </div>
+                      )}
                     </Card>
                   );
                 })}

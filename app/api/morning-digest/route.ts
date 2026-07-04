@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST — manual trigger from the UI
-export async function POST() {
+export async function POST(req: NextRequest) {
   const phoneNumber = process.env.MY_PHONE_NUMBER;
   if (!phoneNumber) {
     return NextResponse.json(
@@ -20,7 +20,23 @@ export async function POST() {
       { status: 200 },
     );
   }
+
+  // In dev, proxy to eve's one-shot dispatch route
+  const host = req.headers.get("host") ?? "localhost:3000";
+  const protocol = host.startsWith("localhost") ? "http" : "https";
+  const dispatchUrl = `${protocol}://${host}/eve/v1/dev/schedules/morning-digest`;
+
+  try {
+    const res = await fetch(dispatchUrl, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      return NextResponse.json({ ok: true, message: `Digest triggered — SMS on its way to ${phoneNumber}.`, ...data });
+    }
+  } catch {
+    // dispatch route not available (production) — fall through
+  }
+
   return NextResponse.json({
-    message: `Morning digest is an SMS schedule. It runs automatically at 8 AM ET and texts ${phoneNumber}. To trigger it manually in dev, use: POST /eve/v1/dev/schedules/morning-digest`,
+    message: `Morning digest runs automatically at 8 AM ET and texts ${phoneNumber}.`,
   });
 }

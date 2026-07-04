@@ -363,11 +363,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
       const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      if (data.message) {
+      if (data.ok) {
+        if (key === "morning-digest") toast.success("Digest triggered — SMS on its way.");
+        else if (key === "tweet") toast.success("Tweet posted.");
+        else { toast.success("Done."); await fetchData(); }
+      } else if (data.message) {
         toast.info(data.message);
-      } else {
-        toast.success(`${key === "dream" ? "Dream" : "Tweet"} ran successfully.`);
-        if (key === "dream") await fetchData();
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Run failed.");

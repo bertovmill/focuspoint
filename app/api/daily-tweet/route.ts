@@ -8,9 +8,9 @@ async function runDailyTweet() {
   const thoughts = await sql`
     SELECT content, tags, created_at
     FROM thoughts
-    WHERE created_at >= NOW() - INTERVAL '14 days'
-    ORDER BY created_at DESC
-    LIMIT 50
+    WHERE created_at >= NOW() - INTERVAL '30 days'
+    ORDER BY RANDOM()
+    LIMIT 12
   `;
   if (thoughts.length === 0) {
     return { message: "No thoughts to draw from yet — add some notes first." };
@@ -20,18 +20,17 @@ async function runDailyTweet() {
   const { text: tweet } = await generateText({
     model: "anthropic/claude-sonnet-4-6",
     temperature: 1,
-    prompt: `You are crafting a daily tweet for someone. Today is ${today}. Draw from their recent private thoughts and distill the essence into something universally true and profound — as if you extracted the insight without revealing the person.
+    prompt: `You are crafting a daily tweet for someone. Today is ${today}. You have been given a RANDOM sample of their recent thoughts — focus on whichever thought in this sample feels most alive or unexpected, not the most repeated theme.
 
-THEIR RECENT THOUGHTS:
+THEIR THOUGHTS (random sample):
 ${thoughtsText}
 
 Write ONE tweet (under 200 characters). Rules:
 - No em dashes (—). Use periods, commas, or colons instead.
 - No hashtags.
 - No personal details, names, or specific situations.
-- Take the principle or tension from their thoughts and make it stand alone.
-- Aim for: compression, inversion, or clarity. Not hype. Not clichés.
-- Each run should produce something genuinely different — vary the angle, form, and which thought you draw from.
+- Do NOT default to the most obvious or repeated theme. Pick something surprising from this sample.
+- Aim for: compression, inversion, or a fresh observation. Not hype. Not clichés.
 - Write only the tweet text. Nothing else.`,
   });
   const cleaned = tweet.trim().replace(/^["']|["']$/g, "");

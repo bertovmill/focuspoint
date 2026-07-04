@@ -4,7 +4,7 @@ import { SESSION_COOKIE, isValidSession } from "@/lib/session";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow: login page, auth API, static assets, eve health check
+  // Always allow: login page, auth API, static assets, eve health check, Twilio webhook
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
@@ -14,6 +14,13 @@ export function middleware(request: NextRequest) {
     pathname === "/eve/v1/health" ||
     pathname.startsWith("/eve/v1/twilio/")
   ) {
+    return NextResponse.next();
+  }
+
+  // Allow Vercel cron invocations — they carry Authorization: Bearer <CRON_SECRET>
+  // and never have a session cookie. The individual route handlers re-verify this header.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`) {
     return NextResponse.next();
   }
 

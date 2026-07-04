@@ -360,12 +360,27 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
   const handleRunJob = async (key: string, endpoint: string) => {
     setRunningJob((prev) => ({ ...prev, [key]: true }));
     try {
+      // Morning digest is an eve schedule — call the eve dispatch route directly
+      // from the browser so the session cookie is sent automatically.
+      if (key === "morning-digest") {
+        const res = await fetch("/eve/v1/dev/schedules/morning-digest", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (res.ok) {
+          toast.success("Digest triggered — SMS on its way to your phone.");
+        } else {
+          // Production: eve dispatch is dev-only, schedule runs via cron
+          toast.info("Morning digest runs automatically at 8 AM ET via cron.");
+        }
+        return;
+      }
+
       const res = await fetch(endpoint, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
       if (data.ok) {
-        if (key === "morning-digest") toast.success("Digest triggered — SMS on its way.");
-        else if (key === "tweet") toast.success("Tweet posted.");
+        if (key === "tweet") toast.success("Tweet posted.");
         else { toast.success("Done."); await fetchData(); }
       } else if (data.message) {
         toast.info(data.message);

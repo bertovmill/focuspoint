@@ -1,7 +1,8 @@
 "use client";
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
-import { ActivityIcon, AlertCircleIcon, DatabaseIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
@@ -19,9 +20,17 @@ type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 export function AgentChat({
   hasMobileNav,
   threadId,
+  sidebarOpen,
+  onToggleSidebar,
+  chatSidebarOpen,
+  onToggleChatSidebar,
 }: {
   hasMobileNav?: boolean;
   threadId: string;
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  chatSidebarOpen?: boolean;
+  onToggleChatSidebar?: () => void;
 }) {
   const { getThread, saveSnapshot, rename, newThread } = useThreads();
   const thread = getThread(threadId);
@@ -81,6 +90,38 @@ export function AgentChat({
           >
             <PanelLeftIcon className="size-4" />
           </button>
+          {!sidebarOpen && onToggleSidebar && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onToggleSidebar}
+                    className="hidden lg:flex p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Open sidebar"
+                  >
+                    <PanelLeftIcon className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Open sidebar</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {!chatSidebarOpen && onToggleChatSidebar && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onToggleChatSidebar}
+                    className="hidden lg:flex p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Show chat history"
+                  >
+                    <HistoryIcon className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Show chat history</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <CaelAvatar size={40} active={agent.status === "submitted" || agent.status === "streaming"} />
           <span className="truncate text-muted-foreground text-sm">Cael</span>
           <StatusDot status={agent.status} />
@@ -190,12 +231,12 @@ function PersonalizedWelcome() {
   });
 
   return (
-    <div className="flex flex-col items-center gap-3 px-4 text-center mb-6">
-      <h1 className="font-medium text-4xl tracking-tighter">
+    <div className="flex flex-col items-center gap-2 px-4 text-center mb-6">
+      <h1 className="font-semibold text-4xl tracking-tighter text-foreground">
         {greeting}, Berto.
       </h1>
       <p className="text-muted-foreground text-sm">{today}</p>
-      <p className="text-muted-foreground">What would you like to do today?</p>
+      <p className="text-muted-foreground text-sm mt-1">What would you like to do today?</p>
     </div>
   );
 }

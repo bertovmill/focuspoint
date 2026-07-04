@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-04 — ElevenLabs-inspired UI redesign
+
+Replaced the mint/emerald color scheme with a clean, high-contrast white + orange palette inspired by ElevenLabs.
+
+**Changes:**
+- `app/globals.css`: New color token set — near-white page background (`oklch(0.98 0 0)`), pure white cards, all grays are neutral (no hue), vibrant orange primary (`oklch(0.68 0.22 37)`, ~`#F97316`). Dark mode updated to match (deep near-black bg, same orange). Radius tightened from `0.625rem` to `0.5rem`. Added `antialiased` font smoothing and `-0.02em` letter-spacing on headings.
+- `app/_components/dashboard.tsx`: Simplified header — removed `CaelAvatar`, tighter layout, date line moved below the title row.
+- `app/_components/agent-chat.tsx`: Welcome screen text tightened (`font-semibold`, smaller `mt-1` gap).
+
+**Typecheck:** PASS ✓
+
+---
+
+## Session: 2026-07-04 — Collapsible sidebars with slide animation
+
+Both desktop sidebars (Dashboard panel + Chat history rail) are now independently collapsible with a smooth 300ms ease-in-out slide animation.
+
+**Changes:**
+- `app/page.tsx`: added `chatSidebarOpen` state. Both sidebars now use `lg:transition-[width] lg:duration-300 lg:ease-in-out` + `overflow-hidden` instead of `lg:hidden` toggling. Each has an inner fixed-width wrapper so content doesn't reflow during the slide animation.
+- `app/_components/agent-chat.tsx`: added `chatSidebarOpen` + `onToggleChatSidebar` props. Added a `HistoryIcon` toggle button in the header (desktop only, next to the existing dashboard toggle).
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-07-04 — Recurring tasks
 
 Added optional recurrence to todos (daily, weekly, monthly).

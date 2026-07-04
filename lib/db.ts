@@ -40,6 +40,7 @@ export async function ensureSchema() {
       completed_at TIMESTAMPTZ
     )
   `;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none'`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

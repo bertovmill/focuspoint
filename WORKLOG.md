@@ -4,6 +4,54 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-04 — Recurring tasks
+
+Added optional recurrence to todos (daily, weekly, monthly).
+
+**How it works:**
+- Each todo has a `recurrence` field: `none` (default), `daily`, `weekly`, or `monthly`.
+- When a recurring task is "completed", it is NOT marked done. Instead its `due_date` is advanced to the next occurrence (today + period) and it stays active.
+- Non-recurring tasks complete and disappear as before.
+
+**UI changes (`app/_components/dashboard.tsx`):**
+- Quick-add form: a recurrence picker (Once / Daily / Weekly / Monthly pill buttons) appears when you start typing a task title. Defaults to "Once".
+- Task list items: recurring tasks show a small repeat icon and label next to the due date.
+- Completing a recurring task updates its due_date in place rather than removing it.
+
+**Schema (`lib/db.ts`):**
+- `ALTER TABLE todos ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none'` (idempotent).
+
+**API routes:**
+- `GET/POST /api/todos` include/accept `recurrence`.
+- `POST /api/todos/[id]/complete` advances `due_date` for recurring tasks and returns `{ recurring: true, next_due }`.
+
+**Agent tools:**
+- `add_todo.ts` accepts `recurrence` param.
+- `complete_todo.ts` reschedules recurring todos and informs the model.
+
+**Typecheck:** PASS ✓   **Eve info:** 0 errors, 0 warnings.
+
+**Files changed:**
+`lib/db.ts`, `app/api/todos/route.ts`, `app/api/todos/[id]/complete/route.ts`,
+`agent/tools/add_todo.ts`, `agent/tools/complete_todo.ts`, `app/_components/dashboard.tsx`
+
+---
+
+## Session: 2026-07-04 — Collapsible dashboard sidebar toggle
+
+Added an ElevenLabs-style sidebar toggle button to the desktop chat header.
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `app/page.tsx` | Added `sidebarOpen` state (default `true`). Dashboard `aside` conditionally hides on desktop when closed. Passes `sidebarOpen` + `onToggleSidebar` props to `AgentChat`. |
+| `app/_components/agent-chat.tsx` | Added `sidebarOpen` and `onToggleSidebar` props. Desktop-only (`hidden lg:flex`) button in the header: `PanelLeftCloseIcon` when open, `PanelLeftIcon` when closed, with a "Close sidebar" / "Open sidebar" tooltip on hover via the existing `Tooltip` component. |
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-07-02 — Fix scheduled tasks (morning-digest cron) not firing
 
 **Problem:** The `agent/schedules/morning-digest.ts` cron was registered correctly on Vercel (visible under Production deployment `crons`, path `/eve/v1/cron/...`, `0 12 * * *`), so it *was* firing every day — but no SMS was ever arriving.

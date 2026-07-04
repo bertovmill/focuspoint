@@ -8,17 +8,22 @@ export default defineTool({
     title: z.string().describe("What needs to be done"),
     priority: z.enum(["low", "normal", "high"]).default("normal"),
     due_date: z.string().optional().describe("ISO date string, e.g. '2026-06-30'"),
+    recurrence: z
+      .enum(["none", "daily", "weekly", "monthly"])
+      .default("none")
+      .describe("How often this task repeats. 'none' means one-time."),
   }),
-  async execute({ title, priority, due_date }) {
+  async execute({ title, priority, due_date, recurrence }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date)
-      VALUES (${title}, ${priority}, ${due_date ?? null})
-      RETURNING id, title, priority, due_date, created_at
+      INSERT INTO todos (title, priority, due_date, recurrence)
+      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence})
+      RETURNING id, title, priority, due_date, recurrence, created_at
     `;
     return row;
   },
   toModelOutput(output) {
-    return { type: "text", value: `Todo added: "${output.title}" (id: ${output.id})` };
+    const rec = output.recurrence && output.recurrence !== "none" ? ` (repeats ${output.recurrence})` : "";
+    return { type: "text", value: `Todo added: "${output.title}"${rec} (id: ${output.id})` };
   },
 });

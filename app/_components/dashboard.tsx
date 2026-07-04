@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -39,6 +39,7 @@ interface Todo {
   completed: boolean;
   priority: "low" | "normal" | "high";
   due_date: string | null;
+  recurrence: "none" | "daily" | "weekly" | "monthly";
   created_at: string;
 }
 
@@ -92,6 +93,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
+  const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams" | "media">(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -208,12 +210,14 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     e.preventDefault();
     const title = newTodo.trim();
     if (!title) return;
+    const recurrence = newTodoRecurrence;
     setNewTodo("");
+    setNewTodoRecurrence("none");
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, recurrence }),
       });
       if (!res.ok) throw new Error();
       const todo = await res.json();
@@ -275,7 +279,14 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     try {
       const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
       if (!res.ok) throw new Error();
-      setTimeout(() => setTodos((prev) => prev.filter((t) => t.id !== id)), 600);
+      const data = await res.json();
+      if (data.recurring && data.next_due) {
+        setTodos((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, completed: false, due_date: data.next_due } : t))
+        );
+      } else {
+        setTimeout(() => setTodos((prev) => prev.filter((t) => t.id !== id)), 600);
+      }
     } catch {
       setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: false } : t)));
       toast.error("Couldn't complete task.");
@@ -364,16 +375,39 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
 
         <TabsContent value="todos" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
             {/* Quick add */}
-            <form onSubmit={handleAddTodo} className="flex gap-2 mb-5">
-              <Input
-                value={newTodo}
-                onChange={(e) => setNewTodo(e.target.value)}
-                placeholder="Add a task…"
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" aria-label="Add task">
-                <PlusIcon className="size-4" />
-              </Button>
+            <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
+              <div className="flex gap-2">
+                <Input
+                  value={newTodo}
+                  onChange={(e) => setNewTodo(e.target.value)}
+                  placeholder="Add a task…"
+                  className="flex-1"
+                />
+                <Button type="submit" size="icon" aria-label="Add task">
+                  <PlusIcon className="size-4" />
+                </Button>
+              </div>
+              {/* Recurrence picker — shown when typing */}
+              {newTodo.trim() && (
+                <div className="flex items-center gap-1.5">
+                  <RepeatIcon className="size-3 text-muted-foreground shrink-0" />
+                  {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setNewTodoRecurrence(r)}
+                      className={cn(
+                        "text-xs px-2 py-0.5 rounded-full border transition-colors",
+                        newTodoRecurrence === r
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50"
+                      )}
+                    >
+                      {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </form>
 
             {loading ? (
@@ -409,12 +443,20 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                       <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
                         {todo.title}
                       </p>
-                      {todo.due_date && (
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <ClockIcon className="size-3" />
-                          {formatDate(todo.due_date)}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {todo.due_date && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <ClockIcon className="size-3" />
+                            {formatDate(todo.due_date)}
+                          </p>
+                        )}
+                        {todo.recurrence && todo.recurrence !== "none" && (
+                          <p className="text-xs text-primary/70 flex items-center gap-0.5">
+                            <RepeatIcon className="size-3" />
+                            {todo.recurrence}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {todo.priority === "high" && (
                       <Badge

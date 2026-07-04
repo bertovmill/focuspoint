@@ -101,6 +101,7 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
   const [dragOver, setDragOver] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [runningDream, setRunningDream] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -271,6 +272,25 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
     } catch {
       setThoughts(prevThoughts);
       toast.error("Couldn't delete note.");
+    }
+  };
+
+  const handleRunDream = async () => {
+    setRunningDream(true);
+    try {
+      const res = await fetch("/api/dream", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      if (data.message) {
+        toast.info(data.message);
+      } else {
+        toast.success(`Dream complete — ${data.patterns_found} patterns, ${data.insights_written} insights`);
+        await fetchData();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Dream failed. Check console.");
+    } finally {
+      setRunningDream(false);
     }
   };
 
@@ -696,9 +716,18 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 </EmptyMedia>
                 <EmptyTitle>No dreams yet</EmptyTitle>
                 <EmptyDescription>
-                  The first dream runs tonight at 3 AM. Cael will consolidate your notes and surface patterns.
+                  Cael consolidates your notes and surfaces patterns nightly. Run one now to start.
                 </EmptyDescription>
               </EmptyHeader>
+              <Button
+                onClick={handleRunDream}
+                disabled={runningDream}
+                className="mt-4"
+                size="sm"
+              >
+                {runningDream ? <Spinner className="size-3.5 mr-2" /> : <BrainIcon className="size-3.5 mr-2" />}
+                {runningDream ? "Dreaming…" : "Run dream now"}
+              </Button>
             </Empty>
           ) : (
             <div className="space-y-4">
@@ -707,9 +736,21 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 <p className="text-xs text-muted-foreground">
                   {new Date(dream.dream_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={handleRunDream}
+                    disabled={runningDream}
+                    title="Re-run dream"
+                  >
+                    {runningDream ? <Spinner className="size-3" /> : <RepeatIcon className="size-3" />}
+                  </Button>
+                </div>
               </div>
 
               {/* Summary */}

@@ -62,12 +62,13 @@ Runs automatically every morning so your next session starts with a fresh synthe
     schedule: "Daily at 12:00 PM UTC",
     endpoint: "/api/daily-tweet",
     icon: SendIcon,
-    detail: `Reads your last 14 days of notes, then asks Claude (temperature 1) to:
-1. Extract the sharpest principle or tension hiding in your thoughts
-2. Compress it into one universally true statement — no personal details
-3. Post it to @berto_vmill on X automatically
+    detail: `An eve agent schedule (agent/schedules/daily-tweet.ts) that runs daily at 12:00 PM UTC:
+1. Reads 50 recent notes via list_notes tool
+2. Randomly picks 8–12 to focus on — avoids defaulting to the most-repeated theme
+3. Finds the most surprising or compressed idea in that subset
+4. Posts it to @berto_vmill via post_tweet tool — no personal details, no hashtags
 
-Each run picks a different angle and thought to keep tweets fresh and varied.`,
+The "Run now" button triggers the manual API route as a fallback.`,
   },
 ];
 

@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-04 — Add Morning Digest card to Scheduled Tasks sidebar
+
+Added the Morning Digest schedule as a third card in the "Automated" section of the Scheduled Tasks sidebar view.
+
+**What changed:**
+- `app/_components/dashboard.tsx`: added `SunIcon` to imports; added `morning-digest` entry to `CRON_JOBS` with icon, schedule time (8 AM ET / 12:00 UTC), and a detailed double-click description explaining the SMS flow (AI news + todos + calendar + Twilio delivery).
+- `app/api/morning-digest/route.ts`: new API route. GET is the cron auth check (managed by eve). POST is the "Run now" manual trigger — returns an info toast explaining it's an SMS schedule and how to trigger it in dev via the eve dispatch route.
+
+**Double-click detail** for morning-digest explains:
+- Gathers top AI news, open todos, and calendar events
+- Formats a phone-friendly SMS (no markdown, 2-4 emojis)
+- Delivers via Twilio to MY_PHONE_NUMBER
+- "Run now" is informational since SMS can't be previewed in the browser
+
+**Typecheck:** PASS
+
+---
+
 ## Session: 2026-07-04 — Scheduled Tasks sidebar section
 
 Added a "Scheduled Tasks" nav item to the ElevenLabs-style sidebar.

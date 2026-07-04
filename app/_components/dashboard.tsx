@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon, SunIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -69,6 +69,30 @@ Runs automatically every morning so your next session starts with a fresh synthe
 4. Posts it to @berto_vmill via post_tweet tool — no personal details, no hashtags
 
 The "Run now" button triggers the manual API route as a fallback.`,
+  },
+  {
+    key: "morning-digest",
+    name: "Morning Digest",
+    description: "Texts a daily briefing: top AI news, open todos, and calendar events",
+    schedule: "Daily at 8:00 AM ET (12:00 UTC)",
+    endpoint: "/api/morning-digest",
+    icon: SunIcon,
+    detail: `An eve agent schedule (agent/schedules/morning-digest.ts) that runs daily at 12:00 UTC (8 AM Eastern):
+
+Gathers 3 things:
+  - Top AI news headline + link (via latest_ai_news tool)
+  - Open todos (via list_todos tool)
+  - Today's calendar events (via list_calendar_events tool)
+
+Formats a plain-text SMS digest — no markdown, phone-friendly short lines, 2-4 tasteful emojis.
+
+Structure:
+  · Warm greeting
+  · Top AI story with a tappable URL
+  · TODAY section: 1-3 focus items from todos and calendar
+  · One short encouraging close
+
+Delivers via Twilio SMS to MY_PHONE_NUMBER. The "Run now" button is informational only — this schedule sends to your phone, not the browser.`,
   },
 ];
 

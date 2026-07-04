@@ -4,7 +4,7 @@ import { useEveAgent, type EveMessagePart } from "eve/react";
 import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { TracePanel } from "@/app/_components/trace-panel";
@@ -24,6 +24,8 @@ export function AgentChat({
   onToggleSidebar,
   chatSidebarOpen,
   onToggleChatSidebar,
+  initialMessage,
+  onInitialMessageSent,
 }: {
   hasMobileNav?: boolean;
   threadId: string;
@@ -31,6 +33,8 @@ export function AgentChat({
   onToggleSidebar?: () => void;
   chatSidebarOpen?: boolean;
   onToggleChatSidebar?: () => void;
+  initialMessage?: string;
+  onInitialMessageSent?: () => void;
 }) {
   const { getThread, saveSnapshot, rename, newThread } = useThreads();
   const thread = getThread(threadId);
@@ -62,6 +66,25 @@ export function AgentChat({
       rename(threadId, deriveTitle(textPart.text));
     }
   }, [agent.data.messages, thread?.title, threadId, rename]);
+
+  // Auto-send initialMessage once on mount (used by "Run now" in Scheduled Tasks).
+  const hasSentInitial = useRef(false);
+  const agentSendRef = useRef(agent.send);
+  agentSendRef.current = agent.send;
+  const onInitialMessageSentRef = useRef(onInitialMessageSent);
+  onInitialMessageSentRef.current = onInitialMessageSent;
+
+  useEffect(() => {
+    if (!initialMessage || hasSentInitial.current) return;
+    hasSentInitial.current = true;
+    // Brief delay lets the eve transport initialize before the first send.
+    const timer = setTimeout(() => {
+      agentSendRef.current({ message: initialMessage });
+      onInitialMessageSentRef.current?.();
+    }, 100);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const runtime = useEveRuntime(agent);
 

@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-04 — "Run now" opens a new chat thread
+
+When clicking "Run now" on any Scheduled Tasks card, Cael now creates a new chat thread and lets the agent execute the job live in the UI — so you can watch it happen in real time.
+
+**What changed:**
+- `app/_components/agent-chat.tsx`: added `initialMessage?: string` and `onInitialMessageSent?: () => void` props. On mount, if `initialMessage` is set, a 100ms `setTimeout` fires `agent.send({ message: initialMessage })` (the eve SDK send, same as typing in the chat). A ref prevents double-send.
+- `app/_components/dashboard.tsx`: added `agentMessage` field to each CRON_JOB entry (the natural-language instruction to send Cael). Added `onRunJobWithChat?: (message: string) => void` prop. `handleRunJob` now checks for this callback first — if present, it calls it and returns immediately instead of hitting the API route directly.
+- `app/page.tsx`: added `pendingMessage` state and `handleRunJobWithChat` callback in `Workspace`. The callback calls `newThread()`, sets `pendingMessage`, and switches `mobileTab` to "chat" (on mobile). Passes `onRunJobWithChat={handleRunJobWithChat}` to Dashboard and `initialMessage={pendingMessage}` + `onInitialMessageSent` to AgentChat. The `key={activeId}` on AgentChat means each new thread is a fresh mount, so each "Run now" creates an isolated conversation.
+
+**Flow:**
+1. User clicks "Run now" on Dream / Tweet / Morning Digest
+2. New chat thread is created and activated
+3. Mobile view switches to chat; desktop stays split
+4. AgentChat mounts with the pre-set message, sends it 100ms later
+5. Agent executes the job live (tools visible in UI)
+
+**Typecheck:** PASS
+
+---
+
 ## Session: 2026-07-04 — Add Morning Digest card to Scheduled Tasks sidebar
 
 Added the Morning Digest schedule as a third card in the "Automated" section of the Scheduled Tasks sidebar view.

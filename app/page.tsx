@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
@@ -22,7 +22,14 @@ function Workspace() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
-  const { hydrated, activeId } = useThreads();
+  const [pendingMessage, setPendingMessage] = useState<string | undefined>();
+  const { hydrated, activeId, newThread } = useThreads();
+
+  const handleRunJobWithChat = useCallback((message: string) => {
+    newThread();
+    setPendingMessage(message);
+    setMobileTab("chat");
+  }, [newThread]);
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
@@ -40,6 +47,7 @@ function Workspace() {
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
+            onRunJobWithChat={handleRunJobWithChat}
           />
         </div>
       </aside>
@@ -83,6 +91,8 @@ function Workspace() {
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
               chatSidebarOpen={chatSidebarOpen}
               onToggleChatSidebar={() => setChatSidebarOpen((v) => !v)}
+              initialMessage={pendingMessage}
+              onInitialMessageSent={() => setPendingMessage(undefined)}
             />
           ) : null}
         </div>

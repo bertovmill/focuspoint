@@ -48,6 +48,7 @@ const CRON_JOBS = [
     schedule: "Daily at 8:00 AM UTC",
     endpoint: "/api/dream",
     icon: MoonIcon,
+    agentMessage: "Run a dream analysis now. Read my recent notes and todos, identify recurring themes and emotional patterns, find connections between separate thoughts, surface 3-5 key insights, and save those insights back as new notes.",
     detail: `Reads your last 30 days of notes and open tasks, then asks Claude to:
 1. Identify recurring themes and emotional patterns
 2. Find connections between separate thoughts
@@ -62,6 +63,7 @@ Runs automatically every morning so your next session starts with a fresh synthe
     schedule: "Daily at 12:00 PM UTC",
     endpoint: "/api/daily-tweet",
     icon: SendIcon,
+    agentMessage: "Post today's daily tweet. Read my recent notes, randomly pick 8-12 of them, find the most surprising or compressed idea that's not my most-repeated theme, craft a tweet under 200 characters with no hashtags or personal details, and post it to X.",
     detail: `An eve agent schedule (agent/schedules/daily-tweet.ts) that runs daily at 12:00 PM UTC:
 1. Reads 50 recent notes via list_notes tool
 2. Randomly picks 8–12 to focus on — avoids defaulting to the most-repeated theme
@@ -77,6 +79,7 @@ The "Run now" button triggers the manual API route as a fallback.`,
     schedule: "Daily at 8:00 AM ET (12:00 UTC)",
     endpoint: "/api/morning-digest",
     icon: SunIcon,
+    agentMessage: "Run my morning digest now. Get the top AI news headline and link, my open todos, and today's calendar events. Format it as a phone-friendly plain-text SMS with no markdown, 2-4 tasteful emojis, a warm greeting, the top AI story, my key focus items, and a short encouraging close. Then send it to my phone via SMS.",
     detail: `An eve agent schedule (agent/schedules/morning-digest.ts) that runs daily at 12:00 UTC (8 AM Eastern):
 
 Gathers 3 things:
@@ -151,7 +154,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?: "todos" | "notes" | "dreams" | "media" | "schedule"; onCollapse?: () => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
@@ -357,11 +360,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
     }
   };
 
-  const handleRunJob = async (key: string, endpoint: string) => {
+  const handleRunJob = async (key: string, endpoint: string, agentMessage?: string) => {
+    // If a chat callback is wired up, open a new thread and let the agent do the work live.
+    if (onRunJobWithChat && agentMessage) {
+      onRunJobWithChat(agentMessage);
+      return;
+    }
+
+    // Fallback: call the API route directly (used when no chat callback is provided).
     setRunningJob((prev) => ({ ...prev, [key]: true }));
     try {
-      // Morning digest is an eve schedule — call the eve dispatch route directly
-      // from the browser so the session cookie is sent automatically.
       if (key === "morning-digest") {
         const res = await fetch("/eve/v1/dev/schedules/morning-digest", {
           method: "POST",
@@ -370,7 +378,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
         if (res.ok) {
           toast.success("Digest triggered — SMS on its way to your phone.");
         } else {
-          // Production: eve dispatch is dev-only, schedule runs via cron
           toast.info("Morning digest runs automatically at 8 AM ET via cron.");
         }
         return;
@@ -926,7 +933,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                           size="sm"
                           variant="outline"
                           className="shrink-0 gap-1.5"
-                          onClick={(e) => { e.stopPropagation(); handleRunJob(job.key, job.endpoint); }}
+                          onClick={(e) => { e.stopPropagation(); handleRunJob(job.key, job.endpoint, job.agentMessage); }}
                           disabled={isRunning}
                         >
                           {isRunning ? (

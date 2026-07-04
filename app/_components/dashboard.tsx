@@ -392,19 +392,16 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                 <div className="flex items-center gap-1.5">
                   <RepeatIcon className="size-3 text-muted-foreground shrink-0" />
                   {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
-                    <button
+                    <Badge
                       key={r}
-                      type="button"
-                      onClick={() => setNewTodoRecurrence(r)}
-                      className={cn(
-                        "text-xs px-2 py-0.5 rounded-full border transition-colors",
-                        newTodoRecurrence === r
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:border-primary/50"
-                      )}
+                      asChild
+                      variant={newTodoRecurrence === r ? "default" : "outline"}
+                      className="cursor-pointer"
                     >
-                      {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
-                    </button>
+                      <button type="button" onClick={() => setNewTodoRecurrence(r)}>
+                        {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                      </button>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -451,10 +448,10 @@ export function Dashboard({ activeTab: controlledTab }: { activeTab?: "todos" | 
                           </p>
                         )}
                         {todo.recurrence && todo.recurrence !== "none" && (
-                          <p className="text-xs text-primary/70 flex items-center gap-0.5">
-                            <RepeatIcon className="size-3" />
+                          <Badge variant="outline" className="gap-0.5 border-primary/30 text-primary/70 py-0">
+                            <RepeatIcon className="size-2.5" />
                             {todo.recurrence}
-                          </p>
+                          </Badge>
                         )}
                       </div>
                     </div>

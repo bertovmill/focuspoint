@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, CalendarIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SearchIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -20,9 +20,9 @@ import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ModeToggle } from "@/app/_components/mode-toggle";
+import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -31,6 +31,33 @@ import {
   InputGroupButton,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
+
+const NAV_ITEMS = [
+  { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
+  { id: "notes" as const, label: "Notes", icon: FileTextIcon },
+  { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
+  { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
+  { id: "media" as const, label: "Media", icon: ImageIcon },
+];
+
+const CRON_JOBS = [
+  {
+    key: "dream",
+    name: "Dream Analysis",
+    description: "Synthesizes your notes and surfaces patterns",
+    schedule: "Daily at 8:00 AM UTC",
+    endpoint: "/api/dream",
+    icon: MoonIcon,
+  },
+  {
+    key: "tweet",
+    name: "Daily Tweet",
+    description: "Generates and posts a tweet from your recent thoughts",
+    schedule: "Daily at 12:00 PM UTC",
+    endpoint: "/api/daily-tweet",
+    icon: SendIcon,
+  },
+];
 
 interface Todo {
   id: number;
@@ -87,20 +114,21 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?: "todos" | "notes" | "dreams" | "media"; onCollapse?: () => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?: "todos" | "notes" | "dreams" | "media" | "schedule"; onCollapse?: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams" | "media">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [runningDream, setRunningDream] = useState(false);
+  const [runningJob, setRunningJob] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -171,8 +199,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Debounced semantic search: when the user types a query, search notes by
-  // meaning via the embeddings API rather than exact text/tag match.
   useEffect(() => {
     const q = query.trim();
     if (!q) {
@@ -293,6 +319,25 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
     }
   };
 
+  const handleRunJob = async (key: string, endpoint: string) => {
+    setRunningJob((prev) => ({ ...prev, [key]: true }));
+    try {
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      if (data.message) {
+        toast.info(data.message);
+      } else {
+        toast.success(`${key === "dream" ? "Dream" : "Tweet"} ran successfully.`);
+        if (key === "dream") await fetchData();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Run failed.");
+    } finally {
+      setRunningJob((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
   const handleDeleteTodo = async (id: number) => {
     const prev = todos;
     setTodos((t) => t.filter((x) => x.id !== id));
@@ -325,12 +370,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
     }
   };
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
   const activeTodos = todos.filter((t) => !t.completed);
   const highPriority = activeTodos.filter((t) => t.priority === "high");
 
@@ -346,24 +385,27 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-border">
+      {/* Compact header */}
+      <div className="px-4 pt-4 pb-3 border-b border-border">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold tracking-tight">Cael</h1>
-            {!loading && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {activeTodos.length === 0
-                  ? "All clear"
-                  : `${activeTodos.length} task${activeTodos.length !== 1 ? "s" : ""}${highPriority.length > 0 ? ` · ${highPriority.length} high` : ""}`}
-              </p>
-            )}
+          <div className="flex items-center gap-2.5">
+            <CaelAvatar size={36} />
+            <div>
+              <h1 className="text-base font-semibold tracking-tight leading-tight">Cael</h1>
+              {!loading && (
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  {activeTodos.length === 0
+                    ? "All clear"
+                    : `${activeTodos.length} task${activeTodos.length !== 1 ? "s" : ""}${highPriority.length > 0 ? `, ${highPriority.length} urgent` : ""}`}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             {onCollapse && (
               <button
                 onClick={onCollapse}
-                className="hidden lg:flex p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                 aria-label="Collapse panel"
               >
                 <PanelLeftCloseIcon className="size-3.5" />
@@ -372,49 +414,41 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
             <ModeToggle />
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-3">
-          <CalendarIcon className="size-3 text-muted-foreground shrink-0" />
-          <span className="text-xs text-muted-foreground">{today}</span>
-        </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v as "todos" | "notes" | "dreams" | "media")}
-        className="flex min-h-0 flex-1 flex-col gap-0"
-      >
-        <div className="border-b border-border px-5">
-          <TabsList variant="line" className="h-auto gap-5 bg-transparent p-0">
-            <TabsTrigger
-              value="todos"
-              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
+      {/* Vertical nav — ElevenLabs style */}
+      <nav className="px-3 py-3 space-y-0.5 border-b border-border shrink-0">
+        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                "flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm transition-colors text-left",
+                isActive
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
             >
-              Tasks
-            </TabsTrigger>
-            <TabsTrigger
-              value="notes"
-              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
-            >
-              Notes
-            </TabsTrigger>
-            <TabsTrigger
-              value="dreams"
-              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
-            >
-              Dreams
-            </TabsTrigger>
-            <TabsTrigger
-              value="media"
-              className="flex-none rounded-none px-0 py-2.5 after:bg-primary data-[state=active]:text-primary"
-            >
-              Media
-            </TabsTrigger>
-          </TabsList>
-        </div>
+              <Icon className="size-4 shrink-0" />
+              <span>{label}</span>
+              {id === "todos" && !loading && activeTodos.length > 0 && (
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                  {activeTodos.length}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-        <TabsContent value="todos" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
-            {/* Quick add */}
+      {/* Content area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+
+        {/* Tasks */}
+        {activeTab === "todos" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
               <div className="flex gap-2">
                 <Input
@@ -427,7 +461,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                   <PlusIcon className="size-4" />
                 </Button>
               </div>
-              {/* Recurrence picker — shown when typing */}
               {newTodo.trim() && (
                 <div className="flex items-center gap-1.5">
                   <RepeatIcon className="size-3 text-muted-foreground shrink-0" />
@@ -514,10 +547,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                 ))}
               </ul>
             )}
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="notes" className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 pb-16 lg:pb-0">
-            {/* Semantic search box */}
+        {/* Notes */}
+        {activeTab === "notes" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0 overflow-x-hidden">
             {!loading && thoughts.length > 0 && (
               <InputGroup className="mb-3">
                 {searching ? (
@@ -548,7 +583,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
               </InputGroup>
             )}
 
-            {/* Tag filter bar — stays active during search to narrow results by tag */}
             {!loading && allTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <Badge
@@ -611,8 +645,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                   </EmptyMedia>
                   <EmptyTitle>
                     {searchActive
-                      ? `No notes match “${query.trim()}”`
-                      : `No notes tagged “${tagFilter}”`}
+                      ? `No notes match "${query.trim()}"`
+                      : `No notes tagged "${tagFilter}"`}
                   </EmptyTitle>
                 </EmptyHeader>
               </Empty>
@@ -706,182 +740,277 @@ export function Dashboard({ activeTab: controlledTab, onCollapse }: { activeTab?
                 ))}
               </div>
             )}
-        </TabsContent>
-
-        <TabsContent value="dreams" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
-          {loading || dream === undefined ? (
-            <div className="space-y-3">
-              <Skeleton className="h-20 rounded-xl" />
-              <Skeleton className="h-32 rounded-xl" />
-              <Skeleton className="h-24 rounded-xl" />
-            </div>
-          ) : dream === null ? (
-            <Empty className="py-12">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <BrainIcon className="size-5" />
-                </EmptyMedia>
-                <EmptyTitle>No dreams yet</EmptyTitle>
-                <EmptyDescription>
-                  Cael consolidates your notes and surfaces patterns nightly. Run one now to start.
-                </EmptyDescription>
-              </EmptyHeader>
-              <Button
-                onClick={handleRunDream}
-                disabled={runningDream}
-                className="mt-4"
-                size="sm"
-              >
-                {runningDream ? <Spinner className="size-3.5 mr-2" /> : <BrainIcon className="size-3.5 mr-2" />}
-                {runningDream ? "Dreaming…" : "Run dream now"}
-              </Button>
-            </Empty>
-          ) : (
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {new Date(dream.dream_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6"
-                    onClick={handleRunDream}
-                    disabled={runningDream}
-                    title="Re-run dream"
-                  >
-                    {runningDream ? <Spinner className="size-3" /> : <RepeatIcon className="size-3" />}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <Card className="p-4">
-                <p className="text-sm leading-relaxed text-foreground">{dream.summary}</p>
-              </Card>
-
-              {/* Patterns */}
-              {dream.patterns.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Patterns</h3>
-                  <div className="space-y-2">
-                    {dream.patterns.map((p, i) => (
-                      <Card key={i} className="p-3">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="text-sm font-medium">{p.theme}</p>
-                          <Badge variant="secondary" className="shrink-0 text-xs">{p.frequency}×</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{p.evidence}</p>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Insights */}
-              {dream.insights.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Insights</h3>
-                  <Card className="p-3">
-                    <ul className="space-y-2">
-                      {dream.insights.map((insight, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <span className="text-primary mt-0.5 shrink-0">·</span>
-                          <span className="leading-relaxed">{insight}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="media" className="flex-1 overflow-y-auto px-5 py-4 pb-16 lg:pb-0">
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleUpload(file);
-              e.target.value = "";
-            }}
-          />
-
-          {/* Drop zone */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file) handleUpload(file);
-            }}
-            className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 transition-colors",
-              dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
-              uploading && "pointer-events-none opacity-60",
-            )}
-          >
-            {uploading ? (
-              <Spinner className="size-6 text-primary" />
-            ) : (
-              <UploadIcon className="size-6 text-muted-foreground" />
-            )}
-            <div className="text-center">
-              <p className="text-sm font-medium">{uploading ? "Uploading…" : "Click or drag an image here"}</p>
-              <p className="text-xs text-muted-foreground">JPEG, PNG, GIF, WebP · max 5 MB</p>
-            </div>
           </div>
+        )}
 
-          {/* Uploaded images list */}
-          {uploadedImages.length > 0 && (
-            <div className="mt-5 flex flex-col gap-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded this session</p>
-              {uploadedImages.map((img) => (
-                <Card key={img.url} className="flex items-center gap-3 p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.url} alt={img.name} className="size-12 shrink-0 rounded-md object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{img.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{img.url}</p>
+        {/* Dreams */}
+        {activeTab === "dreams" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            {loading || dream === undefined ? (
+              <div className="space-y-3">
+                <Skeleton className="h-20 rounded-xl" />
+                <Skeleton className="h-32 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
+              </div>
+            ) : dream === null ? (
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <BrainIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>No dreams yet</EmptyTitle>
+                  <EmptyDescription>
+                    Cael consolidates your notes and surfaces patterns nightly. Run one now to start.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button
+                  onClick={handleRunDream}
+                  disabled={runningDream}
+                  className="mt-4"
+                  size="sm"
+                >
+                  {runningDream ? <Spinner className="size-3.5 mr-2" /> : <BrainIcon className="size-3.5 mr-2" />}
+                  {runningDream ? "Dreaming…" : "Run dream now"}
+                </Button>
+              </Empty>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(dream.dream_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      onClick={handleRunDream}
+                      disabled={runningDream}
+                      title="Re-run dream"
+                    >
+                      {runningDream ? <Spinner className="size-3" /> : <RepeatIcon className="size-3" />}
+                    </Button>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={() => copyUrl(img.url)}
-                    title="Copy URL"
-                  >
-                    {copiedUrl === img.url ? (
-                      <CheckCheck className="size-4 text-green-500" />
-                    ) : (
-                      <CopyIcon className="size-4" />
-                    )}
-                  </Button>
-                </Card>
-              ))}
-            </div>
-          )}
+                </div>
 
-          {uploadedImages.length === 0 && !uploading && (
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              Upload an image, copy its URL, then tell Cael to post it to LinkedIn.
-            </p>
-          )}
-        </TabsContent>
-      </Tabs>
+                <Card className="p-4">
+                  <p className="text-sm leading-relaxed text-foreground">{dream.summary}</p>
+                </Card>
+
+                {dream.patterns.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Patterns</h3>
+                    <div className="space-y-2">
+                      {dream.patterns.map((p, i) => (
+                        <Card key={i} className="p-3">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-sm font-medium">{p.theme}</p>
+                            <Badge variant="secondary" className="shrink-0 text-xs">{p.frequency}×</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{p.evidence}</p>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {dream.insights.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Insights</h3>
+                    <Card className="p-3">
+                      <ul className="space-y-2">
+                        {dream.insights.map((insight, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="text-primary mt-0.5 shrink-0">·</span>
+                            <span className="leading-relaxed">{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Scheduled Tasks */}
+        {activeTab === "schedule" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0 space-y-6">
+
+            {/* Automated jobs */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Automated</p>
+              <div className="space-y-3">
+                {CRON_JOBS.map((job) => {
+                  const Icon = job.icon;
+                  const isRunning = !!runningJob[job.key];
+                  return (
+                    <Card key={job.key} className="p-4 flex items-start gap-3">
+                      <div className="mt-0.5 shrink-0 size-8 rounded-lg bg-muted flex items-center justify-center">
+                        <Icon className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-snug">{job.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{job.description}</p>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <CalendarClockIcon className="size-3 text-muted-foreground shrink-0" />
+                          <span className="text-xs text-muted-foreground">{job.schedule}</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1.5"
+                        onClick={() => handleRunJob(job.key, job.endpoint)}
+                        disabled={isRunning}
+                      >
+                        {isRunning ? (
+                          <Spinner className="size-3" />
+                        ) : (
+                          <PlayIcon className="size-3" />
+                        )}
+                        {isRunning ? "Running…" : "Run now"}
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Recurring todos */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Recurring Tasks</p>
+              {loading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                </div>
+              ) : todos.filter((t) => t.recurrence && t.recurrence !== "none").length === 0 ? (
+                <Empty className="py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <RepeatIcon className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No recurring tasks</EmptyTitle>
+                    <EmptyDescription>Add a task with a recurrence (daily, weekly, monthly) to see it here.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <ul className="space-y-1.5">
+                  {todos
+                    .filter((t) => t.recurrence && t.recurrence !== "none")
+                    .map((todo) => (
+                      <li
+                        key={todo.id}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 bg-muted/30"
+                      >
+                        <RepeatIcon className="size-3.5 text-primary/70 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm leading-snug truncate", priorityColor(todo.priority))}>
+                            {todo.title}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 gap-0.5 border-primary/30 text-primary/70 py-0 capitalize">
+                          {todo.recurrence}
+                        </Badge>
+                        {todo.due_date && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                            <ClockIcon className="size-3" />
+                            {formatDate(todo.due_date)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* Media */}
+        {activeTab === "media" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUpload(file);
+                e.target.value = "";
+              }}
+            />
+
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file) handleUpload(file);
+              }}
+              className={cn(
+                "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 transition-colors",
+                dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+                uploading && "pointer-events-none opacity-60",
+              )}
+            >
+              {uploading ? (
+                <Spinner className="size-6 text-primary" />
+              ) : (
+                <UploadIcon className="size-6 text-muted-foreground" />
+              )}
+              <div className="text-center">
+                <p className="text-sm font-medium">{uploading ? "Uploading…" : "Click or drag an image here"}</p>
+                <p className="text-xs text-muted-foreground">JPEG, PNG, GIF, WebP · max 5 MB</p>
+              </div>
+            </div>
+
+            {uploadedImages.length > 0 && (
+              <div className="mt-5 flex flex-col gap-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded this session</p>
+                {uploadedImages.map((img) => (
+                  <Card key={img.url} className="flex items-center gap-3 p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.url} alt={img.name} className="size-12 shrink-0 rounded-md object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{img.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{img.url}</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={() => copyUrl(img.url)}
+                      title="Copy URL"
+                    >
+                      {copiedUrl === img.url ? (
+                        <CheckCheck className="size-4 text-green-500" />
+                      ) : (
+                        <CopyIcon className="size-4" />
+                      )}
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {uploadedImages.length === 0 && !uploading && (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Upload an image, copy its URL, then tell Cael to post it to LinkedIn.
+              </p>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

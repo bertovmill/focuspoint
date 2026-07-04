@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
-type MobileTab = "chat" | "tasks" | "notes" | "dreams" | "media";
+type MobileTab = "chat" | "tasks" | "notes" | "dreams" | "schedule" | "media";
 
 export default function Page() {
   return (
@@ -20,6 +20,8 @@ export default function Page() {
 
 function Workspace() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const { hydrated, activeId } = useThreads();
 
   return (
@@ -27,12 +29,19 @@ function Workspace() {
       {/* Dashboard panel — sidebar on desktop, full-screen on mobile for tasks/notes */}
       <aside
         className={cn(
-          "shrink-0 flex-col border-r border-border",
+          "shrink-0 flex-col border-r border-border overflow-hidden",
           mobileTab !== "chat" ? "flex flex-1" : "hidden",
-          "lg:flex lg:flex-none lg:w-[380px] xl:w-[420px]",
+          "lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
+          sidebarOpen ? "lg:w-[380px] xl:w-[420px]" : "lg:w-0",
         )}
       >
-        <Dashboard activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : "todos"} />
+        {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation */}
+        <div className="flex flex-col flex-1 h-full lg:w-[380px] xl:w-[420px] lg:shrink-0">
+          <Dashboard
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
+            onCollapse={() => setSidebarOpen(false)}
+          />
+        </div>
       </aside>
 
       {/* Chat panel — full width on mobile (when chat tab active), remainder on desktop */}
@@ -44,13 +53,37 @@ function Workspace() {
         )}
       >
         {/* Desktop chat-history rail */}
-        <div className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-border">
-          <ChatSidebar className="h-full" />
+        <div
+          className={cn(
+            "hidden shrink-0 flex-col border-r border-border overflow-hidden",
+            "lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
+            chatSidebarOpen ? "lg:w-64" : "lg:w-0",
+          )}
+        >
+          {/* Fixed-width inner so content doesn't reflow during animation */}
+          <div className="w-64 h-full shrink-0 relative">
+            <ChatSidebar className="h-full" />
+            <button
+              onClick={() => setChatSidebarOpen(false)}
+              className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Hide chat history"
+            >
+              <PanelLeftCloseIcon className="size-3.5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
           {hydrated && activeId ? (
-            <AgentChat key={activeId} threadId={activeId} hasMobileNav />
+            <AgentChat
+              key={activeId}
+              threadId={activeId}
+              hasMobileNav
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={() => setSidebarOpen((v) => !v)}
+              chatSidebarOpen={chatSidebarOpen}
+              onToggleChatSidebar={() => setChatSidebarOpen((v) => !v)}
+            />
           ) : null}
         </div>
       </div>
@@ -80,6 +113,12 @@ function Workspace() {
           icon={<BrainIcon className="size-5" />}
           active={mobileTab === "dreams"}
           onClick={() => setMobileTab("dreams")}
+        />
+        <NavButton
+          label="Schedule"
+          icon={<CalendarClockIcon className="size-5" />}
+          active={mobileTab === "schedule"}
+          onClick={() => setMobileTab("schedule")}
         />
         <NavButton
           label="Media"

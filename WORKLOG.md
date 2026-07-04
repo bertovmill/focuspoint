@@ -4,6 +4,34 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-04 — Scheduled Tasks sidebar section
+
+Added a "Scheduled Tasks" nav item to the ElevenLabs-style sidebar.
+
+**What it shows:**
+
+1. **Automated** section: the two Vercel cron jobs (Dream Analysis at 8 AM UTC, Daily Tweet at 12 PM UTC), each with a "Run now" button that triggers the POST endpoint.
+2. **Recurring Tasks** section: all todos with a recurrence field set (daily/weekly/monthly), with their repeat cadence badge and next due date.
+
+**Files changed:**
+- `app/_components/dashboard.tsx`: added `CalendarClockIcon, SendIcon, PlayIcon` to imports; added `CRON_JOBS` constant; extended `activeTab` type to include `"schedule"`; added `runningJob` state (keyed by job key); added `handleRunJob` async function; added full Schedule content section between Dreams and Media.
+- `app/page.tsx`: added `CalendarClockIcon` import; added `"schedule"` to `MobileTab` type; wired `schedule` branch in `activeTab` prop; added Schedule NavButton in mobile bottom nav.
+
+**Typecheck:** PASS
+
+---
+
+## Session: 2026-07-04 — ElevenLabs-inspired sidebar nav redesign
+
+Replaced horizontal tab bar in Dashboard with a vertical nav list (icon + label) matching ElevenLabs' sidebar style.
+
+**Changes:**
+- `app/_components/dashboard.tsx`: replaced `Tabs/TabsList/TabsTrigger` with a `<nav>` of full-width buttons; compact 36px avatar header; conditional content rendering instead of `TabsContent`; active item gets `bg-accent` highlight; Tasks item shows live count on the right.
+
+**Typecheck:** PASS
+
+---
+
 ## Session: 2026-07-04 — ElevenLabs-inspired UI redesign
 
 Replaced the mint/emerald color scheme with a clean, high-contrast white + orange palette inspired by ElevenLabs.

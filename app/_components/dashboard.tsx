@@ -79,11 +79,12 @@ The "Run now" button triggers the manual API route as a fallback.`,
     schedule: "Daily at 8:00 AM ET (12:00 UTC)",
     endpoint: "/api/morning-digest",
     icon: SunIcon,
-    agentMessage: "Run my morning digest now. Get the top AI news headline and link, my open todos, and today's calendar events. Format it as a phone-friendly plain-text SMS with no markdown, 2-4 tasteful emojis, a warm greeting, the top AI story, my key focus items, and a short encouraging close. Then send it to my phone via SMS.",
+    agentMessage: "Run my morning digest now. Get the top AI news headline, 4-5 article links from reputable AI sources (MIT Technology Review, VentureBeat, Ars Technica, The Verge, Wired), my open todos, and today's calendar events. Format it as a phone-friendly plain-text SMS with no markdown, 2-4 tasteful emojis, a warm greeting, the top AI story, focus items, an AI READS section with 4-5 article links, and a short encouraging close. Then send it to my phone via SMS.",
     detail: `An eve agent schedule (agent/schedules/morning-digest.ts) that runs daily at 12:00 UTC (8 AM Eastern):
 
-Gathers 3 things:
-  - Top AI news headline + link (via latest_ai_news tool)
+Gathers 4 things:
+  - Top AI newsletter headline + link (via latest_ai_news tool)
+  - 4-5 article links from reputable sources (via ai_reading_list tool)
   - Open todos (via list_todos tool)
   - Today's calendar events (via list_calendar_events tool)
 
@@ -91,11 +92,12 @@ Formats a plain-text SMS digest — no markdown, phone-friendly short lines, 2-4
 
 Structure:
   · Warm greeting
-  · Top AI story with a tappable URL
-  · TODAY section: 1-3 focus items from todos and calendar
+  · TOP STORY: top AI headline + link
+  · TODAY: 1-3 focus items from todos and calendar
+  · AI READS: 4-5 article links from MIT Tech Review, VentureBeat, Ars Technica, The Verge, Wired
   · One short encouraging close
 
-Delivers via Twilio SMS to MY_PHONE_NUMBER. The "Run now" button is informational only — this schedule sends to your phone, not the browser.`,
+Delivers via Twilio SMS to MY_PHONE_NUMBER.`,
   },
 ];
 

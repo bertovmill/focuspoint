@@ -86,7 +86,8 @@ const ChatSidebarItem: FC<{
   active: boolean;
   onSwitch: () => void;
 }> = ({ thread, active, onSwitch }) => {
-  const { rename, remove } = useThreads();
+  const { rename, remove, runningIds } = useThreads();
+  const isRunning = runningIds.has(thread.id);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(thread.title);
 
@@ -136,8 +137,14 @@ const ChatSidebarItem: FC<{
     >
       <button
         onClick={onSwitch}
-        className="flex h-full min-w-0 flex-1 items-center rounded-md px-2.5 text-start text-sm outline-none group-hover:pe-16"
+        className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-md px-2.5 text-start text-sm outline-none group-hover:pe-16"
       >
+        {isRunning && (
+          <span className="relative flex size-1.5 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
+          </span>
+        )}
         <span className="min-w-0 flex-1 truncate">{label}</span>
       </button>
       <div className="absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover:opacity-100">

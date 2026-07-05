@@ -33,12 +33,14 @@ type ThreadsContextValue = {
   hydrated: boolean;
   threads: readonly ThreadRecord[];
   activeId: string;
+  runningIds: ReadonlySet<string>;
   getThread: (id: string) => ThreadRecord | undefined;
   newThread: () => void;
   switchTo: (id: string) => void;
   rename: (id: string, title: string) => void;
   remove: (id: string) => void;
   saveSnapshot: (id: string, snap: Snapshot) => void;
+  setRunning: (id: string, running: boolean) => void;
 };
 
 const ThreadsContext = createContext<ThreadsContextValue | null>(null);
@@ -79,6 +81,7 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
   const [threads, setThreads] = useState<ThreadRecord[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [hydrated, setHydrated] = useState(false);
+  const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
 
   // Load threads from DB on mount.
   useEffect(() => {
@@ -162,6 +165,15 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setRunning = useCallback((id: string, running: boolean) => {
+    setRunningIds((prev) => {
+      const next = new Set(prev);
+      if (running) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
   const saveSnapshot = useCallback((id: string, snap: Snapshot) => {
     setThreads((prev) =>
       prev.map((t) => {
@@ -184,14 +196,16 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       hydrated,
       threads: [...threads].sort(bySortKey),
       activeId,
+      runningIds,
       getThread,
       newThread,
       switchTo,
       rename,
       remove,
       saveSnapshot,
+      setRunning,
     }),
-    [hydrated, threads, activeId, getThread, newThread, switchTo, rename, remove, saveSnapshot],
+    [hydrated, threads, activeId, runningIds, getThread, newThread, switchTo, rename, remove, saveSnapshot, setRunning],
   );
 
   return (

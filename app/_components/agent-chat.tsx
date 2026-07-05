@@ -36,7 +36,7 @@ export function AgentChat({
   initialMessage?: string;
   onInitialMessageSent?: () => void;
 }) {
-  const { getThread, saveSnapshot, rename, newThread } = useThreads();
+  const { getThread, saveSnapshot, rename, newThread, setRunning } = useThreads();
   const thread = getThread(threadId);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
@@ -85,6 +85,14 @@ export function AgentChat({
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep ThreadsProvider aware of this thread's running state so the sidebar
+  // can show a status dot even after switching away from this thread.
+  const isRunning = agent.status === "submitted" || agent.status === "streaming";
+  useEffect(() => {
+    setRunning(threadId, isRunning);
+    return () => setRunning(threadId, false);
+  }, [isRunning, threadId, setRunning]);
 
   const runtime = useEveRuntime(agent);
 

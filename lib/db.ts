@@ -63,4 +63,17 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS scheduled_tasks (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      cron TEXT NOT NULL,
+      notify BOOLEAN NOT NULL DEFAULT TRUE,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      last_run_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }

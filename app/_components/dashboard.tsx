@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon, SunIcon } from "lucide-react";
+import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -956,6 +957,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   );
                 })}
               </div>
+            </div>
+
+            {/* Custom scheduled tasks — user- or Cael-created, editable at runtime */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Custom</p>
+              <ScheduledTasksPanel />
             </div>
 
             {/* Recurring todos */}

@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-08 — Editable scheduled tasks (frontend + Cael tool)
+
+**Ask:** User asked whether scheduled tasks could be edited from the frontend, and whether Cael could have a tool to edit its own scheduled tasks. At the time, the only schedules that existed (`agent/schedules/morning-digest.ts`, `agent/schedules/daily-tweet.ts`, `/api/dream`) were static code, fixed at build/deploy time — the "Scheduled Tasks" sidebar built in the sessions below only *displays* and manually re-runs those three, it doesn't let you create a new one or change a cron/prompt.
+
+**Design (eve's documented "dynamic scheduling" pattern):** Store schedules as rows in Postgres instead of code. One static eve schedule (`cron: "* * * * *"`) wakes every minute, atomically claims due rows, and hands each one to Cael via the Twilio channel as a normal agent turn (so the task prompt gets full tool access) — texting the result only if the row's `notify` flag is set.
+
+**Built:**
+- `scheduled_tasks` table (`lib/db.ts`): title, prompt, cron (5-field, UTC), notify, enabled, last_run_at.
+- `lib/cron.ts`: minimal cron validate/match/describe helpers (supports `*` and comma lists only — no ranges/steps, since every real use case here is daily-or-weekly-at-a-fixed-time). `describeCron` renders things like "Daily at 9:00 PM UTC" for the UI.
+- `agent/schedules/dispatcher.ts`: the one-minute dispatcher schedule. Atomically claims due rows (conditional `UPDATE ... WHERE last_run_at < this-minute`) before firing, so overlapping ticks can't double-send.
+- Four new agent tools: `create_scheduled_task`, `list_scheduled_tasks`, `update_scheduled_task` (also used to pause/resume via `enabled`), `delete_scheduled_task`.
+- `app/api/scheduled-tasks/route.ts` + `[id]/route.ts`: REST CRUD for the frontend, mirroring the existing `/api/todos` pattern.
+- `app/_components/scheduled-tasks-panel.tsx`: list/create/edit/pause/delete UI, added inside the existing "Scheduled Tasks" nav section in `dashboard.tsx` (below the built-in-schedule cards from the sessions below — this branch had diverged in parallel with those, so it was rebased on top and merged into the same section rather than adding a second tab).
+- `agent/instructions.md`: taught Cael the four tools, and to confirm cadence/time (converted to UTC) before creating, and to confirm before editing/pausing/deleting a task it didn't just create.
+
+**Left alone (by design, for now):** `/api/dream`, `agent/schedules/daily-tweet.ts`, and `agent/schedules/morning-digest.ts` still run as the fixed built-in schedules shown in the cards above this new list — they were working and out of scope for this change. They could be migrated into `scheduled_tasks` rows later if we want them editable/tool-accessible too.
+
+**Verified:** `npm run typecheck` clean. Full CRUD exercised end-to-end against the local Neon DB via curl (create/list/pause/invalid-cron-rejection/delete all behaved correctly). `eve dev` booted with no discovery errors and the dev-only dispatch route (`POST /eve/v1/dev/schedules/dispatcher`) ran the handler cleanly. Sent a real chat message to confirm eve loads/validates the four new tool schemas without error. Screenshotted the running UI to confirm the merged section renders with no console errors.
+
+**Files changed:** `lib/db.ts`, `lib/cron.ts` (new), `agent/schedules/dispatcher.ts` (new), `agent/tools/create_scheduled_task.ts` (new), `agent/tools/list_scheduled_tasks.ts` (new), `agent/tools/update_scheduled_task.ts` (new), `agent/tools/delete_scheduled_task.ts` (new), `app/api/scheduled-tasks/route.ts` (new), `app/api/scheduled-tasks/[id]/route.ts` (new), `app/_components/scheduled-tasks-panel.tsx` (new), `app/_components/dashboard.tsx`, `agent/instructions.md`.
+
+---
+
 ## Session: 2026-07-04 — "Run now" opens a new chat thread
 
 When clicking "Run now" on any Scheduled Tasks card, Cael now creates a new chat thread and lets the agent execute the job live in the UI — so you can watch it happen in real time.

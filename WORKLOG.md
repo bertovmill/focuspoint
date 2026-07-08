@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-08 — Agent Traces page
+
+**Ask:** A dedicated page for digging into raw eve agent traces (tool calls, reasoning, token usage per session) — separate from the normal chat view.
+
+**Key discovery:** No backend work needed. `threads.events` (`lib/db.ts`) already stores the full raw NDJSON event stream per session — `threads-provider.tsx` writes `snap.events` there on every turn so chat history survives a refresh. Confirmed against real production data (57 threads) that the shape matches eve's documented event contract (`type`, `data`, `meta.at`) exactly, including `action.result` (tool output), `step.completed` (`usage.inputTokens/outputTokens/cacheReadTokens/cacheWriteTokens`, `finishReason`), and `session.started.runtime` (model id, eve version, git branch/sha).
+
+**Built:**
+- `lib/trace-utils.ts`: pure functions over a raw event array — `buildToolCallMap` (matches `action.result`'s bare `callId` back to the tool name from the earlier `actions.requested`), `computeThreadStats` (model, eve version, git build, turn/tool-call counts, summed token usage, wall-clock duration, terminal status), `summarizeEvent` (one-line human summary per event type), `isNoisyEvent` (filters out `*.appended` streaming deltas and `step.started`, since their `.completed` counterpart already carries the final value).
+- `app/_components/traces-view.tsx`: full-page two-pane client component. Left: session list (title, relative time, status dot, turn/tool-call counts, filterable by title) fetched from the existing `/api/threads`. Right: selected session's summary card (model/duration/turns/tool calls/token totals/git build) + the full event timeline as collapsible rows (icon + one-line summary + timestamp, expand for raw JSON via native `<details>`).
+- `app/traces/page.tsx`: new route at `/traces`, inherits the root layout (theme, auth middleware — same login-gated as the rest of the app).
+- `app/_components/dashboard.tsx`: small `ActivityIcon` link to `/traces` next to the header's `ModeToggle`.
+
+**Two real field-name bugs caught by checking actual data before shipping:** `reasoning.completed`'s text is on `data.reasoning`, not `data.text`; `message.completed`'s text is on `data.message`, not `data.text`. Would have silently rendered blank summaries for both — the docs' event table names the events but not every field, so worth pulling a real thread's events before trusting an event summarizer.
+
+**Verified:** `npm run typecheck` clean. Screenshotted the live page against real thread data — session list, summary stats (56,402 input / 744 output / 32,860 cache-read tokens on the sampled session), and an expanded raw-JSON row all render correctly with zero console errors.
+
+**Files changed:** `lib/trace-utils.ts` (new), `app/_components/traces-view.tsx` (new), `app/traces/page.tsx` (new), `app/_components/dashboard.tsx`.
+
+---
+
 ## Session: 2026-07-08 — Editable scheduled tasks (frontend + Cael tool)
 
 **Ask:** User asked whether scheduled tasks could be edited from the frontend, and whether Cael could have a tool to edit its own scheduled tasks. At the time, the only schedules that existed (`agent/schedules/morning-digest.ts`, `agent/schedules/daily-tweet.ts`, `/api/dream`) were static code, fixed at build/deploy time — the "Scheduled Tasks" sidebar built in the sessions below only *displays* and manually re-runs those three, it doesn't let you create a new one or change a cron/prompt.

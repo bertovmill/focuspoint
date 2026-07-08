@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon, SunIcon } from "lucide-react";
+import Link from "next/link";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon, SunIcon, ActivityIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { toast } from "sonner";
 import {
@@ -466,6 +467,14 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <Link
+              href="/traces"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="View agent traces"
+              title="Agent traces"
+            >
+              <ActivityIcon className="size-3.5" />
+            </Link>
             {onCollapse && (
               <button
                 onClick={onCollapse}

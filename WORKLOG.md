@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-10 — update_todo tool for Cael
+
+**Ask:** Berto asked Cael "are you able to edit my automated tasks?" — Cael said no, only add/complete/list. Turned out scheduled tasks were already fully editable (tool + UI from the 2026-07-08 session); the gap was plain todos, which had no edit path.
+
+**What was built:**
+- `agent/tools/update_todo.ts` — new tool to edit an existing todo's title, priority, due_date, or recurrence by id, instead of only complete+recreate.
+- `agent/instructions.md` — updated the Todos capability line to list `update_todo` alongside `add_todo`/`complete_todo`/`list_todos`.
+
+**Verified:** Scheduled tasks (`app/_components/scheduled-tasks-panel.tsx`) already have a pencil-icon edit dialog wired to `PATCH /api/scheduled-tasks/[id]`, and Cael already has `update_scheduled_task`. No changes needed there — Cael's earlier "I can't edit" answer was about todos, not scheduled tasks.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-07-08 — Agent Traces page
 
 **Ask:** A dedicated page for digging into raw eve agent traces (tool calls, reasoning, token usage per session) — separate from the normal chat view.

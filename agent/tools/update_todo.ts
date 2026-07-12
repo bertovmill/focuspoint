@@ -8,7 +8,7 @@ export default defineTool({
   inputSchema: z.object({
     id: z.number().int().describe("The todo id to edit"),
     title: z.string().min(1).optional(),
-    priority: z.enum(["low", "normal", "high"]).optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
     due_date: z.string().optional().describe("ISO date string, e.g. '2026-06-30'"),
     recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional(),
   }),

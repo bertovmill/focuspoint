@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, SendIcon, PlayIcon, SunIcon, ActivityIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { toast } from "sonner";
 import {
@@ -37,77 +37,24 @@ import { Spinner } from "@/components/ui/spinner";
 const NAV_ITEMS = [
   { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
   { id: "notes" as const, label: "Notes", icon: FileTextIcon },
+  { id: "content-ideas" as const, label: "Content Ideas", icon: LightbulbIcon },
   { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
   { id: "media" as const, label: "Media", icon: ImageIcon },
 ];
 
-const CRON_JOBS = [
-  {
-    key: "dream",
-    name: "Dream Analysis",
-    description: "Synthesizes your notes and surfaces patterns",
-    schedule: "Daily at 8:00 AM UTC",
-    endpoint: "/api/dream",
-    icon: MoonIcon,
-    agentMessage: "Run a dream analysis now. Read my recent notes and todos, identify recurring themes and emotional patterns, find connections between separate thoughts, surface 3-5 key insights, and save those insights back as new notes.",
-    detail: `Reads your last 30 days of notes and open tasks, then asks Claude to:
-1. Identify recurring themes and emotional patterns
-2. Find connections between separate thoughts
-3. Surface 3–5 insights written back as new notes
-
-Runs automatically every morning so your next session starts with a fresh synthesis.`,
-  },
-  {
-    key: "tweet",
-    name: "Daily Tweet",
-    description: "Generates and posts a tweet from your recent thoughts",
-    schedule: "Daily at 12:00 PM UTC",
-    endpoint: "/api/daily-tweet",
-    icon: SendIcon,
-    agentMessage: "Post today's daily tweet. Read my recent notes, randomly pick 8-12 of them, find the most surprising or compressed idea that's not my most-repeated theme, craft a tweet under 200 characters with no hashtags or personal details, and post it to X.",
-    detail: `An eve agent schedule (agent/schedules/daily-tweet.ts) that runs daily at 12:00 PM UTC:
-1. Reads 50 recent notes via list_notes tool
-2. Randomly picks 8–12 to focus on — avoids defaulting to the most-repeated theme
-3. Finds the most surprising or compressed idea in that subset
-4. Posts it to @berto_vmill via post_tweet tool — no personal details, no hashtags
-
-The "Run now" button triggers the manual API route as a fallback.`,
-  },
-  {
-    key: "morning-digest",
-    name: "Morning Digest",
-    description: "Texts a daily briefing: top AI news, open todos, and calendar events",
-    schedule: "Daily at 8:00 AM ET (12:00 UTC)",
-    endpoint: "/api/morning-digest",
-    icon: SunIcon,
-    agentMessage: "Run my morning digest now. Get the top AI news headline, 4-5 article links from reputable AI sources (MIT Technology Review, VentureBeat, Ars Technica, The Verge, Wired), my open todos, and today's calendar events. Format it as a phone-friendly plain-text SMS with no markdown, 2-4 tasteful emojis, a warm greeting, the top AI story, focus items, an AI READS section with 4-5 article links, and a short encouraging close. Then send it to my phone via SMS.",
-    detail: `An eve agent schedule (agent/schedules/morning-digest.ts) that runs daily at 12:00 UTC (8 AM Eastern):
-
-Gathers 4 things:
-  - Top AI newsletter headline + link (via latest_ai_news tool)
-  - 4-5 article links from reputable sources (via ai_reading_list tool)
-  - Open todos (via list_todos tool)
-  - Today's calendar events (via list_calendar_events tool)
-
-Formats a plain-text SMS digest — no markdown, phone-friendly short lines, 2-4 tasteful emojis.
-
-Structure:
-  · Warm greeting
-  · TOP STORY: top AI headline + link
-  · TODAY: 1-3 focus items from todos and calendar
-  · AI READS: 4-5 article links from MIT Tech Review, VentureBeat, Ars Technica, The Verge, Wired
-  · One short encouraging close
-
-Delivers via Twilio SMS to MY_PHONE_NUMBER.`,
-  },
+const TODO_SECTIONS = [
+  { key: "none" as const, label: "Once" },
+  { key: "daily" as const, label: "Daily" },
+  { key: "weekly" as const, label: "Weekly" },
+  { key: "monthly" as const, label: "Monthly" },
 ];
 
 interface Todo {
   id: number;
   title: string;
   completed: boolean;
-  priority: "low" | "normal" | "high";
+  priority: "low" | "normal" | "high" | "urgent";
   due_date: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   created_at: string;
@@ -119,6 +66,14 @@ interface Thought {
   tags: string[];
   created_at: string;
   score?: number;
+}
+
+interface ContentIdea {
+  id: number;
+  title: string;
+  completed: boolean;
+  created_at: string;
+  completed_at: string | null;
 }
 
 interface DreamReport {
@@ -147,6 +102,7 @@ function formatDate(iso: string | null) {
 }
 
 function priorityColor(p: string) {
+  if (p === "urgent") return "text-priority-urgent";
   if (p === "high") return "text-priority-high";
   if (p === "low") return "text-muted-foreground";
   return "text-foreground";
@@ -158,27 +114,30 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
+  const [contentIdeas, setContentIdeas] = useState<ContentIdea[]>([]);
+  const [newContentIdea, setNewContentIdea] = useState("");
+  const [editingIdeaId, setEditingIdeaId] = useState<number | null>(null);
+  const [editIdeaTitle, setEditIdeaTitle] = useState("");
+  const editIdeaRef = useRef<HTMLInputElement>(null);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "content-ideas" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [runningDream, setRunningDream] = useState(false);
-  const [runningJob, setRunningJob] = useState<Record<string, boolean>>({});
-  const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editTodoTitle, setEditTodoTitle] = useState("");
-  const [editTodoPriority, setEditTodoPriority] = useState<"low" | "normal" | "high">("normal");
+  const [editTodoPriority, setEditTodoPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
   const [editTodoDueDate, setEditTodoDueDate] = useState("");
   const [editTodoRecurrence, setEditTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const editTodoRef = useRef<HTMLInputElement>(null);
@@ -229,14 +188,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const fetchData = useCallback(async () => {
     try {
-      const [todosRes, thoughtsRes, dreamRes] = await Promise.all([
+      const [todosRes, thoughtsRes, dreamRes, ideasRes] = await Promise.all([
         fetch("/api/todos"),
         fetch("/api/thoughts"),
         fetch("/api/dreams"),
+        fetch("/api/content-ideas"),
       ]);
       if (todosRes.ok) setTodos(await todosRes.json());
       if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
       if (dreamRes.ok) setDream(await dreamRes.json());
+      if (ideasRes.ok) setContentIdeas(await ideasRes.json());
     } catch {
       // silently fail — agent can still be used
     } finally {
@@ -305,6 +266,88 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const handleAddContentIdea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = newContentIdea.trim();
+    if (!title) return;
+    setNewContentIdea("");
+    try {
+      const res = await fetch("/api/content-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
+      const idea = await res.json();
+      setContentIdeas((prev) => [idea, ...prev]);
+    } catch {
+      setNewContentIdea(title);
+      toast.error("Couldn't add content idea. Try again.");
+    }
+  };
+
+  const handleToggleContentIdea = async (id: number, completed: boolean) => {
+    const prev = contentIdeas;
+    setContentIdeas((ideas) => ideas.map((i) => (i.id === id ? { ...i, completed } : i)));
+    try {
+      const res = await fetch(`/api/content-ideas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setContentIdeas(prev);
+      toast.error("Couldn't update content idea.");
+    }
+  };
+
+  const startEditContentIdea = (idea: ContentIdea) => {
+    setEditingIdeaId(idea.id);
+    setEditIdeaTitle(idea.title);
+    setTimeout(() => {
+      editIdeaRef.current?.focus();
+      editIdeaRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEditContentIdea = () => {
+    setEditingIdeaId(null);
+    setEditIdeaTitle("");
+  };
+
+  const saveEditContentIdea = async (id: number) => {
+    const title = editIdeaTitle.trim();
+    if (!title) return;
+    const prev = contentIdeas;
+    setContentIdeas((ideas) => ideas.map((i) => (i.id === id ? { ...i, title } : i)));
+    setEditingIdeaId(null);
+    try {
+      const res = await fetch(`/api/content-ideas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setContentIdeas(prev);
+      toast.error("Couldn't save content idea.");
+    }
+  };
+
+  const handleDeleteContentIdea = async (id: number) => {
+    const prev = contentIdeas;
+    setContentIdeas((ideas) => ideas.filter((i) => i.id !== id));
+    try {
+      const res = await fetch(`/api/content-ideas/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Content idea deleted.");
+    } catch {
+      setContentIdeas(prev);
+      toast.error("Couldn't delete content idea.");
+    }
+  };
+
   const startEdit = (thought: Thought) => {
     setEditingId(thought.id);
     setEditContent(thought.content);
@@ -367,45 +410,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       toast.error(err instanceof Error ? err.message : "Dream failed. Check console.");
     } finally {
       setRunningDream(false);
-    }
-  };
-
-  const handleRunJob = async (key: string, endpoint: string, agentMessage?: string) => {
-    // If a chat callback is wired up, open a new thread and let the agent do the work live.
-    if (onRunJobWithChat && agentMessage) {
-      onRunJobWithChat(agentMessage);
-      return;
-    }
-
-    // Fallback: call the API route directly (used when no chat callback is provided).
-    setRunningJob((prev) => ({ ...prev, [key]: true }));
-    try {
-      if (key === "morning-digest") {
-        const res = await fetch("/eve/v1/dev/schedules/morning-digest", {
-          method: "POST",
-          credentials: "include",
-        });
-        if (res.ok) {
-          toast.success("Digest triggered — SMS on its way to your phone.");
-        } else {
-          toast.info("Morning digest runs automatically at 8 AM ET via cron.");
-        }
-        return;
-      }
-
-      const res = await fetch(endpoint, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      if (data.ok) {
-        if (key === "tweet") toast.success("Tweet posted.");
-        else { toast.success("Done."); await fetchData(); }
-      } else if (data.message) {
-        toast.info(data.message);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Run failed.");
-    } finally {
-      setRunningJob((prev) => ({ ...prev, [key]: false }));
     }
   };
 
@@ -484,7 +488,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   };
 
   const activeTodos = todos.filter((t) => !t.completed);
-  const highPriority = activeTodos.filter((t) => t.priority === "high");
+  const highPriority = activeTodos.filter((t) => t.priority === "high" || t.priority === "urgent");
 
   const allTags = Array.from(
     new Set(thoughts.flatMap((t) => t.tags ?? [])),
@@ -618,111 +622,127 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                 </EmptyHeader>
               </Empty>
             ) : (
-              <ul className="space-y-1.5">
-                {activeTodos.map((todo) =>
-                  editingTodoId === todo.id ? (
-                    <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
-                      <Input
-                        ref={editTodoRef}
-                        value={editTodoTitle}
-                        onChange={(e) => setEditTodoTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEditTodo(todo.id);
-                          if (e.key === "Escape") cancelEditTodo();
-                        }}
-                        className="mb-2"
-                      />
-                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                        {(["low", "normal", "high"] as const).map((p) => (
-                          <Badge
-                            key={p}
-                            asChild
-                            variant={editTodoPriority === p ? "default" : "outline"}
-                            className="cursor-pointer capitalize"
-                          >
-                            <button type="button" onClick={() => setEditTodoPriority(p)}>{p}</button>
-                          </Badge>
-                        ))}
-                        <Input
-                          type="date"
-                          value={editTodoDueDate}
-                          onChange={(e) => setEditTodoDueDate(e.target.value)}
-                          className="h-7 w-auto text-xs"
-                        />
-                        {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
-                          <Badge
-                            key={r}
-                            asChild
-                            variant={editTodoRecurrence === r ? "default" : "outline"}
-                            className="cursor-pointer"
-                          >
-                            <button type="button" onClick={() => setEditTodoRecurrence(r)}>
-                              {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="xs" onClick={() => saveEditTodo(todo.id)}>Save</Button>
-                        <Button size="xs" variant="outline" onClick={cancelEditTodo}>Cancel</Button>
-                      </div>
-                    </li>
-                  ) : (
-                    <li
-                      key={todo.id}
-                      className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
-                    >
-                      <button
-                        onClick={() => handleComplete(todo.id)}
-                        className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
-                      >
-                        <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
-                          {todo.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {todo.due_date && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <ClockIcon className="size-3" />
-                              {formatDate(todo.due_date)}
-                            </p>
-                          )}
-                          {todo.recurrence && todo.recurrence !== "none" && (
-                            <Badge variant="outline" className="gap-0.5 border-primary/30 text-primary/70 py-0">
-                              <RepeatIcon className="size-2.5" />
-                              {todo.recurrence}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {todo.priority === "high" && (
-                        <Badge
-                          variant="outline"
-                          className="shrink-0 border-priority-high/40 text-priority-high"
-                        >
-                          High
-                        </Badge>
-                      )}
-                      <button
-                        onClick={() => startEditTodo(todo)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                        aria-label="Edit task"
-                      >
-                        <PencilIcon className="size-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTodo(todo.id)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        aria-label="Delete task"
-                      >
-                        <TrashIcon className="size-3.5" />
-                      </button>
-                    </li>
-                  )
-                )}
-              </ul>
+              <div className="space-y-5">
+                {TODO_SECTIONS.map(({ key, label }) => {
+                  const sectionTodos = activeTodos.filter((t) => (t.recurrence ?? "none") === key);
+                  if (sectionTodos.length === 0) return null;
+                  return (
+                    <div key={key}>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                        {label}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {sectionTodos.map((todo) =>
+                          editingTodoId === todo.id ? (
+                            <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
+                              <Input
+                                ref={editTodoRef}
+                                value={editTodoTitle}
+                                onChange={(e) => setEditTodoTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEditTodo(todo.id);
+                                  if (e.key === "Escape") cancelEditTodo();
+                                }}
+                                className="mb-2"
+                              />
+                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                                  <Badge
+                                    key={p}
+                                    asChild
+                                    variant={editTodoPriority === p ? "default" : "outline"}
+                                    className={cn(
+                                      "cursor-pointer capitalize",
+                                      p === "urgent" && editTodoPriority !== p && "border-priority-urgent/40 text-priority-urgent",
+                                    )}
+                                  >
+                                    <button type="button" onClick={() => setEditTodoPriority(p)}>{p}</button>
+                                  </Badge>
+                                ))}
+                                <Input
+                                  type="date"
+                                  value={editTodoDueDate}
+                                  onChange={(e) => setEditTodoDueDate(e.target.value)}
+                                  className="h-7 w-auto text-xs"
+                                />
+                                {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
+                                  <Badge
+                                    key={r}
+                                    asChild
+                                    variant={editTodoRecurrence === r ? "default" : "outline"}
+                                    className="cursor-pointer"
+                                  >
+                                    <button type="button" onClick={() => setEditTodoRecurrence(r)}>
+                                      {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="xs" onClick={() => saveEditTodo(todo.id)}>Save</Button>
+                                <Button size="xs" variant="outline" onClick={cancelEditTodo}>Cancel</Button>
+                              </div>
+                            </li>
+                          ) : (
+                            <li
+                              key={todo.id}
+                              className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
+                            >
+                              <button
+                                onClick={() => handleComplete(todo.id)}
+                                className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
+                              >
+                                <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
+                                  {todo.title}
+                                </p>
+                                {todo.due_date && (
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <ClockIcon className="size-3" />
+                                    {formatDate(todo.due_date)}
+                                  </p>
+                                )}
+                              </div>
+                              {todo.priority === "urgent" && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 border-priority-urgent/40 text-priority-urgent"
+                                >
+                                  Urgent
+                                </Badge>
+                              )}
+                              {todo.priority === "high" && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 border-priority-high/40 text-priority-high"
+                                >
+                                  High
+                                </Badge>
+                              )}
+                              <button
+                                onClick={() => startEditTodo(todo)}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                aria-label="Edit task"
+                              >
+                                <PencilIcon className="size-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTodo(todo.id)}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                aria-label="Delete task"
+                              >
+                                <TrashIcon className="size-3.5" />
+                              </button>
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -920,6 +940,99 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
           </div>
         )}
 
+        {/* Content Ideas */}
+        {activeTab === "content-ideas" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <form onSubmit={handleAddContentIdea} className="flex gap-2 mb-5">
+              <Input
+                value={newContentIdea}
+                onChange={(e) => setNewContentIdea(e.target.value)}
+                placeholder="Add a content idea…"
+                className="flex-1"
+              />
+              <Button type="submit" size="icon" aria-label="Add content idea">
+                <PlusIcon className="size-4" />
+              </Button>
+            </form>
+
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg" />
+                ))}
+              </div>
+            ) : contentIdeas.length === 0 ? (
+              <Empty className="py-12">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <LightbulbIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>No content ideas yet</EmptyTitle>
+                  <EmptyDescription>Jot down what you want to post about.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ul className="space-y-1.5">
+                {contentIdeas.map((idea) =>
+                  editingIdeaId === idea.id ? (
+                    <li key={idea.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
+                      <Input
+                        ref={editIdeaRef}
+                        value={editIdeaTitle}
+                        onChange={(e) => setEditIdeaTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEditContentIdea(idea.id);
+                          if (e.key === "Escape") cancelEditContentIdea();
+                        }}
+                        className="mb-2"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="xs" onClick={() => saveEditContentIdea(idea.id)}>Save</Button>
+                        <Button size="xs" variant="outline" onClick={cancelEditContentIdea}>Cancel</Button>
+                      </div>
+                    </li>
+                  ) : (
+                    <li
+                      key={idea.id}
+                      className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
+                    >
+                      <button
+                        onClick={() => handleToggleContentIdea(idea.id, !idea.completed)}
+                        className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
+                      >
+                        {idea.completed ? (
+                          <CheckIcon className="size-3 text-primary" />
+                        ) : (
+                          <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm leading-snug", idea.completed && "line-through text-muted-foreground")}>
+                          {idea.title}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => startEditContentIdea(idea)}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        aria-label="Edit content idea"
+                      >
+                        <PencilIcon className="size-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteContentIdea(idea.id)}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        aria-label="Delete content idea"
+                      >
+                        <TrashIcon className="size-3.5" />
+                      </button>
+                    </li>
+                  )
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+
         {/* Dreams */}
         {activeTab === "dreams" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
@@ -1018,64 +1131,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {activeTab === "schedule" && (
           <div className="px-5 py-4 pb-16 lg:pb-0 space-y-6">
 
-            {/* Automated jobs */}
+            {/* Scheduled tasks — all editable at runtime, including the built-in ones */}
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Automated</p>
-              <div className="space-y-3">
-                {CRON_JOBS.map((job) => {
-                  const Icon = job.icon;
-                  const isRunning = !!runningJob[job.key];
-                  const isExpanded = expandedJob === job.key;
-                  return (
-                    <Card
-                      key={job.key}
-                      className={cn("p-4 cursor-pointer select-none transition-colors", isExpanded && "ring-1 ring-border")}
-                      onDoubleClick={() => setExpandedJob(isExpanded ? null : job.key)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 shrink-0 size-8 rounded-lg bg-muted flex items-center justify-center">
-                          <Icon className="size-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium leading-snug">{job.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{job.description}</p>
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <CalendarClockIcon className="size-3 text-muted-foreground shrink-0" />
-                            <span className="text-xs text-muted-foreground">{job.schedule}</span>
-                            <span className="text-xs text-muted-foreground/50 ml-1">· double-click to inspect</span>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0 gap-1.5"
-                          onClick={(e) => { e.stopPropagation(); handleRunJob(job.key, job.endpoint, job.agentMessage); }}
-                          disabled={isRunning}
-                        >
-                          {isRunning ? (
-                            <Spinner className="size-3" />
-                          ) : (
-                            <PlayIcon className="size-3" />
-                          )}
-                          {isRunning ? "Running…" : "Run now"}
-                        </Button>
-                      </div>
-                      {isExpanded && (
-                        <div className="mt-3 pt-3 border-t border-border">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">What this does</p>
-                          <pre className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap font-sans">{job.detail}</pre>
-                        </div>
-                      )}
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom scheduled tasks — user- or Cael-created, editable at runtime */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Custom</p>
-              <ScheduledTasksPanel />
+              <ScheduledTasksPanel onRunNow={onRunJobWithChat} />
             </div>
 
             {/* Recurring todos */}

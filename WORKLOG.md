@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-12 — "urgent" priority label for todos
+
+**Ask:** Berto wanted an "urgent" label option for tasks so he can tell what needs to get done.
+
+**What was built:**
+- Extended the todo `priority` enum from `low | normal | high` to `low | normal | high | urgent` in `agent/tools/add_todo.ts` and `agent/tools/update_todo.ts`.
+- `agent/tools/list_todos.ts` — replaced the alphabetical `priority DESC` sort (which didn't actually rank priorities correctly) with an explicit `CASE` ordering so `urgent` sorts first, then `high`, `normal`, `low`.
+- `app/globals.css` — added a `--priority-urgent` color token (distinct red, separate from `--priority-high`'s orange-red) for light/dark themes plus the Tailwind `--color-priority-urgent` mapping.
+- `app/_components/dashboard.tsx` — added `urgent` to the `Todo` type, `priorityColor()`, the inline edit priority-picker badges, and a new red "Urgent" badge on task rows (alongside the existing "High" badge). The header's task-count summary now counts both `high` and `urgent` as "urgent" for the compact status line.
+
+**Note:** DB `priority` column is untyped `TEXT`, so no migration was needed — new values just start being written.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-07-10 — update_todo tool for Cael
 
 **Ask:** Berto asked Cael "are you able to edit my automated tasks?" — Cael said no, only add/complete/list. Turned out scheduled tasks were already fully editable (tool + UI from the 2026-07-08 session); the gap was plain todos, which had no edit path.

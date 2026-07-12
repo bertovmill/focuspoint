@@ -6,7 +6,7 @@ export default defineTool({
   description: "Add a new todo task for the user.",
   inputSchema: z.object({
     title: z.string().describe("What needs to be done"),
-    priority: z.enum(["low", "normal", "high"]).default("normal"),
+    priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
     due_date: z.string().optional().describe("ISO date string, e.g. '2026-06-30'"),
     recurrence: z
       .enum(["none", "daily", "weekly", "monthly"])

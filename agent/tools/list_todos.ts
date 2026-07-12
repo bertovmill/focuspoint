@@ -11,8 +11,20 @@ export default defineTool({
   async execute({ include_completed, limit }) {
     const sql = getDb();
     const rows = include_completed
-      ? await sql`SELECT * FROM todos ORDER BY completed ASC, priority DESC, created_at DESC LIMIT ${limit}`
-      : await sql`SELECT * FROM todos WHERE completed = FALSE ORDER BY priority DESC, created_at DESC LIMIT ${limit}`;
+      ? await sql`
+          SELECT * FROM todos
+          ORDER BY completed ASC,
+            CASE priority WHEN 'urgent' THEN 3 WHEN 'high' THEN 2 WHEN 'normal' THEN 1 ELSE 0 END DESC,
+            created_at DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT * FROM todos WHERE completed = FALSE
+          ORDER BY
+            CASE priority WHEN 'urgent' THEN 3 WHEN 'high' THEN 2 WHEN 'normal' THEN 1 ELSE 0 END DESC,
+            created_at DESC
+          LIMIT ${limit}
+        `;
     return { todos: rows, count: rows.length };
   },
 });

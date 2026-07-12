@@ -1487,3 +1487,17 @@ Moved `agent/schedules/dispatcher.ts` to `agent/schedules-disabled/dispatcher.ts
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Daily section only shows tasks due today
+
+**What was built:**
+Dashboard's "Daily" recurring-todos section previously showed all `recurrence: "daily"` todos regardless of `due_date`. Since completing a daily todo immediately rolls its `due_date` forward to the next day (existing recurrence logic), the completed task would instantly reappear in the list as "tomorrow's task" instead of staying off the list until the next day — making it look like nothing was crossed off.
+
+Added an `isToday(iso)` helper and filtered the Daily section so it only shows daily todos whose `due_date` is today (todos with no `due_date` still show, since they aren't date-scoped). Weekly/Monthly/Once sections unchanged.
+
+**Files changed:**
+- `app/_components/dashboard.tsx` — added `isToday()` helper; Daily section filter now requires `key !== "daily" || isToday(t.due_date)`.
+
+**Typecheck:** PASS ✓

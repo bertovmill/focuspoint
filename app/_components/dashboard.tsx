@@ -101,6 +101,17 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function isToday(iso: string | null) {
+  if (!iso) return true;
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
 function priorityColor(p: string) {
   if (p === "urgent") return "text-priority-urgent";
   if (p === "high") return "text-priority-high";
@@ -624,7 +635,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             ) : (
               <div className="space-y-5">
                 {TODO_SECTIONS.map(({ key, label }) => {
-                  const sectionTodos = activeTodos.filter((t) => (t.recurrence ?? "none") === key);
+                  const sectionTodos = activeTodos.filter(
+                    (t) => (t.recurrence ?? "none") === key && (key !== "daily" || isToday(t.due_date)),
+                  );
                   if (sectionTodos.length === 0) return null;
                   return (
                     <div key={key}>

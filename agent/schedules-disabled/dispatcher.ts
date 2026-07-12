@@ -4,6 +4,11 @@ import twilio from "../channels/twilio.js";
 import { getDb } from "../../lib/db.js";
 import { cronMatches } from "../../lib/cron.js";
 
+// DISABLED (moved out of agent/schedules/ so eve doesn't register it as a Vercel Cron Job):
+// Vercel Hobby plan only allows daily cron jobs, and this dispatcher needs to run every minute,
+// which blocked production deploys. Move this file back to agent/schedules/dispatcher.ts once
+// either the Vercel project is on Pro, or the dispatch is moved to an externally-triggered route.
+//
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Wakes once a minute, finds rows whose cron matches the current UTC minute and
 // haven't already run this minute, atomically claims them, and hands each one to Cael via SMS.

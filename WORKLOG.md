@@ -1448,3 +1448,26 @@ The Scheduled Tasks tab had two disconnected systems: three hardcoded "Automated
 - Left the Dreams tab's manual "Run dream now" button and its `/api/dream` POST route untouched — that's a separate, already-working manual trigger unrelated to the automatic-firing migration.
 
 **Typecheck:** PASS ✓ · **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Temporarily disable per-minute scheduled-tasks dispatcher (Vercel Hobby cron limit)
+
+**What was built:**
+Nothing feature-wise. Production deploys were failing with: "Hobby accounts are limited to daily cron jobs. This cron expression (* * * * *) would run more than once per day." The scheduled-tasks dispatcher (`agent/schedules/dispatcher.ts`) wakes every minute to check for due application-managed tasks, but eve compiles every `defineSchedule` into a native Vercel Cron Job, and Vercel Hobby only allows daily-cadence crons in production (confirmed against eve's docs — no built-in bypass).
+
+Moved `agent/schedules/dispatcher.ts` to `agent/schedules-disabled/dispatcher.ts` so eve stops discovering/registering it, unblocking the production deploy. Left a comment at the top of the file explaining why and what to do next.
+
+**Files changed:**
+- `agent/schedules/dispatcher.ts` -> `agent/schedules-disabled/dispatcher.ts` (moved, not deleted; import paths unchanged since nesting depth under `agent/` is the same)
+
+**Decisions:**
+- Chose to move the file out of `agent/schedules/` rather than change its cron cadence, since a daily-only dispatcher would defeat the purpose of the DB-backed scheduled-tasks feature.
+- Did not build the external-scheduler workaround (authenticated route + free external cron hitting it) in this session — flagged as the real fix to restore full functionality on the free Vercel plan.
+
+**Next steps:**
+- Either upgrade the Vercel project to Pro and move `dispatcher.ts` back to `agent/schedules/`, or build an authenticated HTTP route + external free scheduler (e.g. GitHub Actions cron, cron-job.org) to replace the Vercel-Cron-based dispatch so it works on Hobby.
+- Until then, user-created "Scheduled Tasks" (the DB-backed custom cron rows) will not fire in production — only the app's remaining daily-cadence jobs work.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
+import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
   { id: "notes" as const, label: "Notes", icon: FileTextIcon },
   { id: "content-ideas" as const, label: "Content Ideas", icon: LightbulbIcon },
+  { id: "journal-templates" as const, label: "Journal Templates", icon: BookOpenIcon },
   { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
   { id: "media" as const, label: "Media", icon: ImageIcon },
@@ -125,7 +127,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [contentIdeas, setContentIdeas] = useState<ContentIdea[]>([]);
@@ -137,7 +139,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "content-ideas" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -1137,6 +1139,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Journal Templates */}
+        {activeTab === "journal-templates" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <JournalTemplatesPanel />
           </div>
         )}
 

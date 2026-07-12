@@ -1501,3 +1501,26 @@ Added an `isToday(iso)` helper and filtered the Daily section so it only shows d
 - `app/_components/dashboard.tsx` — added `isToday()` helper; Daily section filter now requires `key !== "daily" || isToday(t.due_date)`.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-12 — Add Journal Templates sidebar page
+
+**What was built:**
+New left-sidebar page, "Journal Templates," letting the user design their own custom journal templates (name + arbitrary ordered fields, each with a label and a type: short text, long text, number, date, or a 1–5 rating), then fill one out repeatedly with entries saved to Neon Postgres.
+
+- `lib/db.ts` — added `journal_templates(id, name, fields JSONB, created_at)` and `journal_entries(id, template_id, data JSONB, created_at)` tables to `ensureSchema()`. Entry payload column is named `data` (not `values`) to avoid the SQL reserved keyword.
+- `app/api/journal-templates/route.ts` + `[id]/route.ts` — list/create/delete templates.
+- `app/api/journal-entries/route.ts` + `[id]/route.ts` — list entries for a template (`?template_id=`), create, delete.
+- `app/_components/journal-templates-panel.tsx` — new self-contained panel (mirrors `scheduled-tasks-panel.tsx`'s pattern of owning its own fetch/state): a builder dialog for creating templates with dynamically added/removed fields, a template list, and a detail view that renders the fill-out form plus a history of past entries for that template.
+- `app/_components/dashboard.tsx` — added `journal-templates` to `NAV_ITEMS` and the `activeTab` type union; renders `<JournalTemplatesPanel />` in its own tab panel.
+- `app/page.tsx` — added `journal-templates` to `MobileTab`, wired into the mobile bottom-nav bar and the `Dashboard` `activeTab` prop mapping.
+
+**Verification:** started a temp dev server, authenticated via the `cael_session` cookie (matches `BASIC_AUTH_PASSWORD`), and round-tripped a real template + entry through the new API routes against the Neon DB (create template → create entry → list back both → delete template), then cleaned up the test rows.
+
+**Decisions:**
+- Kept the panel fully self-contained (own state/fetching) rather than threading its state through `dashboard.tsx`, matching the existing `ScheduledTasksPanel` pattern — keeps the already-1300-line `dashboard.tsx` from growing further.
+- Field values are keyed by a generated field id (not the label), so renaming a field label later doesn't orphan previously saved entry data.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

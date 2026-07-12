@@ -73,6 +73,22 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS journal_templates (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      fields JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS journal_entries (
+      id SERIAL PRIMARY KEY,
+      template_id INTEGER NOT NULL REFERENCES journal_templates(id) ON DELETE CASCADE,
+      data JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,

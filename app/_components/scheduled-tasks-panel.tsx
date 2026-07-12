@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PlusIcon, PencilIcon, TrashIcon, ClockIcon } from "lucide-react";
+import { PlusIcon, PencilIcon, TrashIcon, ClockIcon, PlayIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -51,7 +51,7 @@ interface TaskForm {
 
 const emptyForm: TaskForm = { title: "", prompt: "", cron: "0 9 * * *", notify: true };
 
-export function ScheduledTasksPanel() {
+export function ScheduledTasksPanel({ onRunNow }: { onRunNow?: (prompt: string) => void }) {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -190,6 +190,17 @@ export function ScheduledTasksPanel() {
                       {task.enabled ? "On" : "Off"}
                     </Badge>
                   </button>
+                  {onRunNow && (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={() => onRunNow(task.prompt)}
+                      aria-label="Run now"
+                      title="Run now"
+                    >
+                      <PlayIcon className="size-3" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon-xs" onClick={() => openEdit(task)} aria-label="Edit schedule">
                     <PencilIcon className="size-3" />
                   </Button>

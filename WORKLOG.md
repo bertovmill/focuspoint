@@ -1424,3 +1424,27 @@ Tasks in the Tasks tab could previously only be created or deleted from the UI (
 - Matched the existing inline-edit pattern used for notes (Textarea + Save/Cancel) instead of a modal, for UI consistency.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-12 — Unify all scheduled tasks into the editable DB-backed system
+
+**What was built:**
+The Scheduled Tasks tab had two disconnected systems: three hardcoded "Automated" jobs (Dream Analysis, Daily Tweet, Morning Digest) defined in `dashboard.tsx`/`agent/schedules/*.ts` with no edit UI, and a separate "Custom" section (`ScheduledTasksPanel`) backed by the `scheduled_tasks` DB table with full create/edit/pause/delete. Migrated the three built-in jobs into the DB-backed system so every scheduled task — built-in or user/Cael-created — is now editable, pausable, and deletable from one place, and all can be run immediately via a new "Run now" button that plays the task's prompt live in the Cael chat (reusing the existing `onRunJobWithChat` wiring).
+
+**Files changed:**
+- `agent/tools/save_dream.ts` (new) — lets Cael write a structured dream report (summary, patterns, insights, counts) to the `dreams` table from a prompt-based run, since Dream Analysis no longer runs as direct code that writes there itself.
+- Seeded 3 rows into `scheduled_tasks` (ids 4-6: Dream Analysis `0 8 * * *` notify=false, Daily Tweet `0 12 * * *` notify=false, Morning Digest `0 12 * * *` notify=true) via a one-off script against the shared Neon DB — prompts adapted from the old hardcoded `agentMessage`/schedule-file text, now executed by Cael via `list_notes`/`post_tweet`/`save_dream`/etc. through the existing minute-level `agent/schedules/dispatcher.ts`.
+- Deleted `agent/schedules/daily-tweet.ts` and `agent/schedules/morning-digest.ts` (superseded by the DB rows + dispatcher — kept both firing would have double-run them).
+- Deleted `app/api/daily-tweet/` and `app/api/morning-digest/` routes (only used by the removed hardcoded UI). Kept `app/api/dream/route.ts` since the Dreams tab's own manual "Run dream now" button still calls it directly.
+- Removed the Vercel cron entry for `/api/dream` in `vercel.json` (automatic dream analysis now runs via the dispatcher-owned DB row instead, to avoid a duplicate daily run).
+- `app/_components/dashboard.tsx` — removed the `CRON_JOBS` array, `handleRunJob`, `runningJob`/`expandedJob` state, and the "Automated" card UI; the Scheduled Tasks tab now renders only `<ScheduledTasksPanel onRunNow={onRunJobWithChat} />`.
+- `app/_components/scheduled-tasks-panel.tsx` — added an optional `onRunNow` prop and a "Run now" (play icon) button per task, next to the pause/edit/delete controls.
+- `agent/instructions.md` — updated the scheduled-tasks and dreaming sections to reflect that Dream Analysis/Daily Tweet/Morning Digest are now ordinary editable rows, and that Cael should call the new `save_dream` tool when the Dream Analysis task fires.
+
+**Decisions:**
+- Kept Dream Analysis's underlying capability (writing structured data to the `dreams` table for the Dreams tab) by giving Cael a `save_dream` tool, rather than downgrading it to writing plain notes — preserves the Dreams tab UX per user's explicit choice.
+- Converted Daily Tweet to run through Cael's existing `post_tweet` tool (via a chat-driven prompt) instead of its old direct `lib/x-api.ts` code path, per user's explicit choice — same generation logic, now routed through the agent loop like every other scheduled task.
+- Left the Dreams tab's manual "Run dream now" button and its `/api/dream` POST route untouched — that's a separate, already-working manual trigger unrelated to the automatic-firing migration.
+
+**Typecheck:** PASS ✓ · **Build:** PASS ✓

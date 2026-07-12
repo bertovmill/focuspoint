@@ -10,3 +10,5 @@ dist
 .DS_Store
 *.tsbuildinfo
 .claude/worktrees/
+*.mp4
+*.mp3

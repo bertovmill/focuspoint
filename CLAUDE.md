@@ -62,3 +62,15 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
 
 - `DATABASE_URL` — Neon Postgres connection string (required for agent tools and API routes).
 - Eve-specific vars are pulled via `vercel env pull` or set in `.env.local`.
+- `BASIC_AUTH_PASSWORD` — protects the app (cookie-based login page at `/login`). Set in `.env.local` and Vercel production.
+- `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice.
+
+## Content / podcast workflow
+
+The owner records conversations with Cael as podcast/video content. The format:
+
+1. Owner speaks their side of the conversation.
+2. Cael's text responses are converted to audio via **ElevenLabs TTS**.
+3. The full recording is edited in a video tool — gaps/whitespace between turns are cut.
+
+When building any feature that involves Cael speaking or audio output, use ElevenLabs (`ELEVEN_LABS_API_KEY` is already set). Keep Cael's responses concise and natural-sounding for this format — they will be read aloud.

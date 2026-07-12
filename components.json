@@ -4,7 +4,6 @@
   "rsc": true,
   "tsx": true,
   "tailwind": {
-    "config": "",
     "css": "app/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
@@ -19,10 +18,10 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "ai-elements": {
+    "@ai-elements": {
       "url": "https://elements.ai-sdk.dev/api/registry/{name}.json"
     },
-    "v0": {
+    "@v0": {
       "url": "https://v0.dev/chat/api/registry/{name}.json"
     }
   }

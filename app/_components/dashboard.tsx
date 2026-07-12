@@ -176,6 +176,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
+  const [editTodoTitle, setEditTodoTitle] = useState("");
+  const [editTodoPriority, setEditTodoPriority] = useState<"low" | "normal" | "high">("normal");
+  const [editTodoDueDate, setEditTodoDueDate] = useState("");
+  const [editTodoRecurrence, setEditTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const editTodoRef = useRef<HTMLInputElement>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [semanticResults, setSemanticResults] = useState<Thought[] | null>(null);
@@ -403,6 +409,48 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const startEditTodo = (todo: Todo) => {
+    setEditingTodoId(todo.id);
+    setEditTodoTitle(todo.title);
+    setEditTodoPriority(todo.priority);
+    setEditTodoDueDate(todo.due_date ? todo.due_date.slice(0, 10) : "");
+    setEditTodoRecurrence(todo.recurrence ?? "none");
+    setTimeout(() => {
+      editTodoRef.current?.focus();
+      editTodoRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEditTodo = () => {
+    setEditingTodoId(null);
+    setEditTodoTitle("");
+  };
+
+  const saveEditTodo = async (id: number) => {
+    const title = editTodoTitle.trim();
+    if (!title) return;
+    const prev = todos;
+    const patch = {
+      title,
+      priority: editTodoPriority,
+      due_date: editTodoDueDate || null,
+      recurrence: editTodoRecurrence,
+    };
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    setEditingTodoId(null);
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't save task.");
+    }
+  };
+
   const handleDeleteTodo = async (id: number) => {
     const prev = todos;
     setTodos((t) => t.filter((x) => x.id !== id));
@@ -571,53 +619,109 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               </Empty>
             ) : (
               <ul className="space-y-1.5">
-                {activeTodos.map((todo) => (
-                  <li
-                    key={todo.id}
-                    className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
-                  >
-                    <button
-                      onClick={() => handleComplete(todo.id)}
-                      className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
-                    >
-                      <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
-                        {todo.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {todo.due_date && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <ClockIcon className="size-3" />
-                            {formatDate(todo.due_date)}
-                          </p>
-                        )}
-                        {todo.recurrence && todo.recurrence !== "none" && (
-                          <Badge variant="outline" className="gap-0.5 border-primary/30 text-primary/70 py-0">
-                            <RepeatIcon className="size-2.5" />
-                            {todo.recurrence}
+                {activeTodos.map((todo) =>
+                  editingTodoId === todo.id ? (
+                    <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
+                      <Input
+                        ref={editTodoRef}
+                        value={editTodoTitle}
+                        onChange={(e) => setEditTodoTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEditTodo(todo.id);
+                          if (e.key === "Escape") cancelEditTodo();
+                        }}
+                        className="mb-2"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                        {(["low", "normal", "high"] as const).map((p) => (
+                          <Badge
+                            key={p}
+                            asChild
+                            variant={editTodoPriority === p ? "default" : "outline"}
+                            className="cursor-pointer capitalize"
+                          >
+                            <button type="button" onClick={() => setEditTodoPriority(p)}>{p}</button>
                           </Badge>
-                        )}
+                        ))}
+                        <Input
+                          type="date"
+                          value={editTodoDueDate}
+                          onChange={(e) => setEditTodoDueDate(e.target.value)}
+                          className="h-7 w-auto text-xs"
+                        />
+                        {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
+                          <Badge
+                            key={r}
+                            asChild
+                            variant={editTodoRecurrence === r ? "default" : "outline"}
+                            className="cursor-pointer"
+                          >
+                            <button type="button" onClick={() => setEditTodoRecurrence(r)}>
+                              {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                            </button>
+                          </Badge>
+                        ))}
                       </div>
-                    </div>
-                    {todo.priority === "high" && (
-                      <Badge
-                        variant="outline"
-                        className="shrink-0 border-priority-high/40 text-priority-high"
-                      >
-                        High
-                      </Badge>
-                    )}
-                    <button
-                      onClick={() => handleDeleteTodo(todo.id)}
-                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                      aria-label="Delete task"
+                      <div className="flex gap-2">
+                        <Button size="xs" onClick={() => saveEditTodo(todo.id)}>Save</Button>
+                        <Button size="xs" variant="outline" onClick={cancelEditTodo}>Cancel</Button>
+                      </div>
+                    </li>
+                  ) : (
+                    <li
+                      key={todo.id}
+                      className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
                     >
-                      <TrashIcon className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
+                      <button
+                        onClick={() => handleComplete(todo.id)}
+                        className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
+                      >
+                        <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
+                          {todo.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {todo.due_date && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <ClockIcon className="size-3" />
+                              {formatDate(todo.due_date)}
+                            </p>
+                          )}
+                          {todo.recurrence && todo.recurrence !== "none" && (
+                            <Badge variant="outline" className="gap-0.5 border-primary/30 text-primary/70 py-0">
+                              <RepeatIcon className="size-2.5" />
+                              {todo.recurrence}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {todo.priority === "high" && (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 border-priority-high/40 text-priority-high"
+                        >
+                          High
+                        </Badge>
+                      )}
+                      <button
+                        onClick={() => startEditTodo(todo)}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        aria-label="Edit task"
+                      >
+                        <PencilIcon className="size-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTodo(todo.id)}
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        aria-label="Delete task"
+                      >
+                        <TrashIcon className="size-3.5" />
+                      </button>
+                    </li>
+                  )
+                )}
               </ul>
             )}
           </div>

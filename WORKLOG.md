@@ -1391,3 +1391,20 @@ Added a "New chat" (+) icon button to the header of the mobile chat-history over
 - Placed it in the panel header (top) rather than relying solely on the bottom pinned pill, per user request for quicker access at the top of the expanded mobile sidebar.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-12 — Edit todos inline in the dashboard UI
+
+**What was built:**
+Tasks in the Tasks tab could previously only be created or deleted from the UI (edits required going through Cael). Added an inline edit mode: a pencil icon (next to delete, shown on hover) opens an inline form to edit title, priority, due date, and recurrence directly on the task list.
+
+**Files changed:**
+- `app/api/todos/[id]/route.ts` — added `PATCH` handler; updates title/priority/recurrence via COALESCE, and due_date explicitly (including clearing it to null) only when the key is present in the request body.
+- `app/_components/dashboard.tsx` — added edit state (`editingTodoId`, `editTodoTitle/Priority/DueDate/Recurrence`), `startEditTodo`/`cancelEditTodo`/`saveEditTodo` handlers with optimistic update + rollback on failure, and inline edit markup mirroring the existing notes edit UX (badges for priority/recurrence, date input, Save/Cancel buttons).
+
+**Decisions:**
+- Reused the agent-side `update_todo` tool's semantics (COALESCE for optional fields) in the new PATCH route, but handled `due_date` specially so it can be cleared (set to null) rather than only ever COALESCEd.
+- Matched the existing inline-edit pattern used for notes (Textarea + Save/Cancel) instead of a modal, for UI consistency.
+
+**Typecheck:** PASS ✓

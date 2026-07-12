@@ -1559,3 +1559,18 @@ Follow-up to the earlier Daily-section date filter: recurring daily todos previo
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Fix: Daily section went empty (missed the agent's duplicate complete-todo logic)
+
+**What happened:**
+After the previous fix, the Daily section disappeared entirely for the user. Root cause: there are two separate places that mark a recurring todo complete — the REST route `app/api/todos/[id]/complete/route.ts` (used by the dashboard UI's checkbox) and `agent/tools/complete_todo.ts` (used when Cael marks a todo done via chat). The previous fix only updated the REST route to set `completed_at = NOW()`; the agent tool still only bumped `due_date` forward with no `completed_at`. The user had been checking off daily todos via chat with Cael, so all 7 daily todos had already rolled to tomorrow (`due_date` = 07-13) with `completed_at` still null — which matched neither "due today" nor "done today" in the new filter, so the whole Daily section rendered empty.
+
+**Fix:**
+- `agent/tools/complete_todo.ts` — recurring branch now also sets `completed_at = NOW()`, mirroring the REST route.
+- Backfilled the 7 affected daily todos' `due_date` back to today (2026-07-12) via the REST PATCH endpoint so they reappear as active/uncompleted for today — there was no way to recover their true completion timestamp since the old code never recorded one, so they're restored to "not yet done today" rather than faked as "done today."
+
+**Next steps:** none — both completion paths are now consistent.
+
+**Typecheck:** PASS ✓

@@ -22,7 +22,7 @@ export default defineTool({
 
     if (todo.recurrence && todo.recurrence !== "none") {
       const next_due = nextDueDate(todo.recurrence);
-      await sql`UPDATE todos SET due_date = ${next_due} WHERE id = ${id}`;
+      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW() WHERE id = ${id}`;
       return { success: true, title: todo.title, recurring: true, next_due };
     }
 

@@ -1574,3 +1574,16 @@ After the previous fix, the Daily section disappeared entirely for the user. Roo
 **Next steps:** none — both completion paths are now consistent.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-12 — Fix: Daily task flickered/disappeared for a split-second when checked off
+
+**What happened:**
+User reported checking off a Daily task made it disappear for a split second before reappearing crossed-out — poor UX even though the end state was correct. Root cause: `handleComplete` optimistically set `completed: true` on click for *all* todos, including recurring ones. `activeTodos` filters on `!completed`, so for that ~600ms animation window the recurring todo was excluded from `activeTodos` (and therefore from the Daily section) entirely, then reappeared once the timeout flipped `completed` back to `false`.
+
+**Fix:**
+- `app/_components/dashboard.tsx` — `handleComplete` no longer flips `completed` for recurring todos at all; it only ever sets `completed_at`. Recurring todos stay in `activeTodos` continuously through the click, so the `isCompleting` fade (0–600ms) hands off directly to the persistent `isDoneToday` crossed-out state with no gap where the row disappears. Non-recurring (Once/Weekly/Monthly) todos are unaffected — they still flip `completed: true` and get removed after the fade, as intended.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

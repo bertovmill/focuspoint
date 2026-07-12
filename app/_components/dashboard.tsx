@@ -485,11 +485,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const handleComplete = async (id: number) => {
     const todo = todos.find((t) => t.id === id);
-    if (todo?.recurrence && todo.recurrence !== "none" && todo.completed_at && isToday(todo.completed_at)) {
+    const isRecurring = Boolean(todo?.recurrence && todo.recurrence !== "none");
+    if (isRecurring && todo?.completed_at && isToday(todo.completed_at)) {
       return; // already crossed off today — don't bump due_date again
     }
     const nowIso = new Date().toISOString();
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true, completed_at: nowIso } : t)));
+    // Recurring todos never flip `completed` — doing so would drop them out of
+    // `activeTodos` for the animation window and make them vanish mid-check-off.
+    setTodos((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: isRecurring ? t.completed : true, completed_at: nowIso } : t))
+    );
     setCompletingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });

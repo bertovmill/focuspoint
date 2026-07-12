@@ -51,6 +51,27 @@ export function cronMatches(cron: string, date: Date): boolean {
   }
 }
 
+/**
+ * Like cronMatches, but ignores the minute/hour fields — only day-of-month,
+ * month, and day-of-week must match. Used by the once-daily dispatcher (Vercel
+ * Hobby plans cap ALL cron jobs at once per day, so per-task time-of-day can't
+ * be honored precisely; every enabled task due "today" fires on the single
+ * daily dispatcher tick instead).
+ */
+export function cronMatchesDate(cron: string, date: Date): boolean {
+  const fields = cron.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const values = [date.getUTCDate(), date.getUTCMonth() + 1, date.getUTCDay()];
+  try {
+    return [2, 3, 4].every((fieldIndex, i) => {
+      const parsed = parseField(fields[fieldIndex], FIELD_RANGES[fieldIndex]);
+      return parsed === "*" || parsed.includes(values[i]);
+    });
+  } catch {
+    return false;
+  }
+}
+
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /** Human-readable summary for the UI, e.g. "Daily at 9:00 PM UTC". Falls back to the raw cron string for anything not daily/weekly. */

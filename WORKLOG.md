@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## Session: 2026-07-12 — Re-enable scheduled-tasks dispatcher as once-daily
+
+**Ask:** Berto saw a Vercel build failure ("Hobby accounts are limited to daily cron jobs... this cron expression (`* * * * *`) would run more than once per day") and asked if it was fixed. A concurrent session had already unblocked the deploy by moving `agent/schedules/dispatcher.ts` to `agent/schedules-disabled/` (disabling it entirely) rather than fixing it.
+
+Asked Berto how to handle it given Hobby's real limit is 1x/day for *any* cron cadence, not just per-minute ones. He chose: keep the dispatcher active, run it once daily, and have it fire any enabled scheduled task that's due "today" — accepting that a task's specific hour/minute is no longer honored precisely (everything fires on the single daily tick instead).
+
+**What was built:**
+- `lib/cron.ts` — added `cronMatchesDate()`, a variant of `cronMatches()` that only checks day-of-month/month/day-of-week, ignoring hour/minute.
+- `agent/schedules/dispatcher.ts` — moved back from `agent/schedules-disabled/` (which is now deleted), cron changed from `"* * * * *"` to `"0 13 * * *"` (once daily, 1pm UTC / 9am ET), uses `cronMatchesDate` instead of `cronMatches`, and the run-dedup window is now per-day (`dayStart`) instead of per-minute (`minuteStart`).
+
+**Next step / open question:** if Berto later wants precise per-task time-of-day back, either upgrade the Vercel project to Pro (native per-minute cron allowed) or move dispatch to an externally-triggered route (e.g. cron-job.org hitting a webhook) instead of Vercel's native Cron Jobs feature.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## Session: 2026-07-12 — "urgent" priority label for todos
 
 **Ask:** Berto wanted an "urgent" label option for tasks so he can tell what needs to get done.

@@ -1606,3 +1606,18 @@ Extended the "stays visible when checked off today" behavior from just the Daily
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Allow un-checking a task crossed off today
+
+**What was built:**
+Tasks crossed off today (any recurrence) can now be un-checked, instead of the checkbox being permanently disabled once done.
+
+- `app/api/todos/[id]/uncomplete/route.ts` — new route: for recurring todos, resets `due_date` to `CURRENT_DATE` and clears `completed_at` (undoing the forward roll from `/complete`); for once todos, sets `completed = FALSE` and clears `completed_at`.
+- `app/_components/dashboard.tsx` — added `handleUncomplete` (optimistic update + revert-on-error, matching the pattern of the other todo handlers). The checkbox button is no longer `disabled` once done-today; instead its `onClick` branches to `handleUncomplete` when `isDoneToday` is true, `handleComplete` otherwise. Button `disabled` now only guards the transient `isCompleting` animation window.
+
+**Verification:** exercised complete → uncomplete against the real DB for both a daily and a once-off test todo; confirmed due_date/completed_at revert correctly in both cases. Cleaned up test rows.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

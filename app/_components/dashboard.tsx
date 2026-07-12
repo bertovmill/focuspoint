@@ -526,6 +526,20 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const handleUncomplete = async (id: number) => {
+    const prev = todos;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, completed: false, completed_at: null } : t)));
+    try {
+      const res = await fetch(`/api/todos/${id}/uncomplete`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const row = await res.json();
+      setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, ...row } : t)));
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't undo task.");
+    }
+  };
+
   const activeTodos = todos.filter((t) => !t.completed);
   const highPriority = activeTodos.filter((t) => t.priority === "high" || t.priority === "urgent");
   // Active todos, plus anything (of any recurrence) crossed off today — so today's
@@ -744,8 +758,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                               )}
                             >
                               <button
-                                onClick={() => handleComplete(todo.id)}
-                                disabled={isDoneToday}
+                                onClick={() => (isDoneToday ? handleUncomplete(todo.id) : handleComplete(todo.id))}
+                                disabled={isCompleting}
+                                title={isDoneToday ? "Undo" : undefined}
                                 className={cn(
                                   "mt-0.5 shrink-0 size-4 rounded-full border transition-colors flex items-center justify-center",
                                   isDone

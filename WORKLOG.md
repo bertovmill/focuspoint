@@ -1587,3 +1587,22 @@ User reported checking off a Daily task made it disappear for a split second bef
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Show everything crossed off today, not just Daily tasks
+
+**What was built:**
+Extended the "stays visible when checked off today" behavior from just the Daily section to Once/Weekly/Monthly too, since the user had checked off other (non-daily) tasks earlier the same day and couldn't see them anywhere.
+
+- `app/api/todos/route.ts` — `GET` now supports `include_completed=today`, returning rows where `completed = FALSE OR completed_at::date = CURRENT_DATE` (in addition to the existing `true`/default modes). Keeps the payload small instead of pulling full completed history.
+- `app/_components/dashboard.tsx`:
+  - Dashboard now fetches `/api/todos?include_completed=today&limit=200` instead of the completed-excluded default, so today's completions survive the 15s poll instead of vanishing on the next refetch.
+  - Added `visibleTodos`: active todos plus anything (any recurrence) completed today. Once/Weekly/Monthly sections now use this instead of only `activeTodos`, and the "All done" empty state check moved to `visibleTodos` too so a fully-checked-off-today list still renders its sections.
+  - `isDoneToday` is no longer restricted to the Daily section — any todo with `completed_at` today shows the persistent crossed-out/"Done today" styling.
+  - `handleComplete` simplified: guards on "already completed today" generally (not just for recurring); Once/Weekly/Monthly todos still flip `completed: true` on completion (matches backend), but are no longer removed from state immediately — they stay visible (crossed out) until `completed_at` is no longer today, at which point the next fetch naturally excludes them.
+
+**Verification:** created a `recurrence: "none"` test todo against the running dev server, hit `/complete`, confirmed `?include_completed=today` returns it (crossed-off-today) while the plain `/api/todos` correctly excludes it. Cleaned up the test row after.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

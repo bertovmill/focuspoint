@@ -204,7 +204,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const fetchData = useCallback(async () => {
     try {
       const [todosRes, thoughtsRes, dreamRes, ideasRes] = await Promise.all([
-        fetch("/api/todos"),
+        fetch("/api/todos?include_completed=today&limit=200"),
         fetch("/api/thoughts"),
         fetch("/api/dreams"),
         fetch("/api/content-ideas"),
@@ -485,13 +485,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const handleComplete = async (id: number) => {
     const todo = todos.find((t) => t.id === id);
-    const isRecurring = Boolean(todo?.recurrence && todo.recurrence !== "none");
-    if (isRecurring && todo?.completed_at && isToday(todo.completed_at)) {
-      return; // already crossed off today — don't bump due_date again
+    if (todo?.completed_at && isToday(todo.completed_at)) {
+      return; // already crossed off today
     }
+    const isRecurring = Boolean(todo?.recurrence && todo.recurrence !== "none");
     const nowIso = new Date().toISOString();
     // Recurring todos never flip `completed` — doing so would drop them out of
     // `activeTodos` for the animation window and make them vanish mid-check-off.
+    // Once/weekly/monthly todos do flip `completed`, but we keep them in state
+    // (rather than removing them) so they can still render crossed-out today —
+    // `visibleTodos` is what hides them once `completed_at` is no longer today.
     setTodos((prev) =>
       prev.map((t) => (t.id === id ? { ...t, completed: isRecurring ? t.completed : true, completed_at: nowIso } : t))
     );
@@ -500,27 +503,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (data.recurring && data.next_due) {
-        setTimeout(() => {
-          setTodos((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, completed: false, due_date: data.next_due } : t))
-          );
-          setCompletingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }, 600);
-      } else {
-        setTimeout(() => {
-          setTodos((prev) => prev.filter((t) => t.id !== id));
-          setCompletingIds((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }, 600);
-      }
+      setTimeout(() => {
+        if (data.recurring && data.next_due) {
+          setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, due_date: data.next_due } : t)));
+        }
+        setCompletingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, 600);
     } catch {
       setTodos((prev) =>
         prev.map((t) => (t.id === id ? { ...t, completed: false, completed_at: todo?.completed_at ?? null } : t))
@@ -536,6 +528,14 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const activeTodos = todos.filter((t) => !t.completed);
   const highPriority = activeTodos.filter((t) => t.priority === "high" || t.priority === "urgent");
+  // Active todos, plus anything (of any recurrence) crossed off today — so today's
+  // completions stay visible (struck through) instead of vanishing immediately.
+  const visibleTodos = todos.filter((t) => {
+    const doneToday = Boolean(t.completed_at) && isToday(t.completed_at);
+    if (t.completed && !doneToday) return false;
+    if ((t.recurrence ?? "none") === "daily") return isToday(t.due_date) || doneToday;
+    return true;
+  });
 
   const allTags = Array.from(
     new Set(thoughts.flatMap((t) => t.tags ?? [])),
@@ -658,7 +658,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   <Skeleton key={i} className="h-10 rounded-lg" />
                 ))}
               </div>
-            ) : activeTodos.length === 0 ? (
+            ) : visibleTodos.length === 0 ? (
               <Empty className="py-12">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -671,11 +671,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             ) : (
               <div className="space-y-5">
                 {TODO_SECTIONS.map(({ key, label }) => {
-                  const sectionTodos = activeTodos.filter(
-                    (t) =>
-                      (t.recurrence ?? "none") === key &&
-                      (key !== "daily" || isToday(t.due_date) || (Boolean(t.completed_at) && isToday(t.completed_at))),
-                  );
+                  const sectionTodos = visibleTodos.filter((t) => (t.recurrence ?? "none") === key);
                   if (sectionTodos.length === 0) return null;
                   return (
                     <div key={key}>
@@ -686,7 +682,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                         {sectionTodos.map((todo) => {
                           const isCompleting = completingIds.has(todo.id);
                           const isDoneToday =
-                            key === "daily" && !isCompleting && Boolean(todo.completed_at) && isToday(todo.completed_at);
+                            !isCompleting && Boolean(todo.completed_at) && isToday(todo.completed_at);
                           const isDone = isCompleting || isDoneToday;
                           return editingTodoId === todo.id ? (
                             <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">

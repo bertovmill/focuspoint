@@ -1524,3 +1524,19 @@ New left-sidebar page, "Journal Templates," letting the user design their own cu
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-12 — Todos didn't show as crossed off when completed
+
+**What was built:**
+Berto reported that checking off a todo didn't visibly show as completed. The DB/API path (`app/api/todos/[id]/complete/route.ts`) was already correct — one-off todos get `completed = TRUE` + `completed_at = NOW()`, recurring todos get `due_date` bumped forward. The bug was purely visual: the todo `<li>` in `dashboard.tsx` had no completed-state styling at all (no checkmark, no strikethrough) — unlike the Content Ideas list, which already renders a check + `line-through` on completion. So the click had no visible feedback until the row silently disappeared/reset ~600ms later.
+
+Added a `completingIds: Set<number>` state to `Dashboard`. `handleComplete` now adds the id to this set immediately; the todo row reads `isCompleting = completingIds.has(todo.id)` to show a filled checkmark circle, `line-through` + muted title text, and reduced row opacity — then the id is removed from the set (and the row filtered out or reset for recurring todos) once the API call settles, matching the existing Content Ideas UX pattern.
+
+**Files changed:**
+- `app/_components/dashboard.tsx` — added `completingIds` state; `handleComplete` tracks/clears it around the existing complete/recurring/error branches; todo `<li>` renders checkmark + strikethrough while `isCompleting`.
+
+**Also:** created `/Users/bertomill/.claude/CLAUDE.md` (global, didn't exist before) per Berto's request — instructs future sessions to quiz him before non-trivial decisions rather than assuming silently.
+
+**Typecheck:** PASS ✓

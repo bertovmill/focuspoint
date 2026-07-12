@@ -148,6 +148,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [runningDream, setRunningDream] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editTodoTitle, setEditTodoTitle] = useState("");
   const [editTodoPriority, setEditTodoPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
@@ -483,19 +484,39 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const handleComplete = async (id: number) => {
     setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
+    setCompletingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.recurring && data.next_due) {
-        setTodos((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, completed: false, due_date: data.next_due } : t))
-        );
+        setTimeout(() => {
+          setTodos((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, completed: false, due_date: data.next_due } : t))
+          );
+          setCompletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 600);
       } else {
-        setTimeout(() => setTodos((prev) => prev.filter((t) => t.id !== id)), 600);
+        setTimeout(() => {
+          setTodos((prev) => prev.filter((t) => t.id !== id));
+          setCompletingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 600);
       }
     } catch {
       setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: false } : t)));
+      setCompletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast.error("Couldn't complete task.");
     }
   };
@@ -647,8 +668,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                         {label}
                       </p>
                       <ul className="space-y-1.5">
-                        {sectionTodos.map((todo) =>
-                          editingTodoId === todo.id ? (
+                        {sectionTodos.map((todo) => {
+                          const isCompleting = completingIds.has(todo.id);
+                          return editingTodoId === todo.id ? (
                             <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
                               <Input
                                 ref={editTodoRef}
@@ -701,16 +723,28 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                           ) : (
                             <li
                               key={todo.id}
-                              className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
+                              className={cn(
+                                "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
+                                isCompleting && "opacity-50",
+                              )}
                             >
                               <button
                                 onClick={() => handleComplete(todo.id)}
-                                className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
+                                className={cn(
+                                  "mt-0.5 shrink-0 size-4 rounded-full border transition-colors flex items-center justify-center",
+                                  isCompleting
+                                    ? "bg-primary border-primary"
+                                    : "border-border group-hover:border-primary/60",
+                                )}
                               >
-                                <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                                {isCompleting ? (
+                                  <CheckIcon className="size-2.5 text-primary-foreground" />
+                                ) : (
+                                  <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                                )}
                               </button>
                               <div className="flex-1 min-w-0">
-                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority))}>
+                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isCompleting && "line-through text-muted-foreground")}>
                                   {todo.title}
                                 </p>
                                 {todo.due_date && (
@@ -751,8 +785,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 <TrashIcon className="size-3.5" />
                               </button>
                             </li>
-                          )
-                        )}
+                          );
+                        })}
                       </ul>
                     </div>
                   );

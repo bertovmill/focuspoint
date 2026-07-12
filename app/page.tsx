@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
-type MobileTab = "chat" | "tasks" | "notes" | "dreams" | "schedule" | "media";
+type MobileTab = "chat" | "tasks" | "notes" | "content-ideas" | "dreams" | "schedule" | "media";
 
 export default function Page() {
   return (
@@ -45,7 +45,7 @@ function Workspace() {
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation */}
         <div className="flex flex-col flex-1 h-full lg:w-[380px] xl:w-[420px] lg:shrink-0">
           <Dashboard
-            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "content-ideas" ? "content-ideas" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
           />
@@ -117,6 +117,12 @@ function Workspace() {
           icon={<FileTextIcon className="size-5" />}
           active={mobileTab === "notes"}
           onClick={() => setMobileTab("notes")}
+        />
+        <NavButton
+          label="Ideas"
+          icon={<LightbulbIcon className="size-5" />}
+          active={mobileTab === "content-ideas"}
+          onClick={() => setMobileTab("content-ideas")}
         />
         <NavButton
           label="Dreams"

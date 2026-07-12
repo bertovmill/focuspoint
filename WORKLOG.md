@@ -1540,3 +1540,22 @@ Added a `completingIds: Set<number>` state to `Dashboard`. `handleComplete` now 
 **Also:** created `/Users/bertomill/.claude/CLAUDE.md` (global, didn't exist before) per Berto's request — instructs future sessions to quiz him before non-trivial decisions rather than assuming silently.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-12 — Show today's crossed-off Daily tasks
+
+**What was built:**
+Follow-up to the earlier Daily-section date filter: recurring daily todos previously had no persisted signal that they'd been completed *today* — the complete route only bumped `due_date` to tomorrow, never touching `completed`/`completed_at`. So a crossed-off daily task would just vanish from view instead of showing as done for the rest of the day.
+
+- `app/api/todos/[id]/complete/route.ts` — the recurring branch now also sets `completed_at = NOW()` alongside bumping `due_date`, so there's a durable record of "done today" even though `completed` itself stays `false` for recurring tasks.
+- `app/_components/dashboard.tsx`:
+  - `Todo` interface gained `completed_at`; `isToday()` now accepts `null | undefined`.
+  - Daily section filter now also matches todos whose `completed_at` is today (in addition to `due_date` being today), so completed-today items stay visible instead of disappearing the instant `due_date` rolls forward.
+  - Added an `isDoneToday` flag per row (daily section, not currently mid-animation, `completed_at` is today) driving a persistent struck-through/checked visual + a "Done today" label in place of the due-date line, distinct from the transient `isCompleting` fade used for one-off task completion.
+  - `handleComplete` now guards against re-completing an already-done-today recurring task (would otherwise bump `due_date` again), and optimistically sets `completed_at` on click so the UI updates immediately rather than waiting on the response.
+
+**Verification:** used the already-running dev server on :3000 (didn't start a competing one — Next's dev lock correctly refused a second instance) to create a test daily todo, hit `/complete`, and confirmed via `/api/todos` that `completed_at` was set to now while `due_date` rolled to tomorrow. Cleaned up the test row after.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

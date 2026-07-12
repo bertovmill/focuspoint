@@ -60,6 +60,7 @@ interface Todo {
   due_date: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
   created_at: string;
+  completed_at?: string | null;
 }
 
 interface Thought {
@@ -103,7 +104,7 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function isToday(iso: string | null) {
+function isToday(iso: string | null | undefined) {
   if (!iso) return true;
   const d = new Date(iso);
   const now = new Date();
@@ -483,7 +484,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   };
 
   const handleComplete = async (id: number) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
+    const todo = todos.find((t) => t.id === id);
+    if (todo?.recurrence && todo.recurrence !== "none" && todo.completed_at && isToday(todo.completed_at)) {
+      return; // already crossed off today — don't bump due_date again
+    }
+    const nowIso = new Date().toISOString();
+    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true, completed_at: nowIso } : t)));
     setCompletingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
@@ -511,7 +517,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         }, 600);
       }
     } catch {
-      setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: false } : t)));
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, completed: false, completed_at: todo?.completed_at ?? null } : t))
+      );
       setCompletingIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
@@ -659,7 +667,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               <div className="space-y-5">
                 {TODO_SECTIONS.map(({ key, label }) => {
                   const sectionTodos = activeTodos.filter(
-                    (t) => (t.recurrence ?? "none") === key && (key !== "daily" || isToday(t.due_date)),
+                    (t) =>
+                      (t.recurrence ?? "none") === key &&
+                      (key !== "daily" || isToday(t.due_date) || (Boolean(t.completed_at) && isToday(t.completed_at))),
                   );
                   if (sectionTodos.length === 0) return null;
                   return (
@@ -670,6 +680,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                       <ul className="space-y-1.5">
                         {sectionTodos.map((todo) => {
                           const isCompleting = completingIds.has(todo.id);
+                          const isDoneToday =
+                            key === "daily" && !isCompleting && Boolean(todo.completed_at) && isToday(todo.completed_at);
+                          const isDone = isCompleting || isDoneToday;
                           return editingTodoId === todo.id ? (
                             <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
                               <Input
@@ -726,28 +739,35 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                               className={cn(
                                 "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
                                 isCompleting && "opacity-50",
+                                isDoneToday && "opacity-60",
                               )}
                             >
                               <button
                                 onClick={() => handleComplete(todo.id)}
+                                disabled={isDoneToday}
                                 className={cn(
                                   "mt-0.5 shrink-0 size-4 rounded-full border transition-colors flex items-center justify-center",
-                                  isCompleting
+                                  isDone
                                     ? "bg-primary border-primary"
                                     : "border-border group-hover:border-primary/60",
                                 )}
                               >
-                                {isCompleting ? (
+                                {isDone ? (
                                   <CheckIcon className="size-2.5 text-primary-foreground" />
                                 ) : (
                                   <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
                                 )}
                               </button>
                               <div className="flex-1 min-w-0">
-                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isCompleting && "line-through text-muted-foreground")}>
+                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isDone && "line-through text-muted-foreground")}>
                                   {todo.title}
                                 </p>
-                                {todo.due_date && (
+                                {isDoneToday ? (
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                    <CheckIcon className="size-3" />
+                                    Done today
+                                  </p>
+                                ) : todo.due_date && (
                                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                     <ClockIcon className="size-3" />
                                     {formatDate(todo.due_date)}

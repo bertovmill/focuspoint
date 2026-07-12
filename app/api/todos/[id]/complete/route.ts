@@ -19,7 +19,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     if (todo.recurrence && todo.recurrence !== "none") {
       const next_due = nextDueDate(todo.recurrence);
-      await sql`UPDATE todos SET due_date = ${next_due} WHERE id = ${id}`;
+      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW() WHERE id = ${id}`;
       return NextResponse.json({ success: true, recurring: true, next_due });
     }
 

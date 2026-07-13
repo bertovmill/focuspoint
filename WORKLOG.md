@@ -1750,3 +1750,16 @@ The app now opens on a Home screen that leads with Berto's truest vision and fan
 **Verification:** Playwright screenshots against a dev server on :3001 — desktop light (1440px) and mobile dark (390px): hero, pillars with savings meter ($15,345 of $20K), mantra, Go-to grid with task badge, and the new Home nav slot all render. Server killed by PID after.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Home screen keyboard shortcuts (1–9, 0)
+
+**What was built:**
+Digit hotkeys on the Home screen: keys 1–9 and 0 jump to the ten sections in grid order (1 Chat, 2 Tasks, 3 Notes, 4 Lists, 5 Journal, 6 Dreams, 7 Schedule, 8 Media, 9 Measures, 0 Vision). Digits over letter mnemonics because Media/Measures collide on "M" and the numbered grid is self-documenting.
+
+- `app/_components/home-screen.tsx` — `hotkey` on each `SECTIONS` entry; a window keydown listener (active only while Home is mounted; ignores modifier combos and input/textarea/contenteditable targets); a small `<kbd>` badge on each Go-to card, hidden on mobile (`hidden sm:inline-flex`).
+
+**Verification:** Playwright against dev on :3001 — hints render on all ten cards; pressing "9" navigated to Measures (asserted "Monthly spend" visible). Server killed by PID.
+
+**Typecheck:** PASS ✓

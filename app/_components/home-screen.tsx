@@ -48,17 +48,17 @@ interface MeasureRow {
   data: Record<string, number | string | undefined>;
 }
 
-const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon }[] = [
-  { tab: "chat", label: "Chat", icon: MessageCircleIcon },
-  { tab: "tasks", label: "Tasks", icon: ListTodoIcon },
-  { tab: "notes", label: "Notes", icon: FileTextIcon },
-  { tab: "lists", label: "Lists", icon: ListChecksIcon },
-  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
-  { tab: "dreams", label: "Dreams", icon: BrainIcon },
-  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon },
-  { tab: "media", label: "Media", icon: ImageIcon },
-  { tab: "measures", label: "Measures", icon: GaugeIcon },
-  { tab: "vision", label: "Vision", icon: TelescopeIcon },
+const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hotkey: string }[] = [
+  { tab: "chat", label: "Chat", icon: MessageCircleIcon, hotkey: "1" },
+  { tab: "tasks", label: "Tasks", icon: ListTodoIcon, hotkey: "2" },
+  { tab: "notes", label: "Notes", icon: FileTextIcon, hotkey: "3" },
+  { tab: "lists", label: "Lists", icon: ListChecksIcon, hotkey: "4" },
+  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon, hotkey: "5" },
+  { tab: "dreams", label: "Dreams", icon: BrainIcon, hotkey: "6" },
+  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon, hotkey: "7" },
+  { tab: "media", label: "Media", icon: ImageIcon, hotkey: "8" },
+  { tab: "measures", label: "Measures", icon: GaugeIcon, hotkey: "9" },
+  { tab: "vision", label: "Vision", icon: TelescopeIcon, hotkey: "0" },
 ];
 
 /** Match a pillar statement to an icon + the section it should open. */
@@ -110,6 +110,21 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       }
     })();
   }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const section = SECTIONS.find((s) => s.hotkey === e.key);
+      if (section) {
+        e.preventDefault();
+        onNavigate(section.tab);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onNavigate]);
 
   const loading = statements === null;
   const hero =
@@ -225,7 +240,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           Go to
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SECTIONS.map(({ tab, label, icon: Icon }) => (
+          {SECTIONS.map(({ tab, label, icon: Icon, hotkey }) => (
             <button key={tab} onClick={() => onNavigate(tab)} className="text-left">
               <Card
                 className={cn(
@@ -238,6 +253,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                 {tab === "tasks" && openTasks !== null && openTasks > 0 && (
                   <span className="text-xs tabular-nums text-muted-foreground">{openTasks}</span>
                 )}
+                <kbd className="hidden sm:inline-flex items-center justify-center size-5 rounded border border-border text-[10px] font-medium text-muted-foreground shrink-0">
+                  {hotkey}
+                </kbd>
               </Card>
             </button>
           ))}

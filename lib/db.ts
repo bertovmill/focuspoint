@@ -99,6 +99,20 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS vision_items (
+      id SERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT,
+      content TEXT,
+      image_url TEXT,
+      horizon TEXT,
+      achieved BOOLEAN DEFAULT FALSE,
+      achieved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,

@@ -1665,3 +1665,30 @@ Two layout requests from screenshots: on desktop, clicking a left nav item was s
 **Verification:** resized the browser to a phone-width viewport against the running dev server and confirmed: desktop-width still shows the rail-left/content-right split, mobile-width shows only full-width content with no persistent sidebar, and the 5-button bottom bar's "More" dropdown opens and switches tabs correctly. Owner confirmed both look right visually.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Add "Vision" page (statements, long-term goals, vision board) + Cael tools
+
+**What was built:**
+New "Vision" nav tab holding the user's big picture, in three sub-views (badge-switched, same pattern as Measures): written **vision statements** (optional life-area label + body), **long-term goals** grouped by horizon (This year / 5 years / 10 years / Someday, with achieve/un-achieve toggle), and a **vision board** of images (2-col grid, caption overlay, uploads reuse the existing `/api/upload` Vercel Blob route). Cael is vision-aware via four new agent tools.
+
+- `lib/db.ts` — new `vision_items` table: one flexible table with `kind` ('statement' | 'goal' | 'image'), `title`, `content`, `image_url`, `horizon`, `achieved`/`achieved_at`, timestamps. Ran `scripts/migrate.ts` (needs `--env-file=.env.local` with tsx) against Neon to create it live.
+- `app/api/vision/route.ts` — GET (optional `?kind=`), POST with per-kind validation (statement needs content, goal needs title, image needs image_url).
+- `app/api/vision/[id]/route.ts` — PATCH (COALESCE partial update; `achieved: true/false` sets/clears `achieved_at`), DELETE.
+- `app/_components/vision-panel.tsx` — new self-contained panel component (dashboard.tsx is already ~1600 lines, so this follows the JournalTemplatesPanel/ScheduledTasksPanel extraction pattern). Fetches `/api/vision` on mount + 15s poll so Cael's chat-side edits show up. Optimistic updates with revert-on-error throughout.
+- `app/_components/dashboard.tsx` — "Vision" in `NAV_ITEMS` (TelescopeIcon), `DashboardTab` union, renders `<VisionPanel />`.
+- `app/page.tsx` — `"vision"` in `MobileTab`, added to the mobile "More" dropdown, activeTab mapping.
+- `agent/tools/list_vision.ts`, `add_vision_item.ts`, `update_vision_item.ts`, `delete_vision_item.ts` — CRUD tools mirroring the API validation; compact text `toModelOutput`s.
+- `agent/instructions.md` — new Vision bullet: check `list_vision` when conversations touch the big picture; offer to capture uncaptured ambitions; confirm before deleting.
+
+**Decisions:**
+- Owner picked the scope (asked via question): statements + goals + image board + Cael-aware, all four.
+- Horizon buckets are `1yr`/`5yr`/`10yr`/`someday` — a data-table edit in `HORIZONS` (panel) + enum in tools/API if we ever change them.
+- Focuspoint's dev server currently runs on **:3001** (a different project, ~/venice, holds :3000).
+
+**Verification:** full CRUD exercised against the running dev server on :3001 with a real session cookie — create statement/goal, invalid-image 400, achieve → `achieved_at` set, un-achieve + re-horizon → cleared/changed, `?kind=goal` filter, delete both, GET returns []. Test rows cleaned up.
+
+**Concurrent-session note:** another session was concurrently adding `MeasuresOverview` to dashboard.tsx/globals.css; committed only the vision hunks of dashboard.tsx (via `git apply --cached`) and left their uncommitted work in the working tree untouched.
+
+**Typecheck:** PASS ✓

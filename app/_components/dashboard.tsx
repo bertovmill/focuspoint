@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
+import { VisionPanel } from "@/app/_components/vision-panel";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,7 @@ const NAV_ITEMS = [
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
   { id: "media" as const, label: "Media", icon: ImageIcon },
   { id: "measures" as const, label: "Measures", icon: GaugeIcon },
+  { id: "vision" as const, label: "Vision", icon: TelescopeIcon },
 ];
 
 const MEASURE_CATEGORIES = [
@@ -167,7 +169,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule" | "measures";
+type DashboardTab = "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule" | "measures" | "vision";
 
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -1470,6 +1472,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                 Upload an image, copy its URL, then tell Cael to post it to LinkedIn.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Vision */}
+        {activeTab === "vision" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <VisionPanel />
           </div>
         )}
 

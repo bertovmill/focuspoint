@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-12 — Tasks (and other sidebar) nav items now take over the main view on desktop
+
+**What was built:**
+On desktop, clicking "Tasks" (or Notes/Content Ideas/Dreams/etc.) in the Dashboard's left rail previously only updated the narrow 380/420px sidebar column — the wide main panel always kept showing chat regardless of which nav item was selected. User wanted the selected section to take over the full main view instead, matching how it already worked on mobile.
+
+- `app/page.tsx` — the aside/chat visibility classes were forcing `lg:flex` regardless of `mobileTab`, which is why desktop always showed both panels. Removed those forced overrides so `mobileTab` now drives desktop layout too: when `mobileTab !== "chat"`, the Dashboard aside expands to `flex-1` (full width, replacing the chat-history rail + chat panel entirely); when `mobileTab === "chat"`, it reverts to the normal narrow sidebar. Also wired `onTabChange`, `isExpanded`, and `onBackToChat` props into `<Dashboard>`.
+- `app/_components/dashboard.tsx` — `Dashboard` now accepts `onTabChange` (fired alongside the existing local `setActiveTab` when a nav item is clicked, so the parent page can react) and `isExpanded`/`onBackToChat`. Added a "back to chat" icon button (visible only when expanded) in the header next to the trace-viewer link, so there's a way back to the chat view without a dedicated "Chat" nav entry.
+
+**Verification:** started a second dev server instance on port 3001 (port 3000 was already in use by an unrelated project, `venice`), logged in via the app's own `/login` password form using Playwright, and screenshotted: default view (narrow sidebar + chat), clicking "Tasks" (sidebar expands to fill the full main panel, chat/chat-history disappear), and clicking the new back-to-chat button (returns to the original layout). All three matched the intended behavior.
+
+**Note:** while cleaning up, an overly broad `pkill -f "next dev"` accidentally killed the unrelated `venice` project's dev server on port 3000 — restarted it immediately and confirmed it came back up correctly.
+
+**Typecheck:** PASS ✓
+
 ## Session: 2026-07-12 — Re-enable scheduled-tasks dispatcher as once-daily
 
 **Ask:** Berto saw a Vercel build failure ("Hobby accounts are limited to daily cron jobs... this cron expression (`* * * * *`) would run more than once per day") and asked if it was fixed. A concurrent session had already unblocked the deploy by moving `agent/schedules/dispatcher.ts` to `agent/schedules-disabled/` (disabling it entirely) rather than fixing it.

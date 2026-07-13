@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { toast } from "sonner";
@@ -128,7 +128,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule") => void; isExpanded?: boolean; onBackToChat?: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [contentIdeas, setContentIdeas] = useState<ContentIdea[]>([]);
@@ -580,6 +580,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {isExpanded && onBackToChat && (
+              <button
+                onClick={onBackToChat}
+                className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                aria-label="Back to chat"
+                title="Back to chat"
+              >
+                <MessageCircleIcon className="size-3.5" />
+              </button>
+            )}
             <Link
               href="/traces"
               className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -609,7 +619,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
           return (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => {
+                setActiveTab(id);
+                onTabChange?.(id);
+              }}
               className={cn(
                 "flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm transition-colors text-left",
                 isActive

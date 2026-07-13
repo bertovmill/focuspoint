@@ -33,31 +33,36 @@ function Workspace() {
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
-      {/* Dashboard panel — sidebar on desktop, full-screen on mobile for tasks/notes */}
+      {/* Dashboard panel — sidebar when chat is active, takes over the full main view otherwise */}
       <aside
         className={cn(
           "shrink-0 flex-col border-r border-border overflow-hidden",
-          mobileTab !== "chat" ? "flex flex-1" : "hidden",
-          "lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
-          sidebarOpen ? "lg:w-[380px] xl:w-[420px]" : "lg:w-0",
+          mobileTab !== "chat"
+            ? "flex flex-1"
+            : cn(
+                "hidden lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
+                sidebarOpen ? "lg:w-[380px] xl:w-[420px]" : "lg:w-0",
+              ),
         )}
       >
-        {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation */}
-        <div className="flex flex-col flex-1 h-full lg:w-[380px] xl:w-[420px] lg:shrink-0">
+        {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
+        <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "content-ideas" ? "content-ideas" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
+            onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
+            isExpanded={mobileTab !== "chat"}
+            onBackToChat={() => setMobileTab("chat")}
           />
         </div>
       </aside>
 
-      {/* Chat panel — full width on mobile (when chat tab active), remainder on desktop */}
+      {/* Chat panel — shown only when the chat tab is active, on both mobile and desktop */}
       <div
         className={cn(
           "min-w-0 flex-row",
           mobileTab === "chat" ? "flex flex-1" : "hidden",
-          "lg:flex lg:flex-1",
         )}
       >
         {/* Desktop chat-history rail */}

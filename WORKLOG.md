@@ -1709,3 +1709,19 @@ A `MeasuresOverview` section at the top of the Measures tab that turns logged me
 **Verification:** screenshotted light + dark at 1440px via Playwright against the running dev server on :3001 (logged in with the session cookie) — hero, meter (77% of $20K), stacked Jun/Jul bars, legend, and empty-state nudge all render in both modes.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Merge `worktree-add-lists-feature` (Lists replaces Content Ideas)
+
+**What was done:**
+Merged the Lists feature branch into main at the owner's request ("merge everything and push to main"). The branch predated the Measures/Vision/nav-rail work on main, so `dashboard.tsx` and `page.tsx` conflicted throughout.
+
+**Conflict resolution (take-both):** kept main's structure — Measures + Vision tabs, `DashboardTab` type, expanded-view props (`onTabChange`/`isExpanded`/`onBackToChat`), mobile "More" dropdown — and adopted the branch's Lists feature in place of Content Ideas: `"lists"` in both tab unions and the activeTab mappings, `ListChecksIcon` imports, ContentIdea interface/state/fetch removed (branch had deleted the handlers; auto-merge took those).
+
+**DB migration:** ran `scripts/migrate.ts` — the branch's one-time migration folded `content_ideas` (2 items) into a seeded "Content Ideas" list, seeded "Groceries", and dropped the old table.
+
+**Cleanup note:** stale `.next` type validators referenced the deleted content-ideas routes and failed typecheck; removed `.next` and did a full `npm run build` to regenerate.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓

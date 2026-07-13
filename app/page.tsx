@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type MobileTab = "chat" | "tasks" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "schedule" | "media" | "measures" | "vision";
+type MobileTab = "chat" | "tasks" | "notes" | "lists" | "journal-templates" | "dreams" | "schedule" | "media" | "measures" | "vision";
 
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
@@ -63,7 +63,7 @@ function Workspace() {
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           <Dashboard
-            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "content-ideas" ? "content-ideas" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : "todos"}
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
@@ -139,10 +139,10 @@ function Workspace() {
           onClick={() => setMobileTab("notes")}
         />
         <NavButton
-          label="Ideas"
-          icon={<LightbulbIcon className="size-5" />}
-          active={mobileTab === "content-ideas"}
-          onClick={() => setMobileTab("content-ideas")}
+          label="Lists"
+          icon={<ListChecksIcon className="size-5" />}
+          active={mobileTab === "lists"}
+          onClick={() => setMobileTab("lists")}
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

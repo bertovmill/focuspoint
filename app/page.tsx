@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon, BookOpenIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon, BookOpenIcon, GaugeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 
-type MobileTab = "chat" | "tasks" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "schedule" | "media";
+type MobileTab = "chat" | "tasks" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "schedule" | "media" | "measures";
 
 export default function Page() {
   return (
@@ -48,7 +48,7 @@ function Workspace() {
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           <Dashboard
-            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "content-ideas" ? "content-ideas" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : "todos"}
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "content-ideas" ? "content-ideas" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "media" ? "media" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
@@ -152,6 +152,12 @@ function Workspace() {
           icon={<ImageIcon className="size-5" />}
           active={mobileTab === "media"}
           onClick={() => setMobileTab("media")}
+        />
+        <NavButton
+          label="Measures"
+          icon={<GaugeIcon className="size-5" />}
+          active={mobileTab === "measures"}
+          onClick={() => setMobileTab("measures")}
         />
       </nav>
     </main>

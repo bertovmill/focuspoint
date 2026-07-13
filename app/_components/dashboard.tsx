@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { toast } from "sonner";
@@ -43,7 +43,37 @@ const NAV_ITEMS = [
   { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
   { id: "media" as const, label: "Media", icon: ImageIcon },
+  { id: "measures" as const, label: "Measures", icon: GaugeIcon },
 ];
+
+const MEASURE_CATEGORIES = [
+  { key: "savings_snapshot" as const, label: "Savings Snapshot", icon: PiggyBankIcon },
+  { key: "spend_report" as const, label: "Spend Report", icon: WalletIcon },
+  { key: "free_time_audit" as const, label: "Free Time Audit", icon: HourglassIcon },
+  { key: "daily_checkin" as const, label: "Daily Check-in", icon: GaugeIcon },
+];
+
+const MEASURE_FIELDS: Record<Measure["category"], { key: string; label: string; suffix?: string; max?: number }[]> = {
+  savings_snapshot: [
+    { key: "total_savings", label: "Total savings", suffix: "$" },
+    { key: "monthly_contribution", label: "Contributed this month", suffix: "$" },
+  ],
+  spend_report: [
+    { key: "total_spend", label: "Total spend", suffix: "$" },
+    { key: "essential_spend", label: "Essential spend", suffix: "$" },
+    { key: "discretionary_spend", label: "Discretionary spend", suffix: "$" },
+  ],
+  free_time_audit: [
+    { key: "free_hours", label: "Free hours", suffix: "hrs" },
+    { key: "screen_time_hours", label: "Screen time", suffix: "hrs" },
+  ],
+  daily_checkin: [
+    { key: "energy", label: "Energy level", max: 10 },
+    { key: "sleep_quality", label: "Sleep quality", max: 10 },
+    { key: "body_feel", label: "How my body feels", max: 10 },
+    { key: "mood", label: "Mood level", max: 10 },
+  ],
+};
 
 const TODO_SECTIONS = [
   { key: "none" as const, label: "Once" },
@@ -77,6 +107,15 @@ interface ContentIdea {
   completed: boolean;
   created_at: string;
   completed_at: string | null;
+}
+
+interface Measure {
+  id: number;
+  category: "savings_snapshot" | "spend_report" | "free_time_audit" | "daily_checkin";
+  recorded_date: string;
+  data: Record<string, number | string | undefined>;
+  notes: string | null;
+  created_at: string;
 }
 
 interface DreamReport {
@@ -128,10 +167,18 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule") => void; isExpanded?: boolean; onBackToChat?: () => void }) {
+type DashboardTab = "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule" | "measures";
+
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [contentIdeas, setContentIdeas] = useState<ContentIdea[]>([]);
+  const [measures, setMeasures] = useState<Measure[]>([]);
+  const [measureCategory, setMeasureCategory] = useState<Measure["category"]>("daily_checkin");
+  const [measureForm, setMeasureForm] = useState<Record<string, string>>({});
+  const [measureDate, setMeasureDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [measureNotes, setMeasureNotes] = useState("");
+  const [savingMeasure, setSavingMeasure] = useState(false);
   const [newContentIdea, setNewContentIdea] = useState("");
   const [editingIdeaId, setEditingIdeaId] = useState<number | null>(null);
   const [editIdeaTitle, setEditIdeaTitle] = useState("");
@@ -140,7 +187,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -203,16 +250,18 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const fetchData = useCallback(async () => {
     try {
-      const [todosRes, thoughtsRes, dreamRes, ideasRes] = await Promise.all([
+      const [todosRes, thoughtsRes, dreamRes, ideasRes, measuresRes] = await Promise.all([
         fetch("/api/todos?include_completed=today&limit=200"),
         fetch("/api/thoughts"),
         fetch("/api/dreams"),
         fetch("/api/content-ideas"),
+        fetch("/api/measures"),
       ]);
       if (todosRes.ok) setTodos(await todosRes.json());
       if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
       if (dreamRes.ok) setDream(await dreamRes.json());
       if (ideasRes.ok) setContentIdeas(await ideasRes.json());
+      if (measuresRes.ok) setMeasures(await measuresRes.json());
     } catch {
       // silently fail — agent can still be used
     } finally {
@@ -360,6 +409,52 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     } catch {
       setContentIdeas(prev);
       toast.error("Couldn't delete content idea.");
+    }
+  };
+
+  const handleAddMeasure = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const fields = MEASURE_FIELDS[measureCategory];
+    const data: Record<string, number> = {};
+    for (const f of fields) {
+      const raw = measureForm[f.key];
+      if (raw !== undefined && raw !== "") data[f.key] = Number(raw);
+    }
+    setSavingMeasure(true);
+    try {
+      const res = await fetch("/api/measures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: measureCategory,
+          recorded_date: measureDate,
+          data,
+          notes: measureNotes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const row = await res.json();
+      setMeasures((prev) => [row, ...prev]);
+      setMeasureForm({});
+      setMeasureNotes("");
+      toast.success("Measure logged.");
+    } catch {
+      toast.error("Couldn't save measure. Try again.");
+    } finally {
+      setSavingMeasure(false);
+    }
+  };
+
+  const handleDeleteMeasure = async (id: number) => {
+    const prev = measures;
+    setMeasures((m) => m.filter((x) => x.id !== id));
+    try {
+      const res = await fetch(`/api/measures/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Entry deleted.");
+    } catch {
+      setMeasures(prev);
+      toast.error("Couldn't delete entry.");
     }
   };
 
@@ -612,35 +707,43 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         </div>
       </div>
 
-      {/* Vertical nav — ElevenLabs style */}
-      <nav className="px-3 py-3 space-y-0.5 border-b border-border shrink-0">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-          const isActive = activeTab === id;
-          return (
-            <button
-              key={id}
-              onClick={() => {
-                setActiveTab(id);
-                onTabChange?.(id);
-              }}
-              className={cn(
-                "flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm transition-colors text-left",
-                isActive
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4 shrink-0" />
-              <span>{label}</span>
-              {id === "todos" && !loading && activeTodos.length > 0 && (
-                <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                  {activeTodos.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      <div className={cn("flex flex-1 min-h-0", isExpanded ? "flex-row" : "flex-col")}>
+        {/* Vertical nav — ElevenLabs style */}
+        <nav
+          className={cn(
+            "shrink-0 space-y-0.5",
+            isExpanded
+              ? "w-[220px] border-r border-border px-3 py-3 overflow-y-auto"
+              : "px-3 py-3 border-b border-border",
+          )}
+        >
+          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => {
+                  setActiveTab(id);
+                  onTabChange?.(id);
+                }}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm transition-colors text-left",
+                  isActive
+                    ? "bg-accent text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span>{label}</span>
+                {id === "todos" && !loading && activeTodos.length > 0 && (
+                  <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                    {activeTodos.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
       {/* Content area */}
       <div className="flex-1 overflow-y-auto min-h-0">
@@ -1370,6 +1473,124 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
           </div>
         )}
 
+        {/* Measures */}
+        {activeTab === "measures" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {MEASURE_CATEGORIES.map(({ key, label, icon: Icon }) => (
+                <Badge
+                  key={key}
+                  asChild
+                  variant={measureCategory === key ? "default" : "outline"}
+                  className="cursor-pointer gap-1"
+                >
+                  <button type="button" onClick={() => { setMeasureCategory(key); setMeasureForm({}); }}>
+                    <Icon className="size-3" />
+                    {label}
+                  </button>
+                </Badge>
+              ))}
+            </div>
+
+            <form onSubmit={handleAddMeasure} className="flex flex-col gap-3 mb-6">
+              <Input
+                type="date"
+                value={measureDate}
+                onChange={(e) => setMeasureDate(e.target.value)}
+                className="w-fit"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                {MEASURE_FIELDS[measureCategory].map((f) => (
+                  <div key={f.key} className="flex flex-col gap-1">
+                    <label className="text-xs text-muted-foreground">
+                      {f.label}
+                      {f.suffix ? ` (${f.suffix})` : f.max ? ` (1–${f.max})` : ""}
+                    </label>
+                    <Input
+                      type="number"
+                      min={f.max ? 1 : undefined}
+                      max={f.max}
+                      value={measureForm[f.key] ?? ""}
+                      onChange={(e) => setMeasureForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              <Textarea
+                value={measureNotes}
+                onChange={(e) => setMeasureNotes(e.target.value)}
+                placeholder="Notes (optional)…"
+                rows={2}
+              />
+              <Button type="submit" disabled={savingMeasure} className="self-start">
+                {savingMeasure ? <Spinner className="size-3.5 mr-2" /> : <PlusIcon className="size-3.5 mr-2" />}
+                Log entry
+              </Button>
+            </form>
+
+            {(() => {
+              const entries = measures.filter((m) => m.category === measureCategory);
+              if (loading) {
+                return (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+                  </div>
+                );
+              }
+              if (entries.length === 0) {
+                return (
+                  <Empty className="py-10">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <GaugeIcon className="size-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>No entries yet</EmptyTitle>
+                      <EmptyDescription>Log your first entry above.</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                );
+              }
+              return (
+                <ul className="space-y-2">
+                  {entries.map((m) => (
+                    <li key={m.id} className="rounded-lg px-3 py-2.5 bg-muted/30 group">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {formatDate(m.recorded_date)}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteMeasure(m.id)}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          aria-label="Delete entry"
+                        >
+                          <TrashIcon className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {MEASURE_FIELDS[m.category].map((f) =>
+                          m.data?.[f.key] !== undefined ? (
+                            <span key={f.key} className="text-sm">
+                              <span className="text-muted-foreground">{f.label}: </span>
+                              <span className="font-medium">
+                                {f.suffix === "$" ? "$" : ""}
+                                {m.data[f.key]}
+                                {f.suffix && f.suffix !== "$" ? ` ${f.suffix}` : ""}
+                                {f.max ? `/${f.max}` : ""}
+                              </span>
+                            </span>
+                          ) : null
+                        )}
+                      </div>
+                      {m.notes && <p className="text-xs text-muted-foreground mt-1.5">{m.notes}</p>}
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+          </div>
+        )}
+
+      </div>
       </div>
     </div>
   );

@@ -89,6 +89,16 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS measures (
+      id SERIAL PRIMARY KEY,
+      category TEXT NOT NULL,
+      recorded_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      data JSONB NOT NULL DEFAULT '{}',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,

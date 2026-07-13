@@ -1635,3 +1635,19 @@ Tasks crossed off today (any recurrence) can now be un-checked, instead of the c
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-13 — Add "Measures" page
+
+**What was built:**
+New nav tab for logging point-in-time personal metrics: monthly savings snapshot, monthly spend report, monthly free-time audit, and a daily check-in (energy, sleep quality, body feel, mood — each 1–10).
+
+- `lib/db.ts` — new `measures` table: `category` (text), `recorded_date` (date), `data` (jsonb, category-specific numeric fields), `notes`, `created_at`. One flexible table rather than one per category, since each category just needs a handful of numeric fields plus a date and optional notes.
+- `app/api/measures/route.ts` — `GET` (optional `?category=` filter), `POST` (create).
+- `app/api/measures/[id]/route.ts` — `PATCH`, `DELETE`.
+- `app/_components/dashboard.tsx` — added "Measures" to `NAV_ITEMS`; `MEASURE_CATEGORIES` (4 category badges) and `MEASURE_FIELDS` (per-category field defs: label, optional `$`/`hrs` suffix or 1–10 `max`) drive a single generic form + entry list, so adding a 5th category later is just a data-table edit, no new JSX. Entries list shows all logged fields per entry with a delete action.
+- `app/page.tsx` — added `"measures"` to the `MobileTab` union and a bottom-nav button (mobile) / it flows through the existing sidebar-takeover-on-desktop pattern automatically.
+- Ran `scripts/migrate.ts` against the real Neon DB to create the `measures` table now (it will also auto-create via `instrumentation.ts` → `ensureSchema()` on next server start, but this got it live immediately for testing).
+
+**Typecheck:** PASS ✓

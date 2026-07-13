@@ -61,6 +61,33 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
   { tab: "vision", label: "Vision", icon: TelescopeIcon, hotkey: "0" },
 ];
 
+/**
+ * Daily artwork — one piece of "what it's all for" per day, rotating by day of year.
+ * All images hand-verified Unsplash photos (hotlinking per Unsplash guidelines).
+ */
+const DAILY_ART: { url: string; caption: string }[] = [
+  { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&fm=jpg", caption: "Peaks above the clouds" },
+  { url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1600&q=80&fm=jpg", caption: "Golden hour with good people" },
+  { url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80&fm=jpg", caption: "Dinner done right" },
+  { url: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=1600&q=80&fm=jpg", caption: "Lost in the dance" },
+  { url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80&fm=jpg", caption: "Lago di Braies, Dolomites" },
+  { url: "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=1600&q=80&fm=jpg", caption: "The peloton rolls" },
+  { url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80&fm=jpg", caption: "Ocean morning" },
+  { url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1600&q=80&fm=jpg", caption: "Shoulder to shoulder" },
+  { url: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=1600&q=80&fm=jpg", caption: "Butterfly, full flight" },
+  { url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&q=80&fm=jpg", caption: "A sky full of stars" },
+  { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80&fm=jpg", caption: "A table waiting for friends" },
+  { url: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1600&q=80&fm=jpg", caption: "On your marks" },
+  { url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1600&q=80&fm=jpg", caption: "Out on the water" },
+  { url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=1600&q=80&fm=jpg", caption: "Confetti night" },
+  { url: "https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=1600&q=80&fm=jpg", caption: "Still water, clear head" },
+];
+
+function dayOfYear(d: Date): number {
+  const start = new Date(d.getFullYear(), 0, 0);
+  return Math.floor((d.getTime() - start.getTime()) / 86400000);
+}
+
 /** Match a pillar statement to an icon + the section it should open. */
 function pillarMeta(title: string): { icon: typeof BookOpenIcon; target: HomeTarget } {
   const t = title.toLowerCase();
@@ -81,6 +108,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [statements, setStatements] = useState<VisionStatement[] | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
+  const [artFailed, setArtFailed] = useState(false);
+  const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   useEffect(() => {
     (async () => {
@@ -151,6 +180,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </button>
           <ModeToggle />
         </div>
+
+        {/* Daily artwork — what it's all for */}
+        {!artFailed && (
+          <div className="relative mb-10 rounded-2xl overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={art.url}
+              alt={art.caption}
+              onError={() => setArtFailed(true)}
+              className="w-full h-44 sm:h-60 object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
+            <p className="absolute bottom-2.5 left-3.5 text-xs font-medium text-white/95">
+              {art.caption}
+            </p>
+          </div>
+        )}
 
         {/* Truest vision — hero */}
         {loading ? (

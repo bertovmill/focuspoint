@@ -1763,3 +1763,18 @@ Digit hotkeys on the Home screen: keys 1–9 and 0 jump to the ten sections in g
 **Verification:** Playwright against dev on :3001 — hints render on all ten cards; pressing "9" navigated to Measures (asserted "Monthly spend" visible). Server killed by PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Daily rotating artwork on the Home screen
+
+**What was built:**
+A full-width art banner at the top of Home (between header and the vision hero) celebrating "what it's all for" — nature, places, restaurants, people laughing, dancing, sports. One image per day, rotating deterministically by day-of-year.
+
+- `app/_components/home-screen.tsx` — `DAILY_ART`: 15 curated Unsplash photos (each downloaded and visually verified before inclusion — mountains above clouds, ocean morning, starry peak, Lago di Braies, rowboat bow, two restaurant scenes, friends seaside + golden-hour hilltop, dancer, confetti concert, cycling peloton, track start, butterfly swimmer, dock at Königssee), each with a short caption; `dayOfYear % 15` picks the day's image; rounded-2xl banner (h-44/sm:h-60, object-cover) with a bottom gradient + caption; `onError` hides the banner gracefully if the image ever 404s offline.
+
+**Decisions:** hotlinked Unsplash CDN URLs (per their guidelines) rather than bundling ~15 images into the repo; plain `<img>` (not next/image) to avoid remote-domain config, matching the Media tab's pattern.
+
+**Verification:** all 16 candidate URLs curl-checked (200s), every image opened and eyeballed (one dropped for vibe), then Playwright screenshots desktop-light + mobile-dark showing the banner, caption, and layout intact.
+
+**Typecheck:** PASS ✓

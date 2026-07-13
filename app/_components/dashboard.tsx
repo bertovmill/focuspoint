@@ -166,7 +166,7 @@ interface UploadedImage {
 
 type DashboardTab = "home" | "todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "schedule" | "measures" | "vision";
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [measures, setMeasures] = useState<Measure[]>([]);
@@ -201,10 +201,20 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const newTodoRef = useRef<HTMLInputElement>(null);
+  const handledFocusSignal = useRef(0);
 
   useEffect(() => {
     if (controlledTab) setActiveTab(controlledTab);
   }, [controlledTab]);
+
+  // "N" shortcut: focus the new-task input once the Tasks tab is showing.
+  useEffect(() => {
+    if (focusNewTaskSignal && focusNewTaskSignal !== handledFocusSignal.current && activeTab === "todos") {
+      handledFocusSignal.current = focusNewTaskSignal;
+      newTodoRef.current?.focus();
+    }
+  }, [focusNewTaskSignal, activeTab]);
 
   async function handleUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -663,6 +673,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
               <div className="flex gap-2">
                 <Input
+                  ref={newTodoRef}
                   value={newTodo}
                   onChange={(e) => setNewTodo(e.target.value)}
                   placeholder="Add a task…"

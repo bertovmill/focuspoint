@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
@@ -39,7 +39,28 @@ function Workspace() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
+  const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const { hydrated, activeId, newThread } = useThreads();
+
+  // Global shortcuts: T opens Tasks, N opens Tasks and focuses the new-task input.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      const key = e.key.toLowerCase();
+      if (key === "t") {
+        e.preventDefault();
+        setMobileTab("tasks");
+      } else if (key === "n") {
+        e.preventDefault();
+        setMobileTab("tasks");
+        setFocusNewTaskSignal((n) => n + 1);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const handleRunJobWithChat = useCallback((message: string) => {
     newThread();
@@ -72,6 +93,7 @@ function Workspace() {
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
             isExpanded={mobileTab !== "chat"}
             onBackToChat={() => setMobileTab("chat")}
+            focusNewTaskSignal={focusNewTaskSignal}
           />
         </div>
       </aside>

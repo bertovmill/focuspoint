@@ -1778,3 +1778,19 @@ A full-width art banner at the top of Home (between header and the vision hero) 
 **Verification:** all 16 candidate URLs curl-checked (200s), every image opened and eyeballed (one dropped for vibe), then Playwright screenshots desktop-light + mobile-dark showing the banner, caption, and layout intact.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Global T / N keyboard shortcuts (Tasks + new task)
+
+**What was built:**
+App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** opens Tasks *and* focuses the "Add a task…" input so you can type immediately. Unlike the Home digit hotkeys (which only work while Home is mounted), these are global — wired in `Workspace` so they work from chat, Notes, or any other view. Both are suppressed while typing (input/textarea/contenteditable guard, same as the digit hotkeys) and ignore modifier combos (Cmd/Ctrl/Alt), so Cmd+T/browser shortcuts are untouched.
+
+- `app/page.tsx` — window keydown listener in `Workspace`: `t` → `setMobileTab("tasks")`; `n` → same + bump a `focusNewTaskSignal` counter passed into `<Dashboard>`.
+- `app/_components/dashboard.tsx` — new `focusNewTaskSignal` prop; `newTodoRef` on the new-task `Input`; an effect focuses it when the signal changes *and* `activeTab === "todos"` (the activeTab dependency handles the one-render lag when navigating from another view), with a handled-signal ref so it never re-fires on later tab switches.
+
+**Decisions:** global rather than Home-only — Tasks already has "2" on Home, so a Home-only T would be redundant; digit hotkeys left untouched (still Home-only, "2" still works).
+
+**Verification:** Playwright against dev on :3001 (session cookie) — 11 checks all pass: T from Home/Notes opens Tasks (without stealing focus), N opens Tasks with input focused and typed text (incl. t/n chars) lands in the input, N while typing just types "n", Ctrl+T ignored, digit "2" regression ok, typing "thinking now" in the chat composer doesn't navigate. No test rows created. Server killed by PID.
+
+**Typecheck:** PASS ✓

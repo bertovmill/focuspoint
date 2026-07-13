@@ -23,6 +23,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -484,6 +494,22 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const handleSetPriority = async (id: number, priority: Todo["priority"]) => {
+    const prev = todos;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, priority } : t)));
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't update priority.");
+    }
+  };
+
   const handleDeleteTodo = async (id: number) => {
     const prev = todos;
     setTodos((t) => t.filter((x) => x.id !== id));
@@ -785,8 +811,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                               </div>
                             </li>
                           ) : (
+                            <ContextMenu key={todo.id}>
+                              <ContextMenuTrigger asChild>
                             <li
-                              key={todo.id}
                               className={cn(
                                 "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
                                 isCompleting && "opacity-50",
@@ -857,6 +884,38 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 <TrashIcon className="size-3.5" />
                               </button>
                             </li>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent>
+                                <ContextMenuLabel>Priority</ContextMenuLabel>
+                                <ContextMenuRadioGroup
+                                  value={todo.priority}
+                                  onValueChange={(p) => handleSetPriority(todo.id, p as Todo["priority"])}
+                                >
+                                  {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                                    <ContextMenuRadioItem
+                                      key={p}
+                                      value={p}
+                                      className={cn(
+                                        "capitalize",
+                                        p === "urgent" && "text-priority-urgent focus:text-priority-urgent",
+                                        p === "high" && "text-priority-high focus:text-priority-high",
+                                      )}
+                                    >
+                                      {p}
+                                    </ContextMenuRadioItem>
+                                  ))}
+                                </ContextMenuRadioGroup>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem onSelect={() => startEditTodo(todo)}>
+                                  <PencilIcon />
+                                  Edit…
+                                </ContextMenuItem>
+                                <ContextMenuItem variant="destructive" onSelect={() => handleDeleteTodo(todo.id)}>
+                                  <TrashIcon />
+                                  Delete
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
                           );
                         })}
                       </ul>

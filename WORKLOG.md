@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-13 — Right-click context menu on tasks (set priority / edit / delete)
+
+**Ask:** Berto asked if a task could be made urgent by right-clicking it on the Tasks page. It couldn't — priority was only reachable through the pencil-icon edit form. He chose (via quiz) a full context menu: priority radio group plus Edit and Delete actions.
+
+**What was built:**
+- `components/ui/context-menu.tsx` — new shadcn-style wrapper around the Radix ContextMenu primitive (already available via the installed `radix-ui` umbrella package — no new dependency). Includes Root/Trigger/Content/Item/RadioGroup/RadioItem/Label/Separator, styled to match the existing `dropdown-menu.tsx`.
+- `app/_components/dashboard.tsx` — each non-editing task row is wrapped in a `<ContextMenu>`. Right-click shows: "Priority" label + Low/Normal/High/Urgent radio group (current priority checked; High/Urgent tinted with their priority colors), then Edit… (opens the existing inline edit form) and Delete (destructive styling). New `handleSetPriority()` PATCHes `/api/todos/[id]` with just `{priority}`, optimistic update with rollback on failure. Existing PATCH route already supported partial updates — no API changes.
+
+**Verification (Playwright, real browser):** seeded a test task via the API, right-clicked the row → menu opened with all items; clicked Urgent → title turned red, Urgent badge appeared, header count incremented, and the server confirmed `priority: "urgent"`; reopened the menu → Urgent radio was checked; set back to Normal → persisted; deleted via the menu → task gone server-side. Screenshots captured. Cleaned up the seed task via the menu's own Delete.
+
+**Gotcha discovered:** port 3000 was another project (`~/venice`), not focuspoint — the first verification pass silently ran against the wrong app and got 401s. Started focuspoint on `PORT=3789` instead. Wrote `.claude/skills/verify/SKILL.md` capturing the launch/auth/Playwright recipe so future sessions skip this cold start.
+
+**Typecheck:** PASS ✓
+
 ## 2026-07-12 — Tasks (and other sidebar) nav items now take over the main view on desktop
 
 **What was built:**

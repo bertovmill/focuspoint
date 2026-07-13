@@ -1692,3 +1692,20 @@ New "Vision" nav tab holding the user's big picture, in three sub-views (badge-s
 **Concurrent-session note:** another session was concurrently adding `MeasuresOverview` to dashboard.tsx/globals.css; committed only the vision hunks of dashboard.tsx (via `git apply --cached`) and left their uncommitted work in the working tree untouched.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Measures visual dashboard (overview charts)
+
+**What was built:**
+A `MeasuresOverview` section at the top of the Measures tab that turns logged measures into visuals:
+
+- `app/_components/measures-overview.tsx` (new) — savings hero figure + progress meter toward a goal (reads optional `goal` from the latest `savings_snapshot`'s data jsonb; row id 2 updated with `goal: 20000`); monthly spend as stacked horizontal bars (essential/discretionary/unallocated segments, 2px surface gaps, rounded data-end, legend, exact values in tooltips, compact total at bar end); daily check-in and free-time stat tiles with 12-point sparklines (rendered only once entries exist); a nudge line when there are no check-ins yet.
+- `app/globals.css` — added `--chart-essential/discretionary/neutral/track/spark` tokens for light and dark (categorical pair validated with the dataviz palette validator against the app's actual surfaces: light `#2a78d6`/`#1baf7a`, dark `#3987e5`/`#199e70`).
+- `app/_components/dashboard.tsx` — renders `<MeasuresOverview measures={measures} />` above the category picker.
+
+**Decisions:** hand-rolled SVG/div marks instead of adding a chart lib (narrow panel, tiny datasets); entries list below serves as the accessibility table view; chart colors read via CSS vars so dark mode is a token swap, not a repaint.
+
+**Verification:** screenshotted light + dark at 1440px via Playwright against the running dev server on :3001 (logged in with the session cookie) — hero, meter (77% of $20K), stacked Jun/Jul bars, legend, and empty-state nudge all render in both modes.
+
+**Typecheck:** PASS ✓

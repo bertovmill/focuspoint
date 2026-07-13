@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
+import { MeasuresOverview } from "@/app/_components/measures-overview";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { toast } from "sonner";
 import {
@@ -1485,6 +1486,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {/* Measures */}
         {activeTab === "measures" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
+            <MeasuresOverview measures={measures} />
+
             <div className="flex flex-wrap gap-1.5 mb-4">
               {MEASURE_CATEGORIES.map(({ key, label, icon: Icon }) => (
                 <Badge

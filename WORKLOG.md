@@ -1651,3 +1651,17 @@ New nav tab for logging point-in-time personal metrics: monthly savings snapshot
 - Ran `scripts/migrate.ts` against the real Neon DB to create the `measures` table now (it will also auto-create via `instrumentation.ts` → `ensureSchema()` on next server start, but this got it live immediately for testing).
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Desktop nav-rail-plus-content split + mobile bottom bar overflow
+
+**What was built:**
+Two layout requests from screenshots: on desktop, clicking a left nav item was showing that section's content stacked *below* the nav list in the same narrow column instead of beside it; on mobile, the bottom nav bar had 9 crowded items and the desktop nav-rail change was leaking into narrow viewports as a persistent sidebar.
+
+- `app/_components/dashboard.tsx` — when `isExpanded` (a section other than chat is active), the nav + content wrapper is `flex-col` by default and only becomes `lg:flex-row` at the `lg` breakpoint, with the nav rendering as a fixed `lg:w-[220px]` left rail (`border-r`, own scroll) and the selected section's content filling the remaining width to its right. Below `lg`, the nav is `hidden` entirely when expanded — the mobile bottom bar already covers navigation there, so showing both was redundant. The narrow-sidebar case (`!isExpanded`, chat visible) is untouched — nav still stacks above content since there isn't room for two columns in a 380px rail.
+- `app/page.tsx` — mobile bottom bar cut from 9 buttons down to 5: Chat, Tasks, Notes, Ideas, plus a "More" button (`DropdownMenu`, opens upward via `side="top"`) covering Journal, Dreams, Schedule, Media, Measures. Added `MORE_TABS` array driving the dropdown so adding another overflow tab later is a one-line data change.
+
+**Verification:** resized the browser to a phone-width viewport against the running dev server and confirmed: desktop-width still shows the rail-left/content-right split, mobile-width shows only full-width content with no persistent sidebar, and the 5-button bottom bar's "More" dropdown opens and switches tabs correctly. Owner confirmed both look right visually.
+
+**Typecheck:** PASS ✓

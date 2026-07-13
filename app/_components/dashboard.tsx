@@ -707,13 +707,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         </div>
       </div>
 
-      <div className={cn("flex flex-1 min-h-0", isExpanded ? "flex-row" : "flex-col")}>
-        {/* Vertical nav — ElevenLabs style */}
+      <div className={cn("flex flex-1 min-h-0 flex-col", isExpanded && "lg:flex-row")}>
+        {/* Vertical nav — ElevenLabs style. On mobile, hidden when expanded since the bottom nav already covers navigation. */}
         <nav
           className={cn(
             "shrink-0 space-y-0.5",
             isExpanded
-              ? "w-[220px] border-r border-border px-3 py-3 overflow-y-auto"
+              ? "hidden lg:block lg:w-[220px] lg:border-r lg:border-border lg:px-3 lg:py-3 lg:overflow-y-auto"
               : "px-3 py-3 border-b border-border",
           )}
         >

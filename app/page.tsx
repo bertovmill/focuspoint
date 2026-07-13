@@ -1,14 +1,28 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon, BookOpenIcon, GaugeIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, LightbulbIcon, BookOpenIcon, GaugeIcon, MoreHorizontalIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type MobileTab = "chat" | "tasks" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "schedule" | "media" | "measures";
+
+const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
+  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
+  { tab: "dreams", label: "Dreams", icon: BrainIcon },
+  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon },
+  { tab: "media", label: "Media", icon: ImageIcon },
+  { tab: "measures", label: "Measures", icon: GaugeIcon },
+];
 
 export default function Page() {
   return (
@@ -129,36 +143,31 @@ function Workspace() {
           active={mobileTab === "content-ideas"}
           onClick={() => setMobileTab("content-ideas")}
         />
-        <NavButton
-          label="Journal"
-          icon={<BookOpenIcon className="size-5" />}
-          active={mobileTab === "journal-templates"}
-          onClick={() => setMobileTab("journal-templates")}
-        />
-        <NavButton
-          label="Dreams"
-          icon={<BrainIcon className="size-5" />}
-          active={mobileTab === "dreams"}
-          onClick={() => setMobileTab("dreams")}
-        />
-        <NavButton
-          label="Schedule"
-          icon={<CalendarClockIcon className="size-5" />}
-          active={mobileTab === "schedule"}
-          onClick={() => setMobileTab("schedule")}
-        />
-        <NavButton
-          label="Media"
-          icon={<ImageIcon className="size-5" />}
-          active={mobileTab === "media"}
-          onClick={() => setMobileTab("media")}
-        />
-        <NavButton
-          label="Measures"
-          icon={<GaugeIcon className="size-5" />}
-          active={mobileTab === "measures"}
-          onClick={() => setMobileTab("measures")}
-        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
+                MORE_TABS.some((t) => t.tab === mobileTab) ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <MoreHorizontalIcon className="size-5" />
+              <span className="text-[10px] font-medium">More</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="mb-2">
+            {MORE_TABS.map(({ tab, label, icon: Icon }) => (
+              <DropdownMenuItem
+                key={tab}
+                onClick={() => setMobileTab(tab)}
+                className={cn(mobileTab === tab && "text-primary")}
+              >
+                <Icon className="size-4" />
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
     </main>
   );

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, LightbulbIcon, BookOpenIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
+import { ListsPanel } from "@/app/_components/lists-panel";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -38,7 +39,7 @@ import { Spinner } from "@/components/ui/spinner";
 const NAV_ITEMS = [
   { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
   { id: "notes" as const, label: "Notes", icon: FileTextIcon },
-  { id: "content-ideas" as const, label: "Content Ideas", icon: LightbulbIcon },
+  { id: "lists" as const, label: "Lists", icon: ListChecksIcon },
   { id: "journal-templates" as const, label: "Journal Templates", icon: BookOpenIcon },
   { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
@@ -69,14 +70,6 @@ interface Thought {
   tags: string[];
   created_at: string;
   score?: number;
-}
-
-interface ContentIdea {
-  id: number;
-  title: string;
-  completed: boolean;
-  created_at: string;
-  completed_at: string | null;
 }
 
 interface DreamReport {
@@ -128,19 +121,14 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
+export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat }: { activeTab?: "todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "schedule"; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
-  const [contentIdeas, setContentIdeas] = useState<ContentIdea[]>([]);
-  const [newContentIdea, setNewContentIdea] = useState("");
-  const [editingIdeaId, setEditingIdeaId] = useState<number | null>(null);
-  const [editIdeaTitle, setEditIdeaTitle] = useState("");
-  const editIdeaRef = useRef<HTMLInputElement>(null);
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "content-ideas" | "journal-templates" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
+  const [activeTab, setActiveTab] = useState<"todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "schedule">(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -203,16 +191,14 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const fetchData = useCallback(async () => {
     try {
-      const [todosRes, thoughtsRes, dreamRes, ideasRes] = await Promise.all([
+      const [todosRes, thoughtsRes, dreamRes] = await Promise.all([
         fetch("/api/todos?include_completed=today&limit=200"),
         fetch("/api/thoughts"),
         fetch("/api/dreams"),
-        fetch("/api/content-ideas"),
       ]);
       if (todosRes.ok) setTodos(await todosRes.json());
       if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
       if (dreamRes.ok) setDream(await dreamRes.json());
-      if (ideasRes.ok) setContentIdeas(await ideasRes.json());
     } catch {
       // silently fail — agent can still be used
     } finally {
@@ -281,87 +267,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
-  const handleAddContentIdea = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = newContentIdea.trim();
-    if (!title) return;
-    setNewContentIdea("");
-    try {
-      const res = await fetch("/api/content-ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-      if (!res.ok) throw new Error();
-      const idea = await res.json();
-      setContentIdeas((prev) => [idea, ...prev]);
-    } catch {
-      setNewContentIdea(title);
-      toast.error("Couldn't add content idea. Try again.");
-    }
-  };
-
-  const handleToggleContentIdea = async (id: number, completed: boolean) => {
-    const prev = contentIdeas;
-    setContentIdeas((ideas) => ideas.map((i) => (i.id === id ? { ...i, completed } : i)));
-    try {
-      const res = await fetch(`/api/content-ideas/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setContentIdeas(prev);
-      toast.error("Couldn't update content idea.");
-    }
-  };
-
-  const startEditContentIdea = (idea: ContentIdea) => {
-    setEditingIdeaId(idea.id);
-    setEditIdeaTitle(idea.title);
-    setTimeout(() => {
-      editIdeaRef.current?.focus();
-      editIdeaRef.current?.select();
-    }, 0);
-  };
-
-  const cancelEditContentIdea = () => {
-    setEditingIdeaId(null);
-    setEditIdeaTitle("");
-  };
-
-  const saveEditContentIdea = async (id: number) => {
-    const title = editIdeaTitle.trim();
-    if (!title) return;
-    const prev = contentIdeas;
-    setContentIdeas((ideas) => ideas.map((i) => (i.id === id ? { ...i, title } : i)));
-    setEditingIdeaId(null);
-    try {
-      const res = await fetch(`/api/content-ideas/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setContentIdeas(prev);
-      toast.error("Couldn't save content idea.");
-    }
-  };
-
-  const handleDeleteContentIdea = async (id: number) => {
-    const prev = contentIdeas;
-    setContentIdeas((ideas) => ideas.filter((i) => i.id !== id));
-    try {
-      const res = await fetch(`/api/content-ideas/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      toast.success("Content idea deleted.");
-    } catch {
-      setContentIdeas(prev);
-      toast.error("Couldn't delete content idea.");
-    }
-  };
 
   const startEdit = (thought: Thought) => {
     setEditingId(thought.id);
@@ -1025,96 +930,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
           </div>
         )}
 
-        {/* Content Ideas */}
-        {activeTab === "content-ideas" && (
+        {/* Lists */}
+        {activeTab === "lists" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
-            <form onSubmit={handleAddContentIdea} className="flex gap-2 mb-5">
-              <Input
-                value={newContentIdea}
-                onChange={(e) => setNewContentIdea(e.target.value)}
-                placeholder="Add a content idea…"
-                className="flex-1"
-              />
-              <Button type="submit" size="icon" aria-label="Add content idea">
-                <PlusIcon className="size-4" />
-              </Button>
-            </form>
-
-            {loading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-10 rounded-lg" />
-                ))}
-              </div>
-            ) : contentIdeas.length === 0 ? (
-              <Empty className="py-12">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <LightbulbIcon className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>No content ideas yet</EmptyTitle>
-                  <EmptyDescription>Jot down what you want to post about.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <ul className="space-y-1.5">
-                {contentIdeas.map((idea) =>
-                  editingIdeaId === idea.id ? (
-                    <li key={idea.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
-                      <Input
-                        ref={editIdeaRef}
-                        value={editIdeaTitle}
-                        onChange={(e) => setEditIdeaTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEditContentIdea(idea.id);
-                          if (e.key === "Escape") cancelEditContentIdea();
-                        }}
-                        className="mb-2"
-                      />
-                      <div className="flex gap-2">
-                        <Button size="xs" onClick={() => saveEditContentIdea(idea.id)}>Save</Button>
-                        <Button size="xs" variant="outline" onClick={cancelEditContentIdea}>Cancel</Button>
-                      </div>
-                    </li>
-                  ) : (
-                    <li
-                      key={idea.id}
-                      className="flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group"
-                    >
-                      <button
-                        onClick={() => handleToggleContentIdea(idea.id, !idea.completed)}
-                        className="mt-0.5 shrink-0 size-4 rounded-full border border-border group-hover:border-primary/60 transition-colors flex items-center justify-center"
-                      >
-                        {idea.completed ? (
-                          <CheckIcon className="size-3 text-primary" />
-                        ) : (
-                          <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
-                        )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm leading-snug", idea.completed && "line-through text-muted-foreground")}>
-                          {idea.title}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => startEditContentIdea(idea)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                        aria-label="Edit content idea"
-                      >
-                        <PencilIcon className="size-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteContentIdea(idea.id)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        aria-label="Delete content idea"
-                      >
-                        <TrashIcon className="size-3.5" />
-                      </button>
-                    </li>
-                  )
-                )}
-              </ul>
-            )}
+            <ListsPanel />
           </div>
         )}
 

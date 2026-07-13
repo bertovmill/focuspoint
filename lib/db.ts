@@ -64,14 +64,43 @@ export async function ensureSchema() {
     )
   `;
   await sql`
-    CREATE TABLE IF NOT EXISTS content_ideas (
+    CREATE TABLE IF NOT EXISTS lists (
       id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS list_items (
+      id SERIAL PRIMARY KEY,
+      list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       completed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       completed_at TIMESTAMPTZ
     )
   `;
+
+  // One-time migration: fold the legacy content_ideas table into a seeded "Content Ideas" list.
+  const [{ exists: hasContentIdeas }] = await sql`
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_ideas') AS exists
+  `;
+  if (hasContentIdeas) {
+    const [{ count: existingListCount }] = await sql`SELECT COUNT(*) FROM lists WHERE name = 'Content Ideas'`;
+    if (Number(existingListCount) === 0) {
+      const [{ id: listId }] = await sql`INSERT INTO lists (name) VALUES ('Content Ideas') RETURNING id`;
+      await sql`
+        INSERT INTO list_items (list_id, title, completed, created_at, completed_at)
+        SELECT ${listId}, title, completed, created_at, completed_at FROM content_ideas
+      `;
+    }
+    await sql`DROP TABLE content_ideas`;
+  }
+  const [{ count: groceriesListCount }] = await sql`SELECT COUNT(*) FROM lists WHERE name = 'Groceries'`;
+  if (Number(groceriesListCount) === 0) {
+    await sql`INSERT INTO lists (name) VALUES ('Groceries')`;
+  }
+
   await sql`
     CREATE TABLE IF NOT EXISTS journal_templates (
       id SERIAL PRIMARY KEY,

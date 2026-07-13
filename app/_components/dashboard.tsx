@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
@@ -39,6 +39,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 const NAV_ITEMS = [
+  { id: "home" as const, label: "Home", icon: HomeIcon },
   { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
   { id: "notes" as const, label: "Notes", icon: FileTextIcon },
   { id: "lists" as const, label: "Lists", icon: ListChecksIcon },
@@ -163,7 +164,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "schedule" | "measures" | "vision";
+type DashboardTab = "home" | "todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "schedule" | "measures" | "vision";
 
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);

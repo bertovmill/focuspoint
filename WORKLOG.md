@@ -1732,3 +1732,21 @@ Merged the Lists feature branch into main at the owner's request ("merge everyth
 
 **What was changed:**
 `scheduled_tasks` id 6 (was "Morning Digest", now **"Daily Note"**) — prompt rewritten around Berto's goal chain: ultimate goal (freedom, happiness, health) ← pillars (investments, fitness, relationships) ← daily behaviors (save, improve his service, go above and beyond for others, don't worry about AI news). The AI-news sections (latest_ai_news TOP STORY + ai_reading_list AI READS) were **removed** — they'd contradict the note's own "don't worry about AI news" line. TODAY section (todos + calendar, 1-3 pillar-serving focus items) and the SMS formatting rules kept. Prompt instructs Cael to vary wording daily so it doesn't go stale. No code changed — this is a DB row update; cron/notify/enabled untouched (fires via the daily dispatcher tick).
+
+---
+
+## 2026-07-13 — Vision-first Home screen (new default landing view)
+
+**What was built:**
+The app now opens on a Home screen that leads with Berto's truest vision and fans out into every section.
+
+- `app/_components/home-screen.tsx` (new) — header (Cael avatar + date, tap → chat; ModeToggle), hero: the truest-vision statement pulled live from `/api/vision?kind=statement` (the one whose title contains "freedom", falls back to newest, then to static text; tap → Vision); pillar cards from the remaining statements with keyword-matched icons/targets (investments card embeds the live savings-goal meter from `/api/measures`); the daily-behaviors mantra line (save · improve the service · go above and beyond · skip the AI noise); a Go-to grid of all 10 sections with a live open-task count on Tasks.
+- `app/page.tsx` — `"home"` added to `MobileTab` and made the **default** view; the dashboard aside hides entirely on home; `<HomeScreen onNavigate={setMobileTab}>` renders full-bleed; Home button added first in the mobile bottom nav (6 items now).
+- `app/_components/dashboard.tsx` — "Home" added at the top of the desktop nav rail (`NAV_ITEMS` + `DashboardTab`), so every expanded section view can navigate home.
+- Seeded vision_items id 6: statement "Freedom, Happiness, Health" (the hero). Berto's three existing statements map to the pillars: $1M investments by 2030 (+ live meter), mood/body 9/10, loved ones weekly.
+
+**Decisions (owner chose via questions):** Home is the default landing view (not chat); vision content is pulled live from the Vision page rather than hardcoded, so editing Vision (or telling Cael) updates Home.
+
+**Verification:** Playwright screenshots against a dev server on :3001 — desktop light (1440px) and mobile dark (390px): hero, pillars with savings meter ($15,345 of $20K), mantra, Go-to grid with task badge, and the new Home nav slot all render. Server killed by PID after.
+
+**Typecheck:** PASS ✓

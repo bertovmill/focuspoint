@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
+import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -14,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type MobileTab = "chat" | "tasks" | "notes" | "lists" | "journal-templates" | "dreams" | "schedule" | "media" | "measures" | "vision";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "journal-templates" | "dreams" | "schedule" | "media" | "measures" | "vision";
 
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
@@ -34,7 +35,7 @@ export default function Page() {
 }
 
 function Workspace() {
-  const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
@@ -52,12 +53,14 @@ function Workspace() {
       <aside
         className={cn(
           "shrink-0 flex-col border-r border-border overflow-hidden",
-          mobileTab !== "chat"
-            ? "flex flex-1"
-            : cn(
-                "hidden lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
-                sidebarOpen ? "lg:w-[380px] xl:w-[420px]" : "lg:w-0",
-              ),
+          mobileTab === "home"
+            ? "hidden"
+            : mobileTab !== "chat"
+              ? "flex flex-1"
+              : cn(
+                  "hidden lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
+                  sidebarOpen ? "lg:w-[380px] xl:w-[420px]" : "lg:w-0",
+                ),
         )}
       >
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
@@ -72,6 +75,11 @@ function Workspace() {
           />
         </div>
       </aside>
+
+      {/* Home screen — the vision-first landing view */}
+      {mobileTab === "home" && (
+        <HomeScreen onNavigate={(tab: HomeTarget) => setMobileTab(tab)} />
+      )}
 
       {/* Chat panel — shown only when the chat tab is active, on both mobile and desktop */}
       <div
@@ -120,6 +128,12 @@ function Workspace() {
 
       {/* Mobile bottom navigation bar */}
       <nav className="fixed bottom-0 inset-x-0 h-16 lg:hidden flex items-center border-t border-border bg-background/95 backdrop-blur-sm z-50">
+        <NavButton
+          label="Home"
+          icon={<HomeIcon className="size-5" />}
+          active={mobileTab === "home"}
+          onClick={() => setMobileTab("home")}
+        />
         <NavButton
           label="Chat"
           icon={<MessageCircleIcon className="size-5" />}

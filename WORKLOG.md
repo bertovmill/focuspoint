@@ -1725,3 +1725,10 @@ Merged the Lists feature branch into main at the owner's request ("merge everyth
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-13 — Daily Note rebuilt around Berto's goal hierarchy (DB-only change)
+
+**What was changed:**
+`scheduled_tasks` id 6 (was "Morning Digest", now **"Daily Note"**) — prompt rewritten around Berto's goal chain: ultimate goal (freedom, happiness, health) ← pillars (investments, fitness, relationships) ← daily behaviors (save, improve his service, go above and beyond for others, don't worry about AI news). The AI-news sections (latest_ai_news TOP STORY + ai_reading_list AI READS) were **removed** — they'd contradict the note's own "don't worry about AI news" line. TODAY section (todos + calendar, 1-3 pillar-serving focus items) and the SMS formatting rules kept. Prompt instructs Cael to vary wording daily so it doesn't go stale. No code changed — this is a DB row update; cron/notify/enabled untouched (fires via the daily dispatcher tick).

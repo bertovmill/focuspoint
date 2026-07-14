@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-14 — Global C keyboard shortcut (new chat)
+
+**Ask:** Berto asked for a `C` shortcut that starts a *new* chat.
+
+**What was built:**
+- `app/page.tsx` — added a `c` case to the existing global shortcut handler in `Workspace`: `newThread()` (from `useThreads`) + `setMobileTab("chat")`. Same guards as T/N: ignores Cmd/Ctrl/Alt combos (so Cmd+C copy is untouched) and does nothing while typing in an input/textarea/contenteditable. `newThread` added to the effect deps (it's a stable useCallback).
+
+**Verification (Playwright, dev on :3789):** 9 checks all pass — C from Home opens chat and creates a new thread (confirmed server-side via `/api/threads` count), C again from chat creates another, typing "cool cat" in the composer just types (no navigation, no thread), Cmd+C ignored, T→C from Tasks opens chat with a new thread. The 3 test threads were deleted via `DELETE /api/threads/[id]`, restoring the original count (68). Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## 2026-07-13 — Right-click context menu on tasks (set priority / edit / delete)
 
 **Ask:** Berto asked if a task could be made urgent by right-clicking it on the Tasks page. It couldn't — priority was only reachable through the pencil-icon edit form. He chose (via quiz) a full context menu: priority radio group plus Edit and Delete actions.

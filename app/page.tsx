@@ -42,7 +42,8 @@ function Workspace() {
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const { hydrated, activeId, newThread } = useThreads();
 
-  // Global shortcuts: T opens Tasks, N opens Tasks and focuses the new-task input.
+  // Global shortcuts: T opens Tasks, N opens Tasks and focuses the new-task input,
+  // C starts a new chat.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -56,11 +57,15 @@ function Workspace() {
         e.preventDefault();
         setMobileTab("tasks");
         setFocusNewTaskSignal((n) => n + 1);
+      } else if (key === "c") {
+        e.preventDefault();
+        newThread();
+        setMobileTab("chat");
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [newThread]);
 
   const handleRunJobWithChat = useCallback((message: string) => {
     newThread();

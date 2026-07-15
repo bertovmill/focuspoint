@@ -41,6 +41,7 @@ export async function ensureSchema() {
     )
   `;
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none'`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS in_progress BOOLEAN DEFAULT FALSE`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

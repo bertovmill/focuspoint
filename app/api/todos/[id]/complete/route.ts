@@ -19,11 +19,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     if (todo.recurrence && todo.recurrence !== "none") {
       const next_due = nextDueDate(todo.recurrence);
-      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW() WHERE id = ${id}`;
+      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
       return NextResponse.json({ success: true, recurring: true, next_due });
     }
 
-    await sql`UPDATE todos SET completed = TRUE, completed_at = NOW() WHERE id = ${id}`;
+    await sql`UPDATE todos SET completed = TRUE, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
     return NextResponse.json({ success: true, recurring: false });
   } catch {
     return NextResponse.json({ error: "Failed" }, { status: 500 });

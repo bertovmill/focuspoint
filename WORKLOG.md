@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-14 — "In progress" task state (right-click → highlight + pin to top)
+
+**Ask:** Berto usually works ~2 tasks at once and wanted to right-click a task, mark it "in progress", and have it highlighted.
+
+**What was built:**
+- `lib/db.ts` — `todos.in_progress BOOLEAN DEFAULT FALSE` (ALTER … IF NOT EXISTS; migration run against the live DB via `npx tsx --env-file=.env.local scripts/migrate.ts`).
+- `app/api/todos/route.ts` — `in_progress` in all SELECTs/RETURNING; ORDER BY puts `in_progress DESC` first (after `completed ASC`), so in-progress tasks sort to the top server-side too.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `in_progress` (COALESCE pattern, booleans work since only null falls through).
+- `app/api/todos/[id]/complete/route.ts` + `agent/tools/complete_todo.ts` — completing a task (either branch, recurring or not) clears `in_progress`.
+- `app/_components/dashboard.tsx` — `in_progress` on the `Todo` interface; "Mark in progress" / "Clear in progress" toggle in the existing task context menu (Play/Pause icons, sits between the priority radio group and Edit); highlight = left accent bar (`border-l-2 border-l-primary`) + `bg-primary/5` tint + an outline "In progress" badge (all suppressed once the task is done/completing); `isInProgressActive()` helper sorts active in-progress tasks to the top of their recurrence section (stable sort, so priority order is preserved below them).
+- `agent/tools/update_todo.ts` — new optional `in_progress` boolean, so Berto can also tell Cael "I'm working on X now".
+
+**Decisions (owner chose):** highlight style = accent bar + tinted row (with badge, per the mock); in-progress tasks pin to the top of the list.
+
+**Verification (Playwright, dev on :3789):** 11 checks all pass — menu item appears, row gets bar/tint/badge, pinned above a sibling (and above an Urgent task, per screenshot), `in_progress` persisted in DB, API sorts it first, Clear reverts UI + DB, completing clears the flag, seeded `zzz-test-*` rows deleted. Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## 2026-07-14 — Global C keyboard shortcut (new chat)
 
 **Ask:** Berto asked for a `C` shortcut that starts a *new* chat.

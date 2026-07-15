@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
@@ -101,6 +101,7 @@ interface Todo {
   id: number;
   title: string;
   completed: boolean;
+  in_progress: boolean;
   priority: "low" | "normal" | "high" | "urgent";
   due_date: string | null;
   recurrence: "none" | "daily" | "weekly" | "monthly";
@@ -159,6 +160,10 @@ function isToday(iso: string | null | undefined) {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
+}
+
+function isInProgressActive(t: Todo) {
+  return t.in_progress && !t.completed && !(Boolean(t.completed_at) && isToday(t.completed_at));
 }
 
 function priorityColor(p: string) {
@@ -510,6 +515,22 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const handleToggleInProgress = async (id: number, in_progress: boolean) => {
+    const prev = todos;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, in_progress } : t)));
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ in_progress }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't update task.");
+    }
+  };
+
   const handleDeleteTodo = async (id: number) => {
     const prev = todos;
     setTodos((t) => t.filter((x) => x.id !== id));
@@ -747,7 +768,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             ) : (
               <div className="space-y-5">
                 {TODO_SECTIONS.map(({ key, label }) => {
-                  const sectionTodos = visibleTodos.filter((t) => (t.recurrence ?? "none") === key);
+                  const sectionTodos = visibleTodos
+                    .filter((t) => (t.recurrence ?? "none") === key)
+                    .sort((a, b) => Number(isInProgressActive(b)) - Number(isInProgressActive(a)));
                   if (sectionTodos.length === 0) return null;
                   return (
                     <div key={key}>
@@ -816,6 +839,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             <li
                               className={cn(
                                 "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
+                                todo.in_progress && !isDone && "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10",
                                 isCompleting && "opacity-50",
                                 isDoneToday && "opacity-60",
                               )}
@@ -853,6 +877,14 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   </p>
                                 )}
                               </div>
+                              {todo.in_progress && !isDone && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 border-primary/40 text-primary"
+                                >
+                                  In progress
+                                </Badge>
+                              )}
                               {todo.priority === "urgent" && (
                                 <Badge
                                   variant="outline"
@@ -906,6 +938,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   ))}
                                 </ContextMenuRadioGroup>
                                 <ContextMenuSeparator />
+                                <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !todo.in_progress)}>
+                                  {todo.in_progress ? <PauseIcon /> : <PlayIcon />}
+                                  {todo.in_progress ? "Clear in progress" : "Mark in progress"}
+                                </ContextMenuItem>
                                 <ContextMenuItem onSelect={() => startEditTodo(todo)}>
                                   <PencilIcon />
                                   Edit…

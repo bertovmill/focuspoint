@@ -22,11 +22,11 @@ export default defineTool({
 
     if (todo.recurrence && todo.recurrence !== "none") {
       const next_due = nextDueDate(todo.recurrence);
-      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW() WHERE id = ${id}`;
+      await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
       return { success: true, title: todo.title, recurring: true, next_due };
     }
 
-    await sql`UPDATE todos SET completed = TRUE, completed_at = NOW() WHERE id = ${id}`;
+    await sql`UPDATE todos SET completed = TRUE, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
     return { success: true, title: todo.title, recurring: false };
   },
   toModelOutput(output) {

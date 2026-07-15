@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         UPDATE todos
         SET due_date = CURRENT_DATE, completed_at = NULL
         WHERE id = ${id}
-        RETURNING id, title, completed, priority, due_date, recurrence, created_at, completed_at
+        RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
       `;
       return NextResponse.json(row);
     }
@@ -23,7 +23,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       UPDATE todos
       SET completed = FALSE, completed_at = NULL
       WHERE id = ${id}
-      RETURNING id, title, completed, priority, due_date, recurrence, created_at, completed_at
+      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
     `;
     return NextResponse.json(row);
   } catch {

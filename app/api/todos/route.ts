@@ -10,24 +10,24 @@ export async function GET(req: Request) {
     const rows =
       includeCompleted === "true"
         ? await sql`
-            SELECT id, title, completed, priority, due_date, recurrence, created_at, completed_at
+            SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
             FROM todos
-            ORDER BY completed ASC, priority DESC, created_at DESC
+            ORDER BY completed ASC, in_progress DESC, priority DESC, created_at DESC
             LIMIT ${limit}
           `
         : includeCompleted === "today"
           ? await sql`
-              SELECT id, title, completed, priority, due_date, recurrence, created_at, completed_at
+              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
               FROM todos
               WHERE completed = FALSE OR completed_at::date = CURRENT_DATE
-              ORDER BY completed ASC, priority DESC, created_at DESC
+              ORDER BY completed ASC, in_progress DESC, priority DESC, created_at DESC
               LIMIT ${limit}
             `
           : await sql`
-              SELECT id, title, completed, priority, due_date, recurrence, created_at, completed_at
+              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
               FROM todos
               WHERE completed = FALSE
-              ORDER BY priority DESC, created_at DESC
+              ORDER BY in_progress DESC, priority DESC, created_at DESC
               LIMIT ${limit}
             `;
     return NextResponse.json(rows);
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const [row] = await sql`
       INSERT INTO todos (title, priority, due_date, recurrence)
       VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence})
-      RETURNING id, title, completed, priority, due_date, recurrence, created_at, completed_at
+      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
     `;
     return NextResponse.json(row);
   } catch {

@@ -16,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const { id } = await params;
     const body = await req.json();
-    const { title, priority, recurrence } = body;
+    const { title, priority, recurrence, in_progress } = body;
     const hasDueDate = Object.prototype.hasOwnProperty.call(body, "due_date");
     const due_date = hasDueDate ? body.due_date : undefined;
     const sql = getDb();
@@ -27,18 +27,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             title = COALESCE(${title ?? null}, title),
             priority = COALESCE(${priority ?? null}, priority),
             due_date = ${due_date ?? null},
-            recurrence = COALESCE(${recurrence ?? null}, recurrence)
+            recurrence = COALESCE(${recurrence ?? null}, recurrence),
+            in_progress = COALESCE(${in_progress ?? null}, in_progress)
           WHERE id = ${id}
-          RETURNING id, title, completed, priority, due_date, recurrence, created_at, completed_at
+          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
         `
       : await sql`
           UPDATE todos
           SET
             title = COALESCE(${title ?? null}, title),
             priority = COALESCE(${priority ?? null}, priority),
-            recurrence = COALESCE(${recurrence ?? null}, recurrence)
+            recurrence = COALESCE(${recurrence ?? null}, recurrence),
+            in_progress = COALESCE(${in_progress ?? null}, in_progress)
           WHERE id = ${id}
-          RETURNING id, title, completed, priority, due_date, recurrence, created_at, completed_at
+          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

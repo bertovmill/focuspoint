@@ -24,7 +24,7 @@ fn main() {
     tauri::Builder::default()
         .setup(move |app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(APP_URL.parse().unwrap()))
-                .title("Focuspoint")
+                .title("Cael")
                 .min_inner_size(400.0, 500.0)
                 .inner_size(1280.0, 860.0)
                 .center()
@@ -42,5 +42,5 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Focuspoint");
+        .expect("error while running Cael");
 }

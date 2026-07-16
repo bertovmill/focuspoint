@@ -1,4 +1,4 @@
-# Focuspoint Desktop
+# Cael Desktop
 
 A native macOS app (Tauri v2) that wraps the production web app at
 `https://cael-agent.vercel.app` in the system WebView — no Chrome involved.
@@ -17,13 +17,13 @@ change the shell itself (window size, target URL, icon, native behavior).
 ```bash
 cd desktop
 npm install
-npx tauri build          # outputs Focuspoint.app + a .dmg
+npx tauri build          # outputs Cael.app + a .dmg
 ```
 
 Output lands in `desktop/src-tauri/target/release/bundle/`:
 
-- `macos/Focuspoint.app` — copy to /Applications
-- `dmg/Focuspoint_*.dmg` — shareable installer
+- `macos/Cael.app` — copy to /Applications
+- `dmg/Cael_*.dmg` — shareable installer
 
 `npx tauri dev` runs the shell without bundling (still loads production).
 

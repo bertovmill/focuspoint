@@ -6,6 +6,8 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ## 2026-07-15 — Native macOS desktop app (Tauri shell)
 
+**Update (same day):** renamed the app to **Cael** (`productName`, window title). Bundle identifier kept as `com.bertomill.focuspoint` so the WebView data dir (login cookie) survives. Installed as `/Applications/Cael.app`, old Focuspoint.app removed.
+
 **Ask:** Berto wanted a native desktop app so he doesn't have to run Focuspoint through Chrome.
 
 **What was built:** `desktop/` — a Tauri v2 macOS app that loads the production site (`https://cael-agent.vercel.app`) in the system WKWebView. Because it wraps the deployed URL, every `vercel --prod` deploy updates the desktop app automatically; the shell only needs rebuilding to change window/icon/native behavior.

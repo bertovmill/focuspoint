@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-15 — Native macOS desktop app (Tauri shell)
+
+**Ask:** Berto wanted a native desktop app so he doesn't have to run Focuspoint through Chrome.
+
+**What was built:** `desktop/` — a Tauri v2 macOS app that loads the production site (`https://cael-agent.vercel.app`) in the system WKWebView. Because it wraps the deployed URL, every `vercel --prod` deploy updates the desktop app automatically; the shell only needs rebuilding to change window/icon/native behavior.
+
+- `desktop/src-tauri/src/main.rs` — window built in `setup()` so `on_navigation` can keep navigation on the app host (plus localhost) and hand external links to the default browser. An init script rewrites `target="_blank"` clicks and `window.open()` into same-window navigations (WKWebView silently drops them otherwise). 1280×860, centered, 400×500 minimum.
+- `desktop/src-tauri/tauri.conf.json` — `build.frontendDist` set to the prod URL (remote-app pattern); bundles `.app` + `.dmg`; identifier `com.bertomill.focuspoint`.
+- Icon: `public/icon.svg` rasterized to `desktop/app-icon.png` (qlmanage, 1024px, alpha intact) → full icon set via `npx tauri icon`.
+- `desktop/README.md` — rebuild instructions (needs Rust toolchain, installed today via rustup minimal profile).
+
+**Decisions (owner chose):** Tauri over Electron/Safari-Add-to-Dock; target production URL rather than localhost.
+
+**Key discovery:** the old prod alias `focuspoint-sigma.vercel.app` is DEAD (DEPLOYMENT_NOT_FOUND) and `focuspoint-*-bertmill19s-projects.vercel.app` URLs sit behind Vercel SSO. The live public domain — confirmed via Chrome history + curl — is **`cael-agent.vercel.app`** (app's own cookie login, no SSO).
+
+**Gotchas hit:** window ignored `inner_size` when `min_inner_size` was chained after it — reordering (min first) + `.center()` fixed it, opens 1280×860 now. Berto couldn't drag the app out of the DMG window; installed by copying the bundle to `/Applications` directly.
+
+**Installed & verified:** `/Applications/Focuspoint.app` launches, loads Tasks with real data, window sized correctly (screenshot-verified). Build output stays untracked (`desktop/src-tauri/target` gitignored).
+
+**Next steps (if wanted):** code-sign/notarize for distribution beyond this Mac; global shortcut or menu-bar quick-add; a prod/localhost toggle in a native menu.
+
+---
+
 ## 2026-07-14 — "In progress" task state (right-click → highlight + pin to top)
 
 **Ask:** Berto usually works ~2 tasks at once and wanted to right-click a task, mark it "in progress", and have it highlighted.

@@ -13,6 +13,7 @@ import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
 
 type AgentStatus = ReturnType<typeof useEveAgent>["status"];
@@ -150,6 +151,7 @@ export function AgentChat({
           <StatusDot status={agent.status} />
         </span>
         <span className="flex items-center gap-1">
+          <PinButton className="p-2" />
           <button
             onClick={() => setTraceOpen(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"

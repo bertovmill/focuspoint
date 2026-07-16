@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -107,6 +108,8 @@ interface Todo {
   recurrence: "none" | "daily" | "weekly" | "monthly";
   created_at: string;
   completed_at?: string | null;
+  timer_started_at?: string | null;
+  time_spent_seconds?: number;
 }
 
 interface Thought {
@@ -531,6 +534,34 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
+  const handleToggleTimer = async (todo: Todo) => {
+    const action = todo.timer_started_at ? "stop" : "start";
+    const prev = todos;
+    // One timer at a time: starting clears any other running timer locally too.
+    setTodos((ts) =>
+      ts.map((t) =>
+        t.id === todo.id
+          ? { ...t, timer_started_at: action === "start" ? new Date().toISOString() : null, in_progress: action === "start" ? true : t.in_progress }
+          : action === "start"
+            ? { ...t, timer_started_at: null }
+            : t,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/todos/${todo.id}/timer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) throw new Error();
+      const row: Todo = await res.json();
+      setTodos((ts) => ts.map((t) => (t.id === row.id ? { ...t, ...row } : t)));
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't update timer.");
+    }
+  };
+
   const handleDeleteTodo = async (id: number) => {
     const prev = todos;
     setTodos((t) => t.filter((x) => x.id !== id));
@@ -641,6 +672,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <PinButton iconClassName="size-3.5" />
             {isExpanded && onBackToChat && (
               <button
                 onClick={onBackToChat}
@@ -877,7 +909,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   </p>
                                 )}
                               </div>
-                              {todo.in_progress && !isDone && (
+                              {todo.timer_started_at && !isDone && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 border-primary/40 text-primary"
+                                >
+                                  <TimerIcon className="size-3" />
+                                  Timing
+                                </Badge>
+                              )}
+                              {todo.in_progress && !todo.timer_started_at && !isDone && (
                                 <Badge
                                   variant="outline"
                                   className="shrink-0 border-primary/40 text-primary"
@@ -938,6 +979,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   ))}
                                 </ContextMenuRadioGroup>
                                 <ContextMenuSeparator />
+                                <ContextMenuItem onSelect={() => handleToggleTimer(todo)}>
+                                  {todo.timer_started_at ? <TimerOffIcon /> : <TimerIcon />}
+                                  {todo.timer_started_at ? "Stop timer" : "Start timer"}
+                                </ContextMenuItem>
                                 <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !todo.in_progress)}>
                                   {todo.in_progress ? <PauseIcon /> : <PlayIcon />}
                                   {todo.in_progress ? "Clear in progress" : "Mark in progress"}

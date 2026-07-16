@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -178,7 +179,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               </p>
             </div>
           </button>
-          <ModeToggle />
+          <div className="flex items-center gap-1">
+            <PinButton iconClassName="size-3.5" />
+            <ModeToggle />
+          </div>
         </div>
 
         {/* Daily artwork — what it's all for */}

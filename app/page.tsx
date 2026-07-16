@@ -6,7 +6,10 @@ import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
+import { PIN_EVENT } from "@/app/_components/pin-button";
+import { PinView } from "@/app/_components/pin-view";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
+import { setNativePinMode } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -40,12 +43,29 @@ function Workspace() {
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
+  const [pinned, setPinned] = useState(false);
   const { hydrated, activeId, newThread } = useThreads();
+
+  // Pin mode (desktop app): a PinButton anywhere in the UI fires PIN_EVENT.
+  useEffect(() => {
+    const onPin = () => {
+      setPinned(true);
+      setNativePinMode(true);
+    };
+    window.addEventListener(PIN_EVENT, onPin);
+    return () => window.removeEventListener(PIN_EVENT, onPin);
+  }, []);
+
+  const handleUnpin = useCallback(() => {
+    setPinned(false);
+    setNativePinMode(false);
+  }, []);
 
   // Global shortcuts: T opens Tasks, N opens Tasks and focuses the new-task input,
   // C starts a new chat.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (pinned) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -65,13 +85,17 @@ function Workspace() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newThread]);
+  }, [newThread, pinned]);
 
   const handleRunJobWithChat = useCallback((message: string) => {
     newThread();
     setPendingMessage(message);
     setMobileTab("chat");
   }, [newThread]);
+
+  if (pinned) {
+    return <PinView onUnpin={handleUnpin} />;
+  }
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">

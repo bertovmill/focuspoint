@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Let the Cael web app (loaded from the remote prod URL) drive pin mode over IPC",
+  "windows": ["main"],
+  "local": true,
+  "remote": {
+    "urls": ["https://cael-agent.vercel.app", "http://localhost:*"]
+  },
+  "permissions": ["core:default"]
+}

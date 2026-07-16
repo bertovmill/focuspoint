@@ -20,6 +20,14 @@ export default defineTool({
     const [todo] = await sql`SELECT id, title, recurrence FROM todos WHERE id = ${id}`;
     if (!todo) return { success: false, message: `Todo ${id} not found` };
 
+    // Completing a task banks any running timer into time_spent_seconds.
+    await sql`
+      UPDATE todos
+      SET time_spent_seconds = time_spent_seconds + GREATEST(0, EXTRACT(EPOCH FROM (NOW() - timer_started_at)))::int,
+          timer_started_at = NULL
+      WHERE id = ${id} AND timer_started_at IS NOT NULL
+    `;
+
     if (todo.recurrence && todo.recurrence !== "none") {
       const next_due = nextDueDate(todo.recurrence);
       await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;

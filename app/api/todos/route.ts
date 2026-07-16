@@ -10,21 +10,21 @@ export async function GET(req: Request) {
     const rows =
       includeCompleted === "true"
         ? await sql`
-            SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+            SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
             FROM todos
             ORDER BY completed ASC, in_progress DESC, priority DESC, created_at DESC
             LIMIT ${limit}
           `
         : includeCompleted === "today"
           ? await sql`
-              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
               FROM todos
               WHERE completed = FALSE OR completed_at::date = CURRENT_DATE
               ORDER BY completed ASC, in_progress DESC, priority DESC, created_at DESC
               LIMIT ${limit}
             `
           : await sql`
-              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+              SELECT id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
               FROM todos
               WHERE completed = FALSE
               ORDER BY in_progress DESC, priority DESC, created_at DESC
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const [row] = await sql`
       INSERT INTO todos (title, priority, due_date, recurrence)
       VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence})
-      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
     `;
     return NextResponse.json(row);
   } catch {

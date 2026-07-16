@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             recurrence = COALESCE(${recurrence ?? null}, recurrence),
             in_progress = COALESCE(${in_progress ?? null}, in_progress)
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
         `
       : await sql`
           UPDATE todos
@@ -40,7 +40,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             recurrence = COALESCE(${recurrence ?? null}, recurrence),
             in_progress = COALESCE(${in_progress ?? null}, in_progress)
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at
+          RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

@@ -4,6 +4,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-16 — Pin mode (always-on-top top-3 focus window) + task timers
+
+**Ask:** Berto wanted a "pin mode" button in the top-right that pins the Cael desktop app to the top-left corner — above every other window, slightly transparent, no bottom nav — as a daily reference, plus a Start button on tasks that times work on them ("I need to always be getting my top 3 things done").
+
+**Decisions (owner chose via quiz):** one timer at a time (starting a task stops the previous one); accumulated time saved to DB (`timer_started_at` + `time_spent_seconds` on todos); pinned window shows only the top 3 tasks; Start also marks the task in-progress (Stop leaves in-progress alone).
+
+**What was built:**
+
+*Data + API*
+- `lib/db.ts` — `todos.timer_started_at TIMESTAMPTZ`, `todos.time_spent_seconds INTEGER NOT NULL DEFAULT 0` (migrated live via `scripts/migrate.ts`).
+- `app/api/todos/[id]/timer/route.ts` — new. `POST {action: "start"|"stop"}`. Start banks + clears every other running timer (`time_spent_seconds += EXTRACT(EPOCH FROM NOW()-timer_started_at)`), then sets `timer_started_at = COALESCE(timer_started_at, NOW())` (idempotent) and `in_progress = TRUE`. Stop banks + clears that task only.
+- `app/api/todos/route.ts`, `[id]/route.ts` — timer fields added to all SELECT/RETURNING lists.
+- `[id]/complete/route.ts` + `agent/tools/complete_todo.ts` — completing a task banks any running timer first (both recurring and normal branches).
+
+*Web UI*
+- `app/_components/pin-button.tsx` — new. Pin icon button; renders **only inside the Tauri shell** (`window.__TAURI__` present), dispatches `cael:pin` on window. Placed in three headers: agent-chat (top-right), dashboard, home screen.
+- `app/_components/pin-view.tsx` — new compact view: header (Cael + date + unpin), top 3 open tasks sorted running → in-progress → priority (urgent>high>normal>low) → due date → newest. Each row: complete-checkbox, title in priority color, Start/Stop pill, live ticking timer (banked + elapsed, mono font) when running, "Xm tracked" when banked. Polls /api/todos every 60s + on window focus. Recurring tasks completed today are filtered out (treated as done for the day).
+- `app/page.tsx` — `pinned` state; listens for `cael:pin`; pinned renders `<PinView>` **only** (no bottom nav, no other panels) and calls `setNativePinMode(true)`; unpin restores. T/N/C global shortcuts disabled while pinned.
+- `lib/desktop.ts` — new. `isDesktopApp()` + `setNativePinMode()` (invokes Tauri `set_pin_mode`, no-op in browser / old shells).
+- `app/_components/dashboard.tsx` — Todo type gains timer fields; right-click context menu gains "Start timer"/"Stop timer" (above the in-progress toggle); a "Timing" badge (TimerIcon) replaces the "In progress" badge while a timer runs.
+
+*Desktop shell (needs one-time rebuild + reinstall — done today)*
+- `desktop/src-tauri/src/main.rs` — `set_pin_mode` command: pinned → always-on-top, 360×480 at (12, 40) top-left, NSWindow `alphaValue 0.92` (via `objc` msg_send on main thread); unpinned → restore 1280×860 centered, opaque. Registered via `invoke_handler`.
+- `desktop/src-tauri/tauri.conf.json` — `withGlobalTauri: true` so the remote web app gets `window.__TAURI__`.
+- `desktop/src-tauri/capabilities/main.json` — new. Grants IPC (`core:default`) to the `main` window for the **remote** prod origin `https://cael-agent.vercel.app` + `http://localhost:*` (Tauri v2 disables IPC for remote URLs unless a capability allows it).
+- `desktop/src-tauri/Cargo.toml` — `objc` dep (macOS only) for the window-alpha call.
+
+**Verification (Playwright, dev on :3789, Tauri stubbed via addInitScript):** 20/20 checks pass — pin button only in shell, `set_pin_mode(true/false)` invoked, nav hidden/restored, running task ranks first in top 3, max 3 rows, timer ticks live, start persists + sets in_progress, stop banks seconds, starting B stops A (one-at-a-time), tracked label, complete banks + leaves pin view, context-menu Start/Stop timer + Timing badge, seeds cleaned up. **Note:** the dev server was killed externally mid-run once (concurrent-session hazard) leaving seeds 71/72 in Neon — cleaned up directly via SQL. Typecheck PASS ✓.
+
+**Gotcha:** Berto's real in-progress tasks legitimately hold the top-3 slots, so test seeds only surface once running — that ranking is by design.
+
+---
+
 ## 2026-07-15 — Native macOS desktop app (Tauri shell)
 
 **Update (same day):** renamed the app to **Cael** (`productName`, window title). Bundle identifier kept as `com.bertomill.focuspoint` so the WebView data dir (login cookie) survives. Installed as `/Applications/Cael.app`, old Focuspoint.app removed.

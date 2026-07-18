@@ -161,46 +161,69 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     statements?.find((s) => s.title?.toLowerCase().includes("freedom")) ?? statements?.[0];
   const pillars = (statements ?? []).filter((s) => s.id !== hero?.id && s.title).slice(0, 3);
 
+  const header = (onImage: boolean) => (
+    <>
+      <button
+        onClick={() => onNavigate("chat")}
+        className="flex items-center gap-2.5 group"
+        aria-label="Open chat with Cael"
+      >
+        <CaelAvatar size={36} />
+        <div className="text-left">
+          <p
+            className={cn(
+              "text-sm font-medium leading-tight transition-colors",
+              onImage ? "text-white drop-shadow-sm group-hover:text-white/80" : "group-hover:text-primary",
+            )}
+          >
+            Cael
+          </p>
+          <p
+            className={cn(
+              "text-[11px] leading-tight",
+              onImage ? "text-white/75 drop-shadow-sm" : "text-muted-foreground",
+            )}
+          >
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          </p>
+        </div>
+      </button>
+      <div className="flex items-center gap-1">
+        <PinButton
+          iconClassName="size-3.5"
+          className={onImage ? "text-white/80 hover:text-white hover:bg-white/15" : undefined}
+        />
+        <ModeToggle className={onImage ? "text-white/80 hover:text-white hover:bg-white/15" : undefined} />
+      </div>
+    </>
+  );
+
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
-      <div className="mx-auto max-w-2xl px-6 py-8 pb-24 lg:pb-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <button
-            onClick={() => onNavigate("chat")}
-            className="flex items-center gap-2.5 group"
-            aria-label="Open chat with Cael"
-          >
-            <CaelAvatar size={36} />
-            <div className="text-left">
-              <p className="text-sm font-medium leading-tight group-hover:text-primary transition-colors">Cael</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">
-                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              </p>
-            </div>
-          </button>
-          <div className="flex items-center gap-1">
-            <PinButton iconClassName="size-3.5" />
-            <ModeToggle />
+      {/* Daily artwork — full-bleed hero with the header overlaid */}
+      {!artFailed && (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={art.url}
+            alt={art.caption}
+            onError={() => setArtFailed(true)}
+            className="w-full h-52 sm:h-72 lg:h-80 object-cover"
+          />
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
+          <div className="absolute inset-x-0 top-0 mx-auto max-w-2xl px-6 py-5 flex items-center justify-between">
+            {header(true)}
           </div>
+          <p className="absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-6 pb-3 text-xs font-medium text-white/95">
+            {art.caption}
+          </p>
         </div>
+      )}
 
-        {/* Daily artwork — what it's all for */}
-        {!artFailed && (
-          <div className="relative mb-10 rounded-2xl overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={art.url}
-              alt={art.caption}
-              onError={() => setArtFailed(true)}
-              className="w-full h-44 sm:h-60 object-cover"
-            />
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
-            <p className="absolute bottom-2.5 left-3.5 text-xs font-medium text-white/95">
-              {art.caption}
-            </p>
-          </div>
-        )}
+      <div className={cn("mx-auto max-w-2xl px-6 pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
+        {/* Header falls back into the page flow when the artwork fails to load */}
+        {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
         {/* Truest vision — hero */}
         {loading ? (

@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-18 — Home screen: daily artwork is now a full-bleed hero
+
+**Ask:** Berto wanted the daily art on the home screen to be the full hero section instead of a rounded, bounded box.
+
+**Decision (owner chose via quiz):** full-bleed image edge-to-edge at the top with the Cael header overlaid on the image; the greeting + "Freedom, Happiness, Health" vision text stays below on the page background (not overlaid magazine-style).
+
+**What was built:**
+- `app/_components/home-screen.tsx` — the `DAILY_ART` image moved out of the `max-w-2xl` content column to the top of the scroll container: full viewport width, taller (`h-52 sm:h-72 lg:h-80`), no rounded corners. Header (Cael avatar/date, pin button, theme toggle) is absolutely positioned over the image in white with a top dark gradient for legibility; caption sits over a bottom gradient, both aligned to the `max-w-2xl` content column. Header is extracted into a `header(onImage)` helper — if the Unsplash image fails to load (`artFailed`), the header falls back into the normal page flow exactly as before.
+- `app/_components/mode-toggle.tsx` — `ModeToggle` now accepts a `className` prop (merged via `cn`) so the home hero can render it white-on-image.
+
+**Verified:** typecheck clean; Playwright screenshots at 1440×900 and 390×844 against the running dev server (localhost:3000) confirm the full-bleed hero, overlaid header, and content below on both.
+
+---
+
 ## 2026-07-16 — Pin mode (always-on-top top-3 focus window) + task timers
 
 **Ask:** Berto wanted a "pin mode" button in the top-right that pins the Cael desktop app to the top-left corner — above every other window, slightly transparent, no bottom nav — as a daily reference, plus a Start button on tasks that times work on them ("I need to always be getting my top 3 things done").

@@ -7,11 +7,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { requestNewChat } from "@/app/_components/chat-modal";
 import { TracePanel } from "@/app/_components/trace-panel";
-import { deriveTitle, useThreads } from "@/app/_components/threads-provider";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
+import { useThreadAgent } from "@/hooks/use-thread-agent";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
@@ -37,36 +38,10 @@ export function AgentChat({
   initialMessage?: string;
   onInitialMessageSent?: () => void;
 }) {
-  const { getThread, saveSnapshot, rename, newThread } = useThreads();
-  const thread = getThread(threadId);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
 
-  const agent = useEveAgent({
-    initialSession: thread?.session,
-    initialEvents: thread?.events,
-    onFinish: (snapshot) => {
-      const firstUser = snapshot.data.messages.find((m) => m.role === "user");
-      const textPart = firstUser?.parts.find((p) => p.type === "text");
-      saveSnapshot(threadId, {
-        session: snapshot.session,
-        events: snapshot.events,
-        firstUserText:
-          textPart && "text" in textPart ? textPart.text : undefined,
-      });
-    },
-  });
-
-  // Set the sidebar title as soon as the first user message appears (optimistic,
-  // happens instantly on send) rather than waiting for onFinish after the full response.
-  useEffect(() => {
-    if (thread?.title) return;
-    const firstUser = agent.data.messages.find((m) => m.role === "user");
-    const textPart = firstUser?.parts.find((p) => p.type === "text");
-    if (textPart && "text" in textPart && textPart.text) {
-      rename(threadId, deriveTitle(textPart.text));
-    }
-  }, [agent.data.messages, thread?.title, threadId, rename]);
+  const agent = useThreadAgent(threadId);
 
   // Auto-send initialMessage once on mount (used by "Run now" in Scheduled Tasks).
   const hasSentInitial = useRef(false);
@@ -215,7 +190,7 @@ export function AgentChat({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => {
-                    newThread();
+                    requestNewChat();
                     setHistoryOpen(false);
                   }}
                   className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -266,7 +241,7 @@ function PersonalizedWelcome() {
   );
 }
 
-function StatusDot({ status }: { readonly status: AgentStatus }) {
+export function StatusDot({ status }: { readonly status: AgentStatus }) {
   const isLive = status === "submitted" || status === "streaming";
   const tone =
     status === "error"

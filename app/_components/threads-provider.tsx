@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -34,6 +35,8 @@ type ThreadsContextValue = {
   threads: readonly ThreadRecord[];
   activeId: string;
   getThread: (id: string) => ThreadRecord | undefined;
+  /** Creates and persists a thread without switching the main chat view to it. */
+  createThread: () => string;
   newThread: () => void;
   switchTo: (id: string) => void;
   rename: (id: string, title: string) => void;
@@ -115,16 +118,26 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
     [threads],
   );
 
-  const newThread = useCallback(() => {
+  // Deleting a just-created thread must not race its create POST.
+  const createRequests = useRef(new Map<string, Promise<unknown>>());
+
+  const createThread = useCallback((): string => {
     const fresh = freshThread();
-    void fetch("/api/threads", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: fresh.id, title: fresh.title }),
-    });
+    createRequests.current.set(
+      fresh.id,
+      fetch("/api/threads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: fresh.id, title: fresh.title }),
+      }).catch(() => undefined),
+    );
     setThreads((prev) => [fresh, ...prev]);
-    setActiveId(fresh.id);
+    return fresh.id;
   }, []);
+
+  const newThread = useCallback(() => {
+    setActiveId(createThread());
+  }, [createThread]);
 
   const switchTo = useCallback((id: string) => {
     setActiveId(id);
@@ -144,7 +157,9 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const remove = useCallback((id: string) => {
-    void fetch(`/api/threads/${id}`, { method: "DELETE" });
+    const pendingCreate = createRequests.current.get(id) ?? Promise.resolve();
+    createRequests.current.delete(id);
+    void pendingCreate.then(() => fetch(`/api/threads/${id}`, { method: "DELETE" }));
     setThreads((prev) => {
       const next = prev.filter((t) => t.id !== id);
       if (next.length === 0) {
@@ -185,13 +200,14 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       threads: [...threads].sort(bySortKey),
       activeId,
       getThread,
+      createThread,
       newThread,
       switchTo,
       rename,
       remove,
       saveSnapshot,
     }),
-    [hydrated, threads, activeId, getThread, newThread, switchTo, rename, remove, saveSnapshot],
+    [hydrated, threads, activeId, getThread, createThread, newThread, switchTo, rename, remove, saveSnapshot],
   );
 
   return (

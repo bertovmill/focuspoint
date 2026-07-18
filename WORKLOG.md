@@ -20,6 +20,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-18 — Floating semi-transparent new-chat modal
+
+**Ask:** Starting a chat (C shortcut, "New chat" buttons) navigated to the full chat page. Berto wanted a fleeting, semi-transparent chat modal instead, still built on the assistant-ui components.
+
+**What was built:**
+- `app/_components/chat-modal.tsx` — new. Floating glass dialog (centered, `bg-background/75` + `backdrop-blur-2xl`, rounded, animated in via new keyframes in `globals.css`) containing the full assistant-ui `<Thread>` + `CalendarToolUI` on a fresh eve agent. Header: Cael avatar + status dot, an expand button ("Open full chat"), and close. Esc or backdrop click dismisses. Exports `NEW_CHAT_EVENT`/`requestNewChat()` so any new-chat control can open it (same window-event idiom as pin mode). Thread/composer backgrounds overridden to transparent inside the modal (`[&_.aui-thread-root]:bg-transparent`, `[&_.aui-thread-viewport-footer]:bg-transparent`) so the glass shows through.
+- `hooks/use-thread-agent.ts` — new. Extracted the thread↔agent wiring that lived in `AgentChat` (restore snapshot, save on finish, optimistic title from first user message) so the modal and the full page share it. `AgentChat` refactored to use it; behavior unchanged.
+- `app/_components/threads-provider.tsx` — new `createThread()` (persists a thread WITHOUT switching the main chat view to it; `newThread()` now wraps it). `remove()` now waits for that thread's create POST before firing DELETE, so dismissing a just-opened modal can't race the insert and orphan the row.
+- `app/page.tsx` — `modalThreadId` state; C shortcut and `NEW_CHAT_EVENT` open the modal (C is inert while it's open); closing a modal with no messages deletes the empty thread (no more "New chat" clutter in history); expand promotes the thread to the full chat page (`switchTo` + chat tab). Note: `createThread()` is called *outside* the state updater — inside it, React StrictMode's double-invoke created two threads and leaked one (caught live in verification).
+- `app/_components/chat-sidebar.tsx` + `AgentChat`'s mobile history overlay — their "New chat" buttons now `requestNewChat()` instead of `newThread()`.
+
+**Behavior decisions (assumed, flag if wrong):** all *new chat* entry points open the modal (existing threads from history still open the full chat page); a modal chat lands in thread history like any other; expanding mid-turn shows only what's already snapshotted (per-turn onFinish), so expand right after a reply is lossless.
+
+**Verification (Playwright vs Berto's running dev server on :3000 — my own :3789 instance was refused since Next 16 allows one dev server per dir):** 16/16 checks — C opens modal without navigating, panel computed style is 75% alpha + blur(40px), thread persisted server-side, Esc closes + deletes empty thread, real message send streams in modal, title derived, thread with messages survives close, "New chat" pill opens modal, expand lands on full chat page, typing 'c' in a composer doesn't trigger, all test threads cleaned up, zero page errors. Screenshot-verified the glass look over the home hero. Typecheck PASS ✓.
+
+**Gotcha:** a concurrent session was mid-flight on `home-screen.tsx` (hero maps links) — left uncommitted, excluded from this commit.
+
+---
+
 ## 2026-07-16 — Pin mode (always-on-top top-3 focus window) + task timers
 
 **Ask:** Berto wanted a "pin mode" button in the top-right that pins the Cael desktop app to the top-left corner — above every other window, slightly transparent, no bottom nav — as a daily reference, plus a Start button on tasks that times work on them ("I need to always be getting my top 3 things done").

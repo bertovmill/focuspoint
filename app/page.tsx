@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
+import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
@@ -44,7 +45,36 @@ function Workspace() {
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const [pinned, setPinned] = useState(false);
-  const { hydrated, activeId, newThread } = useThreads();
+  const [modalThreadId, setModalThreadId] = useState<string | null>(null);
+  const { hydrated, activeId, createThread, newThread, switchTo, remove } = useThreads();
+
+  // Starting a chat opens a floating modal on a fresh thread instead of
+  // navigating to the full chat view. Fired by the C shortcut and every
+  // "new chat" button (via NEW_CHAT_EVENT).
+  const openChatModal = useCallback(() => {
+    if (modalThreadId) return;
+    setModalThreadId(createThread());
+  }, [modalThreadId, createThread]);
+
+  useEffect(() => {
+    window.addEventListener(NEW_CHAT_EVENT, openChatModal);
+    return () => window.removeEventListener(NEW_CHAT_EVENT, openChatModal);
+  }, [openChatModal]);
+
+  const handleModalClose = useCallback(
+    (hasMessages: boolean) => {
+      // A chat dismissed without ever sending anything shouldn't clutter history.
+      if (!hasMessages && modalThreadId) remove(modalThreadId);
+      setModalThreadId(null);
+    },
+    [modalThreadId, remove],
+  );
+
+  const handleModalExpand = useCallback(() => {
+    if (modalThreadId) switchTo(modalThreadId);
+    setModalThreadId(null);
+    setMobileTab("chat");
+  }, [modalThreadId, switchTo]);
 
   // Pin mode (desktop app): a PinButton anywhere in the UI fires PIN_EVENT.
   useEffect(() => {
@@ -65,7 +95,7 @@ function Workspace() {
   // C starts a new chat.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (pinned) return;
+      if (pinned || modalThreadId) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -79,13 +109,12 @@ function Workspace() {
         setFocusNewTaskSignal((n) => n + 1);
       } else if (key === "c") {
         e.preventDefault();
-        newThread();
-        setMobileTab("chat");
+        openChatModal();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newThread, pinned]);
+  }, [openChatModal, pinned, modalThreadId]);
 
   const handleRunJobWithChat = useCallback((message: string) => {
     newThread();
@@ -176,6 +205,16 @@ function Workspace() {
           ) : null}
         </div>
       </div>
+
+      {/* Floating new-chat modal */}
+      {modalThreadId && hydrated ? (
+        <ChatModal
+          key={modalThreadId}
+          threadId={modalThreadId}
+          onClose={handleModalClose}
+          onExpand={handleModalExpand}
+        />
+      ) : null}
 
       {/* Mobile bottom navigation bar */}
       <nav className="fixed bottom-0 inset-x-0 h-16 lg:hidden flex items-center border-t border-border bg-background/95 backdrop-blur-sm z-50">

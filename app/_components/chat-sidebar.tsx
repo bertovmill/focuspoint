@@ -1,5 +1,6 @@
 "use client";
 
+import { requestNewChat } from "@/app/_components/chat-modal";
 import { useThreads, type ThreadRecord } from "@/app/_components/threads-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,7 @@ export const ChatSidebar: FC<{
   className?: string;
   onNavigate?: () => void;
 }> = ({ className, onNavigate }) => {
-  const { threads, activeId, newThread, switchTo } = useThreads();
+  const { threads, activeId, switchTo } = useThreads();
 
   const now = new Date();
   const startOfToday = new Date(
@@ -37,7 +38,7 @@ export const ChatSidebar: FC<{
   }
 
   const handleNew = () => {
-    newThread();
+    requestNewChat();
     onNavigate?.();
   };
 

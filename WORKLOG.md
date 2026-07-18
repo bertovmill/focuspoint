@@ -18,6 +18,8 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 **Next steps (open):** per-card destinations are a first guess — adjust `WEALTH_FORMS[].target` as desired; could later swap remaining generic daily-art photos for real destinations with `place` links.
 
+**Follow-up (same day): Vision section per form of wealth.** The 8 forms are now framed as *values*; below the grid a new **Vision** section lists all 8 forms with each one's ideal-state text. Decisions (owner via quiz): vision text lives in the DB as vision **statements whose Area/title = form name** (vision changes every few years; editable in the Vision tab or via Cael — no code change per edit); all 8 forms always render, unfilled ones show a muted italic "Write your vision for X…" placeholder; section sits on home between the values grid and the mantra. Implementation: home screen re-fetches `/api/vision?kind=statement`, builds a lowercased title→content map (rows are newest-first, first match per form wins), rows are buttons → Vision tab. Seeded statement id 7 "Growth" ("I am doing hard things every day — cold showers, waking up early, meditating, reading, working out, teaching myself to do hard things."). The four pre-existing statements (old hero + pillars) were left in the DB untouched. Berto still to fill in the other 7 forms' visions.
+
 ## 2026-07-18 — Home screen: daily artwork is now a full-bleed hero
 
 **Ask:** Berto wanted the daily art on the home screen to be the full hero section instead of a rounded, bounded box.

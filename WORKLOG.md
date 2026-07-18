@@ -16,6 +16,8 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 **Verified:** typecheck clean; Playwright screenshots at 1440×900 and 390×844 against the running dev server (localhost:3000) confirm the full-bleed hero, overlaid header, and content below on both.
 
+**Follow-up (same day):** hero caption can now link to Google Maps. Owner chose (via quiz) "real places only": `DAILY_ART` entries gain an optional `place` field (a maps query); captions with `place` render as an `<a>` (new tab, `https://www.google.com/maps/search/?api=1&query=…`) with an ↗ icon + hover underline; mood captions ("Confetti night", …) stay plain text. Only the Lago di Braies entry has a verifiable location today — add `place` to future entries as they're identified; don't guess locations for generic stock photos. Verified with Playwright: link click opens the maps URL in a popup tab.
+
 ---
 
 ## 2026-07-16 — Pin mode (always-on-top top-3 focus window) + task timers

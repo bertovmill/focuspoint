@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  ArrowUpRightIcon,
   MessageCircleIcon,
   ListTodoIcon,
   FileTextIcon,
@@ -65,13 +66,15 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
 /**
  * Daily artwork — one piece of "what it's all for" per day, rotating by day of year.
  * All images hand-verified Unsplash photos (hotlinking per Unsplash guidelines).
+ * `place` (optional) is a Google Maps query — set it only for captions that name a
+ * verifiable real location; those captions render as a maps link on the hero.
  */
-const DAILY_ART: { url: string; caption: string }[] = [
+const DAILY_ART: { url: string; caption: string; place?: string }[] = [
   { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&fm=jpg", caption: "Peaks above the clouds" },
   { url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1600&q=80&fm=jpg", caption: "Golden hour with good people" },
   { url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80&fm=jpg", caption: "Dinner done right" },
   { url: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=1600&q=80&fm=jpg", caption: "Lost in the dance" },
-  { url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80&fm=jpg", caption: "Lago di Braies, Dolomites" },
+  { url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80&fm=jpg", caption: "Lago di Braies, Dolomites", place: "Lago di Braies, Braies, Italy" },
   { url: "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=1600&q=80&fm=jpg", caption: "The peloton rolls" },
   { url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80&fm=jpg", caption: "Ocean morning" },
   { url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1600&q=80&fm=jpg", caption: "Shoulder to shoulder" },
@@ -215,9 +218,22 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           <div className="absolute inset-x-0 top-0 mx-auto max-w-2xl px-6 py-5 flex items-center justify-between">
             {header(true)}
           </div>
-          <p className="absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-6 pb-3 text-xs font-medium text-white/95">
-            {art.caption}
-          </p>
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-6 pb-3 text-xs font-medium text-white/95">
+            {art.place ? (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(art.place)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-white hover:underline underline-offset-2"
+                title={`Open ${art.place} in Google Maps`}
+              >
+                {art.caption}
+                <ArrowUpRightIcon className="size-3 opacity-80" />
+              </a>
+            ) : (
+              art.caption
+            )}
+          </div>
         </div>
       )}
 

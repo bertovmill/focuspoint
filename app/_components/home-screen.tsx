@@ -112,9 +112,10 @@ function greeting(): string {
 }
 
 export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => void }) {
-  // Vision text per form of wealth, keyed by lowercased form label. Sourced from
-  // vision statements whose Area/title matches the form name. null = still loading.
+  // Vision statements and methods per form of wealth, keyed by lowercased form label.
+  // Sourced from vision_items whose title matches the form name. null = still loading.
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
+  const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
@@ -123,23 +124,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, todosRes, measuresRes] = await Promise.all([
+        const [visionRes, methodRes, todosRes, measuresRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
+          fetch("/api/vision?kind=method"),
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
         ]);
-        if (visionRes.ok) {
-          const rows: { title: string | null; content: string | null }[] = await visionRes.json();
+        // Rows are newest-first; keep the first (most recent) item per form.
+        const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
           const map: Record<string, string> = {};
           for (const row of rows) {
             const key = row.title?.trim().toLowerCase();
-            // Rows are newest-first; keep the first (most recent) statement per form.
             if (key && row.content && !(key in map)) map[key] = row.content;
           }
-          setFormVisions(map);
-        } else {
-          setFormVisions({});
-        }
+          return map;
+        };
+        setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
+        setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
         if (todosRes.ok) {
           const todos: { completed: boolean }[] = await todosRes.json();
           setOpenTasks(todos.filter((t) => !t.completed).length);
@@ -155,6 +156,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         }
       } catch {
         setFormVisions({});
+        setFormMethods({});
       }
     })();
   }, []);
@@ -290,47 +292,52 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </div>
         </div>
 
-        {/* Vision — the ideal state for each form of wealth */}
-        <div className="mb-10">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-            Vision
-          </p>
-          {formVisions === null ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-10 rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {WEALTH_FORMS.map(({ label, icon: Icon }) => {
-                const vision = formVisions[label.toLowerCase()];
-                return (
-                  <button
-                    key={label}
-                    onClick={() => onNavigate("vision")}
-                    className="flex w-full items-start gap-3 text-left group"
-                    aria-label={vision ? `${label} vision` : `Write your vision for ${label}`}
-                  >
-                    <Icon size={18} weight="duotone" className="text-primary mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors">
-                        {label}
-                      </p>
-                      {vision ? (
-                        <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{vision}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
-                          Write your vision for {label}…
+        {/* Vision (ideal state) and Methods (daily practices) for each form of wealth */}
+        {[
+          { heading: "Vision", map: formVisions, hint: "Write your vision for" },
+          { heading: "Methods", map: formMethods, hint: "Add your methods for" },
+        ].map(({ heading, map, hint }) => (
+          <div key={heading} className="mb-10">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              {heading}
+            </p>
+            {map === null ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {WEALTH_FORMS.map(({ label, icon: Icon }) => {
+                  const text = map[label.toLowerCase()];
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => onNavigate("vision")}
+                      className="flex w-full items-start gap-3 text-left group"
+                      aria-label={text ? `${label} ${heading.toLowerCase()}` : `${hint} ${label}`}
+                    >
+                      <Icon size={18} weight="duotone" className="text-primary mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors">
+                          {label}
                         </p>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                        {text ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
+                            {hint} {label}…
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
 
         {/* Daily behaviors mantra */}
         <p className="text-xs text-muted-foreground mb-10 leading-relaxed">

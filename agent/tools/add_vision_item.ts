@@ -4,9 +4,9 @@ import { getDb } from "../../lib/db.js";
 
 export default defineTool({
   description:
-    "Add an item to the user's Vision page: a vision statement (content required, title = optional life area like 'Career'), a long-term goal (title required, optional horizon), or a vision-board image (image_url required, title = caption).",
+    "Add an item to the user's Vision page: a vision statement (content required, title = optional life area like 'Career'), a long-term goal (title required, optional horizon), a vision-board image (image_url required, title = caption), or a method (title = the form of wealth it belongs to, content = the daily practices).",
   inputSchema: z.object({
-    kind: z.enum(["statement", "goal", "image"]),
+    kind: z.enum(["statement", "goal", "image", "method"]),
     title: z.string().optional().describe("Statement area, goal title, or image caption"),
     content: z.string().optional().describe("Statement body or goal description"),
     image_url: z.string().optional().describe("Public image URL (kind 'image' only)"),
@@ -19,6 +19,8 @@ export default defineTool({
     if (kind === "statement" && !content?.trim()) throw new Error("A statement needs content.");
     if (kind === "goal" && !title?.trim()) throw new Error("A goal needs a title.");
     if (kind === "image" && !image_url?.trim()) throw new Error("An image needs an image_url.");
+    if (kind === "method" && (!title?.trim() || !content?.trim()))
+      throw new Error("A method needs a title (the form of wealth) and content (the practices).");
     const sql = getDb();
     const [row] = await sql`
       INSERT INTO vision_items (kind, title, content, image_url, horizon)

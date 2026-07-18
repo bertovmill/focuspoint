@@ -4,10 +4,10 @@ import { getDb } from "../../lib/db.js";
 
 export default defineTool({
   description:
-    "List the user's vision items: vision statements, long-term goals (with horizons), and vision-board images. Use this before talking about the user's big picture or long-term direction.",
+    "List the user's vision items: vision statements, long-term goals (with horizons), vision-board images, and methods (the daily practices for a form of wealth, titled with the form's name). Use this before talking about the user's big picture or long-term direction.",
   inputSchema: z.object({
     kind: z
-      .enum(["statement", "goal", "image"])
+      .enum(["statement", "goal", "image", "method"])
       .optional()
       .describe("Filter to one kind. Omit to get everything."),
   }),
@@ -28,6 +28,7 @@ export default defineTool({
     if (output.length === 0) return { type: "text", value: "No vision items yet." };
     const lines = output.map((r) => {
       if (r.kind === "statement") return `[statement #${r.id}]${r.title ? ` (${r.title})` : ""} ${r.content}`;
+      if (r.kind === "method") return `[method #${r.id}]${r.title ? ` (${r.title})` : ""} ${r.content}`;
       if (r.kind === "goal")
         return `[goal #${r.id}] ${r.title}${r.horizon ? ` (${r.horizon})` : ""}${r.achieved ? " — achieved" : ""}${r.content ? ` — ${r.content}` : ""}`;
       return `[image #${r.id}]${r.title ? ` ${r.title}` : ""} ${r.image_url}`;

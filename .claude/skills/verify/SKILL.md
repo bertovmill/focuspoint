@@ -22,6 +22,13 @@ PORT=3789 npm run dev
 
 Ready when `curl -s -o /dev/null -w "%{http_code}" http://localhost:3789/login` returns 200 (~1–15s).
 
+**Next 16 allows only one dev server per project dir.** If the launch dies with
+"Another next dev server is already running" (it prints the PID/port/dir), and
+that server's dir IS focuspoint, don't kill it — it's likely Berto's own session.
+Verify against that server's port instead; Turbopack hot-reloads your edits from
+disk, so your changes are live on it. Test data you create will briefly appear
+in his UI — clean it up promptly.
+
 ## Auth
 
 The whole app sits behind cookie auth (`middleware.ts`). The cookie is just the

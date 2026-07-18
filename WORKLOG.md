@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-18 — Home screen: 8 forms of wealth replace hero title + pillars
+
+**Ask:** Berto reframed his philosophy — instead of "Freedom, Happiness, Health" + 3 pillars, the home screen should show his **8 forms of wealth**: Growth, Wellness, Family, Craft, Money, Community, Adventure, Service — with icons from a nice shadcn-adjacent library.
+
+**Decisions (owner chose via quiz):** Phosphor icons (`@phosphor-icons/react`, duotone weight) over Tabler/Lucide; the 8 forms are **hardcoded in the UI** (like `SECTIONS`), not stored in vision_items; the grid **replaces** the big hero headline + pillars (greeting kicker stays, big type goes).
+
+**What was built:**
+- `app/_components/home-screen.tsx` — new `WEALTH_FORMS` constant (label + Phosphor duotone icon + nav target). Renders as a 4×2 grid (2-col mobile) of cards under the "{greeting}, Berto — your 8 forms of wealth" kicker. The Money card keeps the savings meter (from `measures` savings_snapshot) and opens Measures; Wellness → Measures; Adventure → Dreams; the rest → Vision. Removed: hero title block, pillars section, `pillarMeta()`, the `/api/vision?kind=statement` fetch, `VisionStatement` interface, and now-unused lucide icons/Skeleton. Vision tab and DB untouched.
+- `package.json` — added `@phosphor-icons/react` ^2.1.10.
+
+**Verified:** typecheck clean; Playwright screenshots (1440×900, 390×844) confirm grid, duotone icons, Money meter, and intact hero/mantra/Go-To sections. Gotcha hit: `.env.local` was re-pulled by a concurrent session and `BASIC_AUTH_PASSWORD` is now double-quoted — cookie scripts must strip quotes.
+
+**Next steps (open):** per-card destinations are a first guess — adjust `WEALTH_FORMS[].target` as desired; could later swap remaining generic daily-art photos for real destinations with `place` links.
+
 ## 2026-07-18 — Home screen: daily artwork is now a full-bleed hero
 
 **Ask:** Berto wanted the daily art on the home screen to be the full hero section instead of a rounded, bounded box.

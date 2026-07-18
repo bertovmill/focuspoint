@@ -1955,3 +1955,14 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verification:** Playwright against dev on :3001 (session cookie) — 11 checks all pass: T from Home/Notes opens Tasks (without stealing focus), N opens Tasks with input focused and typed text (incl. t/n chars) lands in the input, N while typing just types "n", Ctrl+T ignored, digit "2" regression ok, typing "thinking now" in the chat composer doesn't navigate. No test rows created. Server killed by PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-18 — Key lesson added to Cael's knowledge framework (Money)
+
+**What was changed:**
+`agent/instructions.md` — new **"Key lessons"** subsection under "The 8 forms of wealth": hard-won principles Berto has adopted, treated as canon and woven into guidance proactively. First entry (Money): **difference and retention of total control are core to success in money creation** — be different (don't compete on sameness) and own the outcomes (keep ownership/control of the work, assets, and upside). Cael is told to test ventures/deals/career moves against two questions: is it genuinely different, and does he keep control of the outcome?
+
+**Decisions:** placed in instructions.md rather than the DB Money vision statement — vision statements are Berto's own written visions; principles/lessons belong in Cael's instructions. Section is structured as a list so future lessons slot in per form.
+
+**Typecheck:** not applicable (markdown-only change).

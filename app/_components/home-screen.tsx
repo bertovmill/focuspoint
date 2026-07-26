@@ -104,6 +104,12 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 
+/** Overall life vision — the north star above the 8 forms of wealth. */
+const VISION_2030 =
+  "Insane aura, extremely kind, calm and happy. A world championship competitor in Hyrox. " +
+  "On a team building the absolute best AI products in the world. Seeing my family every month — " +
+  "they feel good, they feel secure. My team feels secure.";
+
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -253,6 +259,14 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       <div className={cn("mx-auto max-w-2xl px-6 pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
+
+        {/* Overall vision — north star above the 8 forms */}
+        <Card className="mb-6 rounded-xl px-5 py-4 shadow-none">
+          <p className="text-[11px] font-medium text-primary uppercase tracking-widest mb-1.5">
+            2030
+          </p>
+          <p className="text-sm leading-relaxed">{VISION_2030}</p>
+        </Card>
 
         {/* 8 forms of wealth */}
         <div className="mb-10">

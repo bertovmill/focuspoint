@@ -1980,3 +1980,15 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Decisions:** kept the "Vision" entry in the `Go to` section and `SECTIONS`/hotkey list untouched — the dedicated Vision tab still exists for editing; only the redundant duplicate list on Home was removed.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Home screen: added a "2030" overall vision above the 8 forms
+
+**What was built:** `app/_components/home-screen.tsx` — a `VISION_2030` constant (hardcoded, in Berto's words) rendered as a card directly above the 8-forms-of-wealth grid: "Insane aura, extremely kind, calm and happy. A world championship competitor in Hyrox. On a team building the absolute best AI products in the world. Seeing my family every month — they feel good, they feel secure. My team feels secure."
+
+**Decisions:** hardcoded like `WEALTH_FORMS` rather than stored in `vision_items` — it's a single one-off north-star statement, not per-form content that needs editing through the Vision tab flow.
+
+**Verified:** Playwright screenshots (1440×900 desktop, 390×844 mobile) against a scratch dev server on :3789 — card renders cleanly above the grid on both breakpoints; dev server killed by specific PID.
+
+**Typecheck:** PASS ✓

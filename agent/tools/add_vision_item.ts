@@ -4,11 +4,11 @@ import { getDb } from "../../lib/db.js";
 
 export default defineTool({
   description:
-    "Add an item to the user's Vision page: a vision statement (content required, title = optional life area like 'Career'), a long-term goal (title required, optional horizon), a vision-board image (image_url required, title = caption), or a method (title = the form of wealth it belongs to, content = the daily practices).",
+    "Add an item to the user's Vision page: a vision statement (content required, title = optional life area like 'Career'), a long-term goal (title required, optional horizon), a vision-board image (image_url required, title = caption), a method (title = the form of wealth it belongs to, content = the daily practices), or a milestone (title = the year e.g. '2027', content = what that year looks like — part of the 2026-2030 timeline).",
   inputSchema: z.object({
-    kind: z.enum(["statement", "goal", "image", "method"]),
-    title: z.string().optional().describe("Statement area, goal title, or image caption"),
-    content: z.string().optional().describe("Statement body or goal description"),
+    kind: z.enum(["statement", "goal", "image", "method", "milestone"]),
+    title: z.string().optional().describe("Statement area, goal title, image caption, method's form of wealth, or milestone year"),
+    content: z.string().optional().describe("Statement body, goal description, method practices, or milestone description"),
     image_url: z.string().optional().describe("Public image URL (kind 'image' only)"),
     horizon: z
       .enum(["1yr", "5yr", "10yr", "someday"])
@@ -21,6 +21,8 @@ export default defineTool({
     if (kind === "image" && !image_url?.trim()) throw new Error("An image needs an image_url.");
     if (kind === "method" && (!title?.trim() || !content?.trim()))
       throw new Error("A method needs a title (the form of wealth) and content (the practices).");
+    if (kind === "milestone" && (!title?.trim() || !content?.trim()))
+      throw new Error("A milestone needs a title (the year) and content (what that year looks like).");
     const sql = getDb();
     const [row] = await sql`
       INSERT INTO vision_items (kind, title, content, image_url, horizon)

@@ -104,6 +104,9 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 
+/** The 2026 → 2030 timeline — one milestone per year, shown as a vertical roadmap. */
+const TIMELINE_YEARS = ["2026", "2027", "2028", "2029", "2030"];
+
 /** Overall life vision — the north star above the 8 forms of wealth. */
 const VISION_2030 =
   "Incredible health, fitness, energy, grit. Tight relationships with family and friends and " +
@@ -123,6 +126,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   // Sourced from vision_items whose title matches the form name. null = still loading.
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
+  const [milestones, setMilestones] = useState<Record<string, string> | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
@@ -132,9 +136,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, todosRes, measuresRes] = await Promise.all([
+        const [visionRes, methodRes, milestoneRes, todosRes, measuresRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
+          fetch("/api/vision?kind=milestone"),
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
         ]);
@@ -149,6 +154,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         };
         setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
         setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
+        setMilestones(milestoneRes.ok ? toFormMap(await milestoneRes.json()) : {});
         if (todosRes.ok) {
           const todos: { completed: boolean }[] = await todosRes.json();
           setOpenTasks(todos.filter((t) => !t.completed).length);
@@ -165,6 +171,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       } catch {
         setFormVisions({});
         setFormMethods({});
+        setMilestones({});
       }
     })();
   }, []);
@@ -353,6 +360,42 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     </div>
                   )}
                 </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Timeline — 2026 to 2030, one milestone per year */}
+        <div className="mb-10">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            The road to 2030
+          </p>
+          <div className="space-y-0">
+            {TIMELINE_YEARS.map((year, i) => {
+              const text = milestones?.[year.toLowerCase()];
+              const isLast = i === TIMELINE_YEARS.length - 1;
+              return (
+                <div key={year} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={cn(
+                        "mt-1 size-2.5 rounded-full shrink-0",
+                        text ? "bg-primary" : "bg-muted-foreground/30",
+                      )}
+                    />
+                    {!isLast && <span className="w-px flex-1 bg-border" />}
+                  </div>
+                  <div className={cn("min-w-0", isLast ? "pb-0" : "pb-5")}>
+                    <p className="text-sm font-medium leading-snug">{year}</p>
+                    {text ? (
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
+                        Add your {year} milestone…
+                      </p>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>

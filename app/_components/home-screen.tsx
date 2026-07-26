@@ -16,12 +16,6 @@ import {
   EyeIcon,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   BarbellIcon,
   CoinsIcon,
   CompassIcon,
@@ -33,7 +27,6 @@ import {
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
@@ -126,7 +119,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
-  const [visionFormLabel, setVisionFormLabel] = useState<string | null>(null);
+  const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   useEffect(() => {
@@ -267,136 +260,88 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             {greeting()}, Berto — your 8 forms of wealth
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {WEALTH_FORMS.map(({ label, icon: Icon, target }) => (
-              <Card
-                key={label}
-                className="relative gap-2 h-full rounded-xl px-4 py-3.5 shadow-none hover:border-primary/40 transition-colors"
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setVisionFormLabel(label);
-                  }}
-                  aria-label={`View ${label} vision`}
-                  className="absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                >
-                  <EyeIcon size={14} />
-                </button>
-                <button onClick={() => onNavigate(target)} className="text-left contents">
-                  <Icon size={22} weight="duotone" className="text-primary" />
-                  <p className="text-sm font-medium leading-snug pr-4">{label}</p>
-                  {label === "Money" && savings && (
-                    <div className="mt-auto">
-                      {savings.goal && (
-                        <div
-                          className="h-1.5 rounded-full overflow-hidden mb-1"
-                          style={{ background: "var(--chart-track)" }}
-                        >
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, (savings.total / savings.goal) * 100)}%`,
-                              background: "var(--chart-essential)",
-                            }}
-                          />
-                        </div>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        ${Math.round(savings.total).toLocaleString()}
-                        {savings.goal ? ` of $${(savings.goal / 1000).toFixed(0)}K` : ""}
-                      </p>
-                    </div>
+            {WEALTH_FORMS.map(({ label, icon: Icon, target }) => {
+              const isExpanded = expandedForm === label;
+              const visionText = formVisions?.[label.toLowerCase()];
+              const methodText = formMethods?.[label.toLowerCase()];
+              return (
+                <Card
+                  key={label}
+                  className={cn(
+                    "relative gap-2 h-full rounded-xl px-4 py-3.5 shadow-none hover:border-primary/40 transition-colors",
+                    isExpanded && "col-span-2 sm:col-span-4",
                   )}
-                </button>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <Dialog open={visionFormLabel !== null} onOpenChange={(open) => !open && setVisionFormLabel(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{visionFormLabel} vision</DialogTitle>
-            </DialogHeader>
-            {visionFormLabel && (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Vision</p>
-                  {(() => {
-                    const text = formVisions?.[visionFormLabel.toLowerCase()];
-                    return text ? (
-                      <p className="text-sm leading-relaxed">{text}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
-                        No vision written yet for {visionFormLabel}.
-                      </p>
-                    );
-                  })()}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Methods</p>
-                  {(() => {
-                    const text = formMethods?.[visionFormLabel.toLowerCase()];
-                    return text ? (
-                      <p className="text-sm leading-relaxed">{text}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
-                        No methods added yet for {visionFormLabel}.
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Vision (ideal state) and Methods (daily practices) for each form of wealth */}
-        {[
-          { heading: "Vision", map: formVisions, hint: "Write your vision for" },
-          { heading: "Methods", map: formMethods, hint: "Add your methods for" },
-        ].map(({ heading, map, hint }) => (
-          <div key={heading} className="mb-10">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              {heading}
-            </p>
-            {map === null ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-10 rounded-lg" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {WEALTH_FORMS.map(({ label, icon: Icon }) => {
-                  const text = map[label.toLowerCase()];
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => onNavigate("vision")}
-                      className="flex w-full items-start gap-3 text-left group"
-                      aria-label={text ? `${label} ${heading.toLowerCase()}` : `${hint} ${label}`}
-                    >
-                      <Icon size={18} weight="duotone" className="text-primary mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-snug group-hover:text-primary transition-colors">
-                          {label}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedForm(isExpanded ? null : label);
+                    }}
+                    aria-label={isExpanded ? `Collapse ${label}` : `View ${label} vision`}
+                    aria-expanded={isExpanded}
+                    className="absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <EyeIcon size={14} />
+                  </button>
+                  <button onClick={() => onNavigate(target)} className="text-left contents">
+                    <Icon size={22} weight="duotone" className="text-primary" />
+                    <p className="text-sm font-medium leading-snug pr-4">{label}</p>
+                    {label === "Money" && savings && (
+                      <div className="mt-auto">
+                        {savings.goal && (
+                          <div
+                            className="h-1.5 rounded-full overflow-hidden mb-1"
+                            style={{ background: "var(--chart-track)" }}
+                          >
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, (savings.total / savings.goal) * 100)}%`,
+                                background: "var(--chart-essential)",
+                              }}
+                            />
+                          </div>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          ${Math.round(savings.total).toLocaleString()}
+                          {savings.goal ? ` of $${(savings.goal / 1000).toFixed(0)}K` : ""}
                         </p>
-                        {text ? (
-                          <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
+                      </div>
+                    )}
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 pt-3 border-t space-y-3">
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                          Vision
+                        </p>
+                        {visionText ? (
+                          <p className="text-sm leading-relaxed">{visionText}</p>
                         ) : (
-                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
-                            {hint} {label}…
+                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
+                            No vision written yet for {label}.
                           </p>
                         )}
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                          Methods
+                        </p>
+                        {methodText ? (
+                          <p className="text-sm leading-relaxed">{methodText}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
+                            No methods added yet for {label}.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
-        ))}
+        </div>
 
         {/* Daily behaviors mantra */}
         <p className="text-xs text-muted-foreground mb-10 leading-relaxed">

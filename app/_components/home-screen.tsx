@@ -106,9 +106,10 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
 
 /** Overall life vision — the north star above the 8 forms of wealth. */
 const VISION_2030 =
-  "Insane aura, extremely kind, calm and happy. A world championship competitor in Hyrox. " +
-  "On a team building the absolute best AI products in the world. Seeing my family every month — " +
-  "they feel good, they feel secure. My team feels secure.";
+  "Incredible health, fitness, energy, grit. Tight relationships with family and friends and " +
+  "people I do business with. My craft is incredibly good — I'm building AI products so good " +
+  "it's jaw-dropping, one of the best in the world, people tangibly feel it. I'm making a ton " +
+  "of money, millions per year. I'm travelling and enjoying the world.";
 
 function greeting(): string {
   const h = new Date().getHours();

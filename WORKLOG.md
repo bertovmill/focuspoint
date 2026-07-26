@@ -1992,3 +1992,11 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verified:** Playwright screenshots (1440×900 desktop, 390×844 mobile) against a scratch dev server on :3789 — card renders cleanly above the grid on both breakpoints; dev server killed by specific PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Home screen: rewrote the "2030" vision text
+
+**What changed:** `app/_components/home-screen.tsx` — `VISION_2030` rewritten per Berto's updated wording: "Incredible health, fitness, energy, grit. Tight relationships with family and friends and people I do business with. My craft is incredibly good — I'm building AI products so good it's jaw-dropping, one of the best in the world, people tangibly feel it. I'm making a ton of money, millions per year. I'm travelling and enjoying the world." Replaces the prior Hyrox/aura draft.
+
+**Typecheck:** PASS ✓

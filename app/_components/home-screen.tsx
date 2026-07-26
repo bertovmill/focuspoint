@@ -365,36 +365,34 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </div>
         </div>
 
-        {/* Timeline — 2026 to 2030, one milestone per year */}
+        {/* Timeline — 2026 to 2030, one milestone per year, left to right */}
         <div className="mb-10">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
             The road to 2030
           </p>
-          <div className="space-y-0">
+          <div className="flex overflow-x-auto gap-0 -mx-1 px-1 pb-1">
             {TIMELINE_YEARS.map((year, i) => {
               const text = milestones?.[year.toLowerCase()];
               const isLast = i === TIMELINE_YEARS.length - 1;
               return (
-                <div key={year} className="flex gap-3">
-                  <div className="flex flex-col items-center">
+                <div key={year} className="flex-1 min-w-[130px] shrink-0 pr-3">
+                  <div className="flex items-center">
                     <span
                       className={cn(
-                        "mt-1 size-2.5 rounded-full shrink-0",
+                        "size-2.5 rounded-full shrink-0",
                         text ? "bg-primary" : "bg-muted-foreground/30",
                       )}
                     />
-                    {!isLast && <span className="w-px flex-1 bg-border" />}
+                    {!isLast && <span className="h-px flex-1 bg-border ml-1" />}
                   </div>
-                  <div className={cn("min-w-0", isLast ? "pb-0" : "pb-5")}>
-                    <p className="text-sm font-medium leading-snug">{year}</p>
-                    {text ? (
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
-                        Add your {year} milestone…
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-sm font-medium leading-snug mt-2">{year}</p>
+                  {text ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
+                      Add your {year} milestone…
+                    </p>
+                  )}
                 </div>
               );
             })}

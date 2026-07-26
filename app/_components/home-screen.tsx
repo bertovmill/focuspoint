@@ -13,7 +13,14 @@ import {
   ImageIcon,
   GaugeIcon,
   TelescopeIcon,
+  EyeIcon,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   BarbellIcon,
   CoinsIcon,
@@ -119,6 +126,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
+  const [visionFormLabel, setVisionFormLabel] = useState<string | null>(null);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   useEffect(() => {
@@ -260,10 +268,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {WEALTH_FORMS.map(({ label, icon: Icon, target }) => (
-              <button key={label} onClick={() => onNavigate(target)} className="text-left">
-                <Card className="gap-2 h-full rounded-xl px-4 py-3.5 shadow-none hover:border-primary/40 transition-colors">
+              <Card
+                key={label}
+                className="relative gap-2 h-full rounded-xl px-4 py-3.5 shadow-none hover:border-primary/40 transition-colors"
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVisionFormLabel(label);
+                  }}
+                  aria-label={`View ${label} vision`}
+                  className="absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <EyeIcon size={14} />
+                </button>
+                <button onClick={() => onNavigate(target)} className="text-left contents">
                   <Icon size={22} weight="duotone" className="text-primary" />
-                  <p className="text-sm font-medium leading-snug">{label}</p>
+                  <p className="text-sm font-medium leading-snug pr-4">{label}</p>
                   {label === "Money" && savings && (
                     <div className="mt-auto">
                       {savings.goal && (
@@ -286,11 +307,49 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                       </p>
                     </div>
                   )}
-                </Card>
-              </button>
+                </button>
+              </Card>
             ))}
           </div>
         </div>
+
+        <Dialog open={visionFormLabel !== null} onOpenChange={(open) => !open && setVisionFormLabel(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{visionFormLabel} vision</DialogTitle>
+            </DialogHeader>
+            {visionFormLabel && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Vision</p>
+                  {(() => {
+                    const text = formVisions?.[visionFormLabel.toLowerCase()];
+                    return text ? (
+                      <p className="text-sm leading-relaxed">{text}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
+                        No vision written yet for {visionFormLabel}.
+                      </p>
+                    );
+                  })()}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Methods</p>
+                  {(() => {
+                    const text = formMethods?.[visionFormLabel.toLowerCase()];
+                    return text ? (
+                      <p className="text-sm leading-relaxed">{text}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
+                        No methods added yet for {visionFormLabel}.
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Vision (ideal state) and Methods (daily practices) for each form of wealth */}
         {[

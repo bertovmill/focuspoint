@@ -2000,3 +2000,19 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **What changed:** `app/_components/home-screen.tsx` — `VISION_2030` rewritten per Berto's updated wording: "Incredible health, fitness, energy, grit. Tight relationships with family and friends and people I do business with. My craft is incredibly good — I'm building AI products so good it's jaw-dropping, one of the best in the world, people tangibly feel it. I'm making a ton of money, millions per year. I'm travelling and enjoying the world." Replaces the prior Hyrox/aura draft.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Fix: texts to Cael stopped getting replies (silent `input.requested` pause)
+
+**Ask:** Berto asked why his texts weren't working. Investigated via the Twilio REST API (Messages + Alerts) since the Vercel project lives under an SSO-gated scope the CLI can't reach: inbound SMS arrived fine and Twilio logged clean 200s from the webhook, but no outbound reply had gone out since **2026-07-18 ~14:24 UTC** — including a text sent the morning of this session, over a week later.
+
+**Root cause:** `agent/channels/twilio.ts` only wired `message.completed` / `turn.failed` / `session.failed` handlers. eve's twilio channel has no default renderer for the `input.requested` event — the event fired when a tool needs approval (`add_calendar_event` is gated with `approval: once()`) or when the model calls the built-in `ask_question` tool. Some point in the 2026-07-18 SMS conversation triggered one of those, the session parked at `session.waiting`, and — per eve's docs — every subsequent message to that session just gets silently held pending an answer nobody knew to give, since nothing ever texted the prompt. No error, no approval request visible, nothing — matching the symptom exactly.
+
+**Fix:** `agent/channels/twilio.ts` — added an `events["input.requested"]` handler that formats each pending request's `prompt` plus its `options` (or an "reply to answer" hint for freeform questions) and sends it as a plain-text SMS via `channel.twilio.sendMessage(...)`.
+
+**Immediate unstick:** told Berto to text the literal word "approve" (or "deny") to the Cael number — eve resolves a follow-up matching an approval option automatically even without ever having rendered the original prompt, per its resume protocol (a message matching an option ID/label/index answers a pending request regardless of channel).
+
+**Files changed:** `agent/channels/twilio.ts`
+
+**Typecheck:** PASS ✓ · **Build:** PASS ✓

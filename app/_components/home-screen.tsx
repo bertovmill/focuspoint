@@ -104,8 +104,39 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 
-/** The 2026 → 2030 timeline — one milestone per year, shown as a vertical roadmap. */
+/** The 2026 → 2030 timeline — one milestone per year, shown as a left-to-right roadmap. */
 const TIMELINE_YEARS = ["2026", "2027", "2028", "2029", "2030"];
+
+/** Timeline zoom levels — same 5 milestones throughout; only the focused year's emphasis changes. */
+const TIMELINE_GRANULARITIES = [
+  { key: "full", label: "3 Years" },
+  { key: "year", label: "1 Year" },
+  { key: "quarter", label: "1 Quarter" },
+] as const;
+type TimelineGranularity = (typeof TIMELINE_GRANULARITIES)[number]["key"];
+
+/** Routine schedule lines are "Day (period): text" or "Goal: text"; this parses one into a week grid. */
+const ROUTINE_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const ROUTINE_DAY_RE = new RegExp(`^(${ROUTINE_DAYS.join("|")})\\s*(?:\\(([^)]+)\\))?:\\s*(.*)$`);
+
+function parseRoutine(content: string) {
+  let goal: string | null = null;
+  const days: Record<string, { period: string | null; text: string }[]> = {};
+  for (const raw of content.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^goal:/i.test(line)) {
+      goal = line.slice(line.indexOf(":") + 1).trim();
+      continue;
+    }
+    const m = line.match(ROUTINE_DAY_RE);
+    if (m) {
+      const [, day, period, text] = m;
+      (days[day] ??= []).push({ period: period ?? null, text: text.trim() });
+    }
+  }
+  return { goal, days };
+}
 
 /** Overall life vision — the north star above the 8 forms of wealth. */
 const VISION_2030 =
@@ -132,6 +163,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
+  const [timelineGranularity, setTimelineGranularity] = useState<TimelineGranularity>("full");
+  const [focusedYear, setFocusedYear] = useState<string>(() => {
+    const now = new Date().getFullYear().toString();
+    return TIMELINE_YEARS.includes(now) ? now : TIMELINE_YEARS[0];
+  });
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   useEffect(() => {
@@ -281,7 +317,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         </div>
       )}
 
-      <div className={cn("mx-auto max-w-2xl px-6 pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
+      <div className={cn("pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
+      <div className="mx-auto max-w-2xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
@@ -381,18 +418,55 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             })}
           </div>
         </div>
+      </div>
 
-        {/* Timeline — 2026 to 2030, one milestone per year, left to right */}
-        <div className="mb-10">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+      {/* Timeline — 2026 to 2030, one milestone per year, left to right, full viewport width */}
+      <div className="mb-10">
+        <div className="mx-auto max-w-2xl px-6 flex items-center justify-between gap-3 mb-3">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
             The road to 2030
           </p>
-          <div className="flex overflow-x-auto gap-0 -mx-1 px-1 pb-1">
+          <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 shrink-0">
+            {TIMELINE_GRANULARITIES.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                onClick={() => setTimelineGranularity(g.key)}
+                aria-pressed={timelineGranularity === g.key}
+                className={cn(
+                  "px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap transition-colors",
+                  timelineGranularity === g.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="flex gap-0 px-6 pb-1">
             {TIMELINE_YEARS.map((year, i) => {
               const text = milestones?.[year.toLowerCase()];
               const isLast = i === TIMELINE_YEARS.length - 1;
+              const zoomed = timelineGranularity !== "full";
+              const isFocused = year === focusedYear;
+              const showText = !zoomed || isFocused;
               return (
-                <div key={year} className="flex-1 min-w-[130px] shrink-0 pr-3">
+                <button
+                  key={year}
+                  type="button"
+                  onClick={() => zoomed && setFocusedYear(year)}
+                  disabled={!zoomed}
+                  aria-pressed={zoomed && isFocused}
+                  className={cn(
+                    "shrink-0 pr-3 text-left transition-[width] duration-200 ease-out disabled:cursor-default",
+                    !zoomed && "flex-1 min-w-[130px]",
+                    zoomed && isFocused && (timelineGranularity === "year" ? "w-[380px]" : "w-[540px]"),
+                    zoomed && !isFocused && (timelineGranularity === "year" ? "w-[72px]" : "w-[48px]"),
+                  )}
+                >
                   <div className="flex items-center">
                     <span
                       className={cn(
@@ -402,20 +476,30 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     />
                     {!isLast && <span className="h-px flex-1 bg-border ml-1" />}
                   </div>
-                  <p className="text-sm font-medium leading-snug mt-2">{year}</p>
-                  {text ? (
-                    <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
-                      Add your {year} milestone…
-                    </p>
-                  )}
-                </div>
+                  <p
+                    className={cn(
+                      "font-medium leading-snug mt-2",
+                      showText ? "text-sm" : "text-xs text-muted-foreground",
+                    )}
+                  >
+                    {year}
+                  </p>
+                  {showText &&
+                    (text ? (
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
+                        Add your {year} milestone…
+                      </p>
+                    ))}
+                </button>
               );
             })}
           </div>
         </div>
+      </div>
 
+      <div className="mx-auto max-w-2xl px-6">
         {/* Routines — named recurring schedules, e.g. the weekly workout routine */}
         <div className="mb-10">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
@@ -423,24 +507,44 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </p>
           {routines && routines.length > 0 ? (
             <div className="space-y-3">
-              {routines.map((routine) => (
-                <Card key={routine.title} className="rounded-xl px-5 py-4 shadow-none">
-                  <p className="text-sm font-medium mb-2">{routine.title}</p>
-                  <div className="space-y-1">
-                    {routine.content.split("\n").filter(Boolean).map((line, i) => {
-                      const idx = line.indexOf(":");
-                      const label = idx > -1 ? line.slice(0, idx).trim() : null;
-                      const rest = idx > -1 ? line.slice(idx + 1).trim() : line.trim();
-                      return (
-                        <p key={i} className="text-sm leading-relaxed">
-                          {label && <span className="font-medium">{label}: </span>}
-                          {rest}
-                        </p>
-                      );
-                    })}
-                  </div>
-                </Card>
-              ))}
+              {routines.map((routine) => {
+                const { goal, days } = parseRoutine(routine.content);
+                return (
+                  <Card key={routine.title} className="rounded-xl px-5 py-4 shadow-none">
+                    <p className="text-sm font-medium mb-1">{routine.title}</p>
+                    {goal && <p className="text-xs text-muted-foreground leading-relaxed mb-3">{goal}</p>}
+                    <div className="flex overflow-x-auto gap-2 -mx-1 px-1 pb-1">
+                      {ROUTINE_DAYS.map((day) => {
+                        const entries = days[day] ?? [];
+                        return (
+                          <div
+                            key={day}
+                            className="w-[108px] shrink-0 rounded-lg border border-border/60 px-2 py-2"
+                          >
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                              {day.slice(0, 3)}
+                            </p>
+                            <div className="space-y-2">
+                              {entries.length > 0 ? (
+                                entries.map((entry, i) => (
+                                  <div key={i}>
+                                    {entry.period && (
+                                      <p className="text-[10px] font-medium text-primary mb-0.5">{entry.period}</p>
+                                    )}
+                                    <p className="text-[11px] leading-snug">{entry.text}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-muted-foreground/50 italic">—</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
@@ -482,6 +586,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             </button>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

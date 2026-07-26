@@ -127,6 +127,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
   const [milestones, setMilestones] = useState<Record<string, string> | null>(null);
+  const [routines, setRoutines] = useState<{ title: string; content: string }[] | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [artFailed, setArtFailed] = useState(false);
@@ -136,10 +137,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, milestoneRes, todosRes, measuresRes] = await Promise.all([
+        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
           fetch("/api/vision?kind=milestone"),
+          fetch("/api/vision?kind=routine"),
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
         ]);
@@ -152,9 +154,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           }
           return map;
         };
+        // Rows are newest-first; keep the first (most recent) item per routine name.
+        const toRoutineList = (rows: { title: string | null; content: string | null }[]) => {
+          const seen = new Set<string>();
+          const list: { title: string; content: string }[] = [];
+          for (const row of rows) {
+            const key = row.title?.trim().toLowerCase();
+            if (key && row.content && !seen.has(key)) {
+              seen.add(key);
+              list.push({ title: row.title!.trim(), content: row.content });
+            }
+          }
+          return list;
+        };
         setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
         setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
         setMilestones(milestoneRes.ok ? toFormMap(await milestoneRes.json()) : {});
+        setRoutines(routineRes.ok ? toRoutineList(await routineRes.json()) : []);
         if (todosRes.ok) {
           const todos: { completed: boolean }[] = await todosRes.json();
           setOpenTasks(todos.filter((t) => !t.completed).length);
@@ -172,6 +188,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         setFormVisions({});
         setFormMethods({});
         setMilestones({});
+        setRoutines([]);
       }
     })();
   }, []);
@@ -397,6 +414,39 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               );
             })}
           </div>
+        </div>
+
+        {/* Routines — named recurring schedules, e.g. the weekly workout routine */}
+        <div className="mb-10">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Routines
+          </p>
+          {routines && routines.length > 0 ? (
+            <div className="space-y-3">
+              {routines.map((routine) => (
+                <Card key={routine.title} className="rounded-xl px-5 py-4 shadow-none">
+                  <p className="text-sm font-medium mb-2">{routine.title}</p>
+                  <div className="space-y-1">
+                    {routine.content.split("\n").filter(Boolean).map((line, i) => {
+                      const idx = line.indexOf(":");
+                      const label = idx > -1 ? line.slice(0, idx).trim() : null;
+                      const rest = idx > -1 ? line.slice(idx + 1).trim() : line.trim();
+                      return (
+                        <p key={i} className="text-sm leading-relaxed">
+                          {label && <span className="font-medium">{label}: </span>}
+                          {rest}
+                        </p>
+                      );
+                    })}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
+              No routines added yet.
+            </p>
+          )}
         </div>
 
         {/* Daily behaviors mantra */}

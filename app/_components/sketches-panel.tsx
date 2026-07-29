@@ -15,6 +15,8 @@ import {
   TypeIcon,
   Undo2Icon,
   XIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -48,15 +50,12 @@ interface Sketch {
 const CANVAS_W = 1200;
 const CANVAS_H = 900;
 const MAX_UNDO = 30;
+const MIN_SIZE = 1;
+const MAX_SIZE = 30;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
 
 const COLORS = ["#1a1a1a", "#dc2626", "#2563eb", "#16a34a", "#ea580c", "#9333ea"];
-const SIZES = [
-  { label: "S", value: 3 },
-  { label: "M", value: 7 },
-  { label: "L", value: 14 },
-];
-// S/M/L double as font sizes for the text tool (logical px).
-const FONT_SIZES: Record<number, number> = { 3: 28, 7: 48, 14: 80 };
 
 type Tool = "pen" | "eraser" | "rect" | "ellipse" | "line" | "arrow" | "text";
 
@@ -70,30 +69,45 @@ const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon }[] = [
   { key: "text", label: "Text", icon: TypeIcon },
 ];
 
+// Text-tool font size scales with the line-weight slider.
+const fontSizeFor = (size: number) => Math.min(180, Math.max(20, size * 6));
+
 export function SketchesPanel() {
   const [sketches, setSketches] = useState<Sketch[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [color, setColor] = useState(COLORS[0]);
-  const [size, setSize] = useState(SIZES[1].value);
+  const [size, setSize] = useState(7);
   const [tool, setTool] = useState<Tool>("pen");
   const [title, setTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
 
-  // Pending text placement: logical canvas coords + CSS position for the floating input.
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  // Pending text placement: logical canvas coords + container-relative CSS position.
   const [textPos, setTextPos] = useState<{ x: number; y: number; cssX: number; cssY: number } | null>(null);
   const [textValue, setTextValue] = useState("");
   const textInputRef = useRef<HTMLInputElement>(null);
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const previewBaseRef = useRef<ImageData | null>(null);
   const undoStackRef = useRef<ImageData[]>([]);
+
+  // Active pointers (for pinch) and in-flight pinch gesture state.
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ dist0: number; zoom0: number; mid0: { x: number; y: number }; pan0: { x: number; y: number } } | null>(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  zoomRef.current = zoom;
+  panRef.current = pan;
 
   const getCtx = useCallback(() => canvasRef.current?.getContext("2d") ?? null, []);
 
@@ -126,25 +140,83 @@ export function SketchesPanel() {
     loadSketches();
   }, [loadSketches]);
 
-  const pointFromEvent = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
+  const clampPan = useCallback((p: { x: number; y: number }, z: number) => {
+    const el = containerRef.current;
+    if (!el) return p;
+    const w = el.clientWidth;
+    const h = el.clientHeight;
     return {
-      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
-      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
-      cssX: e.clientX - rect.left,
-      cssY: e.clientY - rect.top,
+      x: Math.min(0, Math.max(w - w * z, p.x)),
+      y: Math.min(0, Math.max(h - h * z, p.y)),
     };
   }, []);
 
-  const pushUndo = useCallback(
-    (ctx: CanvasRenderingContext2D) => {
-      undoStackRef.current.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
-      if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
-      setCanUndo(true);
+  const applyZoom = useCallback(
+    (nextZoom: number, centerCss: { x: number; y: number }) => {
+      const z0 = zoomRef.current;
+      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+      const p0 = panRef.current;
+      // Keep the content point under `centerCss` stationary while zooming.
+      const next = {
+        x: centerCss.x - ((centerCss.x - p0.x) / z0) * z,
+        y: centerCss.y - ((centerCss.y - p0.y) / z0) * z,
+      };
+      setZoom(z);
+      setPan(clampPan(next, z));
     },
-    [],
+    [clampPan],
   );
+
+  const zoomButtons = useCallback(
+    (factor: number) => {
+      const el = containerRef.current;
+      if (!el) return;
+      applyZoom(zoomRef.current * factor, { x: el.clientWidth / 2, y: el.clientHeight / 2 });
+    },
+    [applyZoom],
+  );
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // Trackpad pinch (ctrl/cmd+wheel) zooms at the cursor; plain scroll pans when zoomed in.
+  // Attached natively because React's synthetic wheel handler can't preventDefault (passive).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const rect = el.getBoundingClientRect();
+      const cursor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        applyZoom(zoomRef.current * Math.exp(-e.deltaY * 0.01), cursor);
+      } else if (zoomRef.current > 1) {
+        e.preventDefault();
+        setPan(clampPan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }, zoomRef.current));
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [applyZoom, clampPan]);
+
+  const pointFromEvent = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const containerRect = containerRef.current!.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
+      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+      cssX: e.clientX - containerRect.left,
+      cssY: e.clientY - containerRect.top,
+    };
+  }, []);
+
+  const pushUndo = useCallback((ctx: CanvasRenderingContext2D) => {
+    undoStackRef.current.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
+    if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
+    setCanUndo(true);
+  }, []);
 
   const strokeStyle = useCallback(
     (ctx: CanvasRenderingContext2D) => {
@@ -191,7 +263,7 @@ export function SketchesPanel() {
     if (value) {
       pushUndo(ctx);
       ctx.fillStyle = color;
-      ctx.font = `${FONT_SIZES[size] ?? 48}px sans-serif`;
+      ctx.font = `${fontSizeFor(size)}px sans-serif`;
       ctx.textBaseline = "middle";
       ctx.fillText(value, textPos.x, textPos.y);
       setDirty(true);
@@ -200,11 +272,45 @@ export function SketchesPanel() {
     setTextValue("");
   }, [getCtx, textPos, textValue, color, size, pushUndo]);
 
+  const cancelStrokeForPinch = useCallback(() => {
+    // A second finger landed mid-stroke: erase the accidental mark and hand over to the gesture.
+    if (!drawingRef.current) return;
+    const ctx = getCtx();
+    const snapshot = undoStackRef.current.pop();
+    if (ctx && snapshot) ctx.putImageData(snapshot, 0, 0);
+    if (undoStackRef.current.length === 0) setCanUndo(false);
+    drawingRef.current = false;
+    lastPointRef.current = null;
+    startPointRef.current = null;
+    previewBaseRef.current = null;
+  }, [getCtx]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0 && e.pointerType === "mouse") return;
       const ctx = getCtx();
       if (!ctx) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Capture can fail for already-released pointers; drawing still works without it.
+      }
+
+      if (pointersRef.current.size === 2) {
+        cancelStrokeForPinch();
+        const [a, b] = [...pointersRef.current.values()];
+        const rect = containerRef.current!.getBoundingClientRect();
+        pinchRef.current = {
+          dist0: Math.hypot(b.x - a.x, b.y - a.y),
+          zoom0: zoomRef.current,
+          mid0: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+          pan0: panRef.current,
+        };
+        return;
+      }
+      if (pinchRef.current) return;
+
       const p = pointFromEvent(e);
       if (tool === "text") {
         // Suppress the mousedown default action — it would move focus to the
@@ -216,7 +322,6 @@ export function SketchesPanel() {
         setTextPos(p);
         return;
       }
-      e.currentTarget.setPointerCapture(e.pointerId);
       pushUndo(ctx);
       drawingRef.current = true;
       startPointRef.current = p;
@@ -233,11 +338,30 @@ export function SketchesPanel() {
       }
       setDirty(true);
     },
-    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo],
+    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+      const pinch = pinchRef.current;
+      if (pinch && pointersRef.current.size >= 2) {
+        const [a, b] = [...pointersRef.current.values()];
+        const rect = containerRef.current!.getBoundingClientRect();
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+        const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinch.zoom0 * (dist / Math.max(1, pinch.dist0))));
+        // Anchor the content point that was under the initial midpoint, following the midpoint as it drifts (two-finger pan).
+        const next = {
+          x: mid.x - ((pinch.mid0.x - pinch.pan0.x) / pinch.zoom0) * z,
+          y: mid.y - ((pinch.mid0.y - pinch.pan0.y) / pinch.zoom0) * z,
+        };
+        setZoom(z);
+        setPan(clampPan(next, z));
+        return;
+      }
       if (!drawingRef.current) return;
       const ctx = getCtx();
       if (!ctx) return;
@@ -262,10 +386,12 @@ export function SketchesPanel() {
         drawShape(ctx, start, p);
       }
     },
-    [getCtx, pointFromEvent, tool, color, size, drawShape],
+    [getCtx, pointFromEvent, tool, color, size, drawShape, clampPan],
   );
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     drawingRef.current = false;
     lastPointRef.current = null;
     startPointRef.current = null;
@@ -291,7 +417,8 @@ export function SketchesPanel() {
     setEditingId(null);
     setTextPos(null);
     setTextValue("");
-  }, [getCtx, paintBlank]);
+    resetZoom();
+  }, [getCtx, paintBlank, resetZoom]);
 
   const handleSave = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -334,11 +461,12 @@ export function SketchesPanel() {
         setDirty(false);
         setTitle(sketch.title);
         setEditingId(sketch.id);
-        canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        resetZoom();
+        containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       };
       img.src = sketch.image_data;
     },
-    [getCtx, paintBlank],
+    [getCtx, paintBlank, resetZoom],
   );
 
   const handleDelete = useCallback(
@@ -366,7 +494,7 @@ export function SketchesPanel() {
   const cssFontSize = (() => {
     const rect = canvasRef.current?.getBoundingClientRect();
     const scale = rect ? rect.width / CANVAS_W : 1;
-    return Math.max(12, (FONT_SIZES[size] ?? 48) * scale);
+    return Math.max(12, fontSizeFor(size) * scale);
   })();
 
   return (
@@ -405,18 +533,28 @@ export function SketchesPanel() {
             />
           ))}
         </div>
-        <div className="flex items-center gap-1 ml-1">
-          {SIZES.map((s) => (
-            <Button
-              key={s.label}
-              variant={size === s.value ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 w-7 p-0 text-xs"
-              onClick={() => setSize(s.value)}
-            >
-              {s.label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-1.5 ml-1" title="Line weight">
+          <input
+            type="range"
+            min={MIN_SIZE}
+            max={MAX_SIZE}
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value))}
+            aria-label="Line weight"
+            className="w-24 accent-primary"
+          />
+          <span className="text-xs text-muted-foreground tabular-nums w-8">{size}px</span>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => zoomButtons(1 / 1.25)} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">
+            <ZoomOutIcon className="size-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs tabular-nums" onClick={resetZoom} disabled={zoom === 1} aria-label="Reset zoom" title="Reset zoom">
+            {Math.round(zoom * 100)}%
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => zoomButtons(1.25)} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">
+            <ZoomInIcon className="size-3.5" />
+          </Button>
         </div>
         <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={handleUndo} disabled={!canUndo}>
           <Undo2Icon className="size-3.5" />
@@ -428,8 +566,11 @@ export function SketchesPanel() {
         </Button>
       </div>
 
-      {/* Canvas */}
-      <div className="relative">
+      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside */}
+      <div
+        ref={containerRef}
+        className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-white touch-none select-none"
+      >
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
@@ -438,10 +579,8 @@ export function SketchesPanel() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className={cn(
-            "w-full rounded-xl border border-border bg-white touch-none select-none",
-            tool === "text" ? "cursor-text" : "cursor-crosshair",
-          )}
+          className={cn("absolute left-0 top-0 w-full", tool === "text" ? "cursor-text" : "cursor-crosshair")}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
         />
         {textPos ? (
           <input

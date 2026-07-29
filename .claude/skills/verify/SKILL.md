@@ -63,3 +63,12 @@ const page = await context.newPage();
 
 Kill only the dev server you started, by its specific PID — never
 `pkill -f "next dev"` (it kills Berto's other projects).
+
+## Keystroke-leak hazard
+
+If a Playwright test types text (`page.keyboard.type`) expecting a focused
+input, verify the input actually has focus first. If focus is lost, keys hit
+the global hotkey handlers — `t` navigates to Tasks, `n` focuses the new-task
+input, `c` opens a chat modal — and a stray Enter can create real todos or
+**send junk messages to Cael** (real agent sessions). After any test that
+types, check `/api/threads` and `/api/todos` for junk and delete it.

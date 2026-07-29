@@ -2061,3 +2061,21 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verified:** 13/13 Playwright checks against the already-running dev server on :3001 — per-shape pixel assertions (edges inked, interiors empty, arrowhead present, no preview ghosts), text commit/cancel/undo. Side effect cleaned up: two earlier failing runs leaked keystrokes ("t" tab-nav, "c" chat modal) and sent three junk "h" chats to Cael — those threads were deleted via the API. No sketches or todos left behind.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-28 — Sketches: line-weight slider + pinch/scroll zoom
+
+**Ask:** Berto wanted adjustable line weight and pinch-zoom in/out of the canvas. Chose via quiz: slider replacing S/M/L (1–30px), and full zoom support (pinch + trackpad + toolbar buttons).
+
+**What was built** (`app/_components/sketches-panel.tsx`):
+- **Line weight**: native `<input type="range">` (1–30px, live "Npx" label) replaces the S/M/L buttons; eraser stays 2.5× the pen width; text font maps as `clamp(20, size*6, 180)` logical px.
+- **Zoom/pan**: canvas now sits absolutely in an `overflow-hidden` 4:3 viewport div and zooms via CSS `translate+scale` (origin 0 0), 1×–8×, pan clamped to bounds. Pointer→logical-coordinate mapping needed no changes because it reads `getBoundingClientRect()`, which reflects the transform.
+- **Gestures**: two-finger pinch (active-pointer map; zoom anchored at the gesture midpoint, midpoint drift = two-finger pan). A second finger landing mid-stroke pops the undo snapshot to erase the accidental mark before the gesture takes over. Trackpad/ctrl+wheel zooms at the cursor (native non-passive `wheel` listener — React's synthetic one can't `preventDefault`); plain scroll pans when zoomed in. Toolbar +/− buttons and a % button that resets to 100%. Zoom resets on save/clear/load-for-edit.
+- Robustness: `setPointerCapture` wrapped in try/catch (throws for already-released/synthetic pointers, which killed the whole handler).
+
+**Verified:** 12/12 new Playwright checks on :3001 (slider thickness measured at ~21px logical for a 20px setting, zoom button scaling, drawing-while-zoomed coordinate mapping, wheel pan, ctrl+wheel zoom, reset, synthetic two-finger pinch → 4.75×, pinch-cancel of partial strokes) + 13/13 shapes/text regression suite. Toolbar renders in one row on desktop.
+
+**Also:** documented the keystroke-leak hazard in `.claude/skills/verify/SKILL.md` (leaked test keystrokes hit global hotkeys and can send junk chats to Cael / create todos).
+
+**Typecheck:** PASS ✓

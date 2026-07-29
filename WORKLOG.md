@@ -2079,3 +2079,20 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Also:** documented the keystroke-leak hazard in `.claude/skills/verify/SKILL.md` (leaked test keystrokes hit global hotkeys and can send junk chats to Cael / create todos).
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-29 — Tasks: "waiting" status (waiting on someone/something)
+
+**Ask:** Berto wanted "waiting" as an option on the todo list. Chose via quiz: amber badge sorted right after in-progress (visible so he chases things up), and Cael's tools learn it too.
+
+**What was built:**
+- `lib/db.ts` — `todos.waiting BOOLEAN NOT NULL DEFAULT FALSE` (migrated live).
+- `app/api/todos/route.ts` — `waiting` in all SELECT/RETURNING lists; ORDER BY slots `waiting DESC` right after `in_progress DESC`.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `waiting`; in_progress and waiting are mutually exclusive (setting either clears the other, in_progress wins if both sent).
+- `app/_components/dashboard.tsx` — context-menu item "Mark waiting"/"Clear waiting" (hourglass icon) under "Mark in progress"; waiting rows get an amber left border + tint + "Waiting" hourglass badge (in-progress styling wins when both somehow set); section sort is in-progress → waiting → rest; optimistic toggles mirror the mutual exclusion.
+- `agent/tools/update_todo.ts` — `waiting` in the schema (described as "blocked waiting on someone or something") with the same exclusivity; `list_todos` already returns it via `SELECT *`, so Cael can see and set it from chat/SMS.
+
+**Verified:** 12/12 Playwright checks on :3001 — seed via API, mark waiting via context menu (badge + API persistence), in-progress clears waiting and vice versa (both directions), clear waiting, seeded todo deleted in a `finally` block even on failure. Close-up screenshot confirms the amber treatment. Test gotcha: seed todos BEFORE `page.goto` — the dashboard fetches on mount, so a post-load seed races the fetch and may not render.
+
+**Typecheck:** PASS ✓

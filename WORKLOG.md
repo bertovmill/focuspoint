@@ -2026,3 +2026,20 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Files changed:** `agent/channels/twilio.ts`
 
 **Typecheck:** PASS ✓ · **Build:** PASS ✓
+
+---
+
+## 2026-07-28 — New "Sketches" section: canvas drawing tool with DB-backed gallery
+
+**Ask:** Berto wanted a new app section called "Sketches" — a canvas drawing tool. Chose via quiz: save to DB with a gallery (over ephemeral/localStorage), and the "simple kit" toolset.
+
+**What was built:**
+- `lib/db.ts` — new `sketches` table (id, title, image_data TEXT [PNG data URL], created_at, updated_at). Migrated the live DB via `scripts/migrate.ts`; `instrumentation.ts` also creates it on boot.
+- `app/api/sketches/route.ts` — GET (all, newest-updated first) + POST (title + image_data, validated as a `data:image/` URL).
+- `app/api/sketches/[id]/route.ts` — PATCH (title and/or image_data via COALESCE, bumps updated_at) + DELETE.
+- `app/_components/sketches-panel.tsx` — the drawing surface. Fixed 1200×900 logical canvas scaled by CSS (pointer coords mapped back), white "paper" background so exports read in dark mode. Tools: 6 pen colors, S/M/L stroke sizes, eraser (2.5× wide white pen), undo (ImageData snapshot stack, cap 30), clear, save-with-title. Pointer events + `touch-none` so mouse/touch/stylus all work. Gallery grid below: thumbnail, title, date, download-PNG, delete (AlertDialog confirm). Clicking a thumbnail loads it into the canvas for editing — Save becomes Update (PATCH, no duplicate row).
+- Wiring: `dashboard.tsx` (NAV_ITEMS + DashboardTab + render block), `page.tsx` (MobileTab, MORE_TABS so mobile reaches it via More menu, activeTab mapping), `home-screen.tsx` (HomeTarget + SECTIONS "Go to" entry with hotkey **s** — digits 1–0 were all taken).
+
+**Verified:** Playwright against a scratch dev server on :3789 — 10/10 checks pass: home entry + `s` hotkey, drawing, undo enablement, save persists via API (PNG data URL), gallery render, edit mode + update persists without duplicating, mobile More→Sketches renders, test sketch deleted (no data left behind). A separate pixel test confirmed strokes are gap-free along the drawn row (the dashed look in one screenshot was Playwright's coarse 30px mouse steps, not a code bug). Dev server killed by specific PID.
+
+**Typecheck:** PASS ✓

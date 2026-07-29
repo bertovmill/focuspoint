@@ -145,6 +145,15 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS sketches (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Untitled',
+      image_data TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,

@@ -9,6 +9,7 @@ import {
   ListChecksIcon,
   BookOpenIcon,
   BrainIcon,
+  BrushIcon,
   CalendarClockIcon,
   ImageIcon,
   GaugeIcon,
@@ -41,6 +42,7 @@ export type HomeTarget =
   | "dreams"
   | "schedule"
   | "media"
+  | "sketches"
   | "measures"
   | "vision";
 
@@ -61,6 +63,7 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
   { tab: "media", label: "Media", icon: ImageIcon, hotkey: "8" },
   { tab: "measures", label: "Measures", icon: GaugeIcon, hotkey: "9" },
   { tab: "vision", label: "Vision", icon: TelescopeIcon, hotkey: "0" },
+  { tab: "sketches", label: "Sketches", icon: BrushIcon, hotkey: "s" },
 ];
 
 /**

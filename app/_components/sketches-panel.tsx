@@ -1,7 +1,21 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BrushIcon, DownloadIcon, EraserIcon, PlusIcon, TrashIcon, Undo2Icon, XIcon } from "lucide-react";
+import {
+  ArrowUpRightIcon,
+  BrushIcon,
+  CircleIcon,
+  DownloadIcon,
+  EraserIcon,
+  MinusIcon,
+  PenLineIcon,
+  PlusIcon,
+  SquareIcon,
+  TrashIcon,
+  TypeIcon,
+  Undo2Icon,
+  XIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -41,6 +55,20 @@ const SIZES = [
   { label: "M", value: 7 },
   { label: "L", value: 14 },
 ];
+// S/M/L double as font sizes for the text tool (logical px).
+const FONT_SIZES: Record<number, number> = { 3: 28, 7: 48, 14: 80 };
+
+type Tool = "pen" | "eraser" | "rect" | "ellipse" | "line" | "arrow" | "text";
+
+const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon }[] = [
+  { key: "pen", label: "Pen", icon: PenLineIcon },
+  { key: "eraser", label: "Eraser", icon: EraserIcon },
+  { key: "rect", label: "Rectangle", icon: SquareIcon },
+  { key: "ellipse", label: "Ellipse", icon: CircleIcon },
+  { key: "line", label: "Line", icon: MinusIcon },
+  { key: "arrow", label: "Arrow", icon: ArrowUpRightIcon },
+  { key: "text", label: "Text", icon: TypeIcon },
+];
 
 export function SketchesPanel() {
   const [sketches, setSketches] = useState<Sketch[]>([]);
@@ -49,15 +77,22 @@ export function SketchesPanel() {
 
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[1].value);
-  const [erasing, setErasing] = useState(false);
+  const [tool, setTool] = useState<Tool>("pen");
   const [title, setTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
 
+  // Pending text placement: logical canvas coords + CSS position for the floating input.
+  const [textPos, setTextPos] = useState<{ x: number; y: number; cssX: number; cssY: number } | null>(null);
+  const [textValue, setTextValue] = useState("");
+  const textInputRef = useRef<HTMLInputElement>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
+  const previewBaseRef = useRef<ImageData | null>(null);
   const undoStackRef = useRef<ImageData[]>([]);
 
   const getCtx = useCallback(() => canvasRef.current?.getContext("2d") ?? null, []);
@@ -72,6 +107,10 @@ export function SketchesPanel() {
     const ctx = getCtx();
     if (ctx) paintBlank(ctx);
   }, [getCtx, paintBlank]);
+
+  useEffect(() => {
+    if (textPos) textInputRef.current?.focus();
+  }, [textPos]);
 
   const loadSketches = useCallback(async () => {
     setLoading(true);
@@ -93,55 +132,144 @@ export function SketchesPanel() {
     return {
       x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
       y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+      cssX: e.clientX - rect.left,
+      cssY: e.clientY - rect.top,
     };
   }, []);
+
+  const pushUndo = useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      undoStackRef.current.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
+      if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
+      setCanUndo(true);
+    },
+    [],
+  );
+
+  const strokeStyle = useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    },
+    [color, size],
+  );
+
+  const drawShape = useCallback(
+    (ctx: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
+      strokeStyle(ctx);
+      ctx.beginPath();
+      if (tool === "rect") {
+        ctx.strokeRect(Math.min(from.x, to.x), Math.min(from.y, to.y), Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+      } else if (tool === "ellipse") {
+        ctx.ellipse((from.x + to.x) / 2, (from.y + to.y) / 2, Math.abs(to.x - from.x) / 2, Math.abs(to.y - from.y) / 2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+        if (tool === "arrow") {
+          const angle = Math.atan2(to.y - from.y, to.x - from.x);
+          const head = Math.max(14, size * 3.5);
+          ctx.beginPath();
+          ctx.moveTo(to.x, to.y);
+          ctx.lineTo(to.x - head * Math.cos(angle - Math.PI / 6), to.y - head * Math.sin(angle - Math.PI / 6));
+          ctx.moveTo(to.x, to.y);
+          ctx.lineTo(to.x - head * Math.cos(angle + Math.PI / 6), to.y - head * Math.sin(angle + Math.PI / 6));
+          ctx.stroke();
+        }
+      }
+    },
+    [tool, strokeStyle],
+  );
+
+  const commitText = useCallback(() => {
+    const ctx = getCtx();
+    if (!ctx || !textPos) return;
+    const value = textValue.trim();
+    if (value) {
+      pushUndo(ctx);
+      ctx.fillStyle = color;
+      ctx.font = `${FONT_SIZES[size] ?? 48}px sans-serif`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(value, textPos.x, textPos.y);
+      setDirty(true);
+    }
+    setTextPos(null);
+    setTextValue("");
+  }, [getCtx, textPos, textValue, color, size, pushUndo]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0 && e.pointerType === "mouse") return;
       const ctx = getCtx();
       if (!ctx) return;
-      e.currentTarget.setPointerCapture(e.pointerId);
-      // Snapshot for undo before the stroke starts.
-      undoStackRef.current.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
-      if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
-      setCanUndo(true);
-      drawingRef.current = true;
       const p = pointFromEvent(e);
+      if (tool === "text") {
+        // Suppress the mousedown default action — it would move focus to the
+        // canvas (→ body) right after the effect focuses the floating input,
+        // and that blur would instantly commit-and-close the empty text box.
+        e.preventDefault();
+        // Clicking with an open text box commits it, then places a new one.
+        if (textPos) commitText();
+        setTextPos(p);
+        return;
+      }
+      e.currentTarget.setPointerCapture(e.pointerId);
+      pushUndo(ctx);
+      drawingRef.current = true;
+      startPointRef.current = p;
       lastPointRef.current = p;
-      // A tap with no movement still leaves a dot.
-      ctx.beginPath();
-      ctx.fillStyle = erasing ? "#ffffff" : color;
-      ctx.arc(p.x, p.y, (erasing ? size * 2.5 : size) / 2, 0, Math.PI * 2);
-      ctx.fill();
+      if (tool === "pen" || tool === "eraser") {
+        // A tap with no movement still leaves a dot.
+        ctx.beginPath();
+        ctx.fillStyle = tool === "eraser" ? "#ffffff" : color;
+        ctx.arc(p.x, p.y, (tool === "eraser" ? size * 2.5 : size) / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Shapes rubber-band over a snapshot of the canvas as it was on pointerdown.
+        previewBaseRef.current = undoStackRef.current[undoStackRef.current.length - 1];
+      }
       setDirty(true);
     },
-    [getCtx, pointFromEvent, erasing, color, size],
+    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!drawingRef.current) return;
       const ctx = getCtx();
-      const last = lastPointRef.current;
-      if (!ctx || !last) return;
+      if (!ctx) return;
       const p = pointFromEvent(e);
-      ctx.beginPath();
-      ctx.strokeStyle = erasing ? "#ffffff" : color;
-      ctx.lineWidth = erasing ? size * 2.5 : size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      lastPointRef.current = p;
+      if (tool === "pen" || tool === "eraser") {
+        const last = lastPointRef.current;
+        if (!last) return;
+        ctx.beginPath();
+        ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+        ctx.lineWidth = tool === "eraser" ? size * 2.5 : size;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        lastPointRef.current = p;
+      } else {
+        const start = startPointRef.current;
+        const base = previewBaseRef.current;
+        if (!start || !base) return;
+        ctx.putImageData(base, 0, 0);
+        drawShape(ctx, start, p);
+      }
     },
-    [getCtx, pointFromEvent, erasing, color, size],
+    [getCtx, pointFromEvent, tool, color, size, drawShape],
   );
 
   const handlePointerUp = useCallback(() => {
     drawingRef.current = false;
     lastPointRef.current = null;
+    startPointRef.current = null;
+    previewBaseRef.current = null;
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -161,6 +289,8 @@ export function SketchesPanel() {
     setDirty(false);
     setTitle("");
     setEditingId(null);
+    setTextPos(null);
+    setTextValue("");
   }, [getCtx, paintBlank]);
 
   const handleSave = useCallback(async () => {
@@ -232,22 +362,44 @@ export function SketchesPanel() {
     a.click();
   }, []);
 
+  // Scale the floating text input's font to roughly match the committed text size.
+  const cssFontSize = (() => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const scale = rect ? rect.width / CANVAS_W : 1;
+    return Math.max(12, (FONT_SIZES[size] ?? 48) * scale);
+  })();
+
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
+          {TOOLS.map(({ key, label, icon: Icon }) => (
+            <Button
+              key={key}
+              variant={tool === key ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setTool(key)}
+              aria-label={label}
+              title={label}
+            >
+              <Icon className="size-3.5" />
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 ml-1">
           {COLORS.map((c) => (
             <button
               key={c}
               onClick={() => {
                 setColor(c);
-                setErasing(false);
+                if (tool === "eraser") setTool("pen");
               }}
               aria-label={`Pen color ${c}`}
               className={cn(
                 "size-6 rounded-full border border-border transition-transform",
-                color === c && !erasing ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110" : "hover:scale-110",
+                color === c && tool !== "eraser" ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110" : "hover:scale-110",
               )}
               style={{ backgroundColor: c }}
             />
@@ -266,15 +418,6 @@ export function SketchesPanel() {
             </Button>
           ))}
         </div>
-        <Button
-          variant={erasing ? "secondary" : "ghost"}
-          size="sm"
-          className="h-7 gap-1.5 px-2"
-          onClick={() => setErasing((v) => !v)}
-        >
-          <EraserIcon className="size-3.5" />
-          Eraser
-        </Button>
         <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={handleUndo} disabled={!canUndo}>
           <Undo2Icon className="size-3.5" />
           Undo
@@ -286,16 +429,46 @@ export function SketchesPanel() {
       </div>
 
       {/* Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="w-full rounded-xl border border-border bg-white cursor-crosshair touch-none select-none"
-      />
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className={cn(
+            "w-full rounded-xl border border-border bg-white touch-none select-none",
+            tool === "text" ? "cursor-text" : "cursor-crosshair",
+          )}
+        />
+        {textPos ? (
+          <input
+            ref={textInputRef}
+            value={textValue}
+            onChange={(e) => setTextValue(e.target.value)}
+            onBlur={commitText}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitText();
+              if (e.key === "Escape") {
+                setTextPos(null);
+                setTextValue("");
+              }
+            }}
+            placeholder="Type…"
+            className="absolute bg-transparent outline-none border-b border-dashed border-muted-foreground/50 min-w-24 max-w-[60%] p-0"
+            style={{
+              left: textPos.cssX,
+              top: textPos.cssY,
+              transform: "translateY(-50%)",
+              color,
+              fontSize: cssFontSize,
+              fontFamily: "sans-serif",
+            }}
+          />
+        ) : null}
+      </div>
 
       {/* Save row */}
       <div className="flex items-center gap-2">

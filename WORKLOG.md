@@ -2043,3 +2043,21 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verified:** Playwright against a scratch dev server on :3789 — 10/10 checks pass: home entry + `s` hotkey, drawing, undo enablement, save persists via API (PNG data URL), gallery render, edit mode + update persists without duplicating, mobile More→Sketches renders, test sketch deleted (no data left behind). A separate pixel test confirmed strokes are gap-free along the drawn row (the dashed look in one screenshot was Playwright's coarse 30px mouse steps, not a code bug). Dev server killed by specific PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-07-28 — Sketches: shapes (rect/ellipse/line/arrow) + text tool
+
+**Ask:** Berto wanted shapes and text on the Sketches canvas. Chose via quiz: all four shapes (rectangle, ellipse, line, arrow), outline-only (no fill).
+
+**What was built** (`app/_components/sketches-panel.tsx`):
+- Replaced the `erasing` boolean with a `tool` state (`pen | eraser | rect | ellipse | line | arrow | text`) and an icon toolbar row ahead of the color swatches.
+- Shapes rubber-band while dragging: pointerdown snapshots the canvas (same ImageData pushed for undo), each move restores it and redraws start→cursor, so previews don't stack. Arrow = line + two 30° head strokes (head length `max(14, size*3.5)`).
+- Text tool: click places a floating input overlaid at the click point (styled with the current color and an S/M/L-mapped font size: 28/48/80 logical px); Enter or blur commits via `ctx.fillText`, Escape cancels, clicking elsewhere commits then opens a new box. Committed text is one undo step.
+- Picking a color while on eraser hops back to pen.
+
+**Bug found & fixed during verification:** the floating text input would sometimes mount and instantly vanish — the browser's default mousedown action moved focus to the unfocusable canvas right after the effect focused the input, and `onBlur={commitText}` closed the empty box. Fix: `e.preventDefault()` on the text-tool pointerdown (suppresses the compat mousedown focus steal). Timing-dependent, so it looked flaky under Playwright but was a real product bug.
+
+**Verified:** 13/13 Playwright checks against the already-running dev server on :3001 — per-shape pixel assertions (edges inked, interiors empty, arrowhead present, no preview ghosts), text commit/cancel/undo. Side effect cleaned up: two earlier failing runs leaked keystrokes ("t" tab-nav, "c" chat modal) and sent three junk "h" chats to Cael — those threads were deleted via the API. No sketches or todos left behind.
+
+**Typecheck:** PASS ✓

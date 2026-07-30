@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-30 — Calendar page: Google Calendar view/edit via FullCalendar
+
+**Ask:** Berto wanted a calendar page in the app, backed by his Google Calendar, with add/edit from the app.
+
+**Decisions (owner chose via quiz):** FullCalendar as the calendar kit (over Schedule-X / react-big-calendar); auth via our **own Google OAuth app** with a one-time consent flow + stored refresh token (over eve/Vercel connections or pasted raw tokens). Pinned FullCalendar to **v6** (`^6.1.21` for core/react/daygrid/timegrid/interaction) — v7 shipped mid-build with a totally different plugin/theming API; v6 is the stable, documented line.
+
+**What was built:**
+- `lib/google.ts` — OAuth helpers: consent URL, code→token exchange, `getAccessToken()` (auto-refreshes with 60s slack, deletes the row on `invalid_grant` to force reconnect), `gcalFetch()` against the Calendar v3 REST API (no googleapis SDK). Tokens live in a new single-row `google_auth` table (id=1) in Neon — env vars can't be written at runtime on Vercel. **Bonus:** `.env.local` already had `GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN` from a prior setup, and that refresh token already carries full `calendar` scope — so `getAccessToken()`/`getGoogleConnection()` fall back to `GOOGLE_REFRESH_TOKEN` when no DB row exists (validated + cached into the DB on first use). The calendar worked with zero consent clicks; the `/api/google/connect` flow remains for re-auth or a future account switch.
+- `app/api/google/{connect,callback,status}/route.ts` — consent redirect (CSRF state cookie, 10 min), callback (exchange + store + fetch account email, redirects to `/?google=connected|error`), status (GET: configured/connected/email; DELETE: revoke + disconnect). No middleware change needed — Berto is logged in when clicking Connect, so the session cookie rides along on Google's redirect.
+- `app/api/calendar/events/route.ts` + `[id]/route.ts` — proxy the **primary** calendar: GET (timeMin/timeMax, `singleEvents=true`), POST, PATCH (clears the unused date/dateTime variant so all-day↔timed flips stick), DELETE (410 = already gone = ok). Google↔FullCalendar mapping is direct: both use exclusive end dates for all-day events. Not-connected surfaces as HTTP 409 `not_connected`, which the panel turns into the Connect screen.
+- `app/_components/calendar-panel.tsx` — FullCalendar month/week/day with drag-to-move, drag-to-resize, select-to-create, click-to-edit; shadcn Dialog for create/edit/delete (title, all-day toggle, start/end, description — the form shows the *inclusive* all-day end date, ±1 day converted at the API boundary); connected-account row with Disconnect; states for unconfigured (env vars missing) / disconnected (Connect button) / connected; OAuth redirect result toasted once then stripped from the URL.
+- Wiring: new "Calendar" tab in `dashboard.tsx` NAV_ITEMS + `page.tsx` MobileTab/MORE_TABS + `home-screen.tsx` HomeTarget/SECTIONS (hotkey `g`). `lib/db.ts` — `google_auth` in `ensureSchema()`. `globals.css` — `--fc-*` vars mapped to the app theme (orange primary, muted borders, today tint).
+
+**Verified:** typecheck clean. Live against dev server on :3789 with Berto's real Google account: full CRUD round-trip via the API (create → rename+move → confirm → delete → confirm gone, nothing left behind); Playwright screenshots — month view desktop (real events, themed), week view, event-click edit dialog, mobile month via More→Calendar (246 events rendered; first mobile shot was blank from screenshot timing only). Dev server killed by PID after.
+
+**Next steps (open):** prod needs `GOOGLE_CLIENT_ID/SECRET` (and optionally `GOOGLE_REFRESH_TOKEN`) in Vercel env — likely already there since `.env.local` was pulled from Vercel; if prod shows "not configured", add them in the dashboard and add `https://cael-agent.vercel.app/api/google/callback` as an authorized redirect URI on the Google OAuth client. Possible follow-ups: agent tools so Cael can read/create events, multi-calendar support (currently primary only), event colors per calendar.
+
+---
+
 ## 2026-07-18 — Home screen: 8 forms of wealth replace hero title + pillars
 
 **Ask:** Berto reframed his philosophy — instead of "Freedom, Happiness, Health" + 3 pillars, the home screen should show his **8 forms of wealth**: Growth, Wellness, Family, Craft, Money, Community, Adventure, Service — with icons from a nice shadcn-adjacent library.

@@ -154,6 +154,17 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Google Calendar OAuth tokens — single-user app, one row (id = 1)
+  await sql`
+    CREATE TABLE IF NOT EXISTS google_auth (
+      id INTEGER PRIMARY KEY,
+      refresh_token TEXT NOT NULL,
+      access_token TEXT,
+      access_token_expires_at TIMESTAMPTZ,
+      email TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

@@ -11,6 +11,7 @@ import {
   BrainIcon,
   BrushIcon,
   CalendarClockIcon,
+  CalendarDaysIcon,
   ImageIcon,
   GaugeIcon,
   TelescopeIcon,
@@ -38,6 +39,7 @@ export type HomeTarget =
   | "tasks"
   | "notes"
   | "lists"
+  | "calendar"
   | "journal-templates"
   | "dreams"
   | "schedule"
@@ -64,6 +66,7 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
   { tab: "measures", label: "Measures", icon: GaugeIcon, hotkey: "9" },
   { tab: "vision", label: "Vision", icon: TelescopeIcon, hotkey: "0" },
   { tab: "sketches", label: "Sketches", icon: BrushIcon, hotkey: "s" },
+  { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon, hotkey: "g" },
 ];
 
 /**

@@ -141,3 +141,48 @@
 .chat-modal-backdrop {
   animation: chat-modal-backdrop-in 180ms ease-out;
 }
+
+/* FullCalendar theming (app/_components/calendar-panel.tsx) — map fc vars to the app theme */
+.fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 8%, transparent);
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: var(--primary);
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: var(--muted);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--border);
+  --fc-highlight-color: color-mix(in oklch, var(--primary) 15%, transparent);
+  font-size: 0.875rem;
+}
+.fc .fc-toolbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.fc .fc-button {
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  box-shadow: none !important;
+}
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.fc .fc-event {
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.fc .fc-timegrid-slot-label,
+.fc .fc-timegrid-axis-cushion {
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}

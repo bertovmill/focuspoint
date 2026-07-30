@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, BrushIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, BrushIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, CalendarDaysIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { ListsPanel } from "@/app/_components/lists-panel";
 import { SketchesPanel } from "@/app/_components/sketches-panel";
+import { CalendarPanel } from "@/app/_components/calendar-panel";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -55,6 +56,7 @@ const NAV_ITEMS = [
   { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
   { id: "notes" as const, label: "Notes", icon: FileTextIcon },
   { id: "lists" as const, label: "Lists", icon: ListChecksIcon },
+  { id: "calendar" as const, label: "Calendar", icon: CalendarDaysIcon },
   { id: "journal-templates" as const, label: "Journal Templates", icon: BookOpenIcon },
   { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
   { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
@@ -189,7 +191,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "home" | "todos" | "notes" | "lists" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision";
+type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision";
 
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -1239,6 +1241,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Calendar */}
+        {activeTab === "calendar" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <CalendarPanel />
           </div>
         )}
 

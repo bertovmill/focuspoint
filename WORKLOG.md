@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-31 — Sketches: autosave + title moved to top
+
+**Ask:** Berto wanted the canvas to autosave instead of a manual Save button, and the title field moved near the top of the panel.
+
+**Decisions (owner chose via quiz):** debounce ~1.5s after the last edit (stroke, shape, text change, or undo) rather than gating on title-first or save-on-blur-only; title defaults to "Untitled" if left blank when a save fires. The manual Save button was removed in favor of a small status indicator next to the title (`Saving…` / `Unsaved` / `Saved`).
+
+**What was built:** `app/_components/sketches-panel.tsx` — title `Input` moved above the toolbar with the autosave status label beside it. `handleSave` became `autoSave`: no longer resets the canvas or requires an explicit click — on first save it POSTs and adopts the returned id (so subsequent edits PATCH the same row); it reads `editingId`/`title`/`texts` via refs so the debounce timer isn't re-armed by unrelated re-renders. Added a `markDirty()` helper (bumps an `editVersion` counter alongside `dirty`) so the debounce effect — keyed on `editVersion`, not `dirty`/`texts` — resets on every discrete edit even when `dirty` was already `true` (e.g. consecutive pen strokes). `handleUndo` now also calls `markDirty()` so undo triggers a save. Renaming the title while an existing sketch is loaded (`editingId` set) also triggers autosave; typing a title on a still-blank canvas does not create a sketch. `resetCanvas`/`handleEdit` cancel any pending autosave timer first, so clicking "New sketch" or switching to edit a different sketch can't let a stale debounced save leak a stray/blank row.
+
+**Verified:** typecheck clean. Live in Playwright against `PORT=3789`: drew a stroke with a title set → confirmed "Unsaved" status → waited past the debounce → confirmed "Saved" status and the row existed via `GET /api/sketches` → cleaned up. Second run: drew + immediately clicked "New sketch" before the debounce fired → confirmed no stray/blank sketch was created after waiting out the debounce window.
+
+---
+
 ## 2026-07-31 — Sketches: click-to-edit/duplicate/delete text elements
 
 **Ask:** Berto wanted to click a piece of placed text on the Sketches canvas to edit, delete, or duplicate it — previously text was rasterized straight into the canvas pixels on commit, so it was permanent and unselectable.

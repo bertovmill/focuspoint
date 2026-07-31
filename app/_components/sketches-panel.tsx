@@ -11,7 +11,6 @@ import {
   MinusIcon,
   PencilIcon,
   PenLineIcon,
-  PlusIcon,
   SquareIcon,
   TrashIcon,
   TypeIcon,
@@ -86,6 +85,12 @@ export function SketchesPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
+  // Bumped on every edit so the autosave debounce effect can reset its timer even when `dirty` was already true.
+  const [editVersion, setEditVersion] = useState(0);
+  const markDirty = useCallback(() => {
+    setDirty(true);
+    setEditVersion((v) => v + 1);
+  }, []);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -116,6 +121,7 @@ export function SketchesPanel() {
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const previewBaseRef = useRef<ImageData | null>(null);
   const undoStackRef = useRef<ImageData[]>([]);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Active pointers (for pinch) and in-flight pinch gesture state.
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -279,16 +285,16 @@ export function SketchesPanel() {
       setTexts((prev) =>
         value ? prev.map((t) => (t.id === editingTextId ? { ...t, value } : t)) : prev.filter((t) => t.id !== editingTextId),
       );
-      setDirty(true);
+      markDirty();
     } else if (value) {
       const id = nextTextIdRef.current++;
       setTexts((prev) => [...prev, { id, x: textPos.x, y: textPos.y, value, color, size }]);
-      setDirty(true);
+      markDirty();
     }
     setTextPos(null);
     setTextValue("");
     setEditingTextId(null);
-  }, [textPos, textValue, editingTextId, color, size]);
+  }, [textPos, textValue, editingTextId, color, size, markDirty]);
 
   // Convert logical canvas coords to container-relative CSS coords (accounts for current zoom/pan).
   const canvasToCss = useCallback((x: number, y: number) => {
@@ -324,14 +330,14 @@ export function SketchesPanel() {
       return [...prev, { ...el, id: newId, x: el.x + 24, y: el.y + 24 }];
     });
     setSelectedTextId(null);
-    setDirty(true);
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
   const handleDeleteText = useCallback((id: number) => {
     setTexts((prev) => prev.filter((t) => t.id !== id));
     setSelectedTextId(null);
-    setDirty(true);
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
   const cancelStrokeForPinch = useCallback(() => {
     // A second finger landed mid-stroke: erase the accidental mark and hand over to the gesture.
@@ -398,9 +404,9 @@ export function SketchesPanel() {
         // Shapes rubber-band over a snapshot of the canvas as it was on pointerdown.
         previewBaseRef.current = undoStackRef.current[undoStackRef.current.length - 1];
       }
-      setDirty(true);
+      markDirty();
     },
-    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId],
+    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId, markDirty],
   );
 
   const handlePointerMove = useCallback(
@@ -466,11 +472,16 @@ export function SketchesPanel() {
     if (!ctx || !snapshot) return;
     ctx.putImageData(snapshot, 0, 0);
     if (undoStackRef.current.length === 0) setCanUndo(false);
-  }, [getCtx]);
+    markDirty();
+  }, [getCtx, markDirty]);
 
   const resetCanvas = useCallback(() => {
     const ctx = getCtx();
     if (!ctx) return;
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
     paintBlank(ctx);
     undoStackRef.current = [];
     setCanUndo(false);
@@ -485,19 +496,27 @@ export function SketchesPanel() {
     resetZoom();
   }, [getCtx, paintBlank, resetZoom]);
 
-  const handleSave = useCallback(async () => {
+  // Ref mirrors so the debounced autosave always reads the latest state without re-arming on every keystroke.
+  const editingIdRef = useRef<number | null>(null);
+  const titleRef = useRef("");
+  const textsRef = useRef(texts);
+  editingIdRef.current = editingId;
+  titleRef.current = title;
+  textsRef.current = texts;
+
+  const autoSave = useCallback(async () => {
     const canvas = canvasRef.current;
-    if (!canvas || !dirty) return;
+    if (!canvas) return;
     setSaving(true);
     try {
       let image_data: string;
-      if (texts.length > 0) {
+      if (textsRef.current.length > 0) {
         const off = document.createElement("canvas");
         off.width = CANVAS_W;
         off.height = CANVAS_H;
         const octx = off.getContext("2d")!;
         octx.drawImage(canvas, 0, 0);
-        for (const t of texts) {
+        for (const t of textsRef.current) {
           octx.fillStyle = t.color;
           octx.font = `${fontSizeFor(t.size)}px sans-serif`;
           octx.textBaseline = "middle";
@@ -507,32 +526,56 @@ export function SketchesPanel() {
       } else {
         image_data = canvas.toDataURL("image/png");
       }
-      const res = editingId
-        ? await fetch(`/api/sketches/${editingId}`, {
+      const saveTitle = titleRef.current.trim() || "Untitled";
+      const currentEditingId = editingIdRef.current;
+      const res = currentEditingId
+        ? await fetch(`/api/sketches/${currentEditingId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, image_data }),
+            body: JSON.stringify({ title: saveTitle, image_data }),
           })
         : await fetch("/api/sketches", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, image_data }),
+            body: JSON.stringify({ title: saveTitle, image_data }),
           });
       if (!res.ok) throw new Error();
-      toast.success(editingId ? "Sketch updated" : "Sketch saved");
-      resetCanvas();
-      loadSketches();
+      const saved: Sketch = await res.json();
+      if (!currentEditingId) setEditingId(saved.id);
+      setDirty(false);
+      setSketches((prev) => {
+        const others = prev.filter((s) => s.id !== saved.id);
+        return [saved, ...others].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+      });
     } catch {
       toast.error("Failed to save sketch");
     } finally {
       setSaving(false);
     }
-  }, [dirty, editingId, title, texts, resetCanvas, loadSketches]);
+  }, []);
+
+  // Debounced autosave: fires ~1.5s after the last edit (stroke, shape, text change, or undo).
+  // Keyed on editVersion (not dirty/texts) so the timer resets on every edit, even consecutive ones.
+  useEffect(() => {
+    if (editVersion === 0) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      autoSave();
+    }, 1500);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [editVersion, autoSave]);
 
   const handleEdit = useCallback(
     (sketch: Sketch) => {
       const ctx = getCtx();
       if (!ctx) return;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
       const img = new Image();
       img.onload = () => {
         paintBlank(ctx);
@@ -585,6 +628,31 @@ export function SketchesPanel() {
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto">
+      {/* Title + autosave status */}
+      <div className="flex items-center gap-2">
+        <Input
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (editingId !== null) markDirty();
+          }}
+          placeholder="Sketch title…"
+          className="h-9 max-w-xs font-medium"
+        />
+        <span className="text-xs text-muted-foreground min-w-16">
+          {saving ? (
+            <span className="flex items-center gap-1.5">
+              <Spinner className="size-3" />
+              Saving…
+            </span>
+          ) : dirty ? (
+            "Unsaved"
+          ) : editingId ? (
+            "Saved"
+          ) : null}
+        </span>
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
@@ -738,26 +806,6 @@ export function SketchesPanel() {
               fontFamily: "sans-serif",
             }}
           />
-        ) : null}
-      </div>
-
-      {/* Save row */}
-      <div className="flex items-center gap-2">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Sketch title…"
-          className="h-9 max-w-xs"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
-          }}
-        />
-        <Button size="sm" onClick={handleSave} disabled={!dirty || saving} className="gap-1.5">
-          {saving ? <Spinner className="size-3.5" /> : <PlusIcon className="size-3.5" />}
-          {editingId ? "Update" : "Save"}
-        </Button>
-        {editingId ? (
-          <span className="text-xs text-muted-foreground">Editing “{sketches.find((s) => s.id === editingId)?.title ?? "sketch"}”</span>
         ) : null}
       </div>
 

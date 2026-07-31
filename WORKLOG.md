@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-07-31 — Sketches: click-to-edit/duplicate/delete text elements
+
+**Ask:** Berto wanted to click a piece of placed text on the Sketches canvas to edit, delete, or duplicate it — previously text was rasterized straight into the canvas pixels on commit, so it was permanent and unselectable.
+
+**What was built:** `app/_components/sketches-panel.tsx` — text placed with the Text tool is now kept as an editable object (`{id, x, y, value, color, size}` in a `texts` array) instead of being drawn onto the raster canvas immediately. Each text element renders as a DOM overlay positioned over the canvas (converted via a `canvasToCss` helper that accounts for the current zoom/pan). Clicking a text string selects it and shows a small floating toolbar (Edit / Duplicate / Delete icons). Edit reopens the same floating input used for placing new text; Duplicate offsets a copy by 24 canvas px; Delete removes it. On Save, all text elements are composited onto an offscreen copy of the canvas (drawImage + fillText per element) before `toDataURL`, so the saved PNG looks identical to before — only the in-progress editing experience changed.
+
+**Trade-off:** text add/edit/delete/duplicate are not tracked in the pen/shape undo stack — Escape or the toolbar buttons are the way to reverse a text action. Sketches loaded for editing start with an empty `texts` array (their prior text is already baked into the loaded PNG pixels), so this only helps for text placed in the current editing session going forward.
+
+**Verified:** typecheck clean. Live in Playwright against `PORT=3789` dev server: placed text → selected it → toolbar appeared → duplicated → edited the duplicate's value → deleted the original → confirmed via page text; saved a sketch with placed text and confirmed via `GET /api/sketches` that the returned image_data was non-trivial (composited), then deleted the test sketch to clean up.
+
+---
+
 ## 2026-07-30 — Calendar page: Google Calendar view/edit via FullCalendar
 
 **Ask:** Berto wanted a calendar page in the app, backed by his Google Calendar, with add/edit from the app.

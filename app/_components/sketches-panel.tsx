@@ -5,9 +5,11 @@ import {
   ArrowUpRightIcon,
   BrushIcon,
   CircleIcon,
+  CopyIcon,
   DownloadIcon,
   EraserIcon,
   MinusIcon,
+  PencilIcon,
   PenLineIcon,
   PlusIcon,
   SquareIcon,
@@ -92,6 +94,20 @@ export function SketchesPanel() {
   const [textPos, setTextPos] = useState<{ x: number; y: number; cssX: number; cssY: number } | null>(null);
   const [textValue, setTextValue] = useState("");
   const textInputRef = useRef<HTMLInputElement>(null);
+
+  // Text elements are kept as editable objects (not baked into the raster canvas) until save.
+  interface TextElement {
+    id: number;
+    x: number;
+    y: number;
+    value: string;
+    color: string;
+    size: number;
+  }
+  const [texts, setTexts] = useState<TextElement[]>([]);
+  const [editingTextId, setEditingTextId] = useState<number | null>(null);
+  const [selectedTextId, setSelectedTextId] = useState<number | null>(null);
+  const nextTextIdRef = useRef(1);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -257,20 +273,65 @@ export function SketchesPanel() {
   );
 
   const commitText = useCallback(() => {
-    const ctx = getCtx();
-    if (!ctx || !textPos) return;
+    if (!textPos) return;
     const value = textValue.trim();
-    if (value) {
-      pushUndo(ctx);
-      ctx.fillStyle = color;
-      ctx.font = `${fontSizeFor(size)}px sans-serif`;
-      ctx.textBaseline = "middle";
-      ctx.fillText(value, textPos.x, textPos.y);
+    if (editingTextId !== null) {
+      setTexts((prev) =>
+        value ? prev.map((t) => (t.id === editingTextId ? { ...t, value } : t)) : prev.filter((t) => t.id !== editingTextId),
+      );
+      setDirty(true);
+    } else if (value) {
+      const id = nextTextIdRef.current++;
+      setTexts((prev) => [...prev, { id, x: textPos.x, y: textPos.y, value, color, size }]);
       setDirty(true);
     }
     setTextPos(null);
     setTextValue("");
-  }, [getCtx, textPos, textValue, color, size, pushUndo]);
+    setEditingTextId(null);
+  }, [textPos, textValue, editingTextId, color, size]);
+
+  // Convert logical canvas coords to container-relative CSS coords (accounts for current zoom/pan).
+  const canvasToCss = useCallback((x: number, y: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !containerRect) return { x: 0, y: 0 };
+    return {
+      x: (x / CANVAS_W) * rect.width + (rect.left - containerRect.left),
+      y: (y / CANVAS_H) * rect.height + (rect.top - containerRect.top),
+    };
+  }, []);
+
+  const handleEditText = useCallback(
+    (id: number) => {
+      if (textPos) commitText();
+      const el = texts.find((t) => t.id === id);
+      if (!el) return;
+      const pos = canvasToCss(el.x, el.y);
+      setTextValue(el.value);
+      setTextPos({ x: el.x, y: el.y, cssX: pos.x, cssY: pos.y });
+      setEditingTextId(id);
+      setSelectedTextId(null);
+      setTool("text");
+    },
+    [texts, textPos, commitText, canvasToCss],
+  );
+
+  const handleDuplicateText = useCallback((id: number) => {
+    setTexts((prev) => {
+      const el = prev.find((t) => t.id === id);
+      if (!el) return prev;
+      const newId = nextTextIdRef.current++;
+      return [...prev, { ...el, id: newId, x: el.x + 24, y: el.y + 24 }];
+    });
+    setSelectedTextId(null);
+    setDirty(true);
+  }, []);
+
+  const handleDeleteText = useCallback((id: number) => {
+    setTexts((prev) => prev.filter((t) => t.id !== id));
+    setSelectedTextId(null);
+    setDirty(true);
+  }, []);
 
   const cancelStrokeForPinch = useCallback(() => {
     // A second finger landed mid-stroke: erase the accidental mark and hand over to the gesture.
@@ -310,6 +371,7 @@ export function SketchesPanel() {
         return;
       }
       if (pinchRef.current) return;
+      if (selectedTextId !== null) setSelectedTextId(null);
 
       const p = pointFromEvent(e);
       if (tool === "text") {
@@ -338,7 +400,7 @@ export function SketchesPanel() {
       }
       setDirty(true);
     },
-    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch],
+    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId],
   );
 
   const handlePointerMove = useCallback(
@@ -417,6 +479,9 @@ export function SketchesPanel() {
     setEditingId(null);
     setTextPos(null);
     setTextValue("");
+    setEditingTextId(null);
+    setSelectedTextId(null);
+    setTexts([]);
     resetZoom();
   }, [getCtx, paintBlank, resetZoom]);
 
@@ -425,7 +490,23 @@ export function SketchesPanel() {
     if (!canvas || !dirty) return;
     setSaving(true);
     try {
-      const image_data = canvas.toDataURL("image/png");
+      let image_data: string;
+      if (texts.length > 0) {
+        const off = document.createElement("canvas");
+        off.width = CANVAS_W;
+        off.height = CANVAS_H;
+        const octx = off.getContext("2d")!;
+        octx.drawImage(canvas, 0, 0);
+        for (const t of texts) {
+          octx.fillStyle = t.color;
+          octx.font = `${fontSizeFor(t.size)}px sans-serif`;
+          octx.textBaseline = "middle";
+          octx.fillText(t.value, t.x, t.y);
+        }
+        image_data = off.toDataURL("image/png");
+      } else {
+        image_data = canvas.toDataURL("image/png");
+      }
       const res = editingId
         ? await fetch(`/api/sketches/${editingId}`, {
             method: "PATCH",
@@ -446,7 +527,7 @@ export function SketchesPanel() {
     } finally {
       setSaving(false);
     }
-  }, [dirty, editingId, title, resetCanvas, loadSketches]);
+  }, [dirty, editingId, title, texts, resetCanvas, loadSketches]);
 
   const handleEdit = useCallback(
     (sketch: Sketch) => {
@@ -461,6 +542,11 @@ export function SketchesPanel() {
         setDirty(false);
         setTitle(sketch.title);
         setEditingId(sketch.id);
+        setTextPos(null);
+        setTextValue("");
+        setEditingTextId(null);
+        setSelectedTextId(null);
+        setTexts([]);
         resetZoom();
         containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       };
@@ -491,11 +577,11 @@ export function SketchesPanel() {
   }, []);
 
   // Scale the floating text input's font to roughly match the committed text size.
-  const cssFontSize = (() => {
+  const fontScale = (() => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    const scale = rect ? rect.width / CANVAS_W : 1;
-    return Math.max(12, fontSizeFor(size) * scale);
+    return rect ? rect.width / CANVAS_W : 1;
   })();
+  const cssFontSize = Math.max(12, fontSizeFor(size) * fontScale);
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto">
@@ -582,6 +668,51 @@ export function SketchesPanel() {
           className={cn("absolute left-0 top-0 w-full", tool === "text" ? "cursor-text" : "cursor-crosshair")}
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
         />
+        {texts.map((t) => {
+          if (editingTextId === t.id) return null;
+          const pos = canvasToCss(t.x, t.y);
+          const selected = selectedTextId === t.id;
+          return (
+            <div key={t.id} className="absolute" style={{ left: pos.x, top: pos.y, transform: "translateY(-50%)" }}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedTextId(selected ? null : t.id);
+                }}
+                className={cn(
+                  "block whitespace-nowrap bg-transparent text-left p-0 leading-none",
+                  selected && "outline outline-1 outline-dashed outline-primary/60 outline-offset-2",
+                )}
+                style={{ color: t.color, fontSize: fontSizeFor(t.size) * fontScale, fontFamily: "sans-serif" }}
+              >
+                {t.value}
+              </button>
+              {selected ? (
+                <div
+                  className="absolute left-0 -top-8 z-10 flex items-center gap-0.5 rounded-md border border-border bg-popover shadow-sm p-0.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleEditText(t.id)} aria-label="Edit text">
+                    <PencilIcon className="size-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleDuplicateText(t.id)} aria-label="Duplicate text">
+                    <CopyIcon className="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteText(t.id)}
+                    aria-label="Delete text"
+                  >
+                    <TrashIcon className="size-3" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
         {textPos ? (
           <input
             ref={textInputRef}
@@ -593,6 +724,7 @@ export function SketchesPanel() {
               if (e.key === "Escape") {
                 setTextPos(null);
                 setTextValue("");
+                setEditingTextId(null);
               }
             }}
             placeholder="Type…"

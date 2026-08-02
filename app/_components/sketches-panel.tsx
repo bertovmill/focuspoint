@@ -8,6 +8,7 @@ import {
   CopyIcon,
   DownloadIcon,
   EraserIcon,
+  KeyboardIcon,
   MinusIcon,
   MousePointer2Icon,
   PencilIcon,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,15 +91,45 @@ const clampRect = (r: Rect): Rect => {
   return { x, y, w: Math.min(r.w, CANVAS_W - x), h: Math.min(r.h, CANVAS_H - y) };
 };
 
-const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon }[] = [
-  { key: "select", label: "Select", icon: MousePointer2Icon },
-  { key: "pen", label: "Pen", icon: PenLineIcon },
-  { key: "eraser", label: "Eraser", icon: EraserIcon },
-  { key: "rect", label: "Rectangle", icon: SquareIcon },
-  { key: "ellipse", label: "Ellipse", icon: CircleIcon },
-  { key: "line", label: "Line", icon: MinusIcon },
-  { key: "arrow", label: "Arrow", icon: ArrowUpRightIcon },
-  { key: "text", label: "Text", icon: TypeIcon },
+// `hotkey` follows Figma/Miro muscle memory (V select, P pen, R rect, O ellipse, T text…).
+const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon; hotkey: string }[] = [
+  { key: "select", label: "Select", icon: MousePointer2Icon, hotkey: "v" },
+  { key: "pen", label: "Pen", icon: PenLineIcon, hotkey: "p" },
+  { key: "eraser", label: "Eraser", icon: EraserIcon, hotkey: "e" },
+  { key: "rect", label: "Rectangle", icon: SquareIcon, hotkey: "r" },
+  { key: "ellipse", label: "Ellipse", icon: CircleIcon, hotkey: "o" },
+  { key: "line", label: "Line", icon: MinusIcon, hotkey: "l" },
+  { key: "arrow", label: "Arrow", icon: ArrowUpRightIcon, hotkey: "a" },
+  { key: "text", label: "Text", icon: TypeIcon, hotkey: "t" },
+];
+
+const TOOL_BY_HOTKEY: Record<string, Tool> = Object.fromEntries(TOOLS.map((t) => [t.hotkey, t.key]));
+
+// App-wide single-letter hotkeys (layout.tsx) that the canvas swallows while sketching.
+const SUPPRESSED_GLOBAL_KEYS = new Set(["n", "c"]);
+
+// Rendered in the "?" cheat sheet. Grouped the way Figma/Miro present theirs.
+const SHORTCUT_GROUPS: { title: string; items: [string, string][] }[] = [
+  { title: "Tools", items: TOOLS.map((t) => [t.hotkey.toUpperCase(), t.label] as [string, string]) },
+  {
+    title: "Edit",
+    items: [
+      ["⌘Z", "Undo"],
+      ["⌘D", "Duplicate selection"],
+      ["Delete", "Delete selection"],
+      ["Esc", "Deselect / cancel"],
+    ],
+  },
+  {
+    title: "View",
+    items: [
+      ["⌘+ / ⌘−", "Zoom in / out"],
+      ["⇧0", "Reset to 100%"],
+      ["Space + drag", "Pan the canvas"],
+      ["Pinch", "Zoom at the cursor"],
+      ["?", "This cheat sheet"],
+    ],
+  },
 ];
 
 // Text-tool font size scales with the line-weight slider.
@@ -124,6 +156,13 @@ export function SketchesPanel() {
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  // Space-to-pan (Figma/Miro): held space swaps the canvas into a grab cursor and makes
+  // drags move the viewport instead of drawing. The ref is what the pointer handlers read.
+  const [spacePan, setSpacePan] = useState(false);
+  const spacePanRef = useRef(false);
+  const panDragRef = useRef<{ start: { x: number; y: number }; pan0: { x: number; y: number } } | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Pending text placement: logical canvas coords + container-relative CSS position.
   const [textPos, setTextPos] = useState<{ x: number; y: number; cssX: number; cssY: number } | null>(null);
@@ -450,23 +489,6 @@ export function SketchesPanel() {
     markDirty();
   }, [getCtx, selection, copyRegion, pushUndo, markDirty]);
 
-  // Delete/Backspace wipes the selected region, Escape drops the selection.
-  useEffect(() => {
-    if (!selection) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        deleteSelection();
-      } else if (e.key === "Escape") {
-        setSelection(null);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selection, deleteSelection]);
-
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0 && e.pointerType === "mouse") return;
@@ -492,6 +514,14 @@ export function SketchesPanel() {
         return;
       }
       if (pinchRef.current) return;
+
+      // Space held → this drag pans the viewport instead of drawing.
+      if (spacePanRef.current) {
+        e.preventDefault();
+        panDragRef.current = { start: { x: e.clientX, y: e.clientY }, pan0: panRef.current };
+        return;
+      }
+
       if (selectedTextId !== null) setSelectedTextId(null);
 
       const p = pointFromEvent(e);
@@ -575,6 +605,16 @@ export function SketchesPanel() {
         setPan(clampPan(next, z));
         return;
       }
+      const panDrag = panDragRef.current;
+      if (panDrag) {
+        setPan(
+          clampPan(
+            { x: panDrag.pan0.x + (e.clientX - panDrag.start.x), y: panDrag.pan0.y + (e.clientY - panDrag.start.y) },
+            zoomRef.current,
+          ),
+        );
+        return;
+      }
       const drag = selectDragRef.current;
       if (drag) {
         const ctx = getCtx();
@@ -620,6 +660,7 @@ export function SketchesPanel() {
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
+    panDragRef.current = null;
     const drag = selectDragRef.current;
     if (drag) {
       selectDragRef.current = null;
@@ -668,6 +709,121 @@ export function SketchesPanel() {
     setMarquee(null);
     resetZoom();
   }, [getCtx, paintBlank, resetZoom]);
+
+  // Figma/Miro-style shortcuts. Registered in the *capture* phase and stopping propagation
+  // for keys we own, so the app-wide navigation hotkeys (t = Tasks, n = new task, c = chat,
+  // bound on window in the layout) don't fire while sketching — here T has to mean "text tool".
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      // Never steal keys from the title field or the floating text input.
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      // An open dialog (cheat sheet, delete confirm) owns the keyboard — notably Escape,
+      // which our capture-phase stopPropagation would otherwise swallow before Radix sees it.
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      const take = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      if (e.metaKey || e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        if (key === "z" && !e.shiftKey) return take(), handleUndo();
+        if (key === "d") {
+          if (selection) return take(), duplicateSelection();
+          if (selectedTextId !== null) return take(), handleDuplicateText(selectedTextId);
+          return;
+        }
+        if (key === "=" || key === "+") return take(), zoomButtons(1.25);
+        if (key === "-" || key === "_") return take(), zoomButtons(1 / 1.25);
+        if (key === "0") return take(), resetZoom();
+        return;
+      }
+      if (e.altKey) return;
+
+      // Shift+0 / Shift+1 are Figma's "back to 100%" / "zoom to fit"; the canvas has a
+      // fixed aspect ratio that fills the viewport at 100%, so both land on the same place.
+      if (e.shiftKey) {
+        if (e.key === "0" || e.key === ")" || e.key === "1" || e.key === "!") return take(), resetZoom();
+        // Depending on layout/driver, shift+slash arrives as either "?" or "/".
+        if (e.key === "?" || e.key === "/") return take(), setShortcutsOpen(true);
+        return;
+      }
+
+      if (e.key === "?" || e.key === "/") return take(), setShortcutsOpen(true);
+
+      if (e.key === "Escape") {
+        take();
+        setSelection(null);
+        setSelectedTextId(null);
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selection) return take(), deleteSelection();
+        if (selectedTextId !== null) return take(), handleDeleteText(selectedTextId);
+        return;
+      }
+
+      if (e.key === " ") {
+        // Space still has to activate a focused button (a11y) rather than arming pan.
+        if (t && t.closest("button")) return;
+        // Hold space to pan (released in the keyup listener below). Repeat events fire
+        // while held, so guard to keep this idempotent.
+        if (!spacePanRef.current) {
+          spacePanRef.current = true;
+          setSpacePan(true);
+        }
+        take();
+        return;
+      }
+
+      const nextTool = TOOL_BY_HOTKEY[e.key.toLowerCase()];
+      if (nextTool) {
+        take();
+        setTool(nextTool);
+        // Same as clicking the tool button: leaving Select drops the marquee.
+        if (nextTool !== "select") setSelection(null);
+        return;
+      }
+
+      // T is a tool key here, so the remaining app-wide letter hotkeys (n = new task,
+      // c = chat) are swallowed too — otherwise a stray keystroke navigates away from a
+      // half-finished sketch. Use the sidebar to leave the canvas.
+      if (SUPPRESSED_GLOBAL_KEYS.has(e.key.toLowerCase())) take();
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        spacePanRef.current = false;
+        setSpacePan(false);
+      }
+    };
+    // Releasing space outside the window (tab-away mid-pan) would otherwise leave it stuck on.
+    const onBlur = () => {
+      spacePanRef.current = false;
+      setSpacePan(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [
+    selection,
+    selectedTextId,
+    deleteSelection,
+    duplicateSelection,
+    handleDeleteText,
+    handleDuplicateText,
+    handleUndo,
+    zoomButtons,
+    resetZoom,
+  ]);
 
   // Ref mirrors so the debounced autosave always reads the latest state without re-arming on every keystroke.
   const editingIdRef = useRef<number | null>(null);
@@ -831,7 +987,7 @@ export function SketchesPanel() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
-          {TOOLS.map(({ key, label, icon: Icon }) => (
+          {TOOLS.map(({ key, label, icon: Icon, hotkey }) => (
             <Button
               key={key}
               variant={tool === key ? "secondary" : "ghost"}
@@ -841,8 +997,8 @@ export function SketchesPanel() {
                 setTool(key);
                 if (key !== "select") setSelection(null);
               }}
-              aria-label={label}
-              title={label}
+              aria-label={`${label} (${hotkey.toUpperCase()})`}
+              title={`${label} (${hotkey.toUpperCase()})`}
             >
               <Icon className="size-3.5" />
             </Button>
@@ -888,13 +1044,23 @@ export function SketchesPanel() {
             <ZoomInIcon className="size-3.5" />
           </Button>
         </div>
-        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={handleUndo} disabled={!canUndo}>
+        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={handleUndo} disabled={!canUndo} title="Undo (⌘Z)">
           <Undo2Icon className="size-3.5" />
           Undo
         </Button>
         <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={resetCanvas} disabled={!dirty && !editingId}>
           <XIcon className="size-3.5" />
           {editingId ? "New sketch" : "Clear"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={() => setShortcutsOpen(true)}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+        >
+          <KeyboardIcon className="size-3.5" />
         </Button>
       </div>
 
@@ -912,7 +1078,16 @@ export function SketchesPanel() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className={cn("absolute left-0 top-0 w-full", tool === "text" ? "cursor-text" : tool === "select" ? "cursor-default" : "cursor-crosshair")}
+          className={cn(
+            "absolute left-0 top-0 w-full",
+            spacePan
+              ? "cursor-grab active:cursor-grabbing"
+              : tool === "text"
+                ? "cursor-text"
+                : tool === "select"
+                  ? "cursor-default"
+                  : "cursor-crosshair",
+          )}
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
         />
         {/* Selection marquee — dashed outline plus a duplicate/delete toolbar once the drag settles. */}
@@ -1084,6 +1259,30 @@ export function SketchesPanel() {
           </div>
         )}
       </div>
+
+      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+            <DialogDescription>Tool keys work whenever you&apos;re not typing in a text field.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {SHORTCUT_GROUPS.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</p>
+                <ul className="space-y-1.5">
+                  {group.items.map(([keys, label]) => (
+                    <li key={label} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">{label}</span>
+                      <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">{keys}</kbd>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

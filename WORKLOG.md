@@ -28,6 +28,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Sketches: Figma/Miro keyboard shortcuts
+
+**Ask:** Berto wanted keyboard shortcuts on /sketches "similar to figma or miro". Quizzed him on scope; he picked the full set (tools + edit + view + space-to-pan + cheat sheet) over the smaller options.
+
+**Shortcuts:** `V` select, `P` pen, `E` eraser, `R` rectangle, `O` ellipse, `L` line, `A` arrow, `T` text; `⌘Z` undo, `⌘D` duplicate selection, `Delete`/`Backspace` delete selection, `Esc` deselect; `⌘+`/`⌘−` zoom, `⌘0`/`⇧0`/`⇧1` reset to 100%, hold `Space` + drag to pan; `?` opens a cheat-sheet dialog (also reachable from a keyboard icon in the toolbar). Tool buttons now show their key in the tooltip/aria-label ("Pen (P)").
+
+**Key decision — the canvas owns the keyboard.** `layout.tsx` binds app-wide letter hotkeys on window (`t` = Tasks, `n` = new task, `c` = chat), and Figma's `T` is the text tool, so they collided. The sketch handler is registered in the **capture** phase and calls `stopPropagation()` for keys it owns, which beats the layout's bubble-phase listener without touching `layout.tsx`. Since `T` is now a tool, `n` and `c` are swallowed too (`SUPPRESSED_GLOBAL_KEYS`) — otherwise a stray keystroke navigates away from a half-finished sketch. Leave the canvas via the sidebar.
+
+**Two traps worth remembering:** (1) capture-phase `stopPropagation` would also swallow `Escape` before Radix sees it, so the handler bails out entirely when `[role="dialog"]`/`[role="alertdialog"]` is in the DOM — without that, the cheat sheet and the delete-confirm dialog can't be dismissed with Escape. (2) Space is grabbed for panning, which would break Space-to-activate on a focused button, so the space branch returns early when the event target is inside a `button`.
+
+**Also:** the shortcuts `useEffect` had to be placed *after* `handleUndo`/`resetCanvas` in the component body — referencing them in the dependency array from an earlier position is a TDZ ReferenceError at render time, not a lint nit.
+
+**Files:** `app/_components/sketches-panel.tsx` only (hotkeys on `TOOLS`, `TOOL_BY_HOTKEY`, `SHORTCUT_GROUPS`, `SUPPRESSED_GLOBAL_KEYS`, the capture-phase key effect, space-pan wiring in the three pointer handlers, `?` toolbar button + `Dialog` cheat sheet).
+
+**Verified:** typecheck clean. Playwright against the dev server on :3000 — all 8 tool keys switch the active tool and `t` stays on /sketches instead of navigating to Tasks; `n`/`c` likewise no longer navigate; `⌘=`/`⌘−`/`⇧0` step zoom 100→125→156→125→100%; space+drag moves the pan transform while leaving the canvas pixels untouched (nothing drawn) and applies `cursor-grab`; a stroke draws 3888 ink px and `⌘Z` returns it to 0; `⌘D` offsets the selection box by the expected +24 logical px; `Delete` clears the selection's pixels; `Esc` removes the marquee; `?` opens the cheat sheet and `Escape` closes it. No page errors, and `GET /api/sketches` confirmed the tests left no stray rows.
+
+---
+
 ## 2026-08-02 — Sketches: usable pinch zoom (damped + zoom out past 100%)
 
 **Ask:** Berto: "i need to pinch scroll to zoom in and out of the /sketches page."

@@ -28,6 +28,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Sketches: full-bleed canvas sized to the viewport
+
+**Ask:** Berto: "can we make it a bigger canvas? so there are no boarders?" — screenshot showed the page inset inside a rounded/bordered 4:3 frame with grey margin. Quizzed him on which "bigger" he meant (full-bleed drawing area / bigger fixed page / infinite Miro canvas); he chose **full-bleed drawing area**.
+
+**The core change — the page is no longer a fixed 1200×900.** A fixed-aspect page can't fill a variable-aspect viewport without letterboxing, so `CANVAS_W`/`CANVAS_H` constants were replaced by `canvasSize` state measured from the container (1 canvas px per CSS px at 100% zoom, capped at 2400×1600 because undo snapshots are full-canvas `ImageData`). `DEFAULT_CANVAS_W/H` remain as the pre-measurement fallback.
+
+**Sizing rules:**
+- While the canvas is *pristine* (`!dirty && editingId === null`) a `ResizeObserver` keeps the raster matched to the viewport, so the page always starts edge-to-edge and follows window resizes.
+- Once there's artwork, the size **locks** — assigning `width`/`height` to a `<canvas>` wipes its bitmap, and the undo snapshots are size-specific. Resizing the window mid-sketch must not destroy the drawing.
+- Opening a saved sketch resizes the raster to that image's *own* natural dimensions and draws it 1:1, so old sketches are never rescaled or re-encoded at a new aspect. Since a 4:3 page is taller than a wide viewport, a new `zoomToFit()` runs after every raster resize so it opens fully visible rather than cropped. `⇧1` is now "zoom to fit" (was a duplicate of `⇧0` = 100%).
+
+**Layout:** viewport div lost `aspect-[4/3] rounded-xl border border-border`, gained `-mx-4 w-[calc(100%+2rem)]` to cancel the panel's padding and `h-[calc(100%-6.5rem)] min-h-[22rem]` to claim the height the title+toolbar rows leave. Panel is `h-full`, and dashboard.tsx's sketches wrapper gained `h-full`. Gallery sits below the fold.
+
+**Also fixed:** `clampPan` assumed content size == `viewport × zoom`, which is only true when the page exactly fills the viewport. It now measures the canvas element, so a differently-shaped page can still be panned to its hidden edge.
+
+**Files:** `app/_components/sketches-panel.tsx`, `app/_components/dashboard.tsx`.
+
+**Verified:** typecheck clean. Playwright at 1440×900 — canvas box is pixel-identical to its viewport box (L/T/R/B gaps all 0) and reaches the window edge; raster 1219×699. Drawing maps 1:1 (a stroke dragged from x=300 lands at canvas x=296). Undo works at the new size. Opening legacy "2026 goals" resizes the raster to its own 1200×900, renders (23240 ink px) and auto-fits at 76% with nothing cropped. Full create→autosave→reopen cycle on a throwaway sketch: saved PNG is 1219×699, round-trips with content intact — test row deleted afterwards. 390×844 and 820×1180 viewports are full-bleed with no page errors.
+
+**Housekeeping:** my tests left one blank "Untitled" sketch (id 13, 1219×699 = the headless viewport) which I deleted. A second blank "Untitled" (id 14, 1293×403) came from Berto's own live browser session during the work and was left alone — it's empty and safe to delete if he wants.
+
+---
+
 ## 2026-08-02 — Sketches: Figma/Miro keyboard shortcuts
 
 **Ask:** Berto wanted keyboard shortcuts on /sketches "similar to figma or miro". Quizzed him on scope; he picked the full set (tools + edit + view + space-to-pan + cheat sheet) over the smaller options.

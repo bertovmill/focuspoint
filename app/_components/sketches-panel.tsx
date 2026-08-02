@@ -50,9 +50,15 @@ interface Sketch {
   updated_at: string;
 }
 
-// Logical canvas size — CSS scales it to fit the panel, pointer coords are mapped back.
-const CANVAS_W = 1200;
-const CANVAS_H = 900;
+// The page is sized to the viewport it's drawn in (1 canvas px per CSS px at 100% zoom), so
+// it fills the panel edge-to-edge instead of letterboxing a fixed 4:3 page inside it. Used
+// until the container has been measured, and as the fallback for a zero-sized container.
+const DEFAULT_CANVAS_W = 1200;
+const DEFAULT_CANVAS_H = 900;
+// Undo snapshots are full-canvas ImageData (~4 bytes/px), so the raster is capped to keep
+// a 30-deep stack from ballooning on an ultrawide display.
+const MAX_CANVAS_W = 2400;
+const MAX_CANVAS_H = 1600;
 const MAX_UNDO = 30;
 const MIN_SIZE = 1;
 const MAX_SIZE = 30;
@@ -85,10 +91,10 @@ const normRect = (a: { x: number; y: number }, b: { x: number; y: number }): Rec
   h: Math.abs(b.y - a.y),
 });
 
-const clampRect = (r: Rect): Rect => {
-  const x = Math.max(0, Math.min(CANVAS_W, r.x));
-  const y = Math.max(0, Math.min(CANVAS_H, r.y));
-  return { x, y, w: Math.min(r.w, CANVAS_W - x), h: Math.min(r.h, CANVAS_H - y) };
+const clampRect = (r: Rect, w: number, h: number): Rect => {
+  const x = Math.max(0, Math.min(w, r.x));
+  const y = Math.max(0, Math.min(h, r.y));
+  return { x, y, w: Math.min(r.w, w - x), h: Math.min(r.h, h - y) };
 };
 
 // `hotkey` follows Figma/Miro muscle memory (V select, P pen, R rect, O ellipse, T text…).
@@ -125,6 +131,7 @@ const SHORTCUT_GROUPS: { title: string; items: [string, string][] }[] = [
     items: [
       ["⌘+ / ⌘−", "Zoom in / out"],
       ["⇧0", "Reset to 100%"],
+      ["⇧1", "Zoom to fit"],
       ["Space + drag", "Pan the canvas"],
       ["Pinch", "Zoom at the cursor"],
       ["?", "This cheat sheet"],
@@ -153,6 +160,14 @@ export function SketchesPanel() {
     setDirty(true);
     setEditVersion((v) => v + 1);
   }, []);
+
+  // Raster size of the page. Follows the viewport while the canvas is untouched, then locks
+  // once there's something to lose — resizing the window mid-sketch must not resize the page
+  // out from under the artwork (or invalidate the undo snapshots, which are size-specific).
+  const [canvasSize, setCanvasSize] = useState({ w: DEFAULT_CANVAS_W, h: DEFAULT_CANVAS_H });
+  // Set when an existing sketch is opened: drawn onto the canvas once it's been resized to
+  // the saved image's dimensions, so opening an old sketch never rescales its pixels.
+  const pendingImageRef = useRef<HTMLImageElement | null>(null);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -216,14 +231,34 @@ export function SketchesPanel() {
 
   const paintBlank = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   }, []);
 
-  // Initialize the canvas with a white "paper" background once on mount.
+  // Whether the canvas holds anything worth preserving across a resize.
+  const canvasIsPristine = !dirty && editingId === null;
+
+  // Fit the page to the viewport. Only ever called while the canvas is pristine — setting
+  // width/height on a <canvas> wipes its contents, so this can't run over live artwork.
+  const fitCanvasToViewport = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const w = Math.min(MAX_CANVAS_W, Math.round(el.clientWidth));
+    const h = Math.min(MAX_CANVAS_H, Math.round(el.clientHeight));
+    if (w < 1 || h < 1) return;
+    setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+  }, []);
+
+  // Track the viewport while nothing has been drawn yet, so the page always starts
+  // edge-to-edge — including after a window resize or a sidebar toggle.
   useEffect(() => {
-    const ctx = getCtx();
-    if (ctx) paintBlank(ctx);
-  }, [getCtx, paintBlank]);
+    if (!canvasIsPristine) return;
+    const el = containerRef.current;
+    if (!el) return;
+    fitCanvasToViewport();
+    const observer = new ResizeObserver(() => fitCanvasToViewport());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canvasIsPristine, fitCanvasToViewport]);
 
   useEffect(() => {
     if (textPos) textInputRef.current?.focus();
@@ -245,16 +280,17 @@ export function SketchesPanel() {
 
   const clampPan = useCallback((p: { x: number; y: number }, z: number) => {
     const el = containerRef.current;
-    if (!el) return p;
-    const w = el.clientWidth;
-    const h = el.clientHeight;
-    // Zoomed in: keep the edges from pulling inside the viewport. Zoomed out (z < 1):
-    // the canvas is smaller than the viewport, so centre it instead of pinning top-left.
-    const axis = (v: number, viewport: number) => {
-      const content = viewport * z;
-      return content <= viewport ? (viewport - content) / 2 : Math.min(0, Math.max(viewport - content, v));
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return p;
+    // Measure the page rather than assuming it fills the viewport — a sketch saved at a
+    // different aspect ratio (older 4:3 pages) renders taller or shorter than the viewport,
+    // and must still be pannable to its hidden edge.
+    const axis = (v: number, viewport: number, content: number) =>
+      content <= viewport ? (viewport - content) / 2 : Math.min(0, Math.max(viewport - content, v));
+    return {
+      x: axis(p.x, el.clientWidth, canvas.clientWidth * z),
+      y: axis(p.y, el.clientHeight, canvas.clientHeight * z),
     };
-    return { x: axis(p.x, w), y: axis(p.y, h) };
   }, []);
 
   const applyZoom = useCallback(
@@ -287,6 +323,35 @@ export function SketchesPanel() {
     setPan({ x: 0, y: 0 });
   }, []);
 
+  // Scale so the whole page is visible. A no-op (z = 1) for a page sized to its viewport,
+  // but it matters for a sketch saved at a different aspect — a 4:3 page in a wide viewport
+  // is taller than the screen, and would otherwise open with its bottom cropped.
+  const zoomToFit = useCallback(() => {
+    const el = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+    const fit = Math.min(el.clientWidth / canvas.clientWidth, el.clientHeight / canvas.clientHeight);
+    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit));
+    setZoom(z);
+    setPan(clampPan({ x: 0, y: 0 }, z));
+  }, [clampPan]);
+
+  // Repaint whenever the raster is (re)sized — the browser blanks the bitmap on resize.
+  // A sketch opened for editing is drawn here, at its own saved dimensions.
+  useEffect(() => {
+    const ctx = getCtx();
+    if (!ctx) return;
+    paintBlank(ctx);
+    const img = pendingImageRef.current;
+    if (img) {
+      pendingImageRef.current = null;
+      ctx.drawImage(img, 0, 0);
+    }
+    // A page sized to its viewport fits at 100%, so this only bites for a sketch saved at a
+    // different aspect — it opens fully visible rather than cropped.
+    zoomToFit();
+  }, [canvasSize, getCtx, paintBlank, zoomToFit]);
+
   // Trackpad pinch (ctrl/cmd+wheel) zooms at the cursor; plain scroll pans when zoomed in.
   // Attached natively because React's synthetic wheel handler can't preventDefault (passive).
   useEffect(() => {
@@ -309,18 +374,19 @@ export function SketchesPanel() {
   }, [applyZoom, clampPan]);
 
   const pointFromEvent = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
     const containerRect = containerRef.current!.getBoundingClientRect();
     return {
-      x: ((e.clientX - rect.left) / rect.width) * CANVAS_W,
-      y: ((e.clientY - rect.top) / rect.height) * CANVAS_H,
+      x: ((e.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((e.clientY - rect.top) / rect.height) * canvas.height,
       cssX: e.clientX - containerRect.left,
       cssY: e.clientY - containerRect.top,
     };
   }, []);
 
   const pushUndo = useCallback((ctx: CanvasRenderingContext2D) => {
-    undoStackRef.current.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
+    undoStackRef.current.push(ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height));
     if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
     setCanUndo(true);
   }, []);
@@ -383,12 +449,13 @@ export function SketchesPanel() {
 
   // Convert logical canvas coords to container-relative CSS coords (accounts for current zoom/pan).
   const canvasToCss = useCallback((x: number, y: number) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
     const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!rect || !containerRect) return { x: 0, y: 0 };
+    if (!canvas || !rect || !containerRect) return { x: 0, y: 0 };
     return {
-      x: (x / CANVAS_W) * rect.width + (rect.left - containerRect.left),
-      y: (y / CANVAS_H) * rect.height + (rect.top - containerRect.top),
+      x: (x / canvas.width) * rect.width + (rect.left - containerRect.left),
+      y: (y / canvas.height) * rect.height + (rect.top - containerRect.top),
     };
   }, []);
 
@@ -440,11 +507,12 @@ export function SketchesPanel() {
 
   // Logical selection rect → container-relative CSS box (accounts for zoom/pan).
   const rectToCss = useCallback((r: Rect) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
     const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!rect || !containerRect) return null;
-    const sx = rect.width / CANVAS_W;
-    const sy = rect.height / CANVAS_H;
+    if (!canvas || !rect || !containerRect) return null;
+    const sx = rect.width / canvas.width;
+    const sy = rect.height / canvas.height;
     return {
       left: r.x * sx + (rect.left - containerRect.left),
       top: r.y * sy + (rect.top - containerRect.top),
@@ -482,7 +550,7 @@ export function SketchesPanel() {
     const bitmap = copyRegion(selection);
     if (!bitmap) return;
     pushUndo(ctx);
-    const next = clampRect({ ...selection, x: selection.x + 24, y: selection.y + 24 });
+    const next = clampRect({ ...selection, x: selection.x + 24, y: selection.y + 24 }, ctx.canvas.width, ctx.canvas.height);
     ctx.drawImage(bitmap, next.x, next.y);
     // The copy becomes the new selection, so it can be dragged straight off the original.
     setSelection(next);
@@ -543,7 +611,7 @@ export function SketchesPanel() {
             start: p,
             rect0: selection,
             bitmap,
-            base: ctx.getImageData(0, 0, CANVAS_W, CANVAS_H),
+            base: ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
           };
           // Flagged as a stroke so a second finger (pinch) rolls the move back.
           drawingRef.current = true;
@@ -621,7 +689,7 @@ export function SketchesPanel() {
         if (!ctx) return;
         const p = pointFromEvent(e);
         if (drag.mode === "marquee") {
-          setMarquee(clampRect(normRect(drag.start, p)));
+          setMarquee(clampRect(normRect(drag.start, p), ctx.canvas.width, ctx.canvas.height));
         } else {
           const next = { ...drag.rect0, x: drag.rect0.x + (p.x - drag.start.x), y: drag.rect0.y + (p.y - drag.start.y) };
           ctx.putImageData(drag.base, 0, 0);
@@ -744,7 +812,8 @@ export function SketchesPanel() {
       // Shift+0 / Shift+1 are Figma's "back to 100%" / "zoom to fit"; the canvas has a
       // fixed aspect ratio that fills the viewport at 100%, so both land on the same place.
       if (e.shiftKey) {
-        if (e.key === "0" || e.key === ")" || e.key === "1" || e.key === "!") return take(), resetZoom();
+        if (e.key === "0" || e.key === ")") return take(), resetZoom();
+        if (e.key === "1" || e.key === "!") return take(), zoomToFit();
         // Depending on layout/driver, shift+slash arrives as either "?" or "/".
         if (e.key === "?" || e.key === "/") return take(), setShortcutsOpen(true);
         return;
@@ -823,6 +892,7 @@ export function SketchesPanel() {
     handleUndo,
     zoomButtons,
     resetZoom,
+    zoomToFit,
   ]);
 
   // Ref mirrors so the debounced autosave always reads the latest state without re-arming on every keystroke.
@@ -841,8 +911,8 @@ export function SketchesPanel() {
       let image_data: string;
       if (textsRef.current.length > 0) {
         const off = document.createElement("canvas");
-        off.width = CANVAS_W;
-        off.height = CANVAS_H;
+        off.width = canvas.width;
+        off.height = canvas.height;
         const octx = off.getContext("2d")!;
         octx.drawImage(canvas, 0, 0);
         for (const t of textsRef.current) {
@@ -907,8 +977,10 @@ export function SketchesPanel() {
       }
       const img = new Image();
       img.onload = () => {
-        paintBlank(ctx);
-        ctx.drawImage(img, 0, 0, CANVAS_W, CANVAS_H);
+        // Resize the raster to the saved image, then let the canvasSize effect paint it —
+        // assigning width/height here would be clobbered by React re-rendering the element.
+        pendingImageRef.current = img;
+        setCanvasSize({ w: img.naturalWidth, h: img.naturalHeight });
         undoStackRef.current = [];
         setCanUndo(false);
         setDirty(false);
@@ -952,13 +1024,14 @@ export function SketchesPanel() {
 
   // Scale the floating text input's font to roughly match the committed text size.
   const fontScale = (() => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    return rect ? rect.width / CANVAS_W : 1;
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    return canvas && rect ? rect.width / canvas.width : 1;
   })();
   const cssFontSize = Math.max(12, fontSizeFor(size) * fontScale);
 
   return (
-    <div className="flex flex-col gap-4 p-4 overflow-y-auto">
+    <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto">
       {/* Title + autosave status */}
       <div className="flex items-center gap-2">
         <Input
@@ -1064,16 +1137,18 @@ export function SketchesPanel() {
         </Button>
       </div>
 
-      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside.
-          The viewport is muted, not white, so the "paper" still reads as a page when zoomed out past 100%. */}
+      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside. Deliberately
+          frameless and full-bleed: negative margins cancel the panel padding so the page runs
+          edge-to-edge, and the height claims whatever the title + toolbar rows leave over.
+          The backdrop is muted, not white, so the page still reads as a page when zoomed out. */}
       <div
         ref={containerRef}
-        className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted touch-none select-none"
+        className="relative -mx-4 w-[calc(100%+2rem)] h-[calc(100%-6.5rem)] min-h-[22rem] shrink-0 overflow-hidden bg-muted touch-none select-none"
       >
         <canvas
           ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
+          width={canvasSize.w}
+          height={canvasSize.h}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

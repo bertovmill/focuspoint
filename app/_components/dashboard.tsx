@@ -1253,7 +1253,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
         {/* Sketches */}
         {activeTab === "sketches" && (
-          <div className="pb-16 lg:pb-0">
+          // h-full so the canvas can claim the full panel height instead of a fixed aspect box.
+          <div className="h-full pb-16 lg:pb-0">
             <SketchesPanel />
           </div>
         )}

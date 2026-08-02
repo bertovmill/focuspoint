@@ -4,6 +4,28 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Tasks: oldest-first ordering + a "Created" date on every row
+
+**Ask:** Berto: "can we please sort our todo list by oldest to newest unless they are marked more urgent or in progress? and also show date created" (with a screenshot of the Tasks list).
+
+**Sort.** The per-section comparator in `app/_components/dashboard.tsx` previously only floated daily → in-progress → waiting to the top and otherwise inherited the API's `created_at DESC` (newest first). It now falls through to **priority rank, then `created_at` ascending**:
+
+```
+daily → in progress → waiting → priority (urgent > high > normal > low) → oldest created first
+```
+
+So the default is oldest-first — nothing quietly rots at the bottom of the list — but anything actively being worked on or flagged more urgent jumps that queue. Two new helpers: `priorityRank()` (a `PRIORITY_RANK` map, because the DB column is text and `ORDER BY priority DESC` sorts alphabetically — `urgent > normal > low > high` — which is wrong; the client re-sorts anyway) and `createdAtMs()` (missing/unparseable dates return `Infinity` so they sink to the bottom rather than jumping to the top).
+
+**Created date.** The row's metadata line was a single `<p>` showing *one* of "Done today" / "Daily" / due date. It's now a wrapping flex row holding that same status chip **plus** a `CalendarDaysIcon` + "Created Jul 12" chip. New `formatCreated()` helper omits the year for the current year and includes it for anything older.
+
+**Not changed:** `app/api/todos/route.ts` still orders `created_at DESC` with a limit. Harmless today (dashboard requests `limit=200`, there are ~59 todos), but worth knowing that if the list ever exceeds the limit the truncation drops the *oldest* rows — exactly the ones now sorted to the top.
+
+**Verified:** Playwright screenshot of `/tasks` against the dev server on :3789 — every row carries a "Created" date, and the non-daily run reads Jul 13 → Jul 14 → Jul 15 ascending with the urgent item floated above it. **Typecheck:** PASS ✓
+
+**Note:** these edits landed in commit `dbfa155` ("pin daily recurring tasks to the top") rather than their own — a concurrent session sharing this checkout committed the whole working tree while this change was in flight.
+
+---
+
 ## 2026-08-02 — Real URLs for every section + a Select tool on the sketch canvas
 
 **Ask:** Berto: "can we have a selector option for the sketches section of the app? and can we add to the url /sketches?" Quizzed on both: he picked a **canvas select tool** (arrow/marquee — drag a box, then move/delete what's inside) over a saved-sketch picker dropdown, and **real routes for every section** over query-param URL sync.

@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Sketches: usable pinch zoom (damped + zoom out past 100%)
+
+**Ask:** Berto: "i need to pinch scroll to zoom in and out of the /sketches page."
+
+**Diagnosis:** pinch-to-zoom already existed (ctrl/cmd+wheel handler on the canvas viewport), but it was effectively unusable for two reasons. (1) The zoom factor was `Math.exp(-deltaY * 0.01)` — Chrome sends `deltaY ≈ ±120` per trackpad pinch tick, so a *single* tick jumped 100% → 332% and a second hit 547%, i.e. the tiniest pinch slammed to `MAX_ZOOM`. (2) `MIN_ZOOM` was `1`, so there was no zooming *out* at all — only back to fit.
+
+**What changed** (`app/_components/sketches-panel.tsx`):
+- Damped the wheel zoom: `WHEEL_ZOOM_SENSITIVITY = 0.0025` plus a per-event cap of `MAX_WHEEL_STEP = 1.25`, so no single wheel/pinch event can change zoom by more than 1.25× either direction regardless of how big the device's delta is.
+- `MIN_ZOOM: 1 → 0.25`, so you can zoom out to 25% and see the whole page small.
+- `clampPan` now centres the canvas on each axis when the scaled content is smaller than the viewport (previously it pinned to top-left, which would have parked the zoomed-out canvas in the corner).
+- Canvas viewport background `bg-white → bg-muted`, because at <100% the white "paper" was invisible against a white viewport.
+
+**Verified:** `npm run typecheck` clean. Live in Playwright against the running dev server on :3000 — one pinch tick 100% → 125% (was 332%), climbs to 800% max over repeated ticks, pinch-out reaches 25% min, canvas measured centred at 25% (left gap 385.4px == right gap 385.4px), Reset zoom returns to 100%. Also drew a stroke at 51% zoom and read back the pixel at logical canvas centre (600,450) → ink, confirming pointer→canvas coord mapping still holds below 100%. Confirmed via `GET /api/sketches` that the tests created no stray rows.
+
+**Note:** committed as a single-file change while two other sessions had unrelated in-flight work in the same checkout (an `app/(app)/` routing refactor and a new select/marquee tool in this same file); only the four zoom hunks were staged, the other sessions' working-tree changes were left untouched.
+
+---
+
 ## 2026-07-31 — Sketches: autosave + title moved to top
 
 **Ask:** Berto wanted the canvas to autosave instead of a manual Save button, and the title field moved near the top of the panel.

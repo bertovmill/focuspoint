@@ -53,8 +53,12 @@ const CANVAS_H = 900;
 const MAX_UNDO = 30;
 const MIN_SIZE = 1;
 const MAX_SIZE = 30;
-const MIN_ZOOM = 1;
+const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 8;
+// Wheel deltas vary wildly by device (a single Chrome trackpad pinch tick is ~120),
+// so damp them and cap each event's step — otherwise one pinch slams to MAX_ZOOM.
+const WHEEL_ZOOM_SENSITIVITY = 0.0025;
+const MAX_WHEEL_STEP = 1.25;
 
 const COLORS = ["#1a1a1a", "#dc2626", "#2563eb", "#16a34a", "#ea580c", "#9333ea"];
 
@@ -167,10 +171,13 @@ export function SketchesPanel() {
     if (!el) return p;
     const w = el.clientWidth;
     const h = el.clientHeight;
-    return {
-      x: Math.min(0, Math.max(w - w * z, p.x)),
-      y: Math.min(0, Math.max(h - h * z, p.y)),
+    // Zoomed in: keep the edges from pulling inside the viewport. Zoomed out (z < 1):
+    // the canvas is smaller than the viewport, so centre it instead of pinning top-left.
+    const axis = (v: number, viewport: number) => {
+      const content = viewport * z;
+      return content <= viewport ? (viewport - content) / 2 : Math.min(0, Math.max(viewport - content, v));
     };
+    return { x: axis(p.x, w), y: axis(p.y, h) };
   }, []);
 
   const applyZoom = useCallback(
@@ -213,7 +220,8 @@ export function SketchesPanel() {
       const cursor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        applyZoom(zoomRef.current * Math.exp(-e.deltaY * 0.01), cursor);
+        const step = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY);
+        applyZoom(zoomRef.current * Math.min(MAX_WHEEL_STEP, Math.max(1 / MAX_WHEEL_STEP, step)), cursor);
       } else if (zoomRef.current > 1) {
         e.preventDefault();
         setPan(clampPan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }, zoomRef.current));
@@ -720,10 +728,11 @@ export function SketchesPanel() {
         </Button>
       </div>
 
-      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside */}
+      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside.
+          The viewport is muted, not white, so the "paper" still reads as a page when zoomed out past 100%. */}
       <div
         ref={containerRef}
-        className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-white touch-none select-none"
+        className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted touch-none select-none"
       >
         <canvas
           ref={canvasRef}

@@ -2248,3 +2248,20 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verified:** 12/12 Playwright checks on :3001 — seed via API, mark waiting via context menu (badge + API persistence), in-progress clears waiting and vice versa (both directions), clear waiting, seeded todo deleted in a `finally` block even on failure. Close-up screenshot confirms the amber treatment. Test gotcha: seed todos BEFORE `page.goto` — the dashboard fetches on mount, so a post-load seed races the fetch and may not render.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-08-02 — Tasks: dailies pinned to the top instead of their own section
+
+**Ask:** Berto didn't want a separate DAILY section — daily recurring tasks should ride at the top of the regular task list and keep coming back each day until they're actually done. Chose via quiz: drop the section entirely (no duplication), and dailies stay visible until completed rather than being gated on due_date.
+
+**What was built** (`app/_components/dashboard.tsx`):
+- `TODO_SECTIONS` no longer has a `daily` entry; the `none` section is relabelled **"Tasks"** and its filter now takes `none` + `daily`.
+- Section sort gains a leading `isDaily` key (new helper next to `isInProgressActive`/`isWaitingActive`), so dailies pin above one-off tasks; in-progress/waiting ordering is preserved within each group.
+- `visibleTodos` dropped the `isToday(t.due_date)` gate for dailies — an unfinished daily carries over and stays on the list every day. Safe because `/api/todos/[id]/complete` never sets `completed = TRUE` for recurring rows; it just rolls `due_date` forward, so a done-today daily still renders struck-through and disappears at midnight.
+- Daily rows show a repeat-icon "Daily" line instead of a due date (the date is just tomorrow-bookkeeping and read as noise).
+- Weekly/Monthly sections and the Scheduled Tasks tab's "Recurring Tasks" list are unchanged.
+
+**Verified:** 9/9 Playwright checks on a dedicated dev server (:3789) — no DAILY header, WEEKLY header intact, a daily seeded with yesterday's due date still listed, dailies sorting above the one-off seed, "Daily" marker present, completing a daily rolls due_date to tomorrow without setting `completed`, stays struck-through today, and is still listed after a reload. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓

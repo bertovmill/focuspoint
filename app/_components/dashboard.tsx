@@ -95,9 +95,10 @@ const MEASURE_FIELDS: Record<Measure["category"], { key: string; label: string; 
   ],
 };
 
+// Daily recurring todos have no section of their own — they ride at the top of
+// the main list (see `sectionTodos` below) so they're the first thing seen each day.
 const TODO_SECTIONS = [
-  { key: "none" as const, label: "Once" },
-  { key: "daily" as const, label: "Daily" },
+  { key: "none" as const, label: "Tasks" },
   { key: "weekly" as const, label: "Weekly" },
   { key: "monthly" as const, label: "Monthly" },
 ];
@@ -168,6 +169,36 @@ function isToday(iso: string | null | undefined) {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
+}
+
+function isDaily(t: Todo) {
+  return (t.recurrence ?? "none") === "daily";
+}
+
+// "Created Jul 12" for this year, "Created Jul 12, 2025" for anything older —
+// the year is noise until it isn't.
+function formatCreated(iso: string | null | undefined) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 3, high: 2, normal: 1, low: 0 };
+
+function priorityRank(t: Todo) {
+  return PRIORITY_RANK[t.priority] ?? 1;
+}
+
+// Missing/unparseable created_at sinks to the bottom of an oldest-first list.
+function createdAtMs(t: Todo) {
+  const ms = t.created_at ? new Date(t.created_at).getTime() : NaN;
+  return Number.isNaN(ms) ? Infinity : ms;
 }
 
 function isInProgressActive(t: Todo) {
@@ -661,10 +692,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const highPriority = activeTodos.filter((t) => t.priority === "high" || t.priority === "urgent");
   // Active todos, plus anything (of any recurrence) crossed off today — so today's
   // completions stay visible (struck through) instead of vanishing immediately.
+  // Daily todos are never gated on due_date: an unfinished one carries over and
+  // stays on the list every day until it's checked off (completing it rolls
+  // due_date to tomorrow server-side).
   const visibleTodos = todos.filter((t) => {
     const doneToday = Boolean(t.completed_at) && isToday(t.completed_at);
     if (t.completed && !doneToday) return false;
-    if ((t.recurrence ?? "none") === "daily") return isToday(t.due_date) || doneToday;
     return true;
   });
 
@@ -826,11 +859,21 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               <div className="space-y-5">
                 {TODO_SECTIONS.map(({ key, label }) => {
                   const sectionTodos = visibleTodos
-                    .filter((t) => (t.recurrence ?? "none") === key)
+                    .filter((t) => {
+                      const r = t.recurrence ?? "none";
+                      // Dailies live at the top of the "none" section, not in one of their own.
+                      return key === "none" ? r === "none" || r === "daily" : r === key;
+                    })
+                    // Oldest first, so nothing quietly rots at the bottom of the list.
+                    // Anything actively being worked on or flagged more urgent jumps
+                    // that queue and rides at the top.
                     .sort(
                       (a, b) =>
+                        Number(isDaily(b)) - Number(isDaily(a)) ||
                         Number(isInProgressActive(b)) - Number(isInProgressActive(a)) ||
-                        Number(isWaitingActive(b)) - Number(isWaitingActive(a)),
+                        Number(isWaitingActive(b)) - Number(isWaitingActive(a)) ||
+                        priorityRank(b) - priorityRank(a) ||
+                        createdAtMs(a) - createdAtMs(b),
                     );
                   if (sectionTodos.length === 0) return null;
                   return (
@@ -927,17 +970,32 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isDone && "line-through text-muted-foreground")}>
                                   {todo.title}
                                 </p>
-                                {isDoneToday ? (
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                    <CheckIcon className="size-3" />
-                                    Done today
-                                  </p>
-                                ) : todo.due_date && (
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                    <ClockIcon className="size-3" />
-                                    {formatDate(todo.due_date)}
-                                  </p>
-                                )}
+                                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
+                                  {isDoneToday ? (
+                                    <span className="flex items-center gap-1">
+                                      <CheckIcon className="size-3" />
+                                      Done today
+                                    </span>
+                                  ) : isDaily(todo) ? (
+                                    // Dailies show the repeat marker instead of a due date — the
+                                    // date is just "tomorrow" bookkeeping and reads as noise.
+                                    <span className="flex items-center gap-1">
+                                      <RepeatIcon className="size-3" />
+                                      Daily
+                                    </span>
+                                  ) : todo.due_date ? (
+                                    <span className="flex items-center gap-1">
+                                      <ClockIcon className="size-3" />
+                                      {formatDate(todo.due_date)}
+                                    </span>
+                                  ) : null}
+                                  {formatCreated(todo.created_at) && (
+                                    <span className="flex items-center gap-1">
+                                      <CalendarDaysIcon className="size-3" />
+                                      Created {formatCreated(todo.created_at)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               {todo.timer_started_at && !isDone && (
                                 <Badge

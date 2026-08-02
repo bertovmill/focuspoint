@@ -1,27 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  ArrowUpRightIcon,
-  BrushIcon,
-  CircleIcon,
-  CopyIcon,
-  DownloadIcon,
-  EraserIcon,
-  KeyboardIcon,
-  MinusIcon,
-  MousePointer2Icon,
-  PencilIcon,
-  PenLineIcon,
-  SquareIcon,
-  TrashIcon,
-  TypeIcon,
-  Undo2Icon,
-  XIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
-} from "lucide-react";
+import dynamic from "next/dynamic";
+import { useTheme } from "next-themes";
+import { BrushIcon, DownloadIcon, TrashIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import type { ExcalidrawImperativeAPI, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,12 +20,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
+
+import "@excalidraw/excalidraw/index.css";
+
+// Excalidraw touches window/document at module scope, so it can't be server-rendered.
+const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+});
 
 interface Sketch {
   id: number;
@@ -48,221 +39,38 @@ interface Sketch {
   image_data: string;
   created_at: string;
   updated_at: string;
+  has_scene?: boolean;
 }
 
-// The page is sized to the viewport it's drawn in (1 canvas px per CSS px at 100% zoom), so
-// it fills the panel edge-to-edge instead of letterboxing a fixed 4:3 page inside it. Used
-// until the container has been measured, and as the fallback for a zero-sized container.
-const DEFAULT_CANVAS_W = 1200;
-const DEFAULT_CANVAS_H = 900;
-// Undo snapshots are full-canvas ImageData (~4 bytes/px), so the raster is capped to keep
-// a 30-deep stack from ballooning on an ultrawide display.
-const MAX_CANVAS_W = 2400;
-const MAX_CANVAS_H = 1600;
-const MAX_UNDO = 30;
-const MIN_SIZE = 1;
-const MAX_SIZE = 30;
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 8;
-// Wheel deltas vary wildly by device (a single Chrome trackpad pinch tick is ~120),
-// so damp them and cap each event's step — otherwise one pinch slams to MAX_ZOOM.
-const WHEEL_ZOOM_SENSITIVITY = 0.0025;
-const MAX_WHEEL_STEP = 1.25;
-
-const COLORS = ["#1a1a1a", "#dc2626", "#2563eb", "#16a34a", "#ea580c", "#9333ea"];
-
-type Tool = "select" | "pen" | "eraser" | "rect" | "ellipse" | "line" | "arrow" | "text";
-
-// A marquee selection over the raster canvas, in logical canvas coords.
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+// The persisted document. appState is deliberately a small whitelist — the full appState
+// carries transient junk (and a `collaborators` Map that doesn't survive JSON).
+interface Scene {
+  elements: readonly ExcalidrawElement[];
+  appState: { viewBackgroundColor?: string; gridSize?: number | null };
+  files: BinaryFiles;
 }
 
-// Smaller than this (logical px) counts as a click, not a selection drag.
-const MIN_SELECTION = 6;
-
-const normRect = (a: { x: number; y: number }, b: { x: number; y: number }): Rect => ({
-  x: Math.min(a.x, b.x),
-  y: Math.min(a.y, b.y),
-  w: Math.abs(b.x - a.x),
-  h: Math.abs(b.y - a.y),
-});
-
-const clampRect = (r: Rect, w: number, h: number): Rect => {
-  const x = Math.max(0, Math.min(w, r.x));
-  const y = Math.max(0, Math.min(h, r.y));
-  return { x, y, w: Math.min(r.w, w - x), h: Math.min(r.h, h - y) };
-};
-
-// `hotkey` follows Figma/Miro muscle memory (V select, P pen, R rect, O ellipse, T text…).
-const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon; hotkey: string }[] = [
-  { key: "select", label: "Select", icon: MousePointer2Icon, hotkey: "v" },
-  { key: "pen", label: "Pen", icon: PenLineIcon, hotkey: "p" },
-  { key: "eraser", label: "Eraser", icon: EraserIcon, hotkey: "e" },
-  { key: "rect", label: "Rectangle", icon: SquareIcon, hotkey: "r" },
-  { key: "ellipse", label: "Ellipse", icon: CircleIcon, hotkey: "o" },
-  { key: "line", label: "Line", icon: MinusIcon, hotkey: "l" },
-  { key: "arrow", label: "Arrow", icon: ArrowUpRightIcon, hotkey: "a" },
-  { key: "text", label: "Text", icon: TypeIcon, hotkey: "t" },
-];
-
-const TOOL_BY_HOTKEY: Record<string, Tool> = Object.fromEntries(TOOLS.map((t) => [t.hotkey, t.key]));
-
-// App-wide single-letter hotkeys (layout.tsx) that the canvas swallows while sketching.
-const SUPPRESSED_GLOBAL_KEYS = new Set(["n", "c"]);
-
-// Rendered in the "?" cheat sheet. Grouped the way Figma/Miro present theirs.
-const SHORTCUT_GROUPS: { title: string; items: [string, string][] }[] = [
-  { title: "Tools", items: TOOLS.map((t) => [t.hotkey.toUpperCase(), t.label] as [string, string]) },
-  {
-    title: "Edit",
-    items: [
-      ["⌘Z", "Undo"],
-      ["⌘D", "Duplicate selection"],
-      ["Delete", "Delete selection"],
-      ["Esc", "Deselect / cancel"],
-    ],
-  },
-  {
-    title: "View",
-    items: [
-      ["⌘+ / ⌘−", "Zoom in / out"],
-      ["⇧0", "Reset to 100%"],
-      ["⇧1", "Zoom to fit"],
-      ["Space + drag", "Pan the canvas"],
-      ["Pinch", "Zoom at the cursor"],
-      ["?", "This cheat sheet"],
-    ],
-  },
-];
-
-// Text-tool font size scales with the line-weight slider.
-const fontSizeFor = (size: number) => Math.min(180, Math.max(20, size * 6));
+const AUTOSAVE_MS = 1500;
 
 export function SketchesPanel() {
   const [sketches, setSketches] = useState<Sketch[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const [color, setColor] = useState(COLORS[0]);
-  const [size, setSize] = useState(7);
-  const [tool, setTool] = useState<Tool>("pen");
   const [title, setTitle] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [canUndo, setCanUndo] = useState(false);
-  // Bumped on every edit so the autosave debounce effect can reset its timer even when `dirty` was already true.
+  // Bumped on every edit so the debounce effect re-arms even when `dirty` was already true.
   const [editVersion, setEditVersion] = useState(0);
-  const markDirty = useCallback(() => {
-    setDirty(true);
-    setEditVersion((v) => v + 1);
-  }, []);
 
-  // Raster size of the page. Follows the viewport while the canvas is untouched, then locks
-  // once there's something to lose — resizing the window mid-sketch must not resize the page
-  // out from under the artwork (or invalidate the undo snapshots, which are size-specific).
-  const [canvasSize, setCanvasSize] = useState({ w: DEFAULT_CANVAS_W, h: DEFAULT_CANVAS_H });
-  // Set when an existing sketch is opened: drawn onto the canvas once it's been resized to
-  // the saved image's dimensions, so opening an old sketch never rescales its pixels.
-  const pendingImageRef = useRef<HTMLImageElement | null>(null);
-
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-
-  // Space-to-pan (Figma/Miro): held space swaps the canvas into a grab cursor and makes
-  // drags move the viewport instead of drawing. The ref is what the pointer handlers read.
-  const [spacePan, setSpacePan] = useState(false);
-  const spacePanRef = useRef(false);
-  const panDragRef = useRef<{ start: { x: number; y: number }; pan0: { x: number; y: number } } | null>(null);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-
-  // Pending text placement: logical canvas coords + container-relative CSS position.
-  const [textPos, setTextPos] = useState<{ x: number; y: number; cssX: number; cssY: number } | null>(null);
-  const [textValue, setTextValue] = useState("");
-  const textInputRef = useRef<HTMLInputElement>(null);
-
-  // Text elements are kept as editable objects (not baked into the raster canvas) until save.
-  interface TextElement {
-    id: number;
-    x: number;
-    y: number;
-    value: string;
-    color: string;
-    size: number;
-  }
-  const [texts, setTexts] = useState<TextElement[]>([]);
-  const [editingTextId, setEditingTextId] = useState<number | null>(null);
-  const [selectedTextId, setSelectedTextId] = useState<number | null>(null);
-  const nextTextIdRef = useRef(1);
-
-  // Select tool: `selection` is the committed marquee, `marquee` the live drag preview.
-  const [selection, setSelection] = useState<Rect | null>(null);
-  const [marquee, setMarquee] = useState<Rect | null>(null);
-  // In-flight select gesture — either dragging out a new marquee, or moving the
-  // pixels under an existing one (lifted onto `bitmap`, with the canvas minus
-  // those pixels kept in `base` so each move repaints cleanly).
-  const selectDragRef = useRef<
-    | { mode: "marquee"; start: { x: number; y: number } }
-    | { mode: "move"; start: { x: number; y: number }; rect0: Rect; bitmap: HTMLCanvasElement; base: ImageData }
-    | null
-  >(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingRef = useRef(false);
-  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
-  const previewBaseRef = useRef<ImageData | null>(null);
-  const undoStackRef = useRef<ImageData[]>([]);
+  const { resolvedTheme } = useTheme();
+  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Active pointers (for pinch) and in-flight pinch gesture state.
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchRef = useRef<{ dist0: number; zoom0: number; mid0: { x: number; y: number }; pan0: { x: number; y: number } } | null>(null);
-  const zoomRef = useRef(1);
-  const panRef = useRef({ x: 0, y: 0 });
-  zoomRef.current = zoom;
-  panRef.current = pan;
-
-  const getCtx = useCallback(() => canvasRef.current?.getContext("2d") ?? null, []);
-
-  const paintBlank = useCallback((ctx: CanvasRenderingContext2D) => {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  }, []);
-
-  // Whether the canvas holds anything worth preserving across a resize.
-  const canvasIsPristine = !dirty && editingId === null;
-
-  // Fit the page to the viewport. Only ever called while the canvas is pristine — setting
-  // width/height on a <canvas> wipes its contents, so this can't run over live artwork.
-  const fitCanvasToViewport = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const w = Math.min(MAX_CANVAS_W, Math.round(el.clientWidth));
-    const h = Math.min(MAX_CANVAS_H, Math.round(el.clientHeight));
-    if (w < 1 || h < 1) return;
-    setCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
-  }, []);
-
-  // Track the viewport while nothing has been drawn yet, so the page always starts
-  // edge-to-edge — including after a window resize or a sidebar toggle.
-  useEffect(() => {
-    if (!canvasIsPristine) return;
-    const el = containerRef.current;
-    if (!el) return;
-    fitCanvasToViewport();
-    const observer = new ResizeObserver(() => fitCanvasToViewport());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [canvasIsPristine, fitCanvasToViewport]);
-
-  useEffect(() => {
-    if (textPos) textInputRef.current?.focus();
-  }, [textPos]);
+  // Mirrors so the debounced save always reads current values without re-arming the timer.
+  const editingIdRef = useRef<number | null>(null);
+  const titleRef = useRef("");
+  editingIdRef.current = editingId;
+  titleRef.current = title;
 
   const loadSketches = useCallback(async () => {
     setLoading(true);
@@ -278,727 +86,141 @@ export function SketchesPanel() {
     loadSketches();
   }, [loadSketches]);
 
-  const clampPan = useCallback((p: { x: number; y: number }, z: number) => {
-    const el = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!el || !canvas) return p;
-    // Measure the page rather than assuming it fills the viewport — a sketch saved at a
-    // different aspect ratio (older 4:3 pages) renders taller or shorter than the viewport,
-    // and must still be pannable to its hidden edge.
-    const axis = (v: number, viewport: number, content: number) =>
-      content <= viewport ? (viewport - content) / 2 : Math.min(0, Math.max(viewport - content, v));
-    return {
-      x: axis(p.x, el.clientWidth, canvas.clientWidth * z),
-      y: axis(p.y, el.clientHeight, canvas.clientHeight * z),
-    };
-  }, []);
-
-  const applyZoom = useCallback(
-    (nextZoom: number, centerCss: { x: number; y: number }) => {
-      const z0 = zoomRef.current;
-      const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
-      const p0 = panRef.current;
-      // Keep the content point under `centerCss` stationary while zooming.
-      const next = {
-        x: centerCss.x - ((centerCss.x - p0.x) / z0) * z,
-        y: centerCss.y - ((centerCss.y - p0.y) / z0) * z,
-      };
-      setZoom(z);
-      setPan(clampPan(next, z));
-    },
-    [clampPan],
-  );
-
-  const zoomButtons = useCallback(
-    (factor: number) => {
-      const el = containerRef.current;
-      if (!el) return;
-      applyZoom(zoomRef.current * factor, { x: el.clientWidth / 2, y: el.clientHeight / 2 });
-    },
-    [applyZoom],
-  );
-
-  const resetZoom = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, []);
-
-  // Scale so the whole page is visible. A no-op (z = 1) for a page sized to its viewport,
-  // but it matters for a sketch saved at a different aspect — a 4:3 page in a wide viewport
-  // is taller than the screen, and would otherwise open with its bottom cropped.
-  const zoomToFit = useCallback(() => {
-    const el = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!el || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
-    const fit = Math.min(el.clientWidth / canvas.clientWidth, el.clientHeight / canvas.clientHeight);
-    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fit));
-    setZoom(z);
-    setPan(clampPan({ x: 0, y: 0 }, z));
-  }, [clampPan]);
-
-  // Repaint whenever the raster is (re)sized — the browser blanks the bitmap on resize.
-  // A sketch opened for editing is drawn here, at its own saved dimensions.
-  useEffect(() => {
-    const ctx = getCtx();
-    if (!ctx) return;
-    paintBlank(ctx);
-    const img = pendingImageRef.current;
-    if (img) {
-      pendingImageRef.current = null;
-      ctx.drawImage(img, 0, 0);
-    }
-    // A page sized to its viewport fits at 100%, so this only bites for a sketch saved at a
-    // different aspect — it opens fully visible rather than cropped.
-    zoomToFit();
-  }, [canvasSize, getCtx, paintBlank, zoomToFit]);
-
-  // Trackpad pinch (ctrl/cmd+wheel) zooms at the cursor; plain scroll pans when zoomed in.
-  // Attached natively because React's synthetic wheel handler can't preventDefault (passive).
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      const rect = el.getBoundingClientRect();
-      const cursor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const step = Math.exp(-e.deltaY * WHEEL_ZOOM_SENSITIVITY);
-        applyZoom(zoomRef.current * Math.min(MAX_WHEEL_STEP, Math.max(1 / MAX_WHEEL_STEP, step)), cursor);
-      } else if (zoomRef.current > 1) {
-        e.preventDefault();
-        setPan(clampPan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }, zoomRef.current));
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [applyZoom, clampPan]);
-
-  const pointFromEvent = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    const containerRect = containerRef.current!.getBoundingClientRect();
-    return {
-      x: ((e.clientX - rect.left) / rect.width) * canvas.width,
-      y: ((e.clientY - rect.top) / rect.height) * canvas.height,
-      cssX: e.clientX - containerRect.left,
-      cssY: e.clientY - containerRect.top,
-    };
-  }, []);
-
-  const pushUndo = useCallback((ctx: CanvasRenderingContext2D) => {
-    undoStackRef.current.push(ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height));
-    if (undoStackRef.current.length > MAX_UNDO) undoStackRef.current.shift();
-    setCanUndo(true);
-  }, []);
-
-  const strokeStyle = useCallback(
-    (ctx: CanvasRenderingContext2D) => {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-    },
-    [color, size],
-  );
-
-  const drawShape = useCallback(
-    (ctx: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
-      strokeStyle(ctx);
-      ctx.beginPath();
-      if (tool === "rect") {
-        ctx.strokeRect(Math.min(from.x, to.x), Math.min(from.y, to.y), Math.abs(to.x - from.x), Math.abs(to.y - from.y));
-      } else if (tool === "ellipse") {
-        ctx.ellipse((from.x + to.x) / 2, (from.y + to.y) / 2, Math.abs(to.x - from.x) / 2, Math.abs(to.y - from.y) / 2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      } else {
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(to.x, to.y);
-        ctx.stroke();
-        if (tool === "arrow") {
-          const angle = Math.atan2(to.y - from.y, to.x - from.x);
-          const head = Math.max(14, size * 3.5);
-          ctx.beginPath();
-          ctx.moveTo(to.x, to.y);
-          ctx.lineTo(to.x - head * Math.cos(angle - Math.PI / 6), to.y - head * Math.sin(angle - Math.PI / 6));
-          ctx.moveTo(to.x, to.y);
-          ctx.lineTo(to.x - head * Math.cos(angle + Math.PI / 6), to.y - head * Math.sin(angle + Math.PI / 6));
-          ctx.stroke();
-        }
-      }
-    },
-    [tool, strokeStyle],
-  );
-
-  const commitText = useCallback(() => {
-    if (!textPos) return;
-    const value = textValue.trim();
-    if (editingTextId !== null) {
-      setTexts((prev) =>
-        value ? prev.map((t) => (t.id === editingTextId ? { ...t, value } : t)) : prev.filter((t) => t.id !== editingTextId),
-      );
-      markDirty();
-    } else if (value) {
-      const id = nextTextIdRef.current++;
-      setTexts((prev) => [...prev, { id, x: textPos.x, y: textPos.y, value, color, size }]);
-      markDirty();
-    }
-    setTextPos(null);
-    setTextValue("");
-    setEditingTextId(null);
-  }, [textPos, textValue, editingTextId, color, size, markDirty]);
-
-  // Convert logical canvas coords to container-relative CSS coords (accounts for current zoom/pan).
-  const canvasToCss = useCallback((x: number, y: number) => {
-    const canvas = canvasRef.current;
-    const rect = canvas?.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!canvas || !rect || !containerRect) return { x: 0, y: 0 };
-    return {
-      x: (x / canvas.width) * rect.width + (rect.left - containerRect.left),
-      y: (y / canvas.height) * rect.height + (rect.top - containerRect.top),
-    };
-  }, []);
-
-  const handleEditText = useCallback(
-    (id: number) => {
-      if (textPos) commitText();
-      const el = texts.find((t) => t.id === id);
-      if (!el) return;
-      const pos = canvasToCss(el.x, el.y);
-      setTextValue(el.value);
-      setTextPos({ x: el.x, y: el.y, cssX: pos.x, cssY: pos.y });
-      setEditingTextId(id);
-      setSelectedTextId(null);
-      setTool("text");
-    },
-    [texts, textPos, commitText, canvasToCss],
-  );
-
-  const handleDuplicateText = useCallback((id: number) => {
-    setTexts((prev) => {
-      const el = prev.find((t) => t.id === id);
-      if (!el) return prev;
-      const newId = nextTextIdRef.current++;
-      return [...prev, { ...el, id: newId, x: el.x + 24, y: el.y + 24 }];
-    });
-    setSelectedTextId(null);
-    markDirty();
-  }, [markDirty]);
-
-  const handleDeleteText = useCallback((id: number) => {
-    setTexts((prev) => prev.filter((t) => t.id !== id));
-    setSelectedTextId(null);
-    markDirty();
-  }, [markDirty]);
-
-  const cancelStrokeForPinch = useCallback(() => {
-    // A second finger landed mid-stroke: erase the accidental mark and hand over to the gesture.
-    if (!drawingRef.current) return;
-    const ctx = getCtx();
-    const snapshot = undoStackRef.current.pop();
-    if (ctx && snapshot) ctx.putImageData(snapshot, 0, 0);
-    if (undoStackRef.current.length === 0) setCanUndo(false);
-    drawingRef.current = false;
-    lastPointRef.current = null;
-    startPointRef.current = null;
-    previewBaseRef.current = null;
-    selectDragRef.current = null;
-  }, [getCtx]);
-
-  // Logical selection rect → container-relative CSS box (accounts for zoom/pan).
-  const rectToCss = useCallback((r: Rect) => {
-    const canvas = canvasRef.current;
-    const rect = canvas?.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!canvas || !rect || !containerRect) return null;
-    const sx = rect.width / canvas.width;
-    const sy = rect.height / canvas.height;
-    return {
-      left: r.x * sx + (rect.left - containerRect.left),
-      top: r.y * sy + (rect.top - containerRect.top),
-      width: r.w * sx,
-      height: r.h * sy,
-    };
-  }, []);
-
-  // Copy the pixels under `r` onto a detached canvas (used to move/duplicate a selection).
-  const copyRegion = useCallback((r: Rect) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const w = Math.max(1, Math.round(r.w));
-    const h = Math.max(1, Math.round(r.h));
-    const off = document.createElement("canvas");
-    off.width = w;
-    off.height = h;
-    off.getContext("2d")!.drawImage(canvas, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h);
-    return off;
-  }, []);
-
-  const deleteSelection = useCallback(() => {
-    const ctx = getCtx();
-    if (!ctx || !selection) return;
-    pushUndo(ctx);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
-    setSelection(null);
-    markDirty();
-  }, [getCtx, selection, pushUndo, markDirty]);
-
-  const duplicateSelection = useCallback(() => {
-    const ctx = getCtx();
-    if (!ctx || !selection) return;
-    const bitmap = copyRegion(selection);
-    if (!bitmap) return;
-    pushUndo(ctx);
-    const next = clampRect({ ...selection, x: selection.x + 24, y: selection.y + 24 }, ctx.canvas.width, ctx.canvas.height);
-    ctx.drawImage(bitmap, next.x, next.y);
-    // The copy becomes the new selection, so it can be dragged straight off the original.
-    setSelection(next);
-    markDirty();
-  }, [getCtx, selection, copyRegion, pushUndo, markDirty]);
-
-  const handlePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (e.button !== 0 && e.pointerType === "mouse") return;
-      const ctx = getCtx();
-      if (!ctx) return;
-      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        // Capture can fail for already-released pointers; drawing still works without it.
-      }
-
-      if (pointersRef.current.size === 2) {
-        cancelStrokeForPinch();
-        const [a, b] = [...pointersRef.current.values()];
-        const rect = containerRef.current!.getBoundingClientRect();
-        pinchRef.current = {
-          dist0: Math.hypot(b.x - a.x, b.y - a.y),
-          zoom0: zoomRef.current,
-          mid0: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
-          pan0: panRef.current,
-        };
-        return;
-      }
-      if (pinchRef.current) return;
-
-      // Space held → this drag pans the viewport instead of drawing.
-      if (spacePanRef.current) {
-        e.preventDefault();
-        panDragRef.current = { start: { x: e.clientX, y: e.clientY }, pan0: panRef.current };
-        return;
-      }
-
-      if (selectedTextId !== null) setSelectedTextId(null);
-
-      const p = pointFromEvent(e);
-      if (tool === "select") {
-        // Suppress the native drag/text-selection default so the marquee tracks cleanly.
-        e.preventDefault();
-        if (textPos) commitText();
-        const inside =
-          selection && p.x >= selection.x && p.x <= selection.x + selection.w && p.y >= selection.y && p.y <= selection.y + selection.h;
-        if (inside && selection) {
-          // Lift the selected pixels off the canvas so they can be dragged around.
-          const bitmap = copyRegion(selection);
-          if (!bitmap) return;
-          pushUndo(ctx);
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
-          selectDragRef.current = {
-            mode: "move",
-            start: p,
-            rect0: selection,
-            bitmap,
-            base: ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height),
-          };
-          // Flagged as a stroke so a second finger (pinch) rolls the move back.
-          drawingRef.current = true;
-          markDirty();
-        } else {
-          setSelection(null);
-          selectDragRef.current = { mode: "marquee", start: p };
-          setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
-        }
-        return;
-      }
-      if (tool === "text") {
-        // Suppress the mousedown default action — it would move focus to the
-        // canvas (→ body) right after the effect focuses the floating input,
-        // and that blur would instantly commit-and-close the empty text box.
-        e.preventDefault();
-        // Clicking with an open text box commits it, then places a new one.
-        if (textPos) commitText();
-        setTextPos(p);
-        return;
-      }
-      pushUndo(ctx);
-      drawingRef.current = true;
-      startPointRef.current = p;
-      lastPointRef.current = p;
-      if (tool === "pen" || tool === "eraser") {
-        // A tap with no movement still leaves a dot.
-        ctx.beginPath();
-        ctx.fillStyle = tool === "eraser" ? "#ffffff" : color;
-        ctx.arc(p.x, p.y, (tool === "eraser" ? size * 2.5 : size) / 2, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        // Shapes rubber-band over a snapshot of the canvas as it was on pointerdown.
-        previewBaseRef.current = undoStackRef.current[undoStackRef.current.length - 1];
-      }
-      markDirty();
-    },
-    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId, markDirty, selection, copyRegion],
-  );
-
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (pointersRef.current.has(e.pointerId)) {
-        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      }
-      const pinch = pinchRef.current;
-      if (pinch && pointersRef.current.size >= 2) {
-        const [a, b] = [...pointersRef.current.values()];
-        const rect = containerRef.current!.getBoundingClientRect();
-        const dist = Math.hypot(b.x - a.x, b.y - a.y);
-        const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
-        const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinch.zoom0 * (dist / Math.max(1, pinch.dist0))));
-        // Anchor the content point that was under the initial midpoint, following the midpoint as it drifts (two-finger pan).
-        const next = {
-          x: mid.x - ((pinch.mid0.x - pinch.pan0.x) / pinch.zoom0) * z,
-          y: mid.y - ((pinch.mid0.y - pinch.pan0.y) / pinch.zoom0) * z,
-        };
-        setZoom(z);
-        setPan(clampPan(next, z));
-        return;
-      }
-      const panDrag = panDragRef.current;
-      if (panDrag) {
-        setPan(
-          clampPan(
-            { x: panDrag.pan0.x + (e.clientX - panDrag.start.x), y: panDrag.pan0.y + (e.clientY - panDrag.start.y) },
-            zoomRef.current,
-          ),
-        );
-        return;
-      }
-      const drag = selectDragRef.current;
-      if (drag) {
-        const ctx = getCtx();
-        if (!ctx) return;
-        const p = pointFromEvent(e);
-        if (drag.mode === "marquee") {
-          setMarquee(clampRect(normRect(drag.start, p), ctx.canvas.width, ctx.canvas.height));
-        } else {
-          const next = { ...drag.rect0, x: drag.rect0.x + (p.x - drag.start.x), y: drag.rect0.y + (p.y - drag.start.y) };
-          ctx.putImageData(drag.base, 0, 0);
-          ctx.drawImage(drag.bitmap, next.x, next.y);
-          setSelection(next);
-        }
-        return;
-      }
-      if (!drawingRef.current) return;
-      const ctx = getCtx();
-      if (!ctx) return;
-      const p = pointFromEvent(e);
-      if (tool === "pen" || tool === "eraser") {
-        const last = lastPointRef.current;
-        if (!last) return;
-        ctx.beginPath();
-        ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
-        ctx.lineWidth = tool === "eraser" ? size * 2.5 : size;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        lastPointRef.current = p;
-      } else {
-        const start = startPointRef.current;
-        const base = previewBaseRef.current;
-        if (!start || !base) return;
-        ctx.putImageData(base, 0, 0);
-        drawShape(ctx, start, p);
-      }
-    },
-    [getCtx, pointFromEvent, tool, color, size, drawShape, clampPan],
-  );
-
-  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size < 2) pinchRef.current = null;
-    panDragRef.current = null;
-    const drag = selectDragRef.current;
-    if (drag) {
-      selectDragRef.current = null;
-      if (drag.mode === "marquee") {
-        // A tap (or a sliver of a drag) just clears the selection.
-        setSelection(marquee && marquee.w >= MIN_SELECTION && marquee.h >= MIN_SELECTION ? marquee : null);
-        setMarquee(null);
-      }
-    }
-    drawingRef.current = false;
-    lastPointRef.current = null;
-    startPointRef.current = null;
-    previewBaseRef.current = null;
-  }, [marquee]);
-
-  const handleUndo = useCallback(() => {
-    const ctx = getCtx();
-    const snapshot = undoStackRef.current.pop();
-    if (!ctx || !snapshot) return;
-    ctx.putImageData(snapshot, 0, 0);
-    if (undoStackRef.current.length === 0) setCanUndo(false);
-    setSelection(null);
-    setMarquee(null);
-    markDirty();
-  }, [getCtx, markDirty]);
-
-  const resetCanvas = useCallback(() => {
-    const ctx = getCtx();
-    if (!ctx) return;
+  const cancelPendingSave = useCallback(() => {
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
     }
-    paintBlank(ctx);
-    undoStackRef.current = [];
-    setCanUndo(false);
-    setDirty(false);
-    setTitle("");
-    setEditingId(null);
-    setTextPos(null);
-    setTextValue("");
-    setEditingTextId(null);
-    setSelectedTextId(null);
-    setTexts([]);
-    setSelection(null);
-    setMarquee(null);
-    resetZoom();
-  }, [getCtx, paintBlank, resetZoom]);
-
-  // Figma/Miro-style shortcuts. Registered in the *capture* phase and stopping propagation
-  // for keys we own, so the app-wide navigation hotkeys (t = Tasks, n = new task, c = chat,
-  // bound on window in the layout) don't fire while sketching — here T has to mean "text tool".
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      // Never steal keys from the title field or the floating text input.
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      // An open dialog (cheat sheet, delete confirm) owns the keyboard — notably Escape,
-      // which our capture-phase stopPropagation would otherwise swallow before Radix sees it.
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
-      const take = () => {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-
-      if (e.metaKey || e.ctrlKey) {
-        const key = e.key.toLowerCase();
-        if (key === "z" && !e.shiftKey) return take(), handleUndo();
-        if (key === "d") {
-          if (selection) return take(), duplicateSelection();
-          if (selectedTextId !== null) return take(), handleDuplicateText(selectedTextId);
-          return;
-        }
-        if (key === "=" || key === "+") return take(), zoomButtons(1.25);
-        if (key === "-" || key === "_") return take(), zoomButtons(1 / 1.25);
-        if (key === "0") return take(), resetZoom();
-        return;
-      }
-      if (e.altKey) return;
-
-      // Shift+0 / Shift+1 are Figma's "back to 100%" / "zoom to fit"; the canvas has a
-      // fixed aspect ratio that fills the viewport at 100%, so both land on the same place.
-      if (e.shiftKey) {
-        if (e.key === "0" || e.key === ")") return take(), resetZoom();
-        if (e.key === "1" || e.key === "!") return take(), zoomToFit();
-        // Depending on layout/driver, shift+slash arrives as either "?" or "/".
-        if (e.key === "?" || e.key === "/") return take(), setShortcutsOpen(true);
-        return;
-      }
-
-      if (e.key === "?" || e.key === "/") return take(), setShortcutsOpen(true);
-
-      if (e.key === "Escape") {
-        take();
-        setSelection(null);
-        setSelectedTextId(null);
-        return;
-      }
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selection) return take(), deleteSelection();
-        if (selectedTextId !== null) return take(), handleDeleteText(selectedTextId);
-        return;
-      }
-
-      if (e.key === " ") {
-        // Space still has to activate a focused button (a11y) rather than arming pan.
-        if (t && t.closest("button")) return;
-        // Hold space to pan (released in the keyup listener below). Repeat events fire
-        // while held, so guard to keep this idempotent.
-        if (!spacePanRef.current) {
-          spacePanRef.current = true;
-          setSpacePan(true);
-        }
-        take();
-        return;
-      }
-
-      const nextTool = TOOL_BY_HOTKEY[e.key.toLowerCase()];
-      if (nextTool) {
-        take();
-        setTool(nextTool);
-        // Same as clicking the tool button: leaving Select drops the marquee.
-        if (nextTool !== "select") setSelection(null);
-        return;
-      }
-
-      // T is a tool key here, so the remaining app-wide letter hotkeys (n = new task,
-      // c = chat) are swallowed too — otherwise a stray keystroke navigates away from a
-      // half-finished sketch. Use the sidebar to leave the canvas.
-      if (SUPPRESSED_GLOBAL_KEYS.has(e.key.toLowerCase())) take();
-    };
-
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === " ") {
-        spacePanRef.current = false;
-        setSpacePan(false);
-      }
-    };
-    // Releasing space outside the window (tab-away mid-pan) would otherwise leave it stuck on.
-    const onBlur = () => {
-      spacePanRef.current = false;
-      setSpacePan(false);
-    };
-
-    window.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("keyup", onKeyUp, true);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("keyup", onKeyUp, true);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [
-    selection,
-    selectedTextId,
-    deleteSelection,
-    duplicateSelection,
-    handleDeleteText,
-    handleDuplicateText,
-    handleUndo,
-    zoomButtons,
-    resetZoom,
-    zoomToFit,
-  ]);
-
-  // Ref mirrors so the debounced autosave always reads the latest state without re-arming on every keystroke.
-  const editingIdRef = useRef<number | null>(null);
-  const titleRef = useRef("");
-  const textsRef = useRef(texts);
-  editingIdRef.current = editingId;
-  titleRef.current = title;
-  textsRef.current = texts;
+  }, []);
 
   const autoSave = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!api) return;
+    const elements = api.getSceneElements();
+    // Nothing drawn yet — don't create an empty row just because the canvas was touched.
+    if (elements.length === 0) return;
     setSaving(true);
     try {
-      let image_data: string;
-      if (textsRef.current.length > 0) {
-        const off = document.createElement("canvas");
-        off.width = canvas.width;
-        off.height = canvas.height;
-        const octx = off.getContext("2d")!;
-        octx.drawImage(canvas, 0, 0);
-        for (const t of textsRef.current) {
-          octx.fillStyle = t.color;
-          octx.font = `${fontSizeFor(t.size)}px sans-serif`;
-          octx.textBaseline = "middle";
-          octx.fillText(t.value, t.x, t.y);
-        }
-        image_data = off.toDataURL("image/png");
-      } else {
-        image_data = canvas.toDataURL("image/png");
-      }
-      const saveTitle = titleRef.current.trim() || "Untitled";
-      const currentEditingId = editingIdRef.current;
-      const res = currentEditingId
-        ? await fetch(`/api/sketches/${currentEditingId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: saveTitle, image_data }),
-          })
-        : await fetch("/api/sketches", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: saveTitle, image_data }),
-          });
+      const { exportToBlob } = await import("@excalidraw/excalidraw");
+      const appState = api.getAppState();
+      const files = api.getFiles();
+      const blob = await exportToBlob({
+        elements,
+        appState: { ...appState, exportBackground: true, exportWithDarkMode: false },
+        files,
+        mimeType: "image/png",
+        // A gallery thumbnail, not the source of truth — the scene JSON is.
+        maxWidthOrHeight: 640,
+      });
+      const image_data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const scene: Scene = {
+        elements,
+        appState: { viewBackgroundColor: appState.viewBackgroundColor, gridSize: appState.gridSize },
+        files,
+      };
+      const body = JSON.stringify({ title: titleRef.current.trim() || "Untitled", image_data, scene });
+      const currentId = editingIdRef.current;
+      const res = currentId
+        ? await fetch(`/api/sketches/${currentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body })
+        : await fetch("/api/sketches", { method: "POST", headers: { "Content-Type": "application/json" }, body });
       if (!res.ok) throw new Error();
       const saved: Sketch = await res.json();
-      if (!currentEditingId) setEditingId(saved.id);
+      if (!currentId) setEditingId(saved.id);
       setDirty(false);
       setSketches((prev) => {
-        const others = prev.filter((s) => s.id !== saved.id);
-        return [saved, ...others].sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
+        const rest = prev.filter((s) => s.id !== saved.id);
+        return [saved, ...rest];
       });
     } catch {
       toast.error("Failed to save sketch");
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [api]);
 
-  // Debounced autosave: fires ~1.5s after the last edit (stroke, shape, text change, or undo).
-  // Keyed on editVersion (not dirty/texts) so the timer resets on every edit, even consecutive ones.
+  // Debounced autosave, ~1.5s after the last edit. Keyed on editVersion so consecutive
+  // edits keep pushing the timer out rather than saving mid-stroke.
   useEffect(() => {
     if (editVersion === 0) return;
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    cancelPendingSave();
     autoSaveTimerRef.current = setTimeout(() => {
       autoSaveTimerRef.current = null;
       autoSave();
-    }, 1500);
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-  }, [editVersion, autoSave]);
+    }, AUTOSAVE_MS);
+    return cancelPendingSave;
+  }, [editVersion, autoSave, cancelPendingSave]);
+
+  // Excalidraw fires onChange for pure viewport moves (pan/zoom/selection) too, so compare
+  // the element version to avoid marking the sketch dirty when nothing actually changed.
+  const lastElementsRef = useRef<readonly ExcalidrawElement[]>([]);
+  const handleChange = useCallback((elements: readonly ExcalidrawElement[]) => {
+    const prev = lastElementsRef.current;
+    const changed =
+      prev.length !== elements.length || elements.some((el, i) => prev[i] !== el);
+    lastElementsRef.current = elements;
+    if (!changed || elements.length === 0) return;
+    setDirty(true);
+    setEditVersion((v) => v + 1);
+  }, []);
+
+  const resetCanvas = useCallback(() => {
+    cancelPendingSave();
+    api?.resetScene();
+    lastElementsRef.current = [];
+    setTitle("");
+    setEditingId(null);
+    setDirty(false);
+  }, [api, cancelPendingSave]);
 
   const handleEdit = useCallback(
-    (sketch: Sketch) => {
-      const ctx = getCtx();
-      if (!ctx) return;
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-      const img = new Image();
-      img.onload = () => {
-        // Resize the raster to the saved image, then let the canvasSize effect paint it —
-        // assigning width/height here would be clobbered by React re-rendering the element.
-        pendingImageRef.current = img;
-        setCanvasSize({ w: img.naturalWidth, h: img.naturalHeight });
-        undoStackRef.current = [];
-        setCanUndo(false);
+    async (sketch: Sketch) => {
+      if (!api) return;
+      cancelPendingSave();
+      try {
+        const res = await fetch(`/api/sketches/${sketch.id}`);
+        if (!res.ok) throw new Error();
+        const full: Sketch & { scene: Scene | null } = await res.json();
+        api.resetScene();
+        if (full.scene?.elements) {
+          if (full.scene.files) api.addFiles(Object.values(full.scene.files));
+          api.updateScene({
+            elements: full.scene.elements as ExcalidrawElement[],
+            appState: { viewBackgroundColor: full.scene.appState?.viewBackgroundColor ?? "#ffffff" },
+          });
+        } else {
+          // Pre-Excalidraw sketch: it only exists as flat pixels, so bring it in as an
+          // image element. It can be moved/resized/drawn over, just not un-flattened.
+          const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
+          const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+            img.onerror = () => resolve({ w: 1200, h: 900 });
+            img.src = full.image_data;
+          });
+          const fileId = `legacy-${sketch.id}` as never;
+          api.addFiles([
+            { id: fileId, dataURL: full.image_data as never, mimeType: "image/png" as never, created: Date.now() },
+          ]);
+          api.updateScene({
+            elements: convertToExcalidrawElements([
+              { type: "image", fileId, x: 0, y: 0, width: dims.w, height: dims.h },
+            ]),
+          });
+        }
+        lastElementsRef.current = api.getSceneElements();
+        api.scrollToContent(api.getSceneElements(), { fitToContent: true });
+        setTitle(full.title);
+        setEditingId(full.id);
         setDirty(false);
-        setTitle(sketch.title);
-        setEditingId(sketch.id);
-        setTextPos(null);
-        setTextValue("");
-        setEditingTextId(null);
-        setSelectedTextId(null);
-        setTexts([]);
-        setSelection(null);
-        setMarquee(null);
-        resetZoom();
-        containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      };
-      img.src = sketch.image_data;
+      } catch {
+        toast.error("Failed to open sketch");
+      }
     },
-    [getCtx, paintBlank, resetZoom],
+    [api, cancelPendingSave],
   );
 
   const handleDelete = useCallback(
@@ -1006,13 +228,13 @@ export function SketchesPanel() {
       const res = await fetch(`/api/sketches/${id}`, { method: "DELETE" });
       if (res.ok) {
         setSketches((prev) => prev.filter((s) => s.id !== id));
-        if (editingId === id) setEditingId(null);
+        if (editingId === id) resetCanvas();
         toast.success("Sketch deleted");
       } else {
         toast.error("Failed to delete sketch");
       }
     },
-    [editingId],
+    [editingId, resetCanvas],
   );
 
   const handleDownload = useCallback((sketch: Sketch) => {
@@ -1022,14 +244,6 @@ export function SketchesPanel() {
     a.click();
   }, []);
 
-  // Scale the floating text input's font to roughly match the committed text size.
-  const fontScale = (() => {
-    const canvas = canvasRef.current;
-    const rect = canvas?.getBoundingClientRect();
-    return canvas && rect ? rect.width / canvas.width : 1;
-  })();
-  const cssFontSize = Math.max(12, fontSizeFor(size) * fontScale);
-
   return (
     <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto">
       {/* Title + autosave status */}
@@ -1038,7 +252,7 @@ export function SketchesPanel() {
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
-            if (editingId !== null) markDirty();
+            if (editingId !== null) setEditVersion((v) => v + 1);
           }}
           placeholder="Sketch title…"
           className="h-9 max-w-xs font-medium"
@@ -1055,225 +269,26 @@ export function SketchesPanel() {
             "Saved"
           ) : null}
         </span>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          {TOOLS.map(({ key, label, icon: Icon, hotkey }) => (
-            <Button
-              key={key}
-              variant={tool === key ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => {
-                setTool(key);
-                if (key !== "select") setSelection(null);
-              }}
-              aria-label={`${label} (${hotkey.toUpperCase()})`}
-              title={`${label} (${hotkey.toUpperCase()})`}
-            >
-              <Icon className="size-3.5" />
-            </Button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1 ml-1">
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => {
-                setColor(c);
-                if (tool === "eraser") setTool("pen");
-              }}
-              aria-label={`Pen color ${c}`}
-              className={cn(
-                "size-6 rounded-full border border-border transition-transform",
-                color === c && tool !== "eraser" ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110" : "hover:scale-110",
-              )}
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5 ml-1" title="Line weight">
-          <input
-            type="range"
-            min={MIN_SIZE}
-            max={MAX_SIZE}
-            value={size}
-            onChange={(e) => setSize(Number(e.target.value))}
-            aria-label="Line weight"
-            className="w-24 accent-primary"
-          />
-          <span className="text-xs text-muted-foreground tabular-nums w-8">{size}px</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => zoomButtons(1 / 1.25)} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">
-            <ZoomOutIcon className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 px-1.5 text-xs tabular-nums" onClick={resetZoom} disabled={zoom === 1} aria-label="Reset zoom" title="Reset zoom">
-            {Math.round(zoom * 100)}%
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => zoomButtons(1.25)} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">
-            <ZoomInIcon className="size-3.5" />
-          </Button>
-        </div>
-        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={handleUndo} disabled={!canUndo} title="Undo (⌘Z)">
-          <Undo2Icon className="size-3.5" />
-          Undo
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2" onClick={resetCanvas} disabled={!dirty && !editingId}>
+        <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2" onClick={resetCanvas}>
           <XIcon className="size-3.5" />
-          {editingId ? "New sketch" : "Clear"}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={() => setShortcutsOpen(true)}
-          aria-label="Keyboard shortcuts"
-          title="Keyboard shortcuts (?)"
-        >
-          <KeyboardIcon className="size-3.5" />
+          New sketch
         </Button>
       </div>
 
-      {/* Canvas viewport — zoom/pan applies a CSS transform to the canvas inside. Deliberately
-          frameless and full-bleed: negative margins cancel the panel padding so the page runs
-          edge-to-edge, and the height claims whatever the title + toolbar rows leave over.
-          The backdrop is muted, not white, so the page still reads as a page when zoomed out. */}
-      <div
-        ref={containerRef}
-        className="relative -mx-4 w-[calc(100%+2rem)] h-[calc(100%-6.5rem)] min-h-[22rem] shrink-0 overflow-hidden bg-muted touch-none select-none"
-      >
-        <canvas
-          ref={canvasRef}
-          width={canvasSize.w}
-          height={canvasSize.h}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          className={cn(
-            "absolute left-0 top-0 w-full",
-            spacePan
-              ? "cursor-grab active:cursor-grabbing"
-              : tool === "text"
-                ? "cursor-text"
-                : tool === "select"
-                  ? "cursor-default"
-                  : "cursor-crosshair",
-          )}
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
+      {/* Excalidraw owns its own toolbar, shortcuts, zoom and infinite canvas. Full-bleed:
+          negative margins cancel the panel padding so it runs edge-to-edge. */}
+      <div className="-mx-4 h-[calc(100%-5rem)] min-h-[24rem] w-[calc(100%+2rem)] shrink-0 overflow-hidden">
+        <Excalidraw
+          excalidrawAPI={setApi}
+          onChange={handleChange}
+          theme={resolvedTheme === "dark" ? "dark" : "light"}
+          initialData={{ appState: { viewBackgroundColor: "#ffffff" } }}
+          UIOptions={{ canvasActions: { loadScene: false } }}
         />
-        {/* Selection marquee — dashed outline plus a duplicate/delete toolbar once the drag settles. */}
-        {tool === "select" && (marquee ?? selection)
-          ? (() => {
-              const rect = marquee ?? selection!;
-              const box = rectToCss(rect);
-              if (!box) return null;
-              const settled = !marquee && !!selection;
-              return (
-                <div className="absolute pointer-events-none" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
-                  <div className="absolute inset-0 rounded-[2px] border border-dashed border-primary/70 bg-primary/5" />
-                  {settled ? (
-                    <div
-                      className="absolute left-0 z-10 flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-sm pointer-events-auto"
-                      // Flip below the box when there's no room above it.
-                      style={box.top < 36 ? { top: box.height + 4 } : { top: -32 }}
-                    >
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={duplicateSelection} aria-label="Duplicate selection">
-                        <CopyIcon className="size-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={deleteSelection}
-                        aria-label="Delete selection"
-                      >
-                        <TrashIcon className="size-3" />
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })()
-          : null}
-        {texts.map((t) => {
-          if (editingTextId === t.id) return null;
-          const pos = canvasToCss(t.x, t.y);
-          const selected = selectedTextId === t.id;
-          return (
-            <div key={t.id} className="absolute" style={{ left: pos.x, top: pos.y, transform: "translateY(-50%)" }}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedTextId(selected ? null : t.id);
-                }}
-                className={cn(
-                  "block whitespace-nowrap bg-transparent text-left p-0 leading-none",
-                  selected && "outline outline-1 outline-dashed outline-primary/60 outline-offset-2",
-                )}
-                style={{ color: t.color, fontSize: fontSizeFor(t.size) * fontScale, fontFamily: "sans-serif" }}
-              >
-                {t.value}
-              </button>
-              {selected ? (
-                <div
-                  className="absolute left-0 -top-8 z-10 flex items-center gap-0.5 rounded-md border border-border bg-popover shadow-sm p-0.5"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleEditText(t.id)} aria-label="Edit text">
-                    <PencilIcon className="size-3" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleDuplicateText(t.id)} aria-label="Duplicate text">
-                    <CopyIcon className="size-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDeleteText(t.id)}
-                    aria-label="Delete text"
-                  >
-                    <TrashIcon className="size-3" />
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {textPos ? (
-          <input
-            ref={textInputRef}
-            value={textValue}
-            onChange={(e) => setTextValue(e.target.value)}
-            onBlur={commitText}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitText();
-              if (e.key === "Escape") {
-                setTextPos(null);
-                setTextValue("");
-                setEditingTextId(null);
-              }
-            }}
-            placeholder="Type…"
-            className="absolute bg-transparent outline-none border-b border-dashed border-muted-foreground/50 min-w-24 max-w-[60%] p-0"
-            style={{
-              left: textPos.cssX,
-              top: textPos.cssY,
-              transform: "translateY(-50%)",
-              color,
-              fontSize: cssFontSize,
-              fontFamily: "sans-serif",
-            }}
-          />
-        ) : null}
       </div>
 
-      {/* Gallery */}
-      <div className="mt-2">
+      {/* Saved sketches */}
+      <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Saved sketches</h3>
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1288,7 +303,7 @@ export function SketchesPanel() {
                 <BrushIcon />
               </EmptyMedia>
               <EmptyTitle>No sketches yet</EmptyTitle>
-              <EmptyDescription>Draw something above and hit Save.</EmptyDescription>
+              <EmptyDescription>Draw something above — it saves itself.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -1334,30 +349,6 @@ export function SketchesPanel() {
           </div>
         )}
       </div>
-
-      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Keyboard shortcuts</DialogTitle>
-            <DialogDescription>Tool keys work whenever you&apos;re not typing in a text field.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-5 sm:grid-cols-2">
-            {SHORTCUT_GROUPS.map((group) => (
-              <div key={group.title} className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</p>
-                <ul className="space-y-1.5">
-                  {group.items.map(([keys, label]) => (
-                    <li key={label} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-muted-foreground">{label}</span>
-                      <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">{keys}</kbd>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

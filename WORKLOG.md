@@ -28,6 +28,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Sketches: replaced the custom canvas with Excalidraw
+
+**Ask:** Berto: "is there a kit online to make this robust? look for whiteboard kits for next js, i want it to be on par with miro."
+
+**Research + decision.** Two real contenders:
+- **tldraw** (v5.2.5) — closest to Miro (infinite canvas, frames, sticky notes, bound arrows, multiplayer sync built in; used by ClickUp/Google/Autodesk). **Not open source.** A license key is mandatory in production ("the tldraw SDK will not work in production without a valid license key"); the free hobby tier is discretionary, non-commercial only, and **requires a "made with tldraw" watermark on the canvas**; commercial is ~$6k/yr. Since Berto records this app for podcast/YouTube content, that watermark would appear in every video and monetized content is arguably not "non-commercial."
+- **Excalidraw** (v0.18.1, **MIT**) — no key, no watermark, no cost. peerDeps allow React 19 (we're on 19.2.6 / Next 16.2.6).
+
+Quizzed him with both plus a "keep what we built" option; he chose **Excalidraw**.
+
+**Schema change — the big one.** Sketches were stored as a flattened PNG, which is why text baked in permanently and nothing was editable on reopen. Added `sketches.scene JSONB` (idempotent `ADD COLUMN IF NOT EXISTS`, also applied to the live Neon DB) holding `{elements, appState, files}`. `image_data` is demoted to a gallery thumbnail (exported at `maxWidthOrHeight: 640`). `GET /api/sketches` now returns `has_scene` instead of the scene body (scenes are large); a new `GET /api/sketches/[id]` returns the full record for opening.
+
+**Panel rewrite** (`app/_components/sketches-panel.tsx`): the hand-rolled canvas — custom toolbar, raster drawing, undo stack, pinch/pan math, the Figma-style shortcut layer, the text overlay — is **gone**, replaced by the `<Excalidraw>` component, which brings its own toolbar, shortcuts (V/R/O/A/L/P/T — near-identical muscle memory), infinite canvas, zoom/pan, undo, shape editing, images and libraries. Kept: the title field, the ~1.5s debounced autosave, the saved-sketch gallery with thumbnail/download/delete, and the full-bleed layout. Excalidraw is loaded via `next/dynamic` with `ssr: false` (it touches `window` at module scope) and themed off `next-themes`' `resolvedTheme`.
+
+**Two traps worth remembering:**
+1. `onChange` fires for *viewport* changes too (pan, zoom, selection), so a naive handler marks the sketch dirty constantly. It now diffs element identity against the previous array and ignores no-op changes — without this, merely *opening* a sketch would re-save it.
+2. `appState` is persisted as a small whitelist (`viewBackgroundColor`, `gridSize`). The full appState carries transient junk and a `collaborators` Map that doesn't survive a JSON round-trip.
+
+**Legacy sketches** (Berto's 10 existing ones, all `scene = NULL`) open by importing their PNG as an Excalidraw image element — visible, movable, drawable-over, just not un-flattened. Verified they are *not* rewritten on open.
+
+**Verified:** typecheck clean, `npm run build` compiles successfully (`/sketches` builds). Against a dev server on :3789 — Excalidraw mounts with its toolbar; drew rectangle + ellipse + freedraw, autosave produced `has_scene=true` with `scene.elements` = `[rectangle, ellipse, freedraw]` (real objects, not pixels) plus a PNG thumbnail; reloaded the page, reopened from the gallery, shapes returned as editable objects. Synthetic legacy row (image_data, no scene): opening it imports the PNG onto the canvas and leaves `updated_at` and `scene = NULL` untouched. All `zzz-*` test rows deleted; Berto's 10 sketches confirmed intact and untouched.
+
+**Note:** `@excalidraw/excalidraw` is a heavy dependency (it bundles its own fonts/assets). It's client-only and lazily imported, so it doesn't affect other routes.
+
+---
+
 ## 2026-08-02 — Sketches: full-bleed canvas sized to the viewport
 
 **Ask:** Berto: "can we make it a bigger canvas? so there are no boarders?" — screenshot showed the page inset inside a rounded/bordered 4:3 frame with grey margin. Quizzed him on which "bigger" he meant (full-bleed drawing area / bigger fixed page / infinite Miro canvas); he chose **full-bleed drawing area**.

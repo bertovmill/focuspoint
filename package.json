@@ -16,6 +16,7 @@
     "@assistant-ui/react": "^0.14.24",
     "@assistant-ui/react-markdown": "^0.14.5",
     "@assistant-ui/react-syntax-highlighter": "^0.14.2",
+    "@excalidraw/excalidraw": "^0.18.1",
     "@fullcalendar/core": "^6.1.21",
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/interaction": "^6.1.21",

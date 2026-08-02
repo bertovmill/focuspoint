@@ -154,6 +154,10 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // The editable Excalidraw document ({elements, appState, files}). image_data is now just
+  // the PNG thumbnail for the gallery. Sketches drawn before the Excalidraw switch have a
+  // NULL scene and are re-opened by importing their PNG as an image element.
+  await sql`ALTER TABLE sketches ADD COLUMN IF NOT EXISTS scene JSONB`;
   // Google Calendar OAuth tokens — single-user app, one row (id = 1)
   await sql`
     CREATE TABLE IF NOT EXISTS google_auth (

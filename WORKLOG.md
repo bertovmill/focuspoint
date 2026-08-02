@@ -4,6 +4,30 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-02 — Real URLs for every section + a Select tool on the sketch canvas
+
+**Ask:** Berto: "can we have a selector option for the sketches section of the app? and can we add to the url /sketches?" Quizzed on both: he picked a **canvas select tool** (arrow/marquee — drag a box, then move/delete what's inside) over a saved-sketch picker dropdown, and **real routes for every section** over query-param URL sync.
+
+**Routing — every section is now a real URL.** The whole app used to be one client component (`app/page.tsx`) holding a `mobileTab` state, so there was only ever `/`.
+- `app/page.tsx` → `app/(app)/layout.tsx`. The shell (dashboard sidebar, chat panel, chat modal, mobile bottom nav) lives in the **layout**, not a page, so it persists across navigation — no remount, no lost chat/thread state when switching sections.
+- `mobileTab` state is replaced by `PATH_TABS[usePathname()]`, and `setMobileTab` is now `router.push(TAB_PATHS[tab])`. Every existing caller (sidebar nav, home-screen entries + hotkeys, mobile bottom nav + More menu, chat-modal expand, "run job with chat") went through that one function, so they all became real navigations for free.
+- Added stub `page.tsx` files (each returns `null`) for `/chat /tasks /notes /lists /calendar /journal /dreams /schedule /media /sketches /measures /vision` plus `/` — they exist to make the routes real; the layout shell renders the UI.
+- The layout prefetches all section routes on mount so tab switching stays instant.
+- Route names map to the tab ids, with one rename: the `journal-templates` tab lives at `/journal`. `/explore`, `/traces`, `/login` are outside the `(app)` group and unaffected.
+
+**Select tool** (`app/_components/sketches-panel.tsx`) — first tool in the toolbar (`MousePointer2` icon):
+- Drag a marquee → dashed outline + a floating duplicate/delete toolbar (flips below the box when there's no room above). Drags under ~6 logical px count as a click and just clear the selection.
+- Drag from *inside* the selection to move it: the pixels are lifted onto a detached canvas, the source rect is filled white, and each pointermove repaints `base` + the bitmap at the new spot. One undo step per move, taken at lift time.
+- Duplicate stamps a copy at +24/+24 and makes the copy the selection (so it can be dragged straight off the original). Delete fills the region white. Both are one undo step. **Delete/Backspace** deletes, **Escape** clears the selection.
+- Selection clears on undo, tool switch, new sketch, and loading a sketch for edit. Because the canvas is a raster, the tool moves *pixels* in the region, not vector objects — text elements are still handled by the existing click-to-edit overlay.
+- Zoom/pan needed no special handling: the marquee overlay maps logical→CSS through the canvas's `getBoundingClientRect()`, which already reflects the CSS transform.
+
+**Verified:** 22/22 Playwright checks against the dev server on :3000 — home entry and sidebar both land on `/sketches`, `/tasks` navigation, browser **back** returns to `/sketches` with the panel intact, deep links to `/notes /calendar /measures /vision /journal` all 200. For the select tool, pixel-level assertions: stroke drawn → marquee → move (source reads `[255,255,255]`, destination `[26,26,26]`), duplicate lands at +24/+24, undo removes it, delete wipes the region, undo restores it, switching to Pen clears the selection, and a plain click leaves no mark. `GET /api/sketches` confirmed no stray rows left behind.
+
+**Typecheck:** PASS ✓ · **Build:** PASS ✓ (all 13 section routes prerendered)
+
+---
+
 ## 2026-08-02 — Sketches: usable pinch zoom (damped + zoom out past 100%)
 
 **Ask:** Berto: "i need to pinch scroll to zoom in and out of the /sketches page."

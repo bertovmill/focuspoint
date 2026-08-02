@@ -9,6 +9,7 @@ import {
   DownloadIcon,
   EraserIcon,
   MinusIcon,
+  MousePointer2Icon,
   PencilIcon,
   PenLineIcon,
   SquareIcon,
@@ -62,9 +63,34 @@ const MAX_WHEEL_STEP = 1.25;
 
 const COLORS = ["#1a1a1a", "#dc2626", "#2563eb", "#16a34a", "#ea580c", "#9333ea"];
 
-type Tool = "pen" | "eraser" | "rect" | "ellipse" | "line" | "arrow" | "text";
+type Tool = "select" | "pen" | "eraser" | "rect" | "ellipse" | "line" | "arrow" | "text";
+
+// A marquee selection over the raster canvas, in logical canvas coords.
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Smaller than this (logical px) counts as a click, not a selection drag.
+const MIN_SELECTION = 6;
+
+const normRect = (a: { x: number; y: number }, b: { x: number; y: number }): Rect => ({
+  x: Math.min(a.x, b.x),
+  y: Math.min(a.y, b.y),
+  w: Math.abs(b.x - a.x),
+  h: Math.abs(b.y - a.y),
+});
+
+const clampRect = (r: Rect): Rect => {
+  const x = Math.max(0, Math.min(CANVAS_W, r.x));
+  const y = Math.max(0, Math.min(CANVAS_H, r.y));
+  return { x, y, w: Math.min(r.w, CANVAS_W - x), h: Math.min(r.h, CANVAS_H - y) };
+};
 
 const TOOLS: { key: Tool; label: string; icon: typeof BrushIcon }[] = [
+  { key: "select", label: "Select", icon: MousePointer2Icon },
   { key: "pen", label: "Pen", icon: PenLineIcon },
   { key: "eraser", label: "Eraser", icon: EraserIcon },
   { key: "rect", label: "Rectangle", icon: SquareIcon },
@@ -117,6 +143,18 @@ export function SketchesPanel() {
   const [editingTextId, setEditingTextId] = useState<number | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<number | null>(null);
   const nextTextIdRef = useRef(1);
+
+  // Select tool: `selection` is the committed marquee, `marquee` the live drag preview.
+  const [selection, setSelection] = useState<Rect | null>(null);
+  const [marquee, setMarquee] = useState<Rect | null>(null);
+  // In-flight select gesture — either dragging out a new marquee, or moving the
+  // pixels under an existing one (lifted onto `bitmap`, with the canvas minus
+  // those pixels kept in `base` so each move repaints cleanly).
+  const selectDragRef = useRef<
+    | { mode: "marquee"; start: { x: number; y: number } }
+    | { mode: "move"; start: { x: number; y: number }; rect0: Rect; bitmap: HTMLCanvasElement; base: ImageData }
+    | null
+  >(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -358,7 +396,76 @@ export function SketchesPanel() {
     lastPointRef.current = null;
     startPointRef.current = null;
     previewBaseRef.current = null;
+    selectDragRef.current = null;
   }, [getCtx]);
+
+  // Logical selection rect → container-relative CSS box (accounts for zoom/pan).
+  const rectToCss = useCallback((r: Rect) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !containerRect) return null;
+    const sx = rect.width / CANVAS_W;
+    const sy = rect.height / CANVAS_H;
+    return {
+      left: r.x * sx + (rect.left - containerRect.left),
+      top: r.y * sy + (rect.top - containerRect.top),
+      width: r.w * sx,
+      height: r.h * sy,
+    };
+  }, []);
+
+  // Copy the pixels under `r` onto a detached canvas (used to move/duplicate a selection).
+  const copyRegion = useCallback((r: Rect) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const w = Math.max(1, Math.round(r.w));
+    const h = Math.max(1, Math.round(r.h));
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    off.getContext("2d")!.drawImage(canvas, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h);
+    return off;
+  }, []);
+
+  const deleteSelection = useCallback(() => {
+    const ctx = getCtx();
+    if (!ctx || !selection) return;
+    pushUndo(ctx);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
+    setSelection(null);
+    markDirty();
+  }, [getCtx, selection, pushUndo, markDirty]);
+
+  const duplicateSelection = useCallback(() => {
+    const ctx = getCtx();
+    if (!ctx || !selection) return;
+    const bitmap = copyRegion(selection);
+    if (!bitmap) return;
+    pushUndo(ctx);
+    const next = clampRect({ ...selection, x: selection.x + 24, y: selection.y + 24 });
+    ctx.drawImage(bitmap, next.x, next.y);
+    // The copy becomes the new selection, so it can be dragged straight off the original.
+    setSelection(next);
+    markDirty();
+  }, [getCtx, selection, copyRegion, pushUndo, markDirty]);
+
+  // Delete/Backspace wipes the selected region, Escape drops the selection.
+  useEffect(() => {
+    if (!selection) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteSelection();
+      } else if (e.key === "Escape") {
+        setSelection(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selection, deleteSelection]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -388,6 +495,36 @@ export function SketchesPanel() {
       if (selectedTextId !== null) setSelectedTextId(null);
 
       const p = pointFromEvent(e);
+      if (tool === "select") {
+        // Suppress the native drag/text-selection default so the marquee tracks cleanly.
+        e.preventDefault();
+        if (textPos) commitText();
+        const inside =
+          selection && p.x >= selection.x && p.x <= selection.x + selection.w && p.y >= selection.y && p.y <= selection.y + selection.h;
+        if (inside && selection) {
+          // Lift the selected pixels off the canvas so they can be dragged around.
+          const bitmap = copyRegion(selection);
+          if (!bitmap) return;
+          pushUndo(ctx);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(selection.x, selection.y, selection.w, selection.h);
+          selectDragRef.current = {
+            mode: "move",
+            start: p,
+            rect0: selection,
+            bitmap,
+            base: ctx.getImageData(0, 0, CANVAS_W, CANVAS_H),
+          };
+          // Flagged as a stroke so a second finger (pinch) rolls the move back.
+          drawingRef.current = true;
+          markDirty();
+        } else {
+          setSelection(null);
+          selectDragRef.current = { mode: "marquee", start: p };
+          setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+        }
+        return;
+      }
       if (tool === "text") {
         // Suppress the mousedown default action — it would move focus to the
         // canvas (→ body) right after the effect focuses the floating input,
@@ -414,7 +551,7 @@ export function SketchesPanel() {
       }
       markDirty();
     },
-    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId, markDirty],
+    [getCtx, pointFromEvent, tool, color, size, textPos, commitText, pushUndo, cancelStrokeForPinch, selectedTextId, markDirty, selection, copyRegion],
   );
 
   const handlePointerMove = useCallback(
@@ -436,6 +573,21 @@ export function SketchesPanel() {
         };
         setZoom(z);
         setPan(clampPan(next, z));
+        return;
+      }
+      const drag = selectDragRef.current;
+      if (drag) {
+        const ctx = getCtx();
+        if (!ctx) return;
+        const p = pointFromEvent(e);
+        if (drag.mode === "marquee") {
+          setMarquee(clampRect(normRect(drag.start, p)));
+        } else {
+          const next = { ...drag.rect0, x: drag.rect0.x + (p.x - drag.start.x), y: drag.rect0.y + (p.y - drag.start.y) };
+          ctx.putImageData(drag.base, 0, 0);
+          ctx.drawImage(drag.bitmap, next.x, next.y);
+          setSelection(next);
+        }
         return;
       }
       if (!drawingRef.current) return;
@@ -468,11 +620,20 @@ export function SketchesPanel() {
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
+    const drag = selectDragRef.current;
+    if (drag) {
+      selectDragRef.current = null;
+      if (drag.mode === "marquee") {
+        // A tap (or a sliver of a drag) just clears the selection.
+        setSelection(marquee && marquee.w >= MIN_SELECTION && marquee.h >= MIN_SELECTION ? marquee : null);
+        setMarquee(null);
+      }
+    }
     drawingRef.current = false;
     lastPointRef.current = null;
     startPointRef.current = null;
     previewBaseRef.current = null;
-  }, []);
+  }, [marquee]);
 
   const handleUndo = useCallback(() => {
     const ctx = getCtx();
@@ -480,6 +641,8 @@ export function SketchesPanel() {
     if (!ctx || !snapshot) return;
     ctx.putImageData(snapshot, 0, 0);
     if (undoStackRef.current.length === 0) setCanUndo(false);
+    setSelection(null);
+    setMarquee(null);
     markDirty();
   }, [getCtx, markDirty]);
 
@@ -501,6 +664,8 @@ export function SketchesPanel() {
     setEditingTextId(null);
     setSelectedTextId(null);
     setTexts([]);
+    setSelection(null);
+    setMarquee(null);
     resetZoom();
   }, [getCtx, paintBlank, resetZoom]);
 
@@ -598,6 +763,8 @@ export function SketchesPanel() {
         setEditingTextId(null);
         setSelectedTextId(null);
         setTexts([]);
+        setSelection(null);
+        setMarquee(null);
         resetZoom();
         containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       };
@@ -670,7 +837,10 @@ export function SketchesPanel() {
               variant={tool === key ? "secondary" : "ghost"}
               size="sm"
               className="h-7 w-7 p-0"
-              onClick={() => setTool(key)}
+              onClick={() => {
+                setTool(key);
+                if (key !== "select") setSelection(null);
+              }}
               aria-label={label}
               title={label}
             >
@@ -742,9 +912,43 @@ export function SketchesPanel() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className={cn("absolute left-0 top-0 w-full", tool === "text" ? "cursor-text" : "cursor-crosshair")}
+          className={cn("absolute left-0 top-0 w-full", tool === "text" ? "cursor-text" : tool === "select" ? "cursor-default" : "cursor-crosshair")}
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
         />
+        {/* Selection marquee — dashed outline plus a duplicate/delete toolbar once the drag settles. */}
+        {tool === "select" && (marquee ?? selection)
+          ? (() => {
+              const rect = marquee ?? selection!;
+              const box = rectToCss(rect);
+              if (!box) return null;
+              const settled = !marquee && !!selection;
+              return (
+                <div className="absolute pointer-events-none" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
+                  <div className="absolute inset-0 rounded-[2px] border border-dashed border-primary/70 bg-primary/5" />
+                  {settled ? (
+                    <div
+                      className="absolute left-0 z-10 flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-sm pointer-events-auto"
+                      // Flip below the box when there's no room above it.
+                      style={box.top < 36 ? { top: box.height + 4 } : { top: -32 }}
+                    >
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={duplicateSelection} aria-label="Duplicate selection">
+                        <CopyIcon className="size-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={deleteSelection}
+                        aria-label="Delete selection"
+                      >
+                        <TrashIcon className="size-3" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()
+          : null}
         {texts.map((t) => {
           if (editingTextId === t.id) return null;
           const pos = canvasToCss(t.x, t.y);

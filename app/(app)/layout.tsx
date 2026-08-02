@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
@@ -21,6 +23,29 @@ import {
 
 type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision";
 
+// Every section is a real URL. The shell below lives in this layout (not in the
+// page files) so it survives navigation between sections — the tab is derived
+// from the pathname and switching tabs is a router.push.
+const TAB_PATHS: Record<MobileTab, string> = {
+  home: "/",
+  chat: "/chat",
+  tasks: "/tasks",
+  notes: "/notes",
+  lists: "/lists",
+  calendar: "/calendar",
+  "journal-templates": "/journal",
+  dreams: "/dreams",
+  schedule: "/schedule",
+  media: "/media",
+  sketches: "/sketches",
+  measures: "/measures",
+  vision: "/vision",
+};
+
+const PATH_TABS = Object.fromEntries(
+  Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
+) as Record<string, MobileTab>;
+
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
   { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
@@ -32,16 +57,28 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "vision", label: "Vision", icon: TelescopeIcon },
 ];
 
-export default function Page() {
+export default function AppLayout({ children }: { readonly children: ReactNode }) {
   return (
     <ThreadsProvider>
-      <Workspace />
+      <Workspace>{children}</Workspace>
     </ThreadsProvider>
   );
 }
 
-function Workspace() {
-  const [mobileTab, setMobileTab] = useState<MobileTab>("home");
+function Workspace({ children }: { readonly children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const mobileTab = PATH_TABS[pathname] ?? "home";
+  const setMobileTab = useCallback(
+    (tab: MobileTab) => router.push(TAB_PATHS[tab]),
+    [router],
+  );
+
+  // Warm every section route so switching tabs feels instant (the pages are empty
+  // stubs, so this is cheap).
+  useEffect(() => {
+    for (const path of Object.values(TAB_PATHS)) router.prefetch(path);
+  }, [router]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
@@ -276,6 +313,9 @@ function Workspace() {
           </DropdownMenuContent>
         </DropdownMenu>
       </nav>
+
+      {/* Section pages render nothing — the shell above owns the UI. */}
+      {children}
     </main>
   );
 }

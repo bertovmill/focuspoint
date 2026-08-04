@@ -2287,3 +2287,19 @@ App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** ope
 **Verified:** 9/9 Playwright checks on a dedicated dev server (:3789) — no DAILY header, WEEKLY header intact, a daily seeded with yesterday's due date still listed, dailies sorting above the one-off seed, "Daily" marker present, completing a daily rolls due_date to tomorrow without setting `completed`, stays struck-through today, and is still listed after a reload. Seeds deleted; server killed by PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-08-04 — Tasks: pick a priority when adding a task
+
+**Ask:** Berto wanted the option to set priority at add-time instead of having to add the task first and then set priority from the context menu.
+
+**What was built** (`app/_components/dashboard.tsx`):
+- New `newTodoPriority` state (defaults to `"normal"`), and a Low/Normal/High/Urgent badge row that appears above the existing recurrence row once the input has text — same badge pattern as the inline edit form, with the flag icon as its leading marker and the urgent/high tints on unselected badges.
+- `handleAddTodo` sends `priority` in the POST body and resets the picker to `"normal"` after a successful add; the error path now restores title, recurrence *and* priority (previously recurrence was silently dropped on failure).
+
+No API or schema changes needed — `POST /api/todos` already accepted `priority` (defaulting to `"normal"`) and the column has existed since the original schema. The UI was simply never passing it.
+
+**Verified:** 14/14 Playwright checks on a dedicated dev server (:3789) — all four badges render, recurrence row unaffected, urgent selection persists to the DB, the new row renders its Urgent badge, picker resets to Normal after add, no-click default is `normal`, selection moves between badges, row hides when the input is emptied. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓

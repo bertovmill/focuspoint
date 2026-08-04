@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, BrushIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, CalendarDaysIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, BrushIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, CalendarDaysIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
@@ -236,6 +236,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const [newTodoPriority, setNewTodoPriority] = useState<Todo["priority"]>("normal");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -371,19 +372,23 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     const title = newTodo.trim();
     if (!title) return;
     const recurrence = newTodoRecurrence;
+    const priority = newTodoPriority;
     setNewTodo("");
     setNewTodoRecurrence("none");
+    setNewTodoPriority("normal");
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, recurrence }),
+        body: JSON.stringify({ title, recurrence, priority }),
       });
       if (!res.ok) throw new Error();
       const todo = await res.json();
       setTodos((prev) => [todo, ...prev]);
     } catch {
       setNewTodo(title);
+      setNewTodoRecurrence(recurrence);
+      setNewTodoPriority(priority);
       toast.error("Couldn't add task. Try again.");
     }
   };
@@ -820,6 +825,25 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   <PlusIcon className="size-4" />
                 </Button>
               </div>
+              {newTodo.trim() && (
+                <div className="flex items-center gap-1.5">
+                  <FlagIcon className="size-3 text-muted-foreground shrink-0" />
+                  {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                    <Badge
+                      key={p}
+                      asChild
+                      variant={newTodoPriority === p ? "default" : "outline"}
+                      className={cn(
+                        "cursor-pointer capitalize",
+                        newTodoPriority !== p && p === "urgent" && "border-priority-urgent/40 text-priority-urgent",
+                        newTodoPriority !== p && p === "high" && "border-priority-high/40 text-priority-high",
+                      )}
+                    >
+                      <button type="button" onClick={() => setNewTodoPriority(p)}>{p}</button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
               {newTodo.trim() && (
                 <div className="flex items-center gap-1.5">
                   <RepeatIcon className="size-3 text-muted-foreground shrink-0" />

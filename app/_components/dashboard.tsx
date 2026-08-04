@@ -116,6 +116,7 @@ interface Todo {
   completed_at?: string | null;
   timer_started_at?: string | null;
   time_spent_seconds?: number;
+  task_number?: number | null;
 }
 
 interface Thought {
@@ -195,6 +196,19 @@ function priorityRank(t: Todo) {
   return PRIORITY_RANK[t.priority] ?? 1;
 }
 
+// Manually numbered tasks are the "do this next" queue: they sort ahead of
+// everything else, in ascending order. Unnumbered tasks sort as they always did.
+function queueRank(t: Todo) {
+  return typeof t.task_number === "number" ? t.task_number : Infinity;
+}
+
+// Guarded against Infinity - Infinity (NaN) when neither task is numbered.
+function compareQueue(a: Todo, b: Todo) {
+  const ra = queueRank(a);
+  const rb = queueRank(b);
+  return ra === rb ? 0 : ra - rb;
+}
+
 // Missing/unparseable created_at sinks to the bottom of an oldest-first list.
 function createdAtMs(t: Todo) {
   const ms = t.created_at ? new Date(t.created_at).getTime() : NaN;
@@ -254,6 +268,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [editTodoDueDate, setEditTodoDueDate] = useState("");
   const [editTodoRecurrence, setEditTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const editTodoRef = useRef<HTMLInputElement>(null);
+  // Which task's queue-number badge is currently an open input.
+  const [numberingTodoId, setNumberingTodoId] = useState<number | null>(null);
+  // Set by Escape so the blur it triggers discards instead of saving.
+  const cancelNumberRef = useRef(false);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [semanticResults, setSemanticResults] = useState<Thought[] | null>(null);
@@ -560,6 +578,36 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     } catch {
       setTodos(prev);
       toast.error("Couldn't update priority.");
+    }
+  };
+
+  // Queue numbers are slots: handing #3 to a task takes it off whoever held it.
+  const handleSetTaskNumber = async (id: number, raw: string) => {
+    const trimmed = raw.trim();
+    const parsed = Number(trimmed);
+    const task_number =
+      trimmed === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : Math.trunc(parsed);
+    setNumberingTodoId(null);
+    const prev = todos;
+    setTodos((ts) =>
+      ts.map((t) =>
+        t.id === id
+          ? { ...t, task_number }
+          : task_number !== null && t.task_number === task_number
+            ? { ...t, task_number: null }
+            : t,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_number }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't set task number.");
     }
   };
 
@@ -893,6 +941,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                     // that queue and rides at the top.
                     .sort(
                       (a, b) =>
+                        compareQueue(a, b) ||
                         Number(isDaily(b)) - Number(isDaily(a)) ||
                         Number(isInProgressActive(b)) - Number(isInProgressActive(a)) ||
                         Number(isWaitingActive(b)) - Number(isWaitingActive(a)) ||
@@ -973,6 +1022,49 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 isDoneToday && "opacity-60",
                               )}
                             >
+                              {numberingTodoId === todo.id ? (
+                                <input
+                                  autoFocus
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={1}
+                                  defaultValue={todo.task_number ?? ""}
+                                  placeholder="#"
+                                  onBlur={(e) => {
+                                    if (cancelNumberRef.current) {
+                                      cancelNumberRef.current = false;
+                                      setNumberingTodoId(null);
+                                      return;
+                                    }
+                                    handleSetTaskNumber(todo.id, e.target.value);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") e.currentTarget.blur();
+                                    if (e.key === "Escape") {
+                                      cancelNumberRef.current = true;
+                                      e.currentTarget.blur();
+                                    }
+                                  }}
+                                  className="mt-0.5 shrink-0 size-6 rounded-md border border-primary bg-background text-center text-xs font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  aria-label="Task number"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setNumberingTodoId(todo.id)}
+                                  title={todo.task_number ? "Change task number" : "Set task number"}
+                                  aria-label={todo.task_number ? `Task number ${todo.task_number}` : "Set task number"}
+                                  className={cn(
+                                    "mt-0.5 shrink-0 size-6 rounded-md border text-xs font-semibold tabular-nums flex items-center justify-center transition-all",
+                                    todo.task_number
+                                      ? "border-primary/40 bg-primary/10 text-primary"
+                                      : "border-transparent text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:border-border",
+                                    isDone && "opacity-40",
+                                  )}
+                                >
+                                  {todo.task_number ?? "#"}
+                                </button>
+                              )}
                               <button
                                 onClick={() => (isDoneToday ? handleUncomplete(todo.id) : handleComplete(todo.id))}
                                 disabled={isCompleting}

@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         UPDATE todos
         SET timer_started_at = COALESCE(timer_started_at, NOW()), in_progress = TRUE
         WHERE id = ${id}
-        RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
+        RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number
       `;
       if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
       return NextResponse.json(row);
@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           END,
           timer_started_at = NULL
       WHERE id = ${id}
-      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds
+      RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number
     `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

@@ -2303,3 +2303,27 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Verified:** 14/14 Playwright checks on a dedicated dev server (:3789) — all four badges render, recurrence row unaffected, urgent selection persists to the DB, the new row renders its Urgent badge, picker resets to Normal after add, no-click default is `normal`, selection moves between badges, row hides when the input is emptied. Seeds deleted; server killed by PID.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-08-04 — Tasks: manual queue numbers ("do this next" order)
+
+**Ask:** Berto can't do tasks in parallel — he wanted an easy way to put a number on each task so the list itself tells him what to do next, one at a time.
+
+**Decisions (asked Berto):**
+- Input: click a small number badge on the row, type the number, Enter. No drag-and-drop (fiddly at 49 tasks, unreliable on mobile). Numbers can be sparse — assign #5 without numbering 1–4.
+- Sort: numbered tasks float to the very top in ascending order, ahead of dailies/in-progress/urgent. Unnumbered tasks keep the existing sort (daily pin → in progress → waiting → priority → oldest first).
+- Numbers behave as *slots*: giving #3 to a task clears #3 off whoever held it (enforced both optimistically in the client and server-side in the PATCH).
+
+**Files changed:**
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER` (nullable; NULL = unnumbered).
+- `app/api/todos/route.ts`, `app/api/todos/[id]/route.ts`, `app/api/todos/[id]/timer/route.ts` — `task_number` added to every SELECT/RETURNING list.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `task_number`, keyed on property *presence* (so `null`/`""` clears it) via `CASE WHEN ${hasTaskNumber}::boolean …`; clears the same number off other incomplete todos first.
+- `app/api/todos/[id]/complete/route.ts` — completing a task releases its slot (`task_number = NULL`).
+- `app/_components/dashboard.tsx` — `task_number` on the `Todo` interface; `queueRank`/`compareQueue` helpers (the compare guards against `Infinity - Infinity` → NaN); sort now leads with `compareQueue`; new `numberingTodoId` state + `cancelNumberRef` (Escape discards, Enter/blur saves); `handleSetTaskNumber` with optimistic update + rollback toast; a 24px badge left of the checkbox showing the number (primary tint) or a faint `#` on hover when unset, which swaps to a spinner-less number input in place.
+
+**Verified:** Playwright on a dedicated dev server (:3789) — set #1 and #2, both rows jumped to the top of the list in order; reassigning #1 to another task stripped it from the previous holder (server-side check: `gamma=null, beta=1`); clearing via an empty input persisted as `null`. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `task_number` yet — Cael can't number tasks by voice/chat.

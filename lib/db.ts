@@ -45,6 +45,9 @@ export async function ensureSchema() {
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS waiting BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS timer_started_at TIMESTAMPTZ`;
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS time_spent_seconds INTEGER NOT NULL DEFAULT 0`;
+  // Manual "do this next" queue position. NULL = unnumbered; numbers need not be
+  // contiguous or unique — they're whatever order the owner typed.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

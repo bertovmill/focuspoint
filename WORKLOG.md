@@ -2327,3 +2327,26 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `task_number` yet — Cael can't number tasks by voice/chat.
+
+---
+
+## 2026-08-05 — Tasks: estimated time + live countdown while timing
+
+**Ask:** Berto wanted to set an estimated time on a task when adding it, then have the existing timer count down against that estimate instead of just counting up.
+
+**Decisions (asked Berto):**
+- Input: preset chips (None/15m/30m/1h/2h) on the add form and edit form, same pattern as the priority/recurrence badge rows — no free-text entry.
+- Countdown: replaces the existing orange "Timing" badge in place (rather than adding a second element) — ticks down live as "18:32 left", flips to a red "+2:14 over" once it passes the estimate. Tasks with no estimate keep the old static "Timing" badge.
+
+**Files changed:**
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER` (nullable; NULL = no estimate).
+- `app/api/todos/route.ts` — `estimated_minutes` in GET's SELECT lists and POST's INSERT/RETURNING (validated to a positive integer or `null`).
+- `app/api/todos/[id]/route.ts` — PATCH accepts `estimated_minutes`, keyed on property *presence* like `task_number` (so `null`/`""` clears it) via `CASE WHEN ${hasEstimatedMinutes}::boolean …`.
+- `app/api/todos/[id]/timer/route.ts` — `estimated_minutes` added to both RETURNING lists.
+- `app/_components/dashboard.tsx` — `estimated_minutes` on the `Todo` interface; `ESTIMATE_OPTIONS` (0/15/30/60/120) + `formatEstimateLabel`/`formatCountdown` helpers; `newTodoEstimatedMinutes`/`editTodoEstimatedMinutes` state wired into `handleAddTodo`/`saveEditTodo` and their chip rows on the add and edit forms; a `nowTick` state ticking every second via `setInterval` (only while some task's `timer_started_at` is set, so it's not running idle) drives the countdown badge's live remaining/over-time text and red styling.
+
+**Verified:** Playwright + direct API checks on a dedicated dev server (:3789) — estimate chips render once the add-form input has text, "None" is the default, adding with 30m persists `estimated_minutes: 30`; starting the timer shows a live "…left" countdown within ~1s; editing the estimate to 1h persists `estimated_minutes: 60`; stopping the timer banks `time_spent_seconds` and clears `timer_started_at`. Seed task deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `estimated_minutes` yet.

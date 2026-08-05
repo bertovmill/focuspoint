@@ -31,6 +31,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       hasTaskNumber && body.task_number !== null && body.task_number !== "" && Number.isFinite(rawTaskNumber)
         ? Math.trunc(rawTaskNumber)
         : null;
+    // estimated_minutes is explicitly nullable (null/"" clears it), so presence of the
+    // key — not truthiness — decides whether we touch the column.
+    const hasEstimatedMinutes = Object.prototype.hasOwnProperty.call(body, "estimated_minutes");
+    const rawEstimatedMinutes = Number(body.estimated_minutes);
+    const estimated_minutes =
+      hasEstimatedMinutes && body.estimated_minutes !== null && body.estimated_minutes !== "" && Number.isFinite(rawEstimatedMinutes) && rawEstimatedMinutes > 0
+        ? Math.trunc(rawEstimatedMinutes)
+        : null;
     const sql = getDb();
     // Queue positions are slots: giving #3 to this task takes it from whoever had it.
     if (hasTaskNumber && task_number !== null) {
@@ -49,9 +57,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             recurrence = COALESCE(${recurrence ?? null}, recurrence),
             in_progress = COALESCE(${in_progress ?? null}, in_progress),
             waiting = COALESCE(${waiting ?? null}, waiting),
-            task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END
+            task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
+            estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes
         `
       : await sql`
           UPDATE todos
@@ -61,9 +70,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             recurrence = COALESCE(${recurrence ?? null}, recurrence),
             in_progress = COALESCE(${in_progress ?? null}, in_progress),
             waiting = COALESCE(${waiting ?? null}, waiting),
-            task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END
+            task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
+            estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

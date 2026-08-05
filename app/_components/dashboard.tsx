@@ -117,6 +117,7 @@ interface Todo {
   timer_started_at?: string | null;
   time_spent_seconds?: number;
   task_number?: number | null;
+  estimated_minutes?: number | null;
 }
 
 interface Thought {
@@ -190,6 +191,26 @@ function formatCreated(iso: string | null | undefined) {
   });
 }
 
+// 0 = no estimate. Presets only — matches the priority/recurrence chip pattern.
+const ESTIMATE_OPTIONS = [0, 15, 30, 60, 120] as const;
+
+function formatEstimateLabel(minutes: number) {
+  if (minutes === 0) return "None";
+  if (minutes < 60) return `${minutes}m`;
+  return minutes % 60 === 0 ? `${minutes / 60}h` : `${Math.floor(minutes / 60)}h${minutes % 60}m`;
+}
+
+// mm:ss (or h:mm:ss past 99 minutes) for the timer countdown badge.
+function formatCountdown(totalSeconds: number) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  const mm = hrs > 0 ? String(mins).padStart(2, "0") : String(mins);
+  const ss = String(secs).padStart(2, "0");
+  return hrs > 0 ? `${hrs}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 3, high: 2, normal: 1, low: 0 };
 
 function priorityRank(t: Todo) {
@@ -251,6 +272,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [newTodo, setNewTodo] = useState("");
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [newTodoPriority, setNewTodoPriority] = useState<Todo["priority"]>("normal");
+  const [newTodoEstimatedMinutes, setNewTodoEstimatedMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -267,6 +289,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [editTodoPriority, setEditTodoPriority] = useState<"low" | "normal" | "high" | "urgent">("normal");
   const [editTodoDueDate, setEditTodoDueDate] = useState("");
   const [editTodoRecurrence, setEditTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const [editTodoEstimatedMinutes, setEditTodoEstimatedMinutes] = useState(0);
+  // Ticks once a second while any task's timer is running, to drive the live countdown badge.
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const editTodoRef = useRef<HTMLInputElement>(null);
   // Which task's queue-number badge is currently an open input.
   const [numberingTodoId, setNumberingTodoId] = useState<number | null>(null);
@@ -284,6 +309,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   useEffect(() => {
     if (controlledTab) setActiveTab(controlledTab);
   }, [controlledTab]);
+
+  // Only run the clock while something is actually timing — no point ticking otherwise.
+  useEffect(() => {
+    if (!todos.some((t) => t.timer_started_at)) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [todos]);
 
   // "N" shortcut: focus the new-task input once the Tasks tab is showing.
   useEffect(() => {
@@ -391,14 +423,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     if (!title) return;
     const recurrence = newTodoRecurrence;
     const priority = newTodoPriority;
+    const estimated_minutes = newTodoEstimatedMinutes || null;
     setNewTodo("");
     setNewTodoRecurrence("none");
     setNewTodoPriority("normal");
+    setNewTodoEstimatedMinutes(0);
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, recurrence, priority }),
+        body: JSON.stringify({ title, recurrence, priority, estimated_minutes }),
       });
       if (!res.ok) throw new Error();
       const todo = await res.json();
@@ -407,6 +441,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       setNewTodo(title);
       setNewTodoRecurrence(recurrence);
       setNewTodoPriority(priority);
+      setNewTodoEstimatedMinutes(estimated_minutes ?? 0);
       toast.error("Couldn't add task. Try again.");
     }
   };
@@ -529,6 +564,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     setEditTodoPriority(todo.priority);
     setEditTodoDueDate(todo.due_date ? todo.due_date.slice(0, 10) : "");
     setEditTodoRecurrence(todo.recurrence ?? "none");
+    setEditTodoEstimatedMinutes(todo.estimated_minutes ?? 0);
     setTimeout(() => {
       editTodoRef.current?.focus();
       editTodoRef.current?.select();
@@ -549,6 +585,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       priority: editTodoPriority,
       due_date: editTodoDueDate || null,
       recurrence: editTodoRecurrence,
+      estimated_minutes: editTodoEstimatedMinutes || null,
     };
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     setEditingTodoId(null);
@@ -894,6 +931,23 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               )}
               {newTodo.trim() && (
                 <div className="flex items-center gap-1.5">
+                  <TimerIcon className="size-3 text-muted-foreground shrink-0" />
+                  {ESTIMATE_OPTIONS.map((m) => (
+                    <Badge
+                      key={m}
+                      asChild
+                      variant={newTodoEstimatedMinutes === m ? "default" : "outline"}
+                      className="cursor-pointer"
+                    >
+                      <button type="button" onClick={() => setNewTodoEstimatedMinutes(m)}>
+                        {formatEstimateLabel(m)}
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {newTodo.trim() && (
+                <div className="flex items-center gap-1.5">
                   <RepeatIcon className="size-3 text-muted-foreground shrink-0" />
                   {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
                     <Badge
@@ -1001,6 +1055,21 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   >
                                     <button type="button" onClick={() => setEditTodoRecurrence(r)}>
                                       {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                <TimerIcon className="size-3 text-muted-foreground shrink-0" />
+                                {ESTIMATE_OPTIONS.map((m) => (
+                                  <Badge
+                                    key={m}
+                                    asChild
+                                    variant={editTodoEstimatedMinutes === m ? "default" : "outline"}
+                                    className="cursor-pointer"
+                                  >
+                                    <button type="button" onClick={() => setEditTodoEstimatedMinutes(m)}>
+                                      {formatEstimateLabel(m)}
                                     </button>
                                   </Badge>
                                 ))}
@@ -1113,15 +1182,30 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   )}
                                 </div>
                               </div>
-                              {todo.timer_started_at && !isDone && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 border-primary/40 text-primary"
-                                >
-                                  <TimerIcon className="size-3" />
-                                  Timing
-                                </Badge>
-                              )}
+                              {todo.timer_started_at && !isDone && (() => {
+                                const elapsed =
+                                  (todo.time_spent_seconds ?? 0) +
+                                  Math.max(0, (nowTick - new Date(todo.timer_started_at).getTime()) / 1000);
+                                const estimateSeconds = todo.estimated_minutes ? todo.estimated_minutes * 60 : null;
+                                const remaining = estimateSeconds !== null ? estimateSeconds - elapsed : null;
+                                const isOver = remaining !== null && remaining < 0;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "shrink-0",
+                                      isOver ? "border-destructive/40 text-destructive" : "border-primary/40 text-primary",
+                                    )}
+                                  >
+                                    <TimerIcon className="size-3" />
+                                    {remaining === null
+                                      ? "Timing"
+                                      : isOver
+                                        ? `+${formatCountdown(-remaining)} over`
+                                        : `${formatCountdown(remaining)} left`}
+                                  </Badge>
+                                );
+                              })()}
                               {todo.in_progress && !todo.timer_started_at && !isDone && (
                                 <Badge
                                   variant="outline"

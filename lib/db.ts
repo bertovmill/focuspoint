@@ -48,6 +48,8 @@ export async function ensureSchema() {
   // Manual "do this next" queue position. NULL = unnumbered; numbers need not be
   // contiguous or unique — they're whatever order the owner typed.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER`;
+  // Estimated time to complete, in minutes. NULL = no estimate; drives the timer countdown.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

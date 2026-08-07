@@ -16,6 +16,8 @@ import {
   GaugeIcon,
   TelescopeIcon,
   EyeIcon,
+  ThumbsUpIcon,
+  ThumbsDownIcon,
 } from "lucide-react";
 import {
   BarbellIcon,
@@ -28,6 +30,9 @@ import {
   UsersThreeIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
@@ -52,6 +57,26 @@ interface MeasureRow {
   category: string;
   recorded_date: string;
   data: Record<string, number | string | undefined>;
+}
+
+interface Meal {
+  id: number;
+  meal_date: string;
+  name: string;
+  description: string | null;
+  cuisine: string | null;
+  image_url: string | null;
+  feedback: "up" | "down" | null;
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hotkey: string }[] = [
@@ -167,6 +192,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [routines, setRoutines] = useState<{ title: string; content: string }[] | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
+  const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [timelineGranularity, setTimelineGranularity] = useState<TimelineGranularity>("full");
@@ -176,16 +202,35 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   });
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
+  const handleMealFeedback = async (feedback: "up" | "down") => {
+    if (!todayMeal) return;
+    const prev = todayMeal;
+    const next = todayMeal.feedback === feedback ? null : feedback;
+    setTodayMeal({ ...todayMeal, feedback: next });
+    try {
+      const res = await fetch(`/api/meals/${todayMeal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback: next }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodayMeal(prev);
+      toast.error("Couldn't save feedback.");
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes] = await Promise.all([
+        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes, mealsRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
           fetch("/api/vision?kind=milestone"),
           fetch("/api/vision?kind=routine"),
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
+          fetch("/api/meals?limit=1"),
         ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -226,11 +271,18 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             setSavings({ total, goal: Number.isFinite(goal) && goal > 0 ? goal : null });
           }
         }
+        if (mealsRes.ok) {
+          const meals: Meal[] = await mealsRes.json();
+          setTodayMeal(meals[0] && isToday(meals[0].meal_date) ? meals[0] : null);
+        } else {
+          setTodayMeal(null);
+        }
       } catch {
         setFormVisions({});
         setFormMethods({});
         setMilestones({});
         setRoutines([]);
+        setTodayMeal(null);
       }
     })();
   }, []);
@@ -335,6 +387,60 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </p>
           <p className="text-sm leading-relaxed">{VISION_2030}</p>
         </Card>
+
+        {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
+        {todayMeal && (
+          <div className="mb-6">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+              Today's meal
+            </p>
+            <Card className="overflow-hidden py-0 gap-0 rounded-xl shadow-none">
+              {todayMeal.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={todayMeal.image_url}
+                  alt={todayMeal.name}
+                  className="w-full aspect-[16/9] object-cover"
+                />
+              )}
+              <div className="px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium leading-snug">{todayMeal.name}</p>
+                    {todayMeal.cuisine && (
+                      <Badge variant="outline" className="mt-1.5">
+                        {todayMeal.cuisine}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant={todayMeal.feedback === "up" ? "default" : "outline"}
+                      aria-label="Liked it"
+                      onClick={() => handleMealFeedback("up")}
+                    >
+                      <ThumbsUpIcon className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={todayMeal.feedback === "down" ? "default" : "outline"}
+                      aria-label="Not for me"
+                      onClick={() => handleMealFeedback("down")}
+                    >
+                      <ThumbsDownIcon className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+                {todayMeal.description && (
+                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                    {todayMeal.description}
+                  </p>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* 8 forms of wealth */}
         <div className="mb-10">

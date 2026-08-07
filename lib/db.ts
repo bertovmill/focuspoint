@@ -174,6 +174,21 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Daily meal recommendation (photo + name/description), one row per day. Feedback
+  // (thumbs up/down) on today's meal informs the next day's suggestion.
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_recommendations (
+      id SERIAL PRIMARY KEY,
+      meal_date DATE NOT NULL DEFAULT CURRENT_DATE UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      cuisine TEXT,
+      image_url TEXT,
+      feedback TEXT,
+      feedback_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

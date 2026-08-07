@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-07 — Home dashboard: daily Mediterranean/Italian meal recommendation with photo + feedback loop
+
+**Ask:** Berto wanted a photo of a meal recommendation for the day added to the daily dashboard — aiming for Mediterranean or Italian to start — with the ability to give thumbs up/down feedback that informs the next day's pick.
+
+**Decisions (asked Berto):**
+- Photo source: AI-generated (via the AI Gateway's `generateImage`, model `google/imagen-4.0-generate-001`), not a stock-photo API or emoji — keeps it self-contained, no new marketplace integration.
+- Generation timing: a scheduled daily job (not an on-demand button), following the app's existing pattern — recurring jobs are rows in the `scheduled_tasks` table, fired once daily by the existing `agent/schedules/dispatcher.ts` (Vercel Hobby's cron-frequency cap means that dispatcher is the only real clock in this app; a native `defineSchedule` would need its own Vercel Cron slot).
+- Feedback: thumbs up/down only (no free-text note) — stored on the day's row and read back by Cael the next morning via `list_meal_history`.
+
+**Where it actually lives:** Initially built this into `Dashboard`'s internal "home" tab, then discovered that tab is dead code — `app/(app)/layout.tsx` hides the whole `Dashboard` panel and shows a completely separate `HomeScreen` component (`app/_components/home-screen.tsx`) whenever the app-level "Home" nav is active. That `HomeScreen` — daily hero photo, 2030 vision, 8 forms of wealth, timeline, routines — is the real daily dashboard, so the meal card was moved there (reverted the dead `Dashboard` changes) and placed right under the 2030 vision card.
+
+**Files changed:**
+- `lib/db.ts` — new `meal_recommendations` table: `id, meal_date DATE UNIQUE DEFAULT CURRENT_DATE, name, description, cuisine, image_url, feedback, feedback_at, created_at`. `meal_date UNIQUE` makes the day's row upsertable (re-running the job the same day overwrites it and clears feedback).
+- `app/api/meals/route.ts` — `GET`, most recent N days.
+- `app/api/meals/[id]/route.ts` — `PATCH { feedback: "up" | "down" | null }`; `null` clears it (toggle-off).
+- `agent/tools/list_meal_history.ts` — new tool: recent meals + feedback, for Cael to review before picking today's.
+- `agent/tools/set_daily_meal.ts` — new tool: takes name/description/cuisine/image_prompt, generates the photo, uploads it to Vercel Blob (`meals/<ts>.png`), and upserts today's row.
+- `agent/instructions.md` — documents the new scheduled job and tools.
+- `app/_components/home-screen.tsx` — `Meal` interface + `todayMeal` state, fetched alongside the existing vision/todos/measures calls; only shown if the latest row's `meal_date` is actually today (an older leftover row from a day the job didn't fire isn't shown as "today's"); thumbs up/down card with optimistic update + rollback toast on failure.
+- DB (production, via a one-off script — not a code change): seeded a `scheduled_tasks` row, "Daily Meal Recommendation," cron `0 12 * * *`, `notify = false` (silent — no text), telling Cael to call `list_meal_history` then `set_daily_meal`.
+
+**Verified:** Playwright on a dedicated dev server (:3789) against the same production DB — confirmed the card renders on the Home screen with a seeded test row, thumbs up/down persists via `PATCH /api/meals/:id` (checked server-side, not just optimistic UI state), and toggling the same button off clears feedback. Typecheck passes. Test row deleted afterward; dev server killed by PID.
+
+**Next steps (not done):** Haven't watched a real end-to-end run of the scheduled job (dispatcher fires once daily at 13:00 UTC and only checks day/month/weekday, not the task's own hour/minute, so the `0 12 * * *` cron just needs `*` fields to match — the actual time-of-day is whatever the dispatcher's tick is). Worth Berto checking the Home screen tomorrow morning to confirm a real AI-generated meal shows up, and using the Scheduled Tasks tab's "Run now" on "Daily Meal Recommendation" to test sooner without waiting for the next tick.
+
 ## 2026-08-02 — Tasks: oldest-first ordering + a "Created" date on every row
 
 **Ask:** Berto: "can we please sort our todo list by oldest to newest unless they are marked more urgent or in progress? and also show date created" (with a screenshot of the Tasks list).

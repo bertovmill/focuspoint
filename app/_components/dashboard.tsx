@@ -193,6 +193,8 @@ function formatCreated(iso: string | null | undefined) {
 
 // 0 = no estimate. Presets only — matches the priority/recurrence chip pattern.
 const ESTIMATE_OPTIONS = [0, 15, 30, 60, 120] as const;
+// Estimated time is mandatory when creating a task, so "None" isn't offered here.
+const CREATE_ESTIMATE_OPTIONS = [15, 30, 60, 120] as const;
 
 function formatEstimateLabel(minutes: number) {
   if (minutes === 0) return "None";
@@ -421,9 +423,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     e.preventDefault();
     const title = newTodo.trim();
     if (!title) return;
+    if (!newTodoEstimatedMinutes) {
+      toast.error("Add an estimated time first.");
+      return;
+    }
     const recurrence = newTodoRecurrence;
     const priority = newTodoPriority;
-    const estimated_minutes = newTodoEstimatedMinutes || null;
+    const estimated_minutes = newTodoEstimatedMinutes;
     setNewTodo("");
     setNewTodoRecurrence("none");
     setNewTodoPriority("normal");
@@ -931,19 +937,30 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               )}
               {newTodo.trim() && (
                 <div className="flex items-center gap-1.5">
-                  <TimerIcon className="size-3 text-muted-foreground shrink-0" />
-                  {ESTIMATE_OPTIONS.map((m) => (
+                  <TimerIcon
+                    className={cn(
+                      "size-3 shrink-0",
+                      newTodoEstimatedMinutes ? "text-muted-foreground" : "text-destructive",
+                    )}
+                  />
+                  {CREATE_ESTIMATE_OPTIONS.map((m) => (
                     <Badge
                       key={m}
                       asChild
                       variant={newTodoEstimatedMinutes === m ? "default" : "outline"}
-                      className="cursor-pointer"
+                      className={cn(
+                        "cursor-pointer",
+                        !newTodoEstimatedMinutes && "border-destructive/40 text-destructive",
+                      )}
                     >
                       <button type="button" onClick={() => setNewTodoEstimatedMinutes(m)}>
                         {formatEstimateLabel(m)}
                       </button>
                     </Badge>
                   ))}
+                  {!newTodoEstimatedMinutes && (
+                    <span className="text-[11px] text-destructive">Required</span>
+                  )}
                 </div>
               )}
               {newTodo.trim() && (

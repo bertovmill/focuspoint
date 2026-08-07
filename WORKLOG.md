@@ -2350,3 +2350,26 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `estimated_minutes` yet.
+
+---
+
+## 2026-08-07 — Tasks: mandatory estimate on create + log worked time to Google Calendar
+
+**Ask:** Berto wanted (1) the estimated-time field to be required when creating a task (no more skipping it), and (2) time spent on a task (from the existing start/stop timer) to retroactively show up as an event on his `rmill@aucctus.com` Google Calendar, so he can see where his time actually goes.
+
+**Decisions:**
+- Enforced "required" at both layers: the add-task UI blocks submit and shows a red "Required" hint + toast if no estimate chip is picked (the "None" option is simply not offered on the create form — `CREATE_ESTIMATE_OPTIONS` excludes it), and `POST /api/todos` independently 400s with `estimated_minutes required` if it's missing/non-positive. The edit form and agent's `update_todo` tool are untouched — estimate stays optional when editing an existing task.
+- `agent/tools/add_todo.ts` now requires `estimated_minutes` too (was previously not wired to the column at all), so Cael can't create a task via chat without one either.
+- Calendar logging hooks into the existing timer start/stop endpoint (`/api/todos/[id]/timer`) rather than a new mechanism — every timer stop (explicit stop, or the implicit stop-and-bank that happens when starting a different task's timer) posts an event to the connected Google account's primary calendar (`gcalFetch("/calendars/primary/events")`, same helper the Calendar tab already uses) spanning `timer_started_at` → now, titled with the task's title. Skips logging anything under 60s (avoids spamming the calendar with accidental start/stop blips) and is best-effort — a Google API failure is caught and logged, never blocks the timer stop response.
+
+**Files changed:**
+- `app/api/todos/route.ts` — POST now rejects (400) when `estimated_minutes` is missing or ≤ 0, instead of silently defaulting to `null`.
+- `agent/tools/add_todo.ts` — added required `estimated_minutes` to the input schema and the INSERT/RETURNING.
+- `app/_components/dashboard.tsx` — new `CREATE_ESTIMATE_OPTIONS` (drops the "None" chip for the create form only); `handleAddTodo` blocks and toasts if no estimate is chosen; estimate chip row on the add form turns red with a "Required" label until one is picked.
+- `app/api/todos/[id]/timer/route.ts` — new `logTimeToCalendar()` helper (best-effort, <60s skipped); both the "stop" branch and the "start" branch's implicit bump-other-timers query now capture the prior `timer_started_at` and title (via `RETURNING`/a preceding `SELECT`) and log the worked interval to the primary Google Calendar.
+
+**Verified:** Playwright + direct API checks on a dedicated dev server (:3789) — create form blocks submit and shows the toast with no estimate selected, succeeds once a chip (30m) is picked and persists `estimated_minutes: 30`; `POST /api/todos` without `estimated_minutes` returns 400 with the expected error body; timer start→stop within a few seconds returns 200 with `time_spent_seconds` banked and no errors in the dev log (calendar call correctly skipped under the 60s threshold — didn't want to write a real test event to Berto's live calendar just to verify wiring). Seeds deleted; server killed by PID. Assumes the already-connected Google account (used by the existing Calendar tab) is `rmill@aucctus.com` — didn't re-verify this since it wasn't queryable without touching the DB directly.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Haven't done a live end-to-end check that a >60s timer run actually creates a real Google Calendar event (only verified the code path is wired and errors are swallowed safely) — worth Berto confirming on his next real timed task.

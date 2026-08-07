@@ -41,7 +41,10 @@ export async function POST(req: Request) {
     const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes } = await req.json();
     if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
     const parsedEstimate = Number(estimated_minutes);
-    const estimate = Number.isFinite(parsedEstimate) && parsedEstimate > 0 ? Math.trunc(parsedEstimate) : null;
+    if (!Number.isFinite(parsedEstimate) || parsedEstimate <= 0) {
+      return NextResponse.json({ error: "estimated_minutes required" }, { status: 400 });
+    }
+    const estimate = Math.trunc(parsedEstimate);
     const sql = getDb();
     const [row] = await sql`
       INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes)

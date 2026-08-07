@@ -12,13 +12,18 @@ export default defineTool({
       .enum(["none", "daily", "weekly", "monthly"])
       .default("none")
       .describe("How often this task repeats. 'none' means one-time."),
+    estimated_minutes: z
+      .number()
+      .int()
+      .positive()
+      .describe("Required. Estimated time to complete this task, in minutes."),
   }),
-  async execute({ title, priority, due_date, recurrence }) {
+  async execute({ title, priority, due_date, recurrence, estimated_minutes }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence)
-      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence})
-      RETURNING id, title, priority, due_date, recurrence, created_at
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes)
+      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimated_minutes})
+      RETURNING id, title, priority, due_date, recurrence, estimated_minutes, created_at
     `;
     return row;
   },

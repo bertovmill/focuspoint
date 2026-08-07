@@ -4,6 +4,29 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-07 — Home dashboard: workout progress chart (squat/deadlift/bench/chinups/10K), indexed to % from baseline
+
+**Ask:** Berto wanted his 5 standard workouts (squat 5×5, deadlift 5×5, bench 5×5, chin-ups 5×5, 10K run) plotted on one line chart on the daily dashboard. Weight for the four lifts, time for the run — different units, so they can't share a y-axis as raw numbers. Clicking a legend entry should reveal that series' absolute number; unclicked, everything reads as % change from the first logged value (the baseline).
+
+**Decisions (asked Berto):** Chin-ups tracks added weight in lbs (same unit family as the other lifts), not reps — Berto confirmed. Logging happens by telling Cael in chat (e.g. "squat was 235 today"), not a dashboard form — consistent with how todos/thoughts/vision items already work, and it's the option Berto picked over a manual-entry form.
+
+**Design approach:** Per the dataviz skill's core rule — "one axis; two measures of different scale → index to a common base, never dual-axis" — the chart plots `% change from each series' own first logged value`, which is exactly the technique the skill prescribes for mixing lbs and minutes on one chart. Built as a small hand-rolled inline-SVG component rather than pulling in a chart library (no chart lib was in the project yet), specifically because the "click legend → show absolute value for that series only" interaction isn't something off-the-shelf chart libs expose — it needed direct control over legend click state. Colors are the first 5 slots of the app's own CVD-validated categorical palette (already in use for the Measures chart's `--chart-essential`/`--chart-discretionary` tokens) — extended as `--chart-series-1..5` in `globals.css` rather than picking new hex values.
+
+**Files changed:**
+- `lib/db.ts` — new `workout_logs` table: `id, exercise TEXT, value NUMERIC, logged_date DATE, created_at`, `UNIQUE(exercise, logged_date)` (re-logging the same day overwrites, like the meal table).
+- `app/api/workouts/route.ts` — `GET`, full history ordered oldest-first (the chart needs the whole series, not a page).
+- `agent/tools/log_workout.ts` — new tool: `exercise` (squat/deadlift/bench/chinups/10k_run), `value`, optional `date`; upserts.
+- `agent/tools/list_workouts.ts` — new tool: recent history, optionally filtered to one exercise, so Cael can answer progress questions.
+- `agent/instructions.md` — tells Cael to log immediately when Berto reports a number, no confirmation needed (unlike calendar events, which do ask first).
+- `app/globals.css` — `--chart-series-1..5` (light + dark), the categorical palette's first 5 slots.
+- `app/_components/workout-chart.tsx` — new component: computes per-exercise baseline (first point) and % change per point; renders 2px lines with round joins/caps, 3px hover-titled dots, and a larger end-marker with a card-color ring on the latest point per series (per the dataviz skill's mark spec); legend below the chart with click-to-toggle — clicked series bold + show `latest value + unit`, unclicked series dim to 25% opacity.
+- `app/_components/home-screen.tsx` — fetches `/api/workouts` alongside the existing calls; new "Training" card (only rendered once there's at least one log) directly under the meal card.
+- DB (production, via a one-off script): created the `workout_logs` table so the feature works immediately without waiting for the app to touch it.
+
+**Verified:** Playwright on a dedicated dev server (:3789) against the same production DB, with 15 seeded rows spanning 3 dates across all 5 exercises — screenshotted the chart in light and dark mode (colors correct, gridlines/axis legible, legend readable in both), clicked the Squat legend entry and confirmed it bolds, shows "265 lbs," and dims the other 4 lines to 25% opacity. Typecheck passes. Seeded rows deleted afterward; dev server killed by PID. Noted a pre-existing React key warning in `Workspace` (`app/(app)/layout.tsx`, a file untouched by this change) surfaced in the dev overlay — not introduced by this work, left alone.
+
+**Next steps (not done):** No real numbers logged yet — next time Berto reports a lift or run time to Cael in chat, it should log automatically and start populating the real chart.
+
 ## 2026-08-07 — Home dashboard: daily Mediterranean/Italian meal recommendation with photo + feedback loop
 
 **Ask:** Berto wanted a photo of a meal recommendation for the day added to the daily dashboard — aiming for Mediterranean or Italian to start — with the ability to give thumbs up/down feedback that informs the next day's pick.

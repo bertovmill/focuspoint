@@ -189,6 +189,18 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Workout log: one row per exercise per day. `value` is lbs for the lifts
+  // (squat/deadlift/bench/chinups) and minutes for the 10k run.
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_logs (
+      id SERIAL PRIMARY KEY,
+      exercise TEXT NOT NULL,
+      value NUMERIC NOT NULL,
+      logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(exercise, logged_date)
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

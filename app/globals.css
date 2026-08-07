@@ -61,6 +61,12 @@
   --chart-neutral: #e1e0d9;
   --chart-track: #cde2fb;
   --chart-spark: #898781;
+  /* Workout chart — first 5 slots of the CVD-validated categorical order */
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
+  --chart-series-3: #1baf7a;
+  --chart-series-4: #eda100;
+  --chart-series-5: #e87ba4;
 }
 
 .dark {
@@ -90,6 +96,11 @@
   --chart-neutral: #383835;
   --chart-track: #104281;
   --chart-spark: #898781;
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  --chart-series-4: #c98500;
+  --chart-series-5: #d55181;
 }
 
 @layer base {

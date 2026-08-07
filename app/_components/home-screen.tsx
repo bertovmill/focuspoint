@@ -37,6 +37,7 @@ import { Card } from "@/components/ui/card";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
+import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -193,6 +194,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [timelineGranularity, setTimelineGranularity] = useState<TimelineGranularity>("full");
@@ -223,7 +225,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes, mealsRes] = await Promise.all([
+        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
           fetch("/api/vision?kind=milestone"),
@@ -231,6 +233,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
           fetch("/api/meals?limit=1"),
+          fetch("/api/workouts"),
         ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -277,6 +280,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         } else {
           setTodayMeal(null);
         }
+        if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
       } catch {
         setFormVisions({});
         setFormMethods({});
@@ -438,6 +442,18 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                   </p>
                 )}
               </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
+        {workoutLogs.length > 0 && (
+          <div className="mb-6">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+              Training
+            </p>
+            <Card className="rounded-xl px-5 py-4 shadow-none">
+              <WorkoutChart logs={workoutLogs} />
             </Card>
           </div>
         )}

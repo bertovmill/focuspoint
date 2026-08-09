@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Routines: fixed 4-slot daily template (Morning Routine / AM Workout / PM Workout / Daytime)
+
+**Ask:** Berto wants the Routines section to be his literal "operating system for the week" — every day broken into the same 4 fixed slots (Morning Routine, AM Workout, PM Workout, Daytime), each independently editable, rather than the previous freeform per-entry periods.
+
+**Decisions (asked Berto):** Confirmed a fixed 4-slot template shown for every day, even when empty (clickable "+ Add" placeholder), rather than only showing slots that already have content. For the existing "Weekly Workout Routine" data (one AM-run entry + one evening-lift entry per weekday, plus Sat/Sun's AM/PM entries), mapped AM → AM Workout and the evening/PM entries → PM Workout; Morning Routine and Daytime start empty for Berto to fill in.
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - New `ROUTINE_PERIODS` constant (`["Morning Routine", "AM Workout", "PM Workout", "Daytime"]`) — the canonical, ordered slot vocabulary.
+  - Replaced the whole-day textarea editor with `rebuildDaySlot`, which edits exactly one day+slot at a time: reflows that day's lines into canonical slot order on save, preserving any legacy/unrecognized period text by appending it after the 4 canonical slots (defensive — shouldn't occur post-migration, but avoids silent data loss if it does).
+  - `routineEditTarget`'s day-editing variant became `{ field: "slot", day, period }`; `startEditingRoutineSlot` seeds the textarea with just that slot's text (no period prefix needed — the slot itself is the period).
+  - Each day column now always renders all 4 `ROUTINE_PERIODS` in order, each its own click-to-edit unit (auto-growing textarea, save-on-blur, Escape-to-cancel) — empty slots show a muted "+ Add".
+- Data migration (one-off, not a code change): re-mapped the live "Weekly Workout Routine" row's existing periods — `AM` → `AM Workout`, `8pm`/`PM` → `PM Workout` — via a direct `PATCH /api/vision/[id]` call against the shared dev/prod DB, so the dashboard renders correctly under the new slot vocabulary without Berto having to retype anything that already existed.
+
+**Verified:** `npm run typecheck` passes. Playwright against the live dashboard: confirmed all 7 days now show all 4 slots with the migrated content in the right places and empty slots showing "+ Add"; filled in Monday's previously-empty "Morning Routine" slot, confirmed it persisted via `GET /api/vision?kind=routine`, then restored the original content so no real data was left changed.
+
+**Next steps:** Berto can now fill in Morning Routine and Daytime for each day as he defines them — no further code work needed for that.
+
 ## 2026-08-09 — Desktop nav: persistent left rail (ElevenLabs-style), Weekly Routine centered
 
 **Ask:** Berto wanted the Weekly Workout Routine section centered like the rest of the home dashboard (it was full-bleed via `px-6 lg:px-12` while everything else uses `mx-auto max-w-6xl px-6`). Then, referencing ElevenLabs' left sidebar, he wanted all section nav (Chat/Tasks/Notes/Lists/Journal/Dreams/Schedule/Media/Measures/Vision/Sketches/Calendar) moved out of the "Go To" grid on the home screen and into a persistent left sidebar, since on desktop there previously was no always-visible nav — navigation only happened via that grid (home screen only) or keyboard shortcuts.

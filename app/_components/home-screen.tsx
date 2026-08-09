@@ -168,23 +168,36 @@ function parseRoutine(content: string) {
   return { goal, days };
 }
 
-/** One day's entries, as editable lines: "(period): text" or bare "text" when there's no period. */
-function dayEntriesToLines(entries: { period: string | null; text: string }[]): string {
-  return entries.map((e) => (e.period ? `(${e.period}): ${e.text}` : e.text)).join("\n");
-}
+/** The fixed daily template — every day is broken into these 4 slots, in this order. */
+const ROUTINE_PERIODS = ["Morning Routine", "AM Workout", "PM Workout", "Daytime"];
 
-const EDIT_LINE_RE = /^\(([^)]+)\):\s*(.*)$/;
+/** Replaces one day's one slot (e.g. Tuesday's "PM Workout") within a routine's raw content.
+ *  Reflows that whole day's lines into canonical slot order; any entry whose period isn't
+ *  one of the 4 canonical slots (legacy/unrecognized text) is preserved, appended after them. */
+function rebuildDaySlot(content: string, day: string, period: string, editedText: string): string {
+  const { days } = parseRoutine(content);
+  const dayEntries = days[day] ?? [];
+  const canonicalLower = ROUTINE_PERIODS.map((p) => p.toLowerCase());
+  const otherEntries = dayEntries.filter((e) => !e.period || !canonicalLower.includes(e.period.toLowerCase()));
 
-/** Replaces a single day's lines within a routine's raw content, preserving every other line's position. */
-function rebuildContentForDay(content: string, day: string, editedLines: string): string {
-  const newEntryLines = editedLines
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => {
-      const m = l.match(EDIT_LINE_RE);
-      return m ? `${day} (${m[1]}): ${m[2]}` : `${day}: ${l}`;
-    });
+  const bySlot: Record<string, string[]> = {};
+  for (const p of ROUTINE_PERIODS) {
+    bySlot[p] =
+      p.toLowerCase() === period.toLowerCase()
+        ? editedText
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
+        : dayEntries.filter((e) => e.period?.toLowerCase() === p.toLowerCase()).map((e) => e.text);
+  }
+
+  const newDayLines: string[] = [];
+  for (const p of ROUTINE_PERIODS) {
+    for (const t of bySlot[p]) newDayLines.push(`${day} (${p}): ${t}`);
+  }
+  for (const e of otherEntries) {
+    newDayLines.push(e.period ? `${day} (${e.period}): ${e.text}` : `${day}: ${e.text}`);
+  }
 
   const lines = content.split("\n");
   const kept: string[] = [];
@@ -197,7 +210,7 @@ function rebuildContentForDay(content: string, day: string, editedLines: string)
       kept.push(raw);
     }
   }
-  kept.splice(insertAt === -1 ? kept.length : insertAt, 0, ...newEntryLines);
+  kept.splice(insertAt === -1 ? kept.length : insertAt, 0, ...newDayLines);
   return kept.join("\n").trim();
 }
 
@@ -230,9 +243,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
   const [routines, setRoutines] = useState<{ id: number; title: string; content: string }[] | null>(null);
-  // Which single field of which routine is being edited inline — the title, the goal line, or one day's box.
+  // Which single field of which routine is being edited inline — the title, the goal line, or one day+slot box.
   const [routineEditTarget, setRoutineEditTarget] = useState<
-    { routineId: number; field: "title" | "goal" } | { routineId: number; field: "day"; day: string } | null
+    | { routineId: number; field: "title" | "goal" }
+    | { routineId: number; field: "slot"; day: string; period: string }
+    | null
   >(null);
   const [routineEditValue, setRoutineEditValue] = useState("");
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
@@ -274,9 +289,15 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     setRoutineEditValue(parseRoutine(routine.content).goal ?? "");
   };
 
-  const startEditingRoutineDay = (routine: { id: number; content: string }, day: string) => {
-    setRoutineEditTarget({ routineId: routine.id, field: "day", day });
-    setRoutineEditValue(dayEntriesToLines(parseRoutine(routine.content).days[day] ?? []));
+  const startEditingRoutineSlot = (routine: { id: number; content: string }, day: string, period: string) => {
+    setRoutineEditTarget({ routineId: routine.id, field: "slot", day, period });
+    const entries = parseRoutine(routine.content).days[day] ?? [];
+    setRoutineEditValue(
+      entries
+        .filter((e) => e.period?.toLowerCase() === period.toLowerCase())
+        .map((e) => e.text)
+        .join("\n"),
+    );
   };
 
   const cancelEditingRoutineField = () => {
@@ -299,8 +320,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       const content = rebuildContentForGoal(routine.content, routineEditValue.trim());
       if (content === routine.content) return cancelEditingRoutineField();
       patch = { content };
-    } else if (target.field === "day") {
-      const content = rebuildContentForDay(routine.content, target.day, routineEditValue);
+    } else if (target.field === "slot") {
+      const content = rebuildDaySlot(routine.content, target.day, target.period, routineEditValue);
       if (content === routine.content) return cancelEditingRoutineField();
       patch = { content };
     } else {
@@ -784,65 +805,65 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     <div className="flex overflow-x-auto divide-x divide-border/60">
                       {ROUTINE_DAYS.map((day) => {
                         const entries = days[day] ?? [];
-                        const editingDay =
-                          routineEditTarget?.routineId === routine.id &&
-                          routineEditTarget.field === "day" &&
-                          routineEditTarget.day === day;
                         return (
                           <div key={day} className="flex-1 min-w-[150px] shrink-0 px-4 first:pl-0">
-                            {editingDay ? (
-                              <>
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                                  {day.slice(0, 3)}
-                                </p>
-                                <textarea
-                                  value={routineEditValue}
-                                  onChange={(e) => {
-                                    setRoutineEditValue(e.target.value);
-                                    e.target.style.height = "auto";
-                                    e.target.style.height = `${e.target.scrollHeight}px`;
-                                  }}
-                                  onBlur={saveRoutineField}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Escape") cancelEditingRoutineField();
-                                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.blur();
-                                  }}
-                                  placeholder={"(AM): ...\n(PM): ..."}
-                                  rows={6}
-                                  autoFocus
-                                  ref={(el) => {
-                                    if (el) {
-                                      el.style.height = "auto";
-                                      el.style.height = `${el.scrollHeight}px`;
-                                    }
-                                  }}
-                                  className="w-full text-sm leading-snug bg-transparent outline-none border border-primary/40 rounded-md px-2 py-1.5 resize-none -mx-2 overflow-hidden"
-                                />
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => startEditingRoutineDay(routine, day)}
-                                className="block w-full text-left hover:opacity-70 transition-opacity"
-                              >
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                                  {day.slice(0, 3)}
-                                </p>
-                                <div className="space-y-2">
-                                  {entries.length > 0 ? (
-                                    entries.map((entry, i) => (
-                                      <div key={i}>
-                                        {entry.period && (
-                                          <p className="text-xs font-medium text-primary mb-0.5">{entry.period}</p>
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                              {day.slice(0, 3)}
+                            </p>
+                            <div className="space-y-3">
+                              {ROUTINE_PERIODS.map((period) => {
+                                const editingSlot =
+                                  routineEditTarget?.routineId === routine.id &&
+                                  routineEditTarget.field === "slot" &&
+                                  routineEditTarget.day === day &&
+                                  routineEditTarget.period === period;
+                                const slotText = entries
+                                  .filter((e) => e.period?.toLowerCase() === period.toLowerCase())
+                                  .map((e) => e.text)
+                                  .join("\n");
+                                return (
+                                  <div key={period}>
+                                    <p className="text-xs font-medium text-primary mb-0.5">{period}</p>
+                                    {editingSlot ? (
+                                      <textarea
+                                        value={routineEditValue}
+                                        onChange={(e) => {
+                                          setRoutineEditValue(e.target.value);
+                                          e.target.style.height = "auto";
+                                          e.target.style.height = `${e.target.scrollHeight}px`;
+                                        }}
+                                        onBlur={saveRoutineField}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") cancelEditingRoutineField();
+                                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.blur();
+                                        }}
+                                        placeholder="..."
+                                        rows={2}
+                                        autoFocus
+                                        ref={(el) => {
+                                          if (el) {
+                                            el.style.height = "auto";
+                                            el.style.height = `${el.scrollHeight}px`;
+                                          }
+                                        }}
+                                        className="w-full text-sm leading-snug bg-transparent outline-none border border-primary/40 rounded-md px-2 py-1 resize-none -mx-2 overflow-hidden"
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => startEditingRoutineSlot(routine, day, period)}
+                                        className="block w-full text-left hover:opacity-70 transition-opacity"
+                                      >
+                                        {slotText ? (
+                                          <p className="text-sm leading-snug">{slotText}</p>
+                                        ) : (
+                                          <p className="text-sm text-muted-foreground/40 italic">+ Add</p>
                                         )}
-                                        <p className="text-sm leading-snug">{entry.text}</p>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground/50 italic">—</p>
-                                  )}
-                                </div>
-                              </button>
-                            )}
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         );
                       })}

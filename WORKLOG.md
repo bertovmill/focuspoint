@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Community wealth-form: live MakersLounge subscriber count via Luma API
+
+**Ask:** Berto wanted the Community card (one of the 8 forms of wealth) to track real MakersLounge Luma subscriber growth instead of the placeholder "count of thoughts tagged #community" signal.
+
+**Decision:** Luma has no dedicated "subscribers" endpoint — used `/v1/calendars/contacts/list` (sorted by `created_at` asc, paginated via `next_cursor`/`has_more`) as the subscriber-join signal, since calendar contacts are effectively MakersLounge's Luma audience. Server-side only: `lib/luma.ts` does the paginated fetch (reads `LUMA_API_KEY`, a calendar-scoped Luma Plus key, from env; `next: { revalidate: 300 }` on the fetch), `app/api/community/route.ts` exposes just `created_at` timestamps to the client so the API key never reaches the browser. Community's sparkline now uses `mode: "sum"` over those per-contact timestamps — cumulative growth curve, same pattern as Growth's pages-read chart.
+
+**Files changed:**
+- `lib/luma.ts` (new) — `fetchLumaContacts()`, paginated Luma contacts fetch.
+- `app/api/community/route.ts` (new) — GET route, returns `[{created_at}]`, empty array on any failure.
+- `app/_components/home-screen.tsx` — added `communityContacts` state + fetch, swapped `community`'s `wealthSeries` entry from `taggedCount("community")` to real Luma points (unit `subscribers`).
+- `.env.local` — added `LUMA_API_KEY`.
+
+**Verified:** Confirmed the key directly against Luma's API via curl (real MakersLounge contacts returned). Tested `/api/community` against the already-running dev server on :3000 (1,174 contacts, correctly paginated). Playwright screenshot of the live dashboard confirms the Community card renders "1,174 subscribers" with a rising line chart. Typecheck clean for the changed files (an unrelated pre-existing syntax error in a concurrent session's in-progress `family-panel.tsx` was left as-is — not part of this change).
+
+---
+
 ## 2026-08-09 — Family memories: optional photo, editable, date stamp
 
 **Ask:** Berto wanted the Family memory form to not require a photo, wanted memories to be editable after creation, and wanted a date stamp shown on each memory.

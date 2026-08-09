@@ -2773,3 +2773,21 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** Wellness, Craft, Adventure, Service still need goal targets picked with Berto.
+
+---
+
+## 2026-08-09 — Adventure: dedicated trip tracking (was a tagged-thoughts proxy) + goal
+
+**Ask:** Berto wanted Adventure tracked like Family (a real count, not the tagged-thoughts proxy) — trips taken, with 10 trips over the last 12 months and a goal of 100.
+
+**Decisions:** No new table needed — reused the existing generic `measures` table with a new `category: "trips"` (one row per trip, `data: {}`), the same pattern Money's `savings_snapshot` and the goal system already use. This keeps Adventure consistent with the "generic mechanism, DB-only additions" approach from the earlier goal work, rather than building a dedicated trips table/UI (Family's memories feature has photo/title/description — Berto didn't ask for that level of detail here, just a count).
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — new `trips` state fetched from `/api/measures?category=trips&limit=500` alongside the other dashboard fetches; `adventure`'s entry in `wealthSeries` switched from `taggedCount("adventure")` (thoughts tagged "adventure", unit "notes") to one point per trip row (unit "trips").
+- Seeded 10 `trips` rows spread across the last 12 months (Oct 2025 – Aug 2026) via `POST /api/measures`, and a `vision_items(kind=goal, title=Adventure, content=100)` row (id 35) via the same goal mechanism as Growth/Family/Community.
+
+**Verified:** Playwright against the running dev server on :3000 — Adventure card reads "10 trips / 100 trips" with its dashed goal line, matching Family's card format.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Wellness, Craft, Service still need goal targets/dedicated tracking picked with Berto. No UI exists yet to log a new trip (unlike Family's memories panel) — trips are only addable via the API today; worth asking Berto if he wants a proper log-a-trip flow later.

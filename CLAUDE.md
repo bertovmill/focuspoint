@@ -12,6 +12,7 @@ Read `WORKLOG.md` in the project root first. It contains a timestamped log of ev
 
 1. **Update `WORKLOG.md`** with a timestamped entry: what was built, decisions made, files changed, and any next steps.
 2. **Commit all changes to `main`** and push to origin. Do not leave work on a branch or worktree without merging.
+3. **If the work happened in a git worktree, merge it into the local `main` checkout right after finishing** — don't leave it sitting unmerged in the worktree. This keeps every checkout of this repo on the same page.
 
 This is non-negotiable. Every session ends with WORKLOG.md updated and main pushed.
 

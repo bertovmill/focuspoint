@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Home dashboard: remove 2030 vision card and road-to-2030 timeline
+
+**Ask:** Berto wanted the "2030" north-star vision statement card and the "The road to 2030" yearly-milestone timeline removed from the home dashboard.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — removed the `VISION_2030` card and the timeline section (year buttons, granularity toggle, milestone text). Cleaned up now-dead code that only existed to support the timeline: `TIMELINE_YEARS`, `TIMELINE_GRANULARITIES`/`TimelineGranularity`, `milestones` state, `timelineGranularity`/`focusedYear` state, and the `/api/vision?kind=milestone` fetch.
+
+**Verified:** `npm run typecheck` passes.
+
+**Next steps:** None — the "Growth"/"Family"/"Craft"/etc. per-form vision cards (unrelated to the removed overall 2030 statement) are untouched.
+
 ## 2026-08-07 — Home dashboard: workout progress chart (squat/deadlift/bench/chinups/10K), indexed to % from baseline
 
 **Ask:** Berto wanted his 5 standard workouts (squat 5×5, deadlift 5×5, bench 5×5, chin-ups 5×5, 10K run) plotted on one line chart on the daily dashboard. Weight for the four lifts, time for the run — different units, so they can't share a y-axis as raw numbers. Clicking a legend entry should reveal that series' absolute number; unclicked, everything reads as % change from the first logged value (the baseline).

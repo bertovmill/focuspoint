@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Routines: per-field inline editing (title/goal/each day separately) + larger type
+
+**Ask:** Follow-up on the earlier full-bleed Routines redesign — Berto didn't want the whole routine editable as one big textarea blob; each piece (the title, the goal line, and each individual day) should be its own click-to-edit target. Also bump the font size across the section, which read too small at the new full-bleed width.
+
+**Decisions:** Save-on-blur + Escape-to-cancel per field, no visible Save/Cancel buttons — clicking any other field (or elsewhere) commits the edit, matching the Notion/Apple-Notes inline-edit feel rather than the previous button-driven flow. Day boxes are edited as short, day-prefix-free lines (`(AM): text`) so the box only ever shows that one day's content; saving re-splices those lines back into the routine's single raw `content` string at the position where that day's lines used to live (backend still just has one `content` blob per routine — no schema change).
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - Replaced the single `editingRoutineId`/`editRoutineTitle`/`editRoutineContent` state with `routineEditTarget` (`{ routineId, field: "title" | "goal" }` or `{ routineId, field: "day", day }`) + one `routineEditValue` string, so exactly one field of one routine is ever mid-edit.
+  - New helpers: `dayEntriesToLines` (entries → editable `(period): text` lines), `rebuildContentForDay` (splices edited lines for one day back into the routine's raw content, preserving every other line's position), `rebuildContentForGoal` (replaces/inserts the `Goal:` line).
+  - `saveRoutineField` — single save path for all three field kinds; optimistic local update, `PATCH /api/vision/[id]` with just `{ title }` or `{ content }`, rolls back and toasts on failure.
+  - Title, goal, and each day cell independently render as a button (click → inline `input`/`textarea`, `autoFocus`, `onBlur` saves, `Escape` cancels) or their read-only view.
+  - Font sizes bumped: routine title `text-sm` → `text-lg`, goal/day-entry text `text-xs`/`text-[11px]` → `text-sm`, day-of-week label `text-[10px]` → `text-xs`.
+
+**Verified:** `npm run typecheck` passes. Playwright round-trip against the live dashboard (Berto's own :3000 dev server) for all three field kinds — edited Tuesday's box in isolation (confirmed the rest of the week didn't re-render/reset), edited the title, and edited the goal line — confirmed each persisted via `GET /api/vision?kind=routine`, then restored the original title/content each time so no real data was left changed.
+
+**Next steps:** None outstanding.
+
 ## 2026-08-09 — Home dashboard: sparkline on all 8 forms-of-wealth tiles, shared Month/Year/Decade toggle
 
 **Ask:** Berto wants every one of the 8 forms-of-wealth tiles to show a small left-to-right line chart, all controlled by one shared Month/Year/Decade toggle (switching one switches all 8 at once).

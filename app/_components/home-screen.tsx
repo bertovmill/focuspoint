@@ -162,6 +162,55 @@ function parseRoutine(content: string) {
   return { goal, days };
 }
 
+/** One day's entries, as editable lines: "(period): text" or bare "text" when there's no period. */
+function dayEntriesToLines(entries: { period: string | null; text: string }[]): string {
+  return entries.map((e) => (e.period ? `(${e.period}): ${e.text}` : e.text)).join("\n");
+}
+
+const EDIT_LINE_RE = /^\(([^)]+)\):\s*(.*)$/;
+
+/** Replaces a single day's lines within a routine's raw content, preserving every other line's position. */
+function rebuildContentForDay(content: string, day: string, editedLines: string): string {
+  const newEntryLines = editedLines
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const m = l.match(EDIT_LINE_RE);
+      return m ? `${day} (${m[1]}): ${m[2]}` : `${day}: ${l}`;
+    });
+
+  const lines = content.split("\n");
+  const kept: string[] = [];
+  let insertAt = -1;
+  for (const raw of lines) {
+    const m = raw.trim().match(ROUTINE_DAY_RE);
+    if (m && m[1] === day) {
+      if (insertAt === -1) insertAt = kept.length;
+    } else {
+      kept.push(raw);
+    }
+  }
+  kept.splice(insertAt === -1 ? kept.length : insertAt, 0, ...newEntryLines);
+  return kept.join("\n").trim();
+}
+
+/** Replaces (or inserts) the "Goal: ..." line within a routine's raw content. */
+function rebuildContentForGoal(content: string, newGoal: string): string {
+  const lines = content.split("\n");
+  let found = false;
+  const out = lines.map((raw) => {
+    if (/^\s*goal:/i.test(raw)) {
+      found = true;
+      return newGoal ? `Goal: ${newGoal}` : null;
+    }
+    return raw;
+  });
+  const filtered = out.filter((l): l is string => l !== null);
+  if (!found && newGoal) filtered.unshift(`Goal: ${newGoal}`);
+  return filtered.join("\n").trim();
+}
+
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -175,10 +224,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
   const [routines, setRoutines] = useState<{ id: number; title: string; content: string }[] | null>(null);
-  const [editingRoutineId, setEditingRoutineId] = useState<number | null>(null);
-  const [editRoutineTitle, setEditRoutineTitle] = useState("");
-  const [editRoutineContent, setEditRoutineContent] = useState("");
-  const [savingRoutine, setSavingRoutine] = useState(false);
+  // Which single field of which routine is being edited inline — the title, the goal line, or one day's box.
+  const [routineEditTarget, setRoutineEditTarget] = useState<
+    { routineId: number; field: "title" | "goal" } | { routineId: number; field: "day"; day: string } | null
+  >(null);
+  const [routineEditValue, setRoutineEditValue] = useState("");
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
@@ -209,37 +259,65 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     }
   };
 
-  const startEditingRoutine = (routine: { id: number; title: string; content: string }) => {
-    setEditingRoutineId(routine.id);
-    setEditRoutineTitle(routine.title);
-    setEditRoutineContent(routine.content);
+  const startEditingRoutineTitle = (routine: { id: number; title: string }) => {
+    setRoutineEditTarget({ routineId: routine.id, field: "title" });
+    setRoutineEditValue(routine.title);
   };
 
-  const cancelEditingRoutine = () => {
-    setEditingRoutineId(null);
-    setEditRoutineTitle("");
-    setEditRoutineContent("");
+  const startEditingRoutineGoal = (routine: { id: number; content: string }) => {
+    setRoutineEditTarget({ routineId: routine.id, field: "goal" });
+    setRoutineEditValue(parseRoutine(routine.content).goal ?? "");
   };
 
-  const saveRoutine = async (id: number) => {
-    if (!editRoutineTitle.trim() || !editRoutineContent.trim()) return;
-    setSavingRoutine(true);
+  const startEditingRoutineDay = (routine: { id: number; content: string }, day: string) => {
+    setRoutineEditTarget({ routineId: routine.id, field: "day", day });
+    setRoutineEditValue(dayEntriesToLines(parseRoutine(routine.content).days[day] ?? []));
+  };
+
+  const cancelEditingRoutineField = () => {
+    setRoutineEditTarget(null);
+    setRoutineEditValue("");
+  };
+
+  const saveRoutineField = async () => {
+    const target = routineEditTarget;
+    if (!target) return;
+    const routine = routines?.find((r) => r.id === target.routineId);
+    if (!routine) return cancelEditingRoutineField();
+
+    let patch: { title?: string; content?: string };
+    if (target.field === "title") {
+      const title = routineEditValue.trim();
+      if (!title || title === routine.title) return cancelEditingRoutineField();
+      patch = { title };
+    } else if (target.field === "goal") {
+      const content = rebuildContentForGoal(routine.content, routineEditValue.trim());
+      if (content === routine.content) return cancelEditingRoutineField();
+      patch = { content };
+    } else if (target.field === "day") {
+      const content = rebuildContentForDay(routine.content, target.day, routineEditValue);
+      if (content === routine.content) return cancelEditingRoutineField();
+      patch = { content };
+    } else {
+      return cancelEditingRoutineField();
+    }
+
+    cancelEditingRoutineField();
+    setRoutines((prev) => (prev ? prev.map((r) => (r.id === routine.id ? { ...r, ...patch } : r)) : prev));
     try {
-      const res = await fetch(`/api/vision/${id}`, {
+      const res = await fetch(`/api/vision/${routine.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editRoutineTitle.trim(), content: editRoutineContent.trim() }),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
       setRoutines((prev) =>
-        prev ? prev.map((r) => (r.id === id ? { id, title: updated.title, content: updated.content } : r)) : prev,
+        prev ? prev.map((r) => (r.id === routine.id ? { id: routine.id, title: updated.title, content: updated.content } : r)) : prev,
       );
-      cancelEditingRoutine();
     } catch {
+      setRoutines((prev) => (prev ? prev.map((r) => (r.id === routine.id ? routine : r)) : prev));
       toast.error("Couldn't save routine.");
-    } finally {
-      setSavingRoutine(false);
     }
   };
 
@@ -634,87 +712,134 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6">
-        {/* Routines — named recurring schedules, e.g. the weekly workout routine. */}
+      <div className="w-full px-6 lg:px-12">
+        {/* Routines — named recurring schedules, e.g. the weekly workout routine. Every field
+            (title, goal, each day) is independently click-to-edit; blur saves, Escape cancels. */}
         <div className="mb-10">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             Routines
           </p>
           {routines && routines.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {routines.map((routine) => {
-                if (editingRoutineId === routine.id) {
-                  return (
-                    <div key={routine.id}>
-                      <input
-                        value={editRoutineTitle}
-                        onChange={(e) => setEditRoutineTitle(e.target.value)}
-                        placeholder="Routine name"
-                        className="text-sm font-medium mb-1 w-full bg-transparent outline-none border-b border-primary/40 focus:border-primary pb-0.5"
-                        autoFocus
-                      />
-                      <textarea
-                        value={editRoutineContent}
-                        onChange={(e) => setEditRoutineContent(e.target.value)}
-                        placeholder={"Goal: ...\nMonday (AM): ...\nMonday (PM): ..."}
-                        rows={10}
-                        className="mt-3 w-full text-xs leading-relaxed font-mono bg-transparent outline-none border border-border/60 rounded-lg px-3 py-2 resize-y"
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") cancelEditingRoutine();
-                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveRoutine(routine.id);
-                        }}
-                      />
-                      <div className="flex items-center gap-2 mt-2">
-                        <Button size="sm" onClick={() => saveRoutine(routine.id)} disabled={savingRoutine}>
-                          Save
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={cancelEditingRoutine} disabled={savingRoutine}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                }
-
                 const { goal, days } = parseRoutine(routine.content);
+                const editingTitle =
+                  routineEditTarget?.routineId === routine.id && routineEditTarget.field === "title";
+                const editingGoal =
+                  routineEditTarget?.routineId === routine.id && routineEditTarget.field === "goal";
+
                 return (
-                  <button
-                    key={routine.id}
-                    onClick={() => startEditingRoutine(routine)}
-                    className="block w-full text-left group"
-                    aria-label={`Edit ${routine.title}`}
-                  >
-                    <p className="text-sm font-medium mb-1 group-hover:text-primary transition-colors">
-                      {routine.title}
-                    </p>
-                    {goal && <p className="text-xs text-muted-foreground leading-relaxed mb-3">{goal}</p>}
+                  <div key={routine.id}>
+                    {editingTitle ? (
+                      <input
+                        value={routineEditValue}
+                        onChange={(e) => setRoutineEditValue(e.target.value)}
+                        onBlur={saveRoutineField}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelEditingRoutineField();
+                          if (e.key === "Enter") e.currentTarget.blur();
+                        }}
+                        autoFocus
+                        className="text-lg font-medium mb-1 w-full bg-transparent outline-none border-b border-primary/40"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startEditingRoutineTitle(routine)}
+                        className="block text-lg font-medium mb-1 text-left hover:text-primary transition-colors"
+                      >
+                        {routine.title}
+                      </button>
+                    )}
+
+                    {editingGoal ? (
+                      <textarea
+                        value={routineEditValue}
+                        onChange={(e) => setRoutineEditValue(e.target.value)}
+                        onBlur={saveRoutineField}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelEditingRoutineField();
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        placeholder="Goal for this routine"
+                        rows={2}
+                        autoFocus
+                        className="w-full text-sm text-muted-foreground leading-relaxed mb-3 bg-transparent outline-none border-b border-primary/40 resize-none"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startEditingRoutineGoal(routine)}
+                        className="block w-full text-left mb-3"
+                      >
+                        {goal ? (
+                          <p className="text-sm text-muted-foreground leading-relaxed hover:text-foreground transition-colors">
+                            {goal}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground/50 italic">Add a goal…</p>
+                        )}
+                      </button>
+                    )}
+
                     <div className="flex overflow-x-auto divide-x divide-border/60">
                       {ROUTINE_DAYS.map((day) => {
                         const entries = days[day] ?? [];
+                        const editingDay =
+                          routineEditTarget?.routineId === routine.id &&
+                          routineEditTarget.field === "day" &&
+                          routineEditTarget.day === day;
                         return (
-                          <div key={day} className="flex-1 min-w-[120px] shrink-0 px-4 first:pl-0">
-                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                              {day.slice(0, 3)}
-                            </p>
-                            <div className="space-y-2">
-                              {entries.length > 0 ? (
-                                entries.map((entry, i) => (
-                                  <div key={i}>
-                                    {entry.period && (
-                                      <p className="text-[10px] font-medium text-primary mb-0.5">{entry.period}</p>
-                                    )}
-                                    <p className="text-[11px] leading-snug">{entry.text}</p>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-xs text-muted-foreground/50 italic">—</p>
-                              )}
-                            </div>
+                          <div key={day} className="flex-1 min-w-[150px] shrink-0 px-4 first:pl-0">
+                            {editingDay ? (
+                              <>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                                  {day.slice(0, 3)}
+                                </p>
+                                <textarea
+                                  value={routineEditValue}
+                                  onChange={(e) => setRoutineEditValue(e.target.value)}
+                                  onBlur={saveRoutineField}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Escape") cancelEditingRoutineField();
+                                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.blur();
+                                  }}
+                                  placeholder={"(AM): ...\n(PM): ..."}
+                                  rows={6}
+                                  autoFocus
+                                  className="w-full text-sm leading-snug bg-transparent outline-none border border-primary/40 rounded-md px-2 py-1.5 resize-y -mx-2"
+                                />
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => startEditingRoutineDay(routine, day)}
+                                className="block w-full text-left hover:opacity-70 transition-opacity"
+                              >
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                                  {day.slice(0, 3)}
+                                </p>
+                                <div className="space-y-2">
+                                  {entries.length > 0 ? (
+                                    entries.map((entry, i) => (
+                                      <div key={i}>
+                                        {entry.period && (
+                                          <p className="text-xs font-medium text-primary mb-0.5">{entry.period}</p>
+                                        )}
+                                        <p className="text-sm leading-snug">{entry.text}</p>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground/50 italic">—</p>
+                                  )}
+                                </div>
+                              </button>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

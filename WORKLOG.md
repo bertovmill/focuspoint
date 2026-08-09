@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Home dashboard: sparkline on all 8 forms-of-wealth tiles, shared Month/Year/Decade toggle
+
+**Ask:** Berto wants every one of the 8 forms-of-wealth tiles to show a small left-to-right line chart, all controlled by one shared Month/Year/Decade toggle (switching one switches all 8 at once).
+
+**Decisions (asked Berto):** Month = one point per day (current month), Year = one point per month (current year), Decade = one point per year (last 10 years) — reusing the granularity levels from the timeline that was removed earlier this session. Layout: kept the compact 2×4 tile grid and embedded a small sparkline in each tile (not full-width chart cards like Training/Reading). For the metric: Growth reuses reading pages, Wellness reuses the existing workout log count, Money reuses the existing savings balance — Berto had me propose defaults for the other 5 (Family, Craft, Community, Adventure, Service) since they had no tracked data yet. I used a count of `thoughts` tagged with that form's lowercase name (`family`, `craft`, `community`, `adventure`, `service`) as the signal — cheap to wire up since `capture_thought` already supports arbitrary tags, and it turned out Berto already had real historical tags matching several of these (19 `community`, 10 `craft`, 2 each for `family`/`adventure`/`service`), so the charts aren't starting from zero.
+
+**Files changed:**
+- `lib/chart-buckets.ts` — new shared bucketing utility: `bucketAggregate(points, granularity, mode)` buckets `{t, value}` points into Month/Year/Decade buckets; `mode: "sum"` adds values per bucket (counts, pages), `mode: "last"` forward-fills the most recent value per bucket (running balances like savings).
+- `app/_components/sparkline.tsx` — new minimal SVG line component for the tile-sized chart: no axes (too small for them), a hover-titled end-point marker, and a caption below — period total for `sum` metrics, current value for `last` metrics (the literal final bucket is misleading for a `sum` metric once that bucket is a not-yet-populated future one, e.g. December in Year view — caught this after a first screenshot showed "0 pages" as the Growth caption even though 4,800 pages were logged; fixed by summing all buckets for `sum` mode instead of reading only the last one).
+- `app/_components/home-screen.tsx` — added the `wealthGranularity` state and the shared Month/Year/Decade segmented toggle above the 8-forms grid; a `wealthSparklines` memo builds each form's bucketed series (reusing already-fetched `readingLogs`/`workoutLogs`/`savingsHistory`, plus a new `thoughts` fetch); replaced the Money-only progress-bar block with a generic per-tile `<Sparkline>` (Money keeps its goal progress bar above the sparkline).
+- `app/api/thoughts/route.ts` — raised the `limit` query param's cap from 100 to 1000 so the dashboard can pull enough history to bucket a full decade.
+- `agent/instructions.md` — new bullet telling Cael to tag `capture_thought` calls with `family`/`craft`/`community`/`adventure`/`service` when a captured thought is clearly about that form, since those tags are what feed the 5 new sparklines.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own dev server on :3000) in Month, Year, and Decade views, and in dark mode — toggle switches all 8 tiles at once, sparklines render correctly including the "No data yet" empty state (Wellness — its seed workout rows were deleted after an earlier session's verification), and the caption fix confirmed correct (Money shows the current $19,600 balance in every view; count-based tiles show the period's total, not a stray zero from an unpopulated future bucket).
+
+**Note:** This work was mid-flight in this shared checkout when another concurrent session picked it up and committed it alongside an unrelated dashboard-width/Routines-editing change (see the entry directly below). This entry documents the sparkline feature specifically; the caption-mode fix above landed in a follow-up commit.
+
+**Next steps:** No dedicated tracking exists yet for Family/Craft/Community/Adventure/Service beyond the thought-tag proxy — if Berto wants a more precise metric for any of them later (e.g. an explicit `log_*` tool), swap that form's entry in `wealthSparklines` in `home-screen.tsx`.
+
 ## 2026-08-09 — Home dashboard: wider main content, full-bleed Apple-style Routines, inline routine editing
 
 **Ask:** Three follow-on requests against the home dashboard in one session: (1) the main content column read as too narrow/boxed-in on desktop; (2) the Routines card specifically should go full-bleed with no card border, referencing Apple's edge-to-edge product-page sections; (3) routines should be editable inline from the dashboard instead of only through chat.

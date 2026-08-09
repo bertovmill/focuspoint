@@ -10,10 +10,13 @@ function fmtValue(value: number, unit: string) {
   return `${Math.round(value).toLocaleString()} ${unit}`;
 }
 
-export function Sparkline({ data, unit }: { data: Bucket[]; unit: string }) {
+export function Sparkline({ data, unit, mode }: { data: Bucket[]; unit: string; mode: "sum" | "last" }) {
   const values = data.map((d) => d.value);
   const hasData = values.some((v) => v > 0);
   const last = data[data.length - 1];
+  // "last" (a running balance) reads as its current value; "sum" (counts/pages per bucket) reads
+  // as a period total — the final bucket alone is often a not-yet-populated future one.
+  const caption = mode === "last" ? last.value : values.reduce((s, v) => s + v, 0);
 
   if (!hasData) {
     return <p className="text-[11px] text-muted-foreground/50 italic h-7 flex items-center">No data yet</p>;
@@ -42,7 +45,7 @@ export function Sparkline({ data, unit }: { data: Bucket[]; unit: string }) {
           </title>
         </circle>
       </svg>
-      <p className="text-[11px] text-muted-foreground mt-0.5">{fmtValue(last.value, unit)}</p>
+      <p className="text-[11px] text-muted-foreground mt-0.5">{fmtValue(caption, unit)}</p>
     </div>
   );
 }

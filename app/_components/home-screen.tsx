@@ -365,9 +365,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       service: { points: taggedCount("service"), mode: "sum", unit: "notes" },
     };
 
-    const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string }> = {};
+    const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};
     for (const [key, { points, mode, unit }] of Object.entries(series)) {
-      out[key] = { buckets: bucketAggregate(points, wealthGranularity, mode), unit };
+      out[key] = { buckets: bucketAggregate(points, wealthGranularity, mode), unit, mode };
     }
     return out;
   }, [readingLogs, workoutLogs, savingsHistory, thoughts, wealthGranularity]);
@@ -596,7 +596,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                           />
                         </div>
                       )}
-                      {spark && <Sparkline data={spark.buckets} unit={spark.unit} />}
+                      {spark && <Sparkline data={spark.buckets} unit={spark.unit} mode={spark.mode} />}
                     </div>
                   </button>
                   {isExpanded && (

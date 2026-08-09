@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Task timer: celebration on completion + focus-mode dimming while running
+
+**Ask:** Berto wanted two things for the task timer: (1) when a timer hits zero, play a sound, show a celebration animation, and bring the app window to the front; (2) while actively doing a timed task, dim the rest of the app so it's easier to lock in.
+
+**Decisions (confirmed with Berto first):** sound is a synthesized "ta-da" arpeggio via Web Audio API (no audio asset — he asked for "more fun than a beep"), not a plain tone. Dimming triggers specifically on a *running timer* (not just "in progress") and dims the whole app, not just other rows in the task list.
+
+**Changes:**
+- `lib/celebration-sound.ts` (new) — `playCelebrationSound()`: a short ascending arpeggio + landing chord via oscillators, shared `AudioContext`.
+- `app/_components/timer-complete-celebration.tsx` (new) — confetti + modal, same visual pattern as `goal-celebration.tsx` (reused the `confetti-piece`/`chat-modal-*` CSS already in `globals.css`), shows the completed task's title.
+- `lib/desktop.ts` — added `focusAppWindow()`: calls the new Tauri `focus_window` command (desktop shell) and falls back to `window.focus()` (browser tab, best-effort — browsers often block this outside a user gesture).
+- `desktop/src-tauri/src/main.rs` — added `focus_window` Tauri command (`unminimize` + `show` + `set_focus`), registered in the invoke handler.
+- `app/_components/dashboard.tsx`:
+  - New effect watches `nowTick`/`todos`, tracks each running timer's previous "seconds remaining" in a ref, and fires the celebration (sound + `focusAppWindow()` + modal) exactly on the tick a countdown crosses from positive to zero/negative — not on every render, and not for a timer that was already over when the page loaded.
+  - New effect tracks the actively-timed task row's `getBoundingClientRect()` (via a `data-todo-id` attribute) and renders a fixed, full-viewport dark overlay with a "spotlight hole" (box-shadow trick: `0 0 0 9999px rgba(0,0,0,0.72)` on a div sized/positioned to the row) so everything else — other tasks, sidebar, chat — visually dims while a timer runs. Position-fixed, so it covers the whole app regardless of which panel Dashboard is nested in.
+
+**Verified:** `npm run typecheck` clean. Ran the app locally on a separate port (3789, since Berto's own dev session owns 3000) and drove it with Playwright: confirmed the spotlight overlay dims everything except the running task's row (screenshotted), and confirmed that seeding a test task with a timer a few seconds from completion produces the confetti modal with the correct task title within the same session. Cleaned up all test todos afterward and confirmed Berto's real running timer (task 246) was untouched throughout. Did not verify `focus_window` inside an actual built desktop app (no Tauri runtime in this loop) — logic mirrors the existing `set_pin_mode` command pattern.
+
+**Next steps:** none outstanding; desktop build not rebuilt/tested end-to-end (would need `npm run tauri build` or a dev run of the shell to confirm `focus_window` actually raises the window on macOS).
+
+---
+
 ## 2026-08-09 — Community wealth-form: live MakersLounge subscriber count via Luma API
 
 **Ask:** Berto wanted the Community card (one of the 8 forms of wealth) to track real MakersLounge Luma subscriber growth instead of the placeholder "count of thoughts tagged #community" signal.

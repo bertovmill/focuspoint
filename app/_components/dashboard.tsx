@@ -44,6 +44,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
+import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
+import { playCelebrationSound } from "@/lib/celebration-sound";
+import { focusAppWindow } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -281,6 +284,14 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [editTodoEstimatedMinutes, setEditTodoEstimatedMinutes] = useState(0);
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
+  // Task whose timer just hit zero — shows the celebration modal until dismissed.
+  const [timerCompleteTodo, setTimerCompleteTodo] = useState<Todo | null>(null);
+  // Screen-space rect of the actively-timed task's row, used to punch a spotlight hole
+  // through the focus-mode dark overlay so everything else visually fades away.
+  const [spotlightRect, setSpotlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  // Remembers each task's last-seen "seconds remaining" so we can detect the exact
+  // tick a countdown crosses zero, instead of re-firing the celebration every tick.
+  const prevRemainingRef = useRef<Map<number, number>>(new Map());
   const editTodoRef = useRef<HTMLInputElement>(null);
   // Which task's queue-number badge is currently an open input.
   const [numberingTodoId, setNumberingTodoId] = useState<number | null>(null);
@@ -305,6 +316,56 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [todos]);
+
+  // Detects the moment a running timer crosses zero, then celebrates: sound + confetti
+  // modal + pulling the window to the front so it isn't missed while looking elsewhere.
+  useEffect(() => {
+    const prevRemaining = prevRemainingRef.current;
+    const liveIds = new Set<number>();
+    for (const todo of todos) {
+      if (!todo.timer_started_at || !todo.estimated_minutes) continue;
+      liveIds.add(todo.id);
+      const elapsed = (todo.time_spent_seconds ?? 0) + Math.max(0, (nowTick - new Date(todo.timer_started_at).getTime()) / 1000);
+      const remaining = todo.estimated_minutes * 60 - elapsed;
+      const prev = prevRemaining.get(todo.id);
+      if (prev !== undefined && prev > 0 && remaining <= 0) {
+        playCelebrationSound();
+        focusAppWindow();
+        setTimerCompleteTodo(todo);
+      }
+      prevRemaining.set(todo.id, remaining);
+    }
+    // Drop bookkeeping for timers that stopped/reset so a restarted timer can re-fire.
+    for (const id of prevRemaining.keys()) {
+      if (!liveIds.has(id)) prevRemaining.delete(id);
+    }
+  }, [nowTick, todos]);
+
+  // Tracks the on-screen position of the actively-timed task row so the focus-mode
+  // overlay's spotlight hole follows it (list re-sorts, scrolling, resizing).
+  useEffect(() => {
+    const runningId = todos.find((t) => t.timer_started_at && !t.completed)?.id ?? null;
+    if (!runningId) {
+      setSpotlightRect(null);
+      return;
+    }
+    function measure() {
+      const el = document.querySelector(`[data-todo-id="${runningId}"]`);
+      if (!el) {
+        setSpotlightRect(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      setSpotlightRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [todos, activeTab, nowTick]);
 
   // "N" shortcut: focus the new-task input once the Tasks tab is showing.
   useEffect(() => {
@@ -1050,10 +1111,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             <ContextMenu key={todo.id}>
                               <ContextMenuTrigger asChild>
                             <li
+                              data-todo-id={todo.id}
                               className={cn(
                                 "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
                                 todo.in_progress && !isDone && "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10",
                                 todo.waiting && !todo.in_progress && !isDone && "border-l-2 border-l-amber-500 bg-amber-500/5 hover:bg-amber-500/10",
+                                todo.timer_started_at && !isDone && "relative ring-1 ring-primary/50 bg-card",
                                 isCompleting && "opacity-50",
                                 isDoneToday && "opacity-60",
                               )}
@@ -1872,6 +1935,28 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
       </div>
       </div>
+
+      {/* Focus mode: while a task's timer is running, dim everything except that task's row. */}
+      {spotlightRect && (
+        <div
+          className="pointer-events-none fixed z-[65] rounded-lg transition-all duration-300 ease-out"
+          style={{
+            top: spotlightRect.top - 6,
+            left: spotlightRect.left - 6,
+            width: spotlightRect.width + 12,
+            height: spotlightRect.height + 12,
+            boxShadow: "0 0 0 9999px rgba(0,0,0,0.72)",
+          }}
+          aria-hidden
+        />
+      )}
+
+      {timerCompleteTodo && (
+        <TimerCompleteCelebration
+          taskTitle={timerCompleteTodo.title}
+          onClose={() => setTimerCompleteTodo(null)}
+        />
+      )}
     </div>
   );
 }

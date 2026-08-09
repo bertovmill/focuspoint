@@ -16,3 +16,16 @@ export async function setNativePinMode(pinned: boolean): Promise<void> {
     // Older installed shell without the command — web-side pin view still works.
   }
 }
+
+/** Bring the app window to the front (desktop shell) and best-effort focus the tab (browser). */
+export function focusAppWindow(): void {
+  const tauri = (window as unknown as { __TAURI__?: TauriGlobal }).__TAURI__;
+  if (tauri?.core) {
+    tauri.core.invoke("focus_window").catch(() => {});
+  }
+  try {
+    window.focus();
+  } catch {
+    // Browsers may silently ignore this outside a user gesture — fine, best-effort.
+  }
+}

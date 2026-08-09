@@ -37,6 +37,14 @@ fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
     }
 }
 
+// Bring the app window to the front (e.g. when a task timer finishes).
+#[tauri::command]
+fn focus_window(window: tauri::WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
 #[cfg(target_os = "macos")]
 fn set_window_alpha(window: &tauri::WebviewWindow, alpha: f64) {
     use objc::{msg_send, sel, sel_impl};
@@ -59,7 +67,7 @@ fn main() {
     let app_host = APP_URL.parse::<tauri::Url>().unwrap().host_str().unwrap().to_string();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_pin_mode])
+        .invoke_handler(tauri::generate_handler![set_pin_mode, focus_window])
         .setup(move |app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(APP_URL.parse().unwrap()))
                 .title("Cael")

@@ -2608,3 +2608,33 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** Only Growth has a goal row so far — Wellness/Family/Craft/Money(custom)/Community/Adventure/Service still need their targets picked with Berto, one at a time, then a `POST /api/vision` insert each (same mechanism, no code change required). Note: `lib/chart-buckets.ts` and `app/_components/sparkline.tsx` had uncommitted changes from a concurrent session at the time of this work (bucket-window and sparkline-caption changes) — left untouched/uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Wealth-form charts: month/year/decade-over-decade trends; Family memories feature
+
+**Ask (two follow-ups from Berto in one session):**
+1. The Month/Year/Decade toggle on the 8-forms-of-wealth grid was drilling *into* one period (days of the current month, months of the current year, years of the current decade) instead of comparing *across* periods. Berto wanted Month to show month-to-month, Year to show year-over-year, Decade to show decade-over-decade — and each series to read as a cumulative running total, not a per-period bump.
+2. Family's tracking signal (previously a proxy: count of `thoughts` tagged "family") should become real: memories are photos Berto uploads with a title + description, and the Family goal is 100 memories.
+
+**Part 1 — chart bucketing (`lib/chart-buckets.ts`):**
+- `bucketDefs` rewritten so `month` = trailing 12 months (one bucket per month), `year` = trailing 10 years (one bucket per year), `decade` = trailing 6 decades labeled "1980s" etc (one bucket per decade) — each granularity now compares across that unit instead of drilling into it.
+- `bucketAggregate`'s `"sum"` mode now accumulates a running total across buckets (was: each bucket independently summed its own window) so pages/notes/memories read as a rising cumulative line, matching Money's always-rising `"last"` mode. `sparkline.tsx`'s caption simplified to just the final bucket's value for both modes.
+- Note: a concurrent session was mid-flight adding a goal reference-line to `sparkline.tsx` (dashed line + `goal`/`goalAchieved` props) while this work landed — that file's diff was left uncommitted for that session to commit as a whole; the cumulative-caption fix is folded into their version.
+
+**Part 2 — Family memories (photo + title + description, goal 100):**
+- **Decisions (asked Berto):** memories addable from three places — Cael chat, the Family dashboard widget (quick-add), and a new dedicated `/family` page in the sidebar.
+- New `memories` table (`lib/db.ts`): `id, title, description, image_url NOT NULL, created_at`.
+- New `app/api/memories/route.ts` (GET list / POST create) and `app/api/memories/[id]/route.ts` (DELETE), modeled on the existing `vision_items` routes.
+- New `agent/tools/add_family_memory.ts` — Cael can log a memory given an `image_url` (the established convention: user uploads via `/api/upload`, gets a URL, tells Cael about it in chat text; the tool just persists the URL + optional title/description), same pattern as `post_linkedin`/`add_vision_item`.
+- New `app/_components/family-panel.tsx` — full memories grid + drag-drop/click upload with title+description fields, modeled on `vision-panel.tsx`'s board section; wired into `dashboard.tsx` as a new `"family"` tab and a new `/family` route (`app/(app)/family/page.tsx`, empty stub per the existing per-section-route pattern) reachable from both the desktop nav rail and the mobile "More" menu (`app/(app)/layout.tsx`).
+- `home-screen.tsx`: Family's `WEALTH_FORMS` target changed from `"vision"` to `"family"`; `wealthSeries.family` now sources from real `/api/memories` data (cumulative count) instead of tagged-thoughts proxy, unit `"memories"`; added a compact quick-add (title input + photo button) inside the expanded Family card, reusing the same upload → `/api/memories` POST flow.
+- Seeded Family's goal via a one-off DB script (`vision_items`: `kind=goal, title=Family, content=100`) — id 29, using the existing generic goal/progress-bar/celebration mechanism from the prior Growth-goal work (no code change needed for the goal itself).
+
+**Verified:** Playwright + curl against the already-running dev server on :3000 (concurrent session's — not killed). `/api/memories` GET/POST/DELETE round-trip confirmed server-side; `/family` page renders the upload UI and empty state; clicking the Family card from Home navigates to `/family`; expanded Family card shows Vision/Methods text plus the new "Add a memory" quick-add row; seeded a test memory and confirmed the Family sparkline switches from "No data yet" to a cumulative chart with goal reference line and "1 memories / 100 memories" caption (pluralization matches the app's existing static-unit-suffix convention, e.g. "4,800 pages"); deleted all test rows afterward. Typecheck clean.
+
+**Files changed:** `lib/chart-buckets.ts`, `lib/db.ts`, `app/api/memories/route.ts` (new), `app/api/memories/[id]/route.ts` (new), `agent/tools/add_family_memory.ts` (new), `app/_components/family-panel.tsx` (new), `app/(app)/family/page.tsx` (new), `app/(app)/layout.tsx`, `app/_components/dashboard.tsx`, `app/_components/home-screen.tsx`. `app/_components/sparkline.tsx` left uncommitted (concurrent session's goal reference-line work in progress).
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Craft/Money(custom)/Community/Adventure/Service still need goal targets picked with Berto. Family currently only counts memories added after this feature shipped (0 to start) — no historical backfill was requested or done.

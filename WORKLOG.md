@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Desktop nav: persistent left rail (ElevenLabs-style), Weekly Routine centered
+
+**Ask:** Berto wanted the Weekly Workout Routine section centered like the rest of the home dashboard (it was full-bleed via `px-6 lg:px-12` while everything else uses `mx-auto max-w-6xl px-6`). Then, referencing ElevenLabs' left sidebar, he wanted all section nav (Chat/Tasks/Notes/Lists/Journal/Dreams/Schedule/Media/Measures/Vision/Sketches/Calendar) moved out of the "Go To" grid on the home screen and into a persistent left sidebar, since on desktop there previously was no always-visible nav — navigation only happened via that grid (home screen only) or keyboard shortcuts.
+
+**Decisions (asked Berto):**
+- Nav rail: leftmost, always visible on desktop, collapsible to icons-only (a toggle button, state persisted to `localStorage`) — not folded into the existing Dashboard sidebar.
+- Mobile: unchanged — keeps its existing bottom tab bar + "More" dropdown.
+- Home screen's "Go To" grid: removed (redundant now that the rail is always visible).
+- Dashboard's own inner "ElevenLabs style" vertical nav (a pre-existing feature, only shown on desktop when viewing a non-home/non-chat section) was now a duplicate of the new global rail — removed it too, since Dashboard's `activeTab` is always externally controlled via the `activeTab` prop from the layout.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — Weekly Routine section's wrapper changed from `w-full px-6 lg:px-12` to `mx-auto max-w-6xl px-6` (matches the rest of the page). Removed the "Go To" grid section, the now-unused `openTasks` state, and the `/api/todos` fetch that only fed it (`SECTIONS` array kept — still drives the home screen's number/letter keyboard shortcuts).
+- `app/(app)/layout.tsx` — new `NAV_ITEMS` (13 sections incl. Home) rendered as a `hidden lg:flex` leftmost `<aside>`, width `lg:w-52` open / `lg:w-14` collapsed with a `PanelLeftIcon` toggle; `navRailOpen` state persisted to `localStorage` (`focuspoint:nav-rail-open`) and hydrated on mount.
+- `app/_components/dashboard.tsx` — removed the internal `NAV_ITEMS` array and the `<nav>` block that rendered it (both the "expanded" desktop-sidebar variant and the "chat-sidebar" horizontal variant); cleaned up now-unused icon imports (`HomeIcon`, `ListTodoIcon`, `FileTextIcon`, `ListChecksIcon`, `BookOpenIcon`, `MoonIcon`, `CalendarClockIcon`, `ImageIcon`, `BrushIcon`, `TelescopeIcon`).
+
+**Verified:** `npm run typecheck` passes. Playwright against the already-running dev server (:3000, owned by another session — didn't kill it) at 1440×1000: rail renders open and collapsed, active-tab highlighting works, clicking "Tasks" and "Chat" navigates correctly with no duplicate nav visible. Mobile (390×844) bottom nav confirmed unchanged.
+
+**Next steps (not done):** none flagged.
+
+---
+
 ## 2026-08-09 — Routines: fixed day-box editor clipping long content
 
 **Ask:** After the per-field inline editing landed, the Monday box's edit textarea (fixed `rows={6}`) clipped a routine with more lines than fit — the top of the text scrolled out of view within the small box.

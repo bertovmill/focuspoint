@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, BrushIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, ImageIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ListTodoIcon, FileTextIcon, MoonIcon, CalendarClockIcon, CalendarDaysIcon, ActivityIcon, ListChecksIcon, BookOpenIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, TelescopeIcon, HomeIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
@@ -50,21 +50,6 @@ import {
   InputGroupButton,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-
-const NAV_ITEMS = [
-  { id: "home" as const, label: "Home", icon: HomeIcon },
-  { id: "todos" as const, label: "Tasks", icon: ListTodoIcon },
-  { id: "notes" as const, label: "Notes", icon: FileTextIcon },
-  { id: "lists" as const, label: "Lists", icon: ListChecksIcon },
-  { id: "calendar" as const, label: "Calendar", icon: CalendarDaysIcon },
-  { id: "journal-templates" as const, label: "Journal Templates", icon: BookOpenIcon },
-  { id: "dreams" as const, label: "Dreams", icon: MoonIcon },
-  { id: "schedule" as const, label: "Scheduled Tasks", icon: CalendarClockIcon },
-  { id: "media" as const, label: "Media", icon: ImageIcon },
-  { id: "sketches" as const, label: "Sketches", icon: BrushIcon },
-  { id: "measures" as const, label: "Measures", icon: GaugeIcon },
-  { id: "vision" as const, label: "Vision", icon: TelescopeIcon },
-];
 
 const MEASURE_CATEGORIES = [
   { key: "savings_snapshot" as const, label: "Savings Snapshot", icon: PiggyBankIcon },
@@ -859,44 +844,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         </div>
       </div>
 
-      <div className={cn("flex flex-1 min-h-0 flex-col", isExpanded && "lg:flex-row")}>
-        {/* Vertical nav — ElevenLabs style. On mobile, hidden when expanded since the bottom nav already covers navigation. */}
-        <nav
-          className={cn(
-            "shrink-0 space-y-0.5",
-            isExpanded
-              ? "hidden lg:block lg:w-[220px] lg:border-r lg:border-border lg:px-3 lg:py-3 lg:overflow-y-auto"
-              : "px-3 py-3 border-b border-border",
-          )}
-        >
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-            const isActive = activeTab === id;
-            return (
-              <button
-                key={id}
-                onClick={() => {
-                  setActiveTab(id);
-                  onTabChange?.(id);
-                }}
-                className={cn(
-                  "flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm transition-colors text-left",
-                  isActive
-                    ? "bg-accent text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span>{label}</span>
-                {id === "todos" && !loading && activeTodos.length > 0 && (
-                  <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                    {activeTodos.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
+      <div className="flex flex-1 min-h-0 flex-col">
       {/* Content area */}
       <div className="flex-1 overflow-y-auto min-h-0">
 

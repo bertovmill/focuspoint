@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
@@ -57,6 +57,25 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "vision", label: "Vision", icon: TelescopeIcon },
 ];
 
+// Every navigable section, in the order they appear in the desktop nav rail.
+const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
+  { tab: "home", label: "Home", icon: HomeIcon },
+  { tab: "chat", label: "Chat", icon: MessageCircleIcon },
+  { tab: "tasks", label: "Tasks", icon: ListTodoIcon },
+  { tab: "notes", label: "Notes", icon: FileTextIcon },
+  { tab: "lists", label: "Lists", icon: ListChecksIcon },
+  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
+  { tab: "dreams", label: "Dreams", icon: BrainIcon },
+  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon },
+  { tab: "media", label: "Media", icon: ImageIcon },
+  { tab: "measures", label: "Measures", icon: GaugeIcon },
+  { tab: "vision", label: "Vision", icon: TelescopeIcon },
+  { tab: "sketches", label: "Sketches", icon: BrushIcon },
+  { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
+];
+
+const NAV_RAIL_STORAGE_KEY = "focuspoint:nav-rail-open";
+
 export default function AppLayout({ children }: { readonly children: ReactNode }) {
   return (
     <ThreadsProvider>
@@ -79,6 +98,18 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   useEffect(() => {
     for (const path of Object.values(TAB_PATHS)) router.prefetch(path);
   }, [router]);
+  const [navRailOpen, setNavRailOpen] = useState(true);
+  useEffect(() => {
+    const stored = window.localStorage.getItem(NAV_RAIL_STORAGE_KEY);
+    if (stored !== null) setNavRailOpen(stored === "1");
+  }, []);
+  const toggleNavRail = useCallback(() => {
+    setNavRailOpen((v) => {
+      const next = !v;
+      window.localStorage.setItem(NAV_RAIL_STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
@@ -167,6 +198,44 @@ function Workspace({ children }: { readonly children: ReactNode }) {
 
   return (
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
+      {/* Desktop nav rail — leftmost, always visible, collapsible to icons only */}
+      <aside
+        className={cn(
+          "hidden lg:flex lg:flex-col shrink-0 border-r border-border bg-background overflow-hidden",
+          "lg:transition-[width] lg:duration-200 lg:ease-in-out",
+          navRailOpen ? "lg:w-52" : "lg:w-14",
+        )}
+      >
+        <div className="flex items-center h-14 px-2 shrink-0">
+          <button
+            onClick={toggleNavRail}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            aria-label={navRailOpen ? "Collapse navigation" : "Expand navigation"}
+          >
+            <PanelLeftIcon className="size-4" />
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
+          {NAV_ITEMS.map(({ tab, label, icon: Icon }) => (
+            <button
+              key={tab}
+              onClick={() => setMobileTab(tab)}
+              title={label}
+              className={cn(
+                "flex items-center gap-3 w-full rounded-lg py-2 text-sm transition-colors",
+                navRailOpen ? "px-2.5" : "justify-center px-0",
+                mobileTab === tab
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4 shrink-0" />
+              {navRailOpen && <span className="truncate">{label}</span>}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
       {/* Dashboard panel — sidebar when chat is active, takes over the full main view otherwise */}
       <aside
         className={cn(

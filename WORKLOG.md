@@ -2638,3 +2638,21 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** Craft/Money(custom)/Community/Adventure/Service still need goal targets picked with Berto. Family currently only counts memories added after this feature shipped (0 to start) — no historical backfill was requested or done.
+
+---
+
+## 2026-08-09 — Wealth-form goals: reference line on the chart instead of a separate progress bar
+
+**Ask:** Berto wanted the goal shown as a bar/line on the sparkline chart itself, not the standalone filled progress-bar element added earlier today.
+
+**Decisions:** Replaced the two hand-built filled-bar elements (Money's measures-sourced one, and the generic vision-goal one) with a single mechanism inside `Sparkline`: an optional `goal` prop renders as a dashed horizontal Recharts `ReferenceLine` at the target value, and the chart's Y-domain is padded 15% above `max(data, goal)` (via an explicit hidden `YAxis`) so the line/peak is never clipped. The caption line under the chart now reads `"{current} {unit} / {target} {unit}"` (🎉-prefixed once achieved) instead of a separate line of text below a bar.
+
+**Files changed:**
+- `app/_components/sparkline.tsx` — `Sparkline` takes new optional `goal`/`goalAchieved` props; renders `<YAxis hide domain={[0, domainMax]}>` and `<ReferenceLine y={goal} strokeDasharray="3 3">` (color flips to the achieved-green once hit); caption logic folded the goal target into the existing value string.
+- `app/_components/home-screen.tsx` — removed both manual filled-bar blocks from the wealth-form card grid; now computes `goalTarget`/`goalAchieved` per form (Money still reads from `savings.goal`/`savings.total`; every other form reads from the `formGoals` vision-item map built in the previous entry) and passes them straight to `<Sparkline>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — Growth's card now shows a dashed reference line across the chart with "4,800 pages / 10,000 pages" beneath it; temporarily dropped the goal to 100 to re-confirm the full-screen celebration still fires correctly with the new caption format, then restored the real 10,000 target and `achieved: false`.
+
+**Typecheck:** PASS ✓ (a `family`-tab MobileTab typecheck error present earlier from a concurrent session's in-flight Family-memories feature was resolved by that session merging its own work to main before this commit — not something fixed here).
+
+**Note:** `app/api/community/` and `lib/luma.ts` are untracked, in-progress work from a concurrent session (Community/Luma subscriber tracking) present in the working tree at commit time — left uncommitted here for that session to commit itself.

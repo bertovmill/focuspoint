@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart } from "recharts";
+import { Line, LineChart, XAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { Bucket } from "@/lib/chart-buckets";
 
@@ -22,13 +22,22 @@ export function Sparkline({ data, unit, mode }: { data: Bucket[]; unit: string; 
   const caption = mode === "last" ? last.value : values.reduce((s, v) => s + v, 0);
 
   if (!hasData) {
-    return <p className="text-[11px] text-muted-foreground/50 italic h-7 flex items-center">No data yet</p>;
+    return <p className="text-[11px] text-muted-foreground/50 italic h-11 flex items-center">No data yet</p>;
   }
 
   return (
     <div>
-      <ChartContainer config={chartConfig} className="aspect-auto h-7 w-full">
-        <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+      <ChartContainer config={chartConfig} className="aspect-auto h-11 w-full">
+        <LineChart data={data} margin={{ top: 2, right: 4, bottom: 0, left: 4 }}>
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={4}
+            interval="preserveStartEnd"
+            minTickGap={20}
+            tick={{ fontSize: 9 }}
+          />
           <ChartTooltip
             cursor={false}
             content={<ChartTooltipContent hideLabel formatter={(value) => fmtValue(Number(value), unit)} />}

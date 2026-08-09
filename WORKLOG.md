@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Wealth-form sparklines: added an x-axis (day/month/year labels)
+
+**Ask:** The 8 tile sparklines had no axis at all — just a bare line — making it unclear what each point along it represented. Add the x-axis.
+
+**Files changed:**
+- `app/_components/sparkline.tsx` — added a Recharts `XAxis` (`dataKey="label"`, using the labels `bucketAggregate` already produces — day-of-month, month abbreviation, or year depending on the active granularity). No axis line/tick marks (`axisLine={false}` `tickLine={false}`), `interval="preserveStartEnd"` + `minTickGap={20}` so Month view's 28-31 day labels thin out to a readable handful instead of overlapping, 9px muted-foreground text. Bumped the tile chart height from `h-7` to `h-11` to fit the label row.
+
+**Verified:** `npm run typecheck` passes. Screenshotted Month, Year, and Decade views on the live dashboard — labels render evenly spaced and legible in all three (Jan/Mar/May/.../Dec, 1/5/9/.../31, 2017/2019/.../2026).
+
 ## 2026-08-09 — Wealth-form sparklines: switched to Recharts, removed the now-redundant Reading card
 
 **Ask:** Two follow-ups on the 8 wealth-form tile sparklines: (1) drop the standalone Reading chart card, since Growth's tile sparkline already covers pages read; (2) the hand-rolled SVG sparklines had visibly misshapen peaks (asymmetric/kinked triangles instead of clean curves) — Berto asked to use a proper Next.js charting kit instead.

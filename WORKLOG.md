@@ -2581,3 +2581,30 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** Haven't done a live end-to-end check that a >60s timer run actually creates a real Google Calendar event (only verified the code path is wired and errors are swallowed safely) — worth Berto confirming on his next real timed task.
+
+---
+
+## 2026-08-09 — 8 forms of wealth: per-form goals + full-screen celebration (Growth first)
+
+**Ask:** Berto wants each of the 8 wealth-form cards to have a goal, starting with Growth at 10,000 pages, with a big celebration when he hits it — then move on to the next form's goal one at a time.
+
+**Decisions (asked Berto):**
+- Goal storage: reuse the existing `vision_items` table's `kind="goal"` row type (same table Money's vision/method cards already use) rather than a new column/table — `title` = the form label (e.g. "Growth"), `content` = the numeric target as a string, and the already-existing `achieved`/`achieved_at` columns double as the one-time-celebration flag. This means adding a goal for the next form later is just a DB insert (one `POST /api/vision`), no code change needed.
+- Celebration: one-time full-screen confetti + modal, not a replay-every-visit or quiet-badge version. Confetti is hand-rolled CSS (no new dependency) via a `.confetti-piece` keyframe in `globals.css`.
+
+**Files changed:**
+- `app/_components/goal-celebration.tsx` (new) — `GoalCelebration` component: full-screen modal (styled like the existing chat modal) with ~90 randomly-placed/colored/timed confetti pieces falling via CSS animation, a "🎉 {form} goal reached — You hit {target}!" message, and a dismiss button (click backdrop, Escape, or the button).
+- `app/globals.css` — `confetti-fall` keyframe + `.confetti-piece` base class.
+- `app/_components/home-screen.tsx`:
+  - Fetches `vision_items?kind=goal` alongside the existing statement/method/routine fetches; builds a `formGoals` map (`{ [formLabel]: { id, target, achieved } }`), keeping only the newest goal row per form.
+  - Split the old `wealthSparklines` memo into `wealthSeries` (raw per-form point series, form data only) → `wealthSparklines` (bucketed by the Month/Year/Decade toggle, unchanged behavior) and a new `wealthTotals` memo (all-time total per form, independent of the granularity toggle — this is what a goal progress bar needs, not a bucketed window).
+  - New effect: for any form with an unachieved goal whose `wealthTotals` total has crossed `target`, pushes it onto a `celebrationQueue`, optimistically flips `formGoals[key].achieved` to `true` (so it can't refire), and `PATCH`es `/api/vision/{id}` with `achieved: true` (persists the one-time flag server-side, sets `achieved_at`).
+  - Card grid: added a generic goal progress bar (bar + "`{total} / {target} {unit}`" caption, 🎉 prefix once achieved) for any non-Money form that has a goal row — Money keeps its pre-existing goal bar (sourced from `measures`, untouched).
+  - Renders `<GoalCelebration>` for `celebrationQueue[0]` when present; closing pops the queue (so multiple simultaneous goal-hits, if that ever happens, celebrate one at a time).
+- Seeded Growth's goal directly in the DB (`vision_items`: `kind=goal, title=Growth, content=10000`) via a one-off script — id 28.
+
+**Verified:** Playwright against the already-running dev server on :3000 (didn't kill it — it's a concurrent session's server per usual multi-session convention) — Growth card renders "4,800 / 10,000 pages" with a partial progress bar; temporarily PATCHed the goal target down to 100 to confirm the full-screen confetti celebration fires with the correct "Growth goal reached — You hit 100 pages!" copy and persists `achieved: true` server-side; then restored the real target (10000) and reset `achieved: false` so Growth's actual 10K crossing celebrates for real later. Reloaded after restoring — confirmed no false celebration and the progress bar reads correctly.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Only Growth has a goal row so far — Wellness/Family/Craft/Money(custom)/Community/Adventure/Service still need their targets picked with Berto, one at a time, then a `POST /api/vision` insert each (same mechanism, no code change required). Note: `lib/chart-buckets.ts` and `app/_components/sparkline.tsx` had uncommitted changes from a concurrent session at the time of this work (bucket-window and sparkline-caption changes) — left untouched/uncommitted here for that session to commit itself.

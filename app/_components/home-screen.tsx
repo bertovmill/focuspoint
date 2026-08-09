@@ -39,6 +39,7 @@ import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { Sparkline } from "@/app/_components/sparkline";
+import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { cn } from "@/lib/utils";
 
@@ -242,6 +243,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   // Sourced from vision_items whose title matches the form name. null = still loading.
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
+  // Per-form numeric goals (vision_items kind="goal", title = form label, content = target number).
+  const [formGoals, setFormGoals] = useState<Record<string, { id: number; target: number; achieved: boolean }>>({});
+  // Queue of forms whose goal was just crossed this session — shown one at a time as a full-screen celebration.
+  const [celebrationQueue, setCelebrationQueue] = useState<{ label: string; targetLabel: string }[]>([]);
   const [routines, setRoutines] = useState<{ id: number; title: string; content: string }[] | null>(null);
   // Which single field of which routine is being edited inline — the title, the goal line, or one day+slot box.
   const [routineEditTarget, setRoutineEditTarget] = useState<
@@ -350,11 +355,12 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
+        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
           await Promise.all([
             fetch("/api/vision?kind=statement"),
             fetch("/api/vision?kind=method"),
             fetch("/api/vision?kind=routine"),
+            fetch("/api/vision?kind=goal"),
             fetch("/api/measures?category=savings_snapshot&limit=400"),
             fetch("/api/meals?limit=1"),
             fetch("/api/workouts"),
@@ -386,6 +392,19 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
         setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
         setRoutines(routineRes.ok ? toRoutineList(await routineRes.json()) : []);
+        if (goalRes.ok) {
+          const rows: { id: number; title: string | null; content: string | null; achieved: boolean }[] = await goalRes.json();
+          const map: Record<string, { id: number; target: number; achieved: boolean }> = {};
+          for (const row of rows) {
+            const key = row.title?.trim().toLowerCase();
+            const target = Number(row.content);
+            // Rows are newest-first; keep the first (most recent/active) goal per form.
+            if (key && Number.isFinite(target) && target > 0 && !(key in map)) {
+              map[key] = { id: row.id, target, achieved: row.achieved };
+            }
+          }
+          setFormGoals(map);
+        }
         if (measuresRes.ok) {
           const rows: MeasureRow[] = await measuresRes.json();
           setSavingsHistory(rows);
@@ -433,7 +452,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   // Growth/Wellness/Money reuse data already tracked elsewhere (pages, workouts, savings);
   // the remaining 5 forms use a count of thoughts tagged with that form's name as a proxy
   // signal until they get dedicated tracking.
-  const wealthSparklines = useMemo(() => {
+  const wealthSeries = useMemo(() => {
     const taggedCount = (tag: string) =>
       thoughts
         .filter((t) => t.tags?.some((x) => x.toLowerCase() === tag))
@@ -463,13 +482,49 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       adventure: { points: taggedCount("adventure"), mode: "sum", unit: "notes" },
       service: { points: taggedCount("service"), mode: "sum", unit: "notes" },
     };
+    return series;
+  }, [readingLogs, workoutLogs, savingsHistory, thoughts]);
 
+  const wealthSparklines = useMemo(() => {
     const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};
-    for (const [key, { points, mode, unit }] of Object.entries(series)) {
+    for (const [key, { points, mode, unit }] of Object.entries(wealthSeries)) {
       out[key] = { buckets: bucketAggregate(points, wealthGranularity, mode), unit, mode };
     }
     return out;
-  }, [readingLogs, workoutLogs, savingsHistory, thoughts, wealthGranularity]);
+  }, [wealthSeries, wealthGranularity]);
+
+  // All-time progress toward each form's goal — independent of the Month/Year/Decade toggle above.
+  const wealthTotals = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [key, { points, mode }] of Object.entries(wealthSeries)) {
+      if (points.length === 0) continue;
+      out[key] =
+        mode === "sum" ? points.reduce((s, p) => s + p.value, 0) : points[points.length - 1].value;
+    }
+    return out;
+  }, [wealthSeries]);
+
+  // Fire a one-time full-screen celebration the moment a form's all-time total first crosses its goal.
+  useEffect(() => {
+    for (const [key, goal] of Object.entries(formGoals)) {
+      if (goal.achieved) continue;
+      const total = wealthTotals[key];
+      if (total === undefined || total < goal.target) continue;
+      const form = WEALTH_FORMS.find((f) => f.label.toLowerCase() === key);
+      const unit = wealthSeries[key]?.unit ?? "";
+      setFormGoals((prev) => ({ ...prev, [key]: { ...prev[key], achieved: true } }));
+      setCelebrationQueue((prev) => [
+        ...prev,
+        { label: form?.label ?? key, targetLabel: `${goal.target.toLocaleString()} ${unit}`.trim() },
+      ]);
+      fetch(`/api/vision/${goal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ achieved: true }),
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formGoals, wealthTotals]);
 
   const header = (onImage: boolean) => (
     <>
@@ -509,6 +564,14 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   );
 
   return (
+    <>
+      {celebrationQueue[0] && (
+        <GoalCelebration
+          formLabel={celebrationQueue[0].label}
+          targetLabel={celebrationQueue[0].targetLabel}
+          onClose={() => setCelebrationQueue((prev) => prev.slice(1))}
+        />
+      )}
     <div className="flex-1 overflow-y-auto min-h-0">
       {/* Daily artwork — full-bleed hero with the header overlaid */}
       {!artFailed && (
@@ -646,6 +709,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               const visionText = formVisions?.[label.toLowerCase()];
               const methodText = formMethods?.[label.toLowerCase()];
               const spark = wealthSparklines[label.toLowerCase()];
+              const goal = label !== "Money" ? formGoals[label.toLowerCase()] : undefined;
+              const goalTotal = wealthTotals[label.toLowerCase()] ?? 0;
               return (
                 <Card
                   key={label}
@@ -681,6 +746,26 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                               background: "var(--chart-essential)",
                             }}
                           />
+                        </div>
+                      )}
+                      {goal && (
+                        <div className="mb-1">
+                          <div
+                            className="h-1.5 rounded-full overflow-hidden mb-1"
+                            style={{ background: "var(--chart-track)" }}
+                          >
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, (goalTotal / goal.target) * 100)}%`,
+                                background: "var(--chart-essential)",
+                              }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            {goal.achieved && "🎉 "}
+                            {Math.round(goalTotal).toLocaleString()} / {goal.target.toLocaleString()} {spark?.unit}
+                          </p>
                         </div>
                       )}
                       {spark && <Sparkline data={spark.buckets} unit={spark.unit} mode={spark.mode} />}
@@ -892,5 +977,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       </div>
       </div>
     </div>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckIcon, CircleIcon, PlusIcon, PencilIcon, TrashIcon, UploadIcon, SparklesIcon, TargetIcon, ImageIcon, TelescopeIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleIcon, PlusIcon, PencilIcon, TrashIcon, UploadIcon, SparklesIcon, TargetIcon, ImageIcon, TelescopeIcon, BookOpenIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 interface VisionItem {
   id: number;
-  kind: "statement" | "goal" | "image";
+  kind: "statement" | "goal" | "image" | "method" | "milestone" | "routine" | "chapter";
   title: string | null;
   content: string | null;
   image_url: string | null;
@@ -29,6 +29,7 @@ const SECTIONS = [
   { key: "statements" as const, label: "Statements", icon: SparklesIcon },
   { key: "goals" as const, label: "Goals", icon: TargetIcon },
   { key: "board" as const, label: "Board", icon: ImageIcon },
+  { key: "chapters" as const, label: "Chapters", icon: BookOpenIcon },
 ];
 
 const HORIZONS = [
@@ -48,6 +49,9 @@ export function VisionPanel() {
   const [newGoal, setNewGoal] = useState("");
   const [newGoalHorizon, setNewGoalHorizon] = useState<VisionItem["horizon"]>("1yr");
   const [newCaption, setNewCaption] = useState("");
+  const [newChapterTitle, setNewChapterTitle] = useState("");
+  const [newChapterContent, setNewChapterContent] = useState("");
+  const [expandedChapterId, setExpandedChapterId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -201,6 +205,24 @@ export function VisionPanel() {
     }
   };
 
+  const handleAddChapter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = newChapterTitle.trim();
+    const content = newChapterContent.trim();
+    if (!title || !content) return;
+    setSaving(true);
+    try {
+      await createItem({ kind: "chapter", title, content });
+      setNewChapterTitle("");
+      setNewChapterContent("");
+      toast.success("Chapter saved.");
+    } catch {
+      toast.error("Couldn't save chapter. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     const prev = items;
     setItems((xs) => xs.filter((x) => x.id !== id));
@@ -217,6 +239,7 @@ export function VisionPanel() {
   const statements = items.filter((i) => i.kind === "statement");
   const goals = items.filter((i) => i.kind === "goal");
   const images = items.filter((i) => i.kind === "image");
+  const chapters = items.filter((i) => i.kind === "chapter");
 
   return (
     <div>
@@ -557,6 +580,115 @@ export function VisionPanel() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Chapters */}
+          {section === "chapters" && (
+            <div>
+              <form onSubmit={handleAddChapter} className="flex flex-col gap-2 mb-5">
+                <Input
+                  value={newChapterTitle}
+                  onChange={(e) => setNewChapterTitle(e.target.value)}
+                  placeholder="Source — e.g. 'Craft — Robin, The 8 Forms of Wealth'"
+                />
+                <Textarea
+                  value={newChapterContent}
+                  onChange={(e) => setNewChapterContent(e.target.value)}
+                  placeholder="Paste the full chapter text here…"
+                  rows={12}
+                  className="font-mono text-xs"
+                />
+                <Button
+                  type="submit"
+                  disabled={saving || !newChapterTitle.trim() || !newChapterContent.trim()}
+                  className="self-start"
+                >
+                  {saving ? <Spinner className="size-3.5 mr-2" /> : <PlusIcon className="size-3.5 mr-2" />}
+                  Save chapter
+                </Button>
+              </form>
+
+              {chapters.length === 0 ? (
+                <Empty className="py-10">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <BookOpenIcon className="size-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No chapters saved yet</EmptyTitle>
+                    <EmptyDescription>Paste in reference text — book chapters, essays, notes — to keep verbatim.</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="space-y-3">
+                  {chapters.map((c) => {
+                    const isExpanded = expandedChapterId === c.id;
+                    const isEditing = editingId === c.id;
+                    return (
+                      <Card key={c.id} className="gap-0 rounded-lg px-4 py-3 shadow-none group">
+                        {isEditing ? (
+                          <div>
+                            <Input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              placeholder="Source"
+                              className="mb-2"
+                            />
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              rows={12}
+                              className="font-mono text-xs"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <Button size="xs" onClick={() => saveEdit(c)}>Save</Button>
+                              <Button size="xs" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedChapterId(isExpanded ? null : c.id)}
+                              className="flex w-full items-center justify-between gap-2 text-left"
+                            >
+                              <p className="text-sm font-medium">{c.title}</p>
+                              {isExpanded ? (
+                                <ChevronUpIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                            </button>
+                            {isExpanded && (
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words mt-2">{c.content}</p>
+                            )}
+                            <div className="flex justify-end gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => startEdit(c)}
+                                className="text-muted-foreground hover:text-foreground"
+                                aria-label="Edit chapter"
+                              >
+                                <PencilIcon className="size-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => handleDelete(c.id)}
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label="Delete chapter"
+                              >
+                                <TrashIcon className="size-3" />
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>

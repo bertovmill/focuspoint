@@ -2656,3 +2656,21 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓ (a `family`-tab MobileTab typecheck error present earlier from a concurrent session's in-flight Family-memories feature was resolved by that session merging its own work to main before this commit — not something fixed here).
 
 **Note:** `app/api/community/` and `lib/luma.ts` are untracked, in-progress work from a concurrent session (Community/Luma subscriber tracking) present in the working tree at commit time — left uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Vision: "Chapters" section for pasting reference text verbatim
+
+**Ask:** Berto wanted to discuss what measure/proxy fits Craft (the 4th form of wealth) and planned to paste in the "Craft" chapter from Robin's book as context. He flagged that models often don't reproduce exact text faithfully when asked to insert it into a doc — wanted a UI spot to paste it directly instead, so the text lands verbatim without going through the model.
+
+**Decision:** Reused the existing `vision_items` table/API rather than a new table — added a `"chapter"` kind alongside `statement`/`goal`/`image`/`method`/`milestone`/`routine` (`title` = source/label, `content` = full pasted text, no length limit). Added a "Chapters" tab to the Vision page: a title input + large `Textarea` for pasting, and a list of saved chapters that collapse to just the title (click to expand) so long pasted text doesn't dominate the page. This is a general-purpose "paste reference text verbatim" spot, not Craft-specific — reusable for any future book chapter/essay/note the same way.
+
+**Files changed:**
+- `app/api/vision/route.ts` — added `"chapter"` to `KINDS` and its title+content validation.
+- `app/_components/vision-panel.tsx` — new `chapters` derived list, `newChapterTitle`/`newChapterContent`/`expandedChapterId` state, `handleAddChapter`, and a new "Chapters" section (form + expandable list, reusing the existing edit/delete plumbing).
+
+**Not done:** No agent tool for creating chapters — this is meant for direct paste, not going through Cael/chat, per the stated reason for building it. The actual Craft measure/proxy discussion is still open, pending Berto pasting the chapter content in.
+
+**Verified:** Playwright against the already-running dev server on :3000 (Berto's own session) — Chapters tab renders, saved a test chapter, confirmed it round-tripped through `/api/vision?kind=chapter` server-side, expand/collapse works, deleted the test row afterward. Typecheck clean.
+
+**Next steps:** Once Berto pastes the Craft chapter into the new Chapters tab, read it and continue the discussion on what the right measure/proxy for Craft is.

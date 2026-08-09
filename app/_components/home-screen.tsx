@@ -235,7 +235,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     { routineId: number; field: "title" | "goal" } | { routineId: number; field: "day"; day: string } | null
   >(null);
   const [routineEditValue, setRoutineEditValue] = useState("");
-  const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -330,12 +329,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
+        const [visionRes, methodRes, routineRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
           await Promise.all([
             fetch("/api/vision?kind=statement"),
             fetch("/api/vision?kind=method"),
             fetch("/api/vision?kind=routine"),
-            fetch("/api/todos?limit=200"),
             fetch("/api/measures?category=savings_snapshot&limit=400"),
             fetch("/api/meals?limit=1"),
             fetch("/api/workouts"),
@@ -367,10 +365,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
         setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
         setRoutines(routineRes.ok ? toRoutineList(await routineRes.json()) : []);
-        if (todosRes.ok) {
-          const todos: { completed: boolean }[] = await todosRes.json();
-          setOpenTasks(todos.filter((t) => !t.completed).length);
-        }
         if (measuresRes.ok) {
           const rows: MeasureRow[] = await measuresRes.json();
           setSavingsHistory(rows);
@@ -748,7 +742,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     {editingGoal ? (
                       <textarea
                         value={routineEditValue}
-                        onChange={(e) => setRoutineEditValue(e.target.value)}
+                        onChange={(e) => {
+                          setRoutineEditValue(e.target.value);
+                          e.target.style.height = "auto";
+                          e.target.style.height = `${e.target.scrollHeight}px`;
+                        }}
                         onBlur={saveRoutineField}
                         onKeyDown={(e) => {
                           if (e.key === "Escape") cancelEditingRoutineField();
@@ -760,7 +758,13 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                         placeholder="Goal for this routine"
                         rows={2}
                         autoFocus
-                        className="w-full text-sm text-muted-foreground leading-relaxed mb-3 bg-transparent outline-none border-b border-primary/40 resize-none"
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = `${el.scrollHeight}px`;
+                          }
+                        }}
+                        className="w-full text-sm text-muted-foreground leading-relaxed mb-3 bg-transparent outline-none border-b border-primary/40 resize-none overflow-hidden"
                       />
                     ) : (
                       <button
@@ -793,7 +797,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                                 </p>
                                 <textarea
                                   value={routineEditValue}
-                                  onChange={(e) => setRoutineEditValue(e.target.value)}
+                                  onChange={(e) => {
+                                    setRoutineEditValue(e.target.value);
+                                    e.target.style.height = "auto";
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                  }}
                                   onBlur={saveRoutineField}
                                   onKeyDown={(e) => {
                                     if (e.key === "Escape") cancelEditingRoutineField();
@@ -802,7 +810,13 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                                   placeholder={"(AM): ...\n(PM): ..."}
                                   rows={6}
                                   autoFocus
-                                  className="w-full text-sm leading-snug bg-transparent outline-none border border-primary/40 rounded-md px-2 py-1.5 resize-y -mx-2"
+                                  ref={(el) => {
+                                    if (el) {
+                                      el.style.height = "auto";
+                                      el.style.height = `${el.scrollHeight}px`;
+                                    }
+                                  }}
+                                  className="w-full text-sm leading-snug bg-transparent outline-none border border-primary/40 rounded-md px-2 py-1.5 resize-none -mx-2 overflow-hidden"
                                 />
                               </>
                             ) : (
@@ -854,31 +868,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           <span className="text-foreground">skip the AI noise</span>
         </p>
 
-        {/* Sections */}
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Go to
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SECTIONS.map(({ tab, label, icon: Icon, hotkey }) => (
-            <button key={tab} onClick={() => onNavigate(tab)} className="text-left">
-              <Card
-                className={cn(
-                  "flex-row items-center gap-3 rounded-xl px-4 py-3 shadow-none",
-                  "hover:border-primary/40 transition-colors",
-                )}
-              >
-                <Icon className="size-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-medium flex-1">{label}</span>
-                {tab === "tasks" && openTasks !== null && openTasks > 0 && (
-                  <span className="text-xs tabular-nums text-muted-foreground">{openTasks}</span>
-                )}
-                <kbd className="hidden sm:inline-flex items-center justify-center size-5 rounded border border-border text-[10px] font-medium text-muted-foreground shrink-0">
-                  {hotkey}
-                </kbd>
-              </Card>
-            </button>
-          ))}
-        </div>
       </div>
       </div>
     </div>

@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Routines: fixed day-box editor clipping long content
+
+**Ask:** After the per-field inline editing landed, the Monday box's edit textarea (fixed `rows={6}`) clipped a routine with more lines than fit — the top of the text scrolled out of view within the small box.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — both the goal textarea and each day-box textarea now auto-grow to fit their content (a ref sets `height = scrollHeight` on mount, `onChange` recalculates it as the user types), instead of a fixed `rows` with internal scroll. Removed manual `resize-y` on the day box since height is now content-driven.
+
+**Verified:** `npm run typecheck` passes. Screenshotted Monday's box (the longest entry, 2 periods) mid-edit on the live dashboard — box now grows to show all text with nothing clipped or scrolled.
+
 ## 2026-08-09 — Wealth-form sparklines: added an x-axis (day/month/year labels)
 
 **Ask:** The 8 tile sparklines had no axis at all — just a bare line — making it unclear what each point along it represented. Add the x-axis.

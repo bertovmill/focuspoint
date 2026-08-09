@@ -35,12 +35,12 @@ export function Sparkline({
   const domainMax = Math.max(...values, goal ?? 0) * 1.15 || 1;
 
   if (!hasData) {
-    return <p className="text-[11px] text-muted-foreground/50 italic h-11 flex items-center">No data yet</p>;
+    return <p className="text-[11px] text-muted-foreground/50 italic h-32 flex items-center">No data yet</p>;
   }
 
   return (
     <div>
-      <ChartContainer config={chartConfig} className="aspect-auto h-11 w-full">
+      <ChartContainer config={chartConfig} className="aspect-auto h-32 w-full">
         <LineChart data={data} margin={{ top: 2, right: 4, bottom: 0, left: 4 }}>
           <XAxis
             dataKey="label"

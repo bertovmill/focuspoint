@@ -2754,3 +2754,22 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Verified:** Playwright against the already-running dev server on :3000 — seeded a test memory with a photo, opened its edit view (screenshotted: fields no longer overlap the photo), clicked the photo's trash icon (screenshotted: swaps to an "Add a photo" dropzone, fields still clean), never clicked Save so no write happened; separately confirmed Berto's real "Call with David" memory (photo, title, description) was untouched by API check before/after. Typecheck clean. Test memory deleted via the API afterward.
 
 **Note:** the concurrent session's Family/Community work referenced in the note above (2026-08-09, "Manual: render pasted text") landed on `main` between that entry and this one (`memory_date`, optional/nullable photo, edit UI, live MakersLounge count, etc.) — this fix builds on that already-merged version, not the older uncommitted snapshot.
+
+---
+
+## 2026-08-09 — Wealth-form goals: Money + Community targets, taller sparklines
+
+**Ask:** Berto set Money's goal (100K in investments) and Community's goal (10K Luma subscribers), then asked for the wealth-form charts to be taller/roughly square instead of thin horizontal slivers.
+
+**Data (no code change):**
+- Money: `PATCH /api/measures/4` — set `data.goal = 100000` on the latest `savings_snapshot` row (existing `total_savings: 19600` preserved). Money's goal has always read from this field (see the 2026-08-09 goal-line entry), so no new code was needed.
+- Community: `POST /api/vision` — new `kind=goal, title=Community, content=10000` row (id 34), same mechanism as Growth/Family.
+
+**Code change:**
+- `app/_components/sparkline.tsx` — chart height (`ChartContainer` + the "No data yet" placeholder) bumped from `h-11` (44px) to `h-32` (128px) so each form's card reads as a roughly square chart instead of a thin rectangle.
+
+**Verified:** Playwright against the running dev server on :3000 — Money card shows "$19,600 / $100,000" with its dashed goal line; Community shows "1,174 subscribers / 10,000 subscribers"; all 8 cards screenshotted at the new taller height.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Wellness, Craft, Adventure, Service still need goal targets picked with Berto.

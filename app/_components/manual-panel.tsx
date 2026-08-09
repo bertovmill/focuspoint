@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +12,40 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+
+// Minimal styling for the handful of markdown elements a pasted chapter is likely
+// to use — headings, bold/italic, lists, paragraphs. Keeping the source as plain
+// markdown text (not HTML) also means Cael can read/parse it cleanly via the API.
+const markdownComponents = {
+  h1: ({ className, ...props }: React.ComponentProps<"h1">) => (
+    <h1 className={cn("mt-4 mb-2 text-lg font-semibold first:mt-0", className)} {...props} />
+  ),
+  h2: ({ className, ...props }: React.ComponentProps<"h2">) => (
+    <h2 className={cn("mt-4 mb-1.5 text-base font-semibold first:mt-0", className)} {...props} />
+  ),
+  h3: ({ className, ...props }: React.ComponentProps<"h3">) => (
+    <h3 className={cn("mt-3 mb-1 text-sm font-semibold first:mt-0", className)} {...props} />
+  ),
+  p: ({ className, ...props }: React.ComponentProps<"p">) => (
+    <p className={cn("my-2 leading-relaxed first:mt-0 last:mb-0", className)} {...props} />
+  ),
+  strong: ({ className, ...props }: React.ComponentProps<"strong">) => (
+    <strong className={cn("font-semibold", className)} {...props} />
+  ),
+  ul: ({ className, ...props }: React.ComponentProps<"ul">) => (
+    <ul className={cn("my-2 ms-5 list-disc [&>li]:mt-0.5", className)} {...props} />
+  ),
+  ol: ({ className, ...props }: React.ComponentProps<"ol">) => (
+    <ol className={cn("my-2 ms-5 list-decimal [&>li]:mt-0.5", className)} {...props} />
+  ),
+  blockquote: ({ className, ...props }: React.ComponentProps<"blockquote">) => (
+    <blockquote className={cn("my-2 border-s-2 border-muted-foreground/30 ps-3 text-muted-foreground", className)} {...props} />
+  ),
+  hr: ({ className, ...props }: React.ComponentProps<"hr">) => (
+    <hr className={cn("my-3 border-muted-foreground/20", className)} {...props} />
+  ),
+};
 
 interface Chapter {
   id: number;
@@ -128,7 +164,7 @@ export function ManualPanel() {
         <Textarea
           value={newContent}
           onChange={(e) => setNewContent(e.target.value)}
-          placeholder="Paste the full text here…"
+          placeholder={"Paste the full text here… Markdown supported: # Heading, **bold**, - list item"}
           rows={14}
           className="font-mono text-xs"
         />
@@ -151,7 +187,7 @@ export function ManualPanel() {
               <BookOpenIcon className="size-5" />
             </EmptyMedia>
             <EmptyTitle>Nothing saved yet</EmptyTitle>
-            <EmptyDescription>Paste in reference text — book chapters, essays, notes — to keep verbatim.</EmptyDescription>
+            <EmptyDescription>Paste in reference text — book chapters, essays, notes. Markdown headings and bold are supported.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -195,7 +231,11 @@ export function ManualPanel() {
                       )}
                     </button>
                     {isExpanded && (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words mt-2">{c.content}</p>
+                      <div className="text-sm mt-2 break-words">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                          {c.content}
+                        </ReactMarkdown>
+                      </div>
                     )}
                     <div className="flex justify-end gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button

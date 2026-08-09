@@ -2710,3 +2710,15 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Verified:** Playwright against the already-running dev server on :3000 — `/manual` renders as its own sidebar item (between Family and Sketches), save/expand/delete round-trips through `/api/vision?kind=chapter` server-side; test row deleted afterward. Typecheck clean.
 
 **Note:** `agent/tools/add_family_memory.ts`, `app/_components/family-panel.tsx`, `app/api/memories/*`, `lib/db.ts`, `app/api/community/`, `lib/luma.ts` were modified/untracked in the working tree from a concurrent session's in-progress Family/Community work — left untouched and uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Manual: render pasted text as Markdown (headings, bold, lists)
+
+**Ask:** Berto wants to be able to add headings and bold text to Manual entries — both for readability and so Cael can parse the structure more easily later.
+
+**Decision:** Content is stored as plain Markdown source (no schema change — same `vision_items.content` text column), rendered with `react-markdown` + `remark-gfm` (already a dependency, used by the chat UI) when a saved entry is expanded. Kept the component list intentionally small — headings (h1-h3), bold/italic, lists, blockquote, hr — since pasted chapters won't need code blocks or tables. Edit mode stays a plain textarea on the raw markdown source. Placeholder/empty-state copy updated to mention markdown support.
+
+**Files changed:** `app/_components/manual-panel.tsx` — added `ReactMarkdown`/`remarkGfm` import, a small `markdownComponents` map, swapped the expanded-entry `<p>` for `<ReactMarkdown>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — saved an entry with `# Craft`, `**bold**`, and a bullet list; expanded view renders as a real heading/bold/list, not literal `#`/`**` characters. Typecheck clean. Test row deleted afterward.

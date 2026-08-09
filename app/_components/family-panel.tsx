@@ -47,7 +47,10 @@ export function FamilyPanel() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
+  const [editUploadingPhoto, setEditUploadingPhoto] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMemories = useCallback(async () => {
     try {
@@ -159,9 +162,34 @@ export function FamilyPanel() {
     setEditTitle(m.title ?? "");
     setEditDescription(m.description ?? "");
     setEditDate(m.memory_date.slice(0, 10));
+    setEditImageUrl(m.image_url);
   };
 
   const cancelEdit = () => setEditingId(null);
+
+  const handleEditPhotoChange = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB");
+      return;
+    }
+    setEditUploadingPhoto(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      setEditImageUrl(url);
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setEditUploadingPhoto(false);
+    }
+  };
 
   const saveEdit = async (m: Memory) => {
     setSavingEdit(true);
@@ -172,7 +200,7 @@ export function FamilyPanel() {
         body: JSON.stringify({
           title: editTitle.trim() || undefined,
           description: editDescription.trim() || undefined,
-          image_url: m.image_url ?? undefined,
+          image_url: editImageUrl,
           memory_date: editDate,
         }),
       });
@@ -268,6 +296,66 @@ export function FamilyPanel() {
           <div className="grid grid-cols-2 gap-3">
             {memories.map((m) => {
               const isEditing = editingId === m.id;
+
+              if (isEditing) {
+                return (
+                  <div key={m.id} className="col-span-2 flex flex-col gap-2 rounded-lg border border-border p-3">
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleEditPhotoChange(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    {editImageUrl ? (
+                      <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={editImageUrl} alt="" className="h-40 w-full rounded-md object-cover" />
+                        <button
+                          onClick={() => setEditImageUrl(null)}
+                          className="absolute top-1.5 right-1.5 rounded-md bg-black/60 p-1.5 text-white hover:bg-black/80"
+                          aria-label="Remove photo"
+                        >
+                          <TrashIcon className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => editFileInputRef.current?.click()}
+                        disabled={editUploadingPhoto}
+                        className="flex h-20 w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-border text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted/30"
+                      >
+                        {editUploadingPhoto ? <Spinner className="size-4" /> : <UploadIcon className="size-4" />}
+                        {editUploadingPhoto ? "Uploading…" : "Add a photo"}
+                      </button>
+                    )}
+                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title…" />
+                    <Textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Description…"
+                      rows={2}
+                    />
+                    <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-40" />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveEdit(m)} disabled={savingEdit}>
+                        {savingEdit ? <Spinner className="size-3.5" /> : <CheckIcon className="size-3.5" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit} disabled={savingEdit}>
+                        <XIcon className="size-3.5" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={m.id} className="group relative overflow-hidden rounded-lg border border-border">
                   {m.image_url ? (
@@ -278,44 +366,7 @@ export function FamilyPanel() {
                       <HeartIcon className="size-6 text-muted-foreground/40" />
                     </div>
                   )}
-
-                  {isEditing ? (
-                    <div
-                      className={cn(
-                        "absolute inset-0 flex flex-col gap-1.5 overflow-y-auto p-2",
-                        m.image_url ? "bg-black/80" : "bg-background/95",
-                      )}
-                    >
-                      <Input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        placeholder="Title…"
-                        className="h-7 text-xs"
-                      />
-                      <Textarea
-                        value={editDescription}
-                        onChange={(e) => setEditDescription(e.target.value)}
-                        placeholder="Description…"
-                        rows={2}
-                        className="text-xs resize-none"
-                      />
-                      <Input
-                        type="date"
-                        value={editDate}
-                        onChange={(e) => setEditDate(e.target.value)}
-                        className="h-7 text-xs"
-                      />
-                      <div className="mt-auto flex gap-1.5">
-                        <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => saveEdit(m)} disabled={savingEdit}>
-                          {savingEdit ? <Spinner className="size-3" /> : <CheckIcon className="size-3.5" />}
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" onClick={cancelEdit} disabled={savingEdit}>
-                          <XIcon className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
+                  <>
                       <div
                         className={cn(
                           "absolute inset-x-0 bottom-0 px-2.5 pb-2 pt-6",
@@ -345,7 +396,6 @@ export function FamilyPanel() {
                         </button>
                       </div>
                     </>
-                  )}
                 </div>
               );
             })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRightIcon,
   MessageCircleIcon,
@@ -39,6 +39,8 @@ import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { ReadingChart, type ReadingLog } from "@/app/_components/reading-chart";
+import { Sparkline } from "@/app/_components/sparkline";
+import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -172,14 +174,21 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   // Sourced from vision_items whose title matches the form name. null = still loading.
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
-  const [routines, setRoutines] = useState<{ title: string; content: string }[] | null>(null);
+  const [routines, setRoutines] = useState<{ id: number; title: string; content: string }[] | null>(null);
+  const [editingRoutineId, setEditingRoutineId] = useState<number | null>(null);
+  const [editRoutineTitle, setEditRoutineTitle] = useState("");
+  const [editRoutineContent, setEditRoutineContent] = useState("");
+  const [savingRoutine, setSavingRoutine] = useState(false);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
+  const [savingsHistory, setSavingsHistory] = useState<MeasureRow[]>([]);
+  const [thoughts, setThoughts] = useState<{ tags: string[] | null; created_at: string }[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
+  const [wealthGranularity, setWealthGranularity] = useState<Granularity>("year");
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   const handleMealFeedback = async (feedback: "up" | "down") => {
@@ -200,19 +209,55 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     }
   };
 
+  const startEditingRoutine = (routine: { id: number; title: string; content: string }) => {
+    setEditingRoutineId(routine.id);
+    setEditRoutineTitle(routine.title);
+    setEditRoutineContent(routine.content);
+  };
+
+  const cancelEditingRoutine = () => {
+    setEditingRoutineId(null);
+    setEditRoutineTitle("");
+    setEditRoutineContent("");
+  };
+
+  const saveRoutine = async (id: number) => {
+    if (!editRoutineTitle.trim() || !editRoutineContent.trim()) return;
+    setSavingRoutine(true);
+    try {
+      const res = await fetch(`/api/vision/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editRoutineTitle.trim(), content: editRoutineContent.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setRoutines((prev) =>
+        prev ? prev.map((r) => (r.id === id ? { id, title: updated.title, content: updated.content } : r)) : prev,
+      );
+      cancelEditingRoutine();
+    } catch {
+      toast.error("Couldn't save routine.");
+    } finally {
+      setSavingRoutine(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes, readingRes] = await Promise.all([
-          fetch("/api/vision?kind=statement"),
-          fetch("/api/vision?kind=method"),
-          fetch("/api/vision?kind=routine"),
-          fetch("/api/todos?limit=200"),
-          fetch("/api/measures?category=savings_snapshot&limit=1"),
-          fetch("/api/meals?limit=1"),
-          fetch("/api/workouts"),
-          fetch("/api/reading"),
-        ]);
+        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
+          await Promise.all([
+            fetch("/api/vision?kind=statement"),
+            fetch("/api/vision?kind=method"),
+            fetch("/api/vision?kind=routine"),
+            fetch("/api/todos?limit=200"),
+            fetch("/api/measures?category=savings_snapshot&limit=400"),
+            fetch("/api/meals?limit=1"),
+            fetch("/api/workouts"),
+            fetch("/api/reading"),
+            fetch("/api/thoughts?limit=1000"),
+          ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
           const map: Record<string, string> = {};
@@ -223,14 +268,14 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           return map;
         };
         // Rows are newest-first; keep the first (most recent) item per routine name.
-        const toRoutineList = (rows: { title: string | null; content: string | null }[]) => {
+        const toRoutineList = (rows: { id: number; title: string | null; content: string | null }[]) => {
           const seen = new Set<string>();
-          const list: { title: string; content: string }[] = [];
+          const list: { id: number; title: string; content: string }[] = [];
           for (const row of rows) {
             const key = row.title?.trim().toLowerCase();
             if (key && row.content && !seen.has(key)) {
               seen.add(key);
-              list.push({ title: row.title!.trim(), content: row.content });
+              list.push({ id: row.id, title: row.title!.trim(), content: row.content });
             }
           }
           return list;
@@ -244,6 +289,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         }
         if (measuresRes.ok) {
           const rows: MeasureRow[] = await measuresRes.json();
+          setSavingsHistory(rows);
           const latest = rows[0];
           const total = Number(latest?.data?.total_savings);
           if (Number.isFinite(total)) {
@@ -259,6 +305,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         }
         if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
         if (readingRes.ok) setReadingLogs(await readingRes.json());
+        if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
       } catch {
         setFormVisions({});
         setFormMethods({});
@@ -282,6 +329,48 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onNavigate]);
+
+  // One sparkline per form of wealth, all sharing the Month/Year/Decade toggle above the grid.
+  // Growth/Wellness/Money reuse data already tracked elsewhere (pages, workouts, savings);
+  // the remaining 5 forms use a count of thoughts tagged with that form's name as a proxy
+  // signal until they get dedicated tracking.
+  const wealthSparklines = useMemo(() => {
+    const taggedCount = (tag: string) =>
+      thoughts
+        .filter((t) => t.tags?.some((x) => x.toLowerCase() === tag))
+        .map((t) => ({ t: new Date(t.created_at).getTime(), value: 1 }));
+
+    const series: Record<string, { points: { t: number; value: number }[]; mode: "sum" | "last"; unit: string }> = {
+      growth: {
+        points: readingLogs.map((l) => ({ t: new Date(l.logged_date).getTime(), value: Number(l.pages) })),
+        mode: "sum",
+        unit: "pages",
+      },
+      wellness: {
+        points: workoutLogs.map((l) => ({ t: new Date(l.logged_date).getTime(), value: 1 })),
+        mode: "sum",
+        unit: "sessions",
+      },
+      money: {
+        points: savingsHistory
+          .map((m) => ({ t: new Date(m.recorded_date).getTime(), value: Number(m.data?.total_savings) }))
+          .filter((p) => Number.isFinite(p.value)),
+        mode: "last",
+        unit: "$",
+      },
+      family: { points: taggedCount("family"), mode: "sum", unit: "notes" },
+      craft: { points: taggedCount("craft"), mode: "sum", unit: "notes" },
+      community: { points: taggedCount("community"), mode: "sum", unit: "notes" },
+      adventure: { points: taggedCount("adventure"), mode: "sum", unit: "notes" },
+      service: { points: taggedCount("service"), mode: "sum", unit: "notes" },
+    };
+
+    const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string }> = {};
+    for (const [key, { points, mode, unit }] of Object.entries(series)) {
+      out[key] = { buckets: bucketAggregate(points, wealthGranularity, mode), unit };
+    }
+    return out;
+  }, [readingLogs, workoutLogs, savingsHistory, thoughts, wealthGranularity]);
 
   const header = (onImage: boolean) => (
     <>
@@ -441,14 +530,35 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
         {/* 8 forms of wealth */}
         <div className="mb-10">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
-            {greeting()}, Berto — your 8 forms of wealth
-          </p>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
+              {greeting()}, Berto — your 8 forms of wealth
+            </p>
+            <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 shrink-0">
+              {(["month", "year", "decade"] as Granularity[]).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setWealthGranularity(g)}
+                  aria-pressed={wealthGranularity === g}
+                  className={cn(
+                    "px-2 py-1 rounded-md text-[10px] font-medium capitalize whitespace-nowrap transition-colors",
+                    wealthGranularity === g
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {WEALTH_FORMS.map(({ label, icon: Icon, target }) => {
               const isExpanded = expandedForm === label;
               const visionText = formVisions?.[label.toLowerCase()];
               const methodText = formMethods?.[label.toLowerCase()];
+              const spark = wealthSparklines[label.toLowerCase()];
               return (
                 <Card
                   key={label}
@@ -471,28 +581,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                   <button onClick={() => onNavigate(target)} className="text-left contents">
                     <Icon size={22} weight="duotone" className="text-primary" />
                     <p className="text-sm font-medium leading-snug pr-4">{label}</p>
-                    {label === "Money" && savings && (
-                      <div className="mt-auto">
-                        {savings.goal && (
+                    <div className="mt-auto">
+                      {label === "Money" && savings?.goal && (
+                        <div
+                          className="h-1.5 rounded-full overflow-hidden mb-1"
+                          style={{ background: "var(--chart-track)" }}
+                        >
                           <div
-                            className="h-1.5 rounded-full overflow-hidden mb-1"
-                            style={{ background: "var(--chart-track)" }}
-                          >
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${Math.min(100, (savings.total / savings.goal) * 100)}%`,
-                                background: "var(--chart-essential)",
-                              }}
-                            />
-                          </div>
-                        )}
-                        <p className="text-[11px] text-muted-foreground">
-                          ${Math.round(savings.total).toLocaleString()}
-                          {savings.goal ? ` of $${(savings.goal / 1000).toFixed(0)}K` : ""}
-                        </p>
-                      </div>
-                    )}
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, (savings.total / savings.goal) * 100)}%`,
+                              background: "var(--chart-essential)",
+                            }}
+                          />
+                        </div>
+                      )}
+                      {spark && <Sparkline data={spark.buckets} unit={spark.unit} />}
+                    </div>
                   </button>
                   {isExpanded && (
                     <div className="mt-1 pt-3 border-t space-y-3">
@@ -530,27 +635,64 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       </div>
 
       <div className="mx-auto max-w-6xl px-6">
-        {/* Routines — named recurring schedules, e.g. the weekly workout routine */}
+        {/* Routines — named recurring schedules, e.g. the weekly workout routine. */}
         <div className="mb-10">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
             Routines
           </p>
           {routines && routines.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-6">
               {routines.map((routine) => {
+                if (editingRoutineId === routine.id) {
+                  return (
+                    <div key={routine.id}>
+                      <input
+                        value={editRoutineTitle}
+                        onChange={(e) => setEditRoutineTitle(e.target.value)}
+                        placeholder="Routine name"
+                        className="text-sm font-medium mb-1 w-full bg-transparent outline-none border-b border-primary/40 focus:border-primary pb-0.5"
+                        autoFocus
+                      />
+                      <textarea
+                        value={editRoutineContent}
+                        onChange={(e) => setEditRoutineContent(e.target.value)}
+                        placeholder={"Goal: ...\nMonday (AM): ...\nMonday (PM): ..."}
+                        rows={10}
+                        className="mt-3 w-full text-xs leading-relaxed font-mono bg-transparent outline-none border border-border/60 rounded-lg px-3 py-2 resize-y"
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelEditingRoutine();
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveRoutine(routine.id);
+                        }}
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <Button size="sm" onClick={() => saveRoutine(routine.id)} disabled={savingRoutine}>
+                          Save
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={cancelEditingRoutine} disabled={savingRoutine}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const { goal, days } = parseRoutine(routine.content);
                 return (
-                  <Card key={routine.title} className="rounded-xl px-5 py-4 shadow-none">
-                    <p className="text-sm font-medium mb-1">{routine.title}</p>
+                  <button
+                    key={routine.id}
+                    onClick={() => startEditingRoutine(routine)}
+                    className="block w-full text-left group"
+                    aria-label={`Edit ${routine.title}`}
+                  >
+                    <p className="text-sm font-medium mb-1 group-hover:text-primary transition-colors">
+                      {routine.title}
+                    </p>
                     {goal && <p className="text-xs text-muted-foreground leading-relaxed mb-3">{goal}</p>}
-                    <div className="flex overflow-x-auto gap-2 -mx-1 px-1 pb-1">
+                    <div className="flex overflow-x-auto divide-x divide-border/60">
                       {ROUTINE_DAYS.map((day) => {
                         const entries = days[day] ?? [];
                         return (
-                          <div
-                            key={day}
-                            className="w-[108px] shrink-0 rounded-lg border border-border/60 px-2 py-2"
-                          >
+                          <div key={day} className="flex-1 min-w-[120px] shrink-0 px-4 first:pl-0">
                             <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
                               {day.slice(0, 3)}
                             </p>
@@ -572,7 +714,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                         );
                       })}
                     </div>
-                  </Card>
+                  </button>
                 );
               })}
             </div>
@@ -582,7 +724,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             </p>
           )}
         </div>
+      </div>
 
+      <div className="mx-auto max-w-6xl px-6">
         {/* Daily behaviors mantra */}
         <p className="text-xs text-muted-foreground mb-10 leading-relaxed">
           Today that means: <span className="text-foreground">save</span> ·{" "}

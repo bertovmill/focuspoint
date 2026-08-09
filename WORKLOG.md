@@ -4,6 +4,23 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Home dashboard: wider main content, full-bleed Apple-style Routines, inline routine editing
+
+**Ask:** Three follow-on requests against the home dashboard in one session: (1) the main content column read as too narrow/boxed-in on desktop; (2) the Routines card specifically should go full-bleed with no card border, referencing Apple's edge-to-edge product-page sections; (3) routines should be editable inline from the dashboard instead of only through chat.
+
+**Decisions (asked Berto):** Widened content from `max-w-2xl` (672px) to `max-w-6xl` (1152px) — tried `max-w-4xl` first and Berto asked to go wider still. For the Routines section specifically, Berto wanted it to break out of that container entirely (own full-width wrapper, no `Card`/border) — Apple's "help is here" carousel on apple.com/store was the reference. For editing, chose whole-routine raw-text editing (title + the full `Goal: ...\nMonday (AM): ...` content block in one textarea) over per-day-cell or fully structured per-entry fields — simplest to build, matches exactly how it's stored and how Cael already writes it via `update_vision_item`.
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - All four `max-w-2xl` page-width wrappers → `max-w-6xl`.
+  - Routines section pulled out of the shared `max-w-6xl` container into its own full-width wrapper (`w-full px-6 lg:px-12`); removed the `Card` wrapper and the `border border-border/60` boxes around each day — now plain columns separated by `divide-x divide-border/60`, no shadow/border chrome.
+  - Routine list now carries `id` (added to `toRoutineList`) so individual routines can be targeted for a `PATCH`.
+  - Click a routine (title or grid) → replaces the read view with an editable title `input` + a `textarea` holding the raw content, Save/Cancel buttons (Cmd/Ctrl+Enter to save, Escape to cancel). Save calls `PATCH /api/vision/[id]` (existing route, no backend changes needed) and replaces the routine in local state with the server's response on success; toasts on failure and leaves edit mode open.
+
+**Verified:** `npm run typecheck` passes. Drove the live dashboard with Playwright (Berto's own :3000 dev server): confirmed the width change and full-bleed Routines rendering, then round-tripped a real edit — appended a marker line, saved, confirmed it persisted via `GET /api/vision?kind=routine`, then restored the original content via the same `PATCH` endpoint so no real data was left changed.
+
+**Next steps:** None outstanding for this thread. If Berto later wants more granular editing (per-day or per-entry), the raw-textarea approach can be swapped without changing the `PATCH` contract.
+
 ## 2026-08-09 — Home dashboard: Reading chart (Growth) — cumulative pages this year + year-end projection
 
 **Ask:** Berto wants to track pages read (X axis = months, Y axis = pages), for the Growth form of wealth. He's read ~15 books so far this year but hasn't been logging them — wants a projection for the year based on that pace. Going forward, he'll log by telling Cael in chat when he finishes a book, and Cael should use web search to find the page count rather than being asked for it.

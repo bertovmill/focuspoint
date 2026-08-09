@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = Math.min(Number(searchParams.get("limit") ?? 30), 100);
+    const limit = Math.min(Number(searchParams.get("limit") ?? 30), 1000);
     const sql = getDb();
     const rows = await sql`
       SELECT id, content, tags, created_at

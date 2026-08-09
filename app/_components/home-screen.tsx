@@ -266,6 +266,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [memories, setMemories] = useState<{ created_at: string }[]>([]);
   const [communityContacts, setCommunityContacts] = useState<{ created_at: string }[]>([]);
   const [trips, setTrips] = useState<MeasureRow[]>([]);
+  const [thankYous, setThankYous] = useState<{ thanked_date: string }[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [wealthGranularity, setWealthGranularity] = useState<Granularity>("year");
@@ -396,7 +397,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes, memoriesRes, communityRes, tripsRes] =
+        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes, memoriesRes, communityRes, tripsRes, thanksRes] =
           await Promise.all([
             fetch("/api/vision?kind=statement"),
             fetch("/api/vision?kind=method"),
@@ -410,6 +411,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/memories?limit=500"),
             fetch("/api/community"),
             fetch("/api/measures?category=trips&limit=500"),
+            fetch("/api/thanks?limit=500"),
           ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -471,6 +473,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         if (memoriesRes.ok) setMemories(await memoriesRes.json());
         if (communityRes.ok) setCommunityContacts(await communityRes.json());
         if (tripsRes.ok) setTrips(await tripsRes.json());
+        if (thanksRes.ok) setThankYous(await thanksRes.json());
       } catch {
         setFormVisions({});
         setFormMethods({});
@@ -496,9 +499,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   }, [onNavigate]);
 
   // One sparkline per form of wealth, all sharing the Month/Year/Decade toggle above the grid.
-  // Growth/Wellness/Money/Family/Community/Adventure reuse data already tracked elsewhere (pages,
-  // workouts, savings, memories, Luma subscribers, trips); the remaining 2 forms use a count of
-  // thoughts tagged with that form's name as a proxy signal until they get dedicated tracking.
+  // Growth/Wellness/Money/Family/Community/Adventure/Service reuse data already tracked elsewhere
+  // (pages, workouts, savings, memories, Luma subscribers, trips, thank-yous); Craft still uses a
+  // count of thoughts tagged "craft" as a proxy signal until it gets dedicated tracking.
   const wealthSeries = useMemo(() => {
     const taggedCount = (tag: string) =>
       thoughts
@@ -512,9 +515,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         unit: "pages",
       },
       wellness: {
-        points: workoutLogs.map((l) => ({ t: new Date(l.logged_date).getTime(), value: 1 })),
+        points: workoutLogs
+          .filter((l) => l.exercise === "gym_hours")
+          .map((l) => ({ t: new Date(l.logged_date).getTime(), value: Number(l.value) })),
         mode: "sum",
-        unit: "sessions",
+        unit: "hours",
       },
       money: {
         points: savingsHistory
@@ -539,10 +544,14 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         mode: "sum",
         unit: "trips",
       },
-      service: { points: taggedCount("service"), mode: "sum", unit: "notes" },
+      service: {
+        points: thankYous.map((t) => ({ t: new Date(t.thanked_date).getTime(), value: 1 })),
+        mode: "sum",
+        unit: "thank-yous",
+      },
     };
     return series;
-  }, [readingLogs, workoutLogs, savingsHistory, thoughts, memories, communityContacts, trips]);
+  }, [readingLogs, workoutLogs, savingsHistory, thoughts, memories, communityContacts, trips, thankYous]);
 
   const wealthSparklines = useMemo(() => {
     const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};

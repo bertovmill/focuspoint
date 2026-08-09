@@ -2791,3 +2791,27 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** Wellness, Craft, Service still need goal targets/dedicated tracking picked with Berto. No UI exists yet to log a new trip (unlike Family's memories panel) — trips are only addable via the API today; worth asking Berto if he wants a proper log-a-trip flow later.
+
+---
+
+## 2026-08-09 — Service: chat-captured thank-yous (screenshot/photo) + goal
+
+**Ask:** Berto wants Service tracked as the number of thank-yous he receives (DM, email, or written card), captured by sending a screenshot/photo to Cael in chat — goal of 100.
+
+**Decisions (asked Berto):** Capture surface is chat-only for now (not a dedicated Family-style page) — he sends the screenshot/photo to Cael, who logs it. This reuses infrastructure that already exists for every chat image attachment: `hooks/use-eve-runtime.ts` already uploads any pasted/attached image to `/api/upload` and injects the public URL as text in the outgoing message (this is how `add_family_memory` already gets its photos) — no chat/upload-path changes were needed, only a new table + tool.
+
+**Files changed:**
+- `lib/db.ts` — new `thank_yous` table (`title`, `note`, `image_url`, `thanked_date`, `created_at`) — same shape as `memories`.
+- `app/api/thanks/route.ts` + `app/api/thanks/[id]/route.ts` (new) — GET/POST/PATCH/DELETE, mirroring `app/api/memories/`.
+- `agent/tools/log_thank_you.ts` (new) — mirrors `add_family_memory`; takes an optional `image_url`/`title`/`note`/`thanked_date`, requires at least one of the three.
+- `agent/instructions.md` — added a line telling Cael to call `log_thank_you` when the user shares a thank-you screenshot/photo; also corrected the stale line about Family/Craft/Community/Adventure/Service all sharing the `capture_thought`-tag proxy — now only Craft still uses it (Family/Community/Adventure got dedicated tracking in earlier entries today).
+- `app/_components/home-screen.tsx` — new `thankYous` state fetched from `/api/thanks?limit=500`; Service's `wealthSeries` entry switched from `taggedCount("service")` (unit "notes") to one point per thank-you row (unit "thank-yous").
+- Set `vision_items(kind=goal, title=Service, content=100)` (id 36) via the same goal mechanism as the other forms. Zero thank-yous logged so far — this is real going-forward tracking, not backfilled (unlike Adventure's seeded trip history).
+
+**Verified:** Manually created and deleted a test `thank_yous` row via the API to confirm the fetch → `wealthSeries` → `Sparkline` wiring updates the card correctly ("1 thank-yous / 100 thank-yous"), then deleted it — Service correctly shows "No data yet" at rest. Ran `ensureSchema`'s new `CREATE TABLE IF NOT EXISTS thank_yous` directly against the dev DB (the app doesn't call `ensureSchema` on every request, only specific routes do — same as the rest of the schema).
+
+**Typecheck:** PASS ✓
+
+**Note:** committed alongside a concurrent session's in-flight Wellness work (`agent/tools/log_workout.ts`, `list_workouts.ts` — a new `gym_hours` exercise powering a cumulative-hours Wellness goal) present in the working tree at commit time; typecheck was clean so it went in together rather than being separated out.
+
+**Next steps (not done):** Craft still needs a goal/dedicated tracking picked with Berto (last form on the tagged-thoughts proxy).

@@ -228,6 +228,18 @@ export async function ensureSchema() {
   `;
   await sql`ALTER TABLE memories ALTER COLUMN image_url DROP NOT NULL`;
   await sql`ALTER TABLE memories ADD COLUMN IF NOT EXISTS memory_date DATE NOT NULL DEFAULT CURRENT_DATE`;
+  // Service thank-yous: a screenshot/photo of a DM, email, or written card someone sent, plus an
+  // optional note. Logged from chat via the log_thank_you tool. Feeds the Service wealth-form chart.
+  await sql`
+    CREATE TABLE IF NOT EXISTS thank_yous (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      note TEXT,
+      image_url TEXT,
+      thanked_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

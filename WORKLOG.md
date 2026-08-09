@@ -2738,3 +2738,19 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Files changed:** `app/_components/manual-panel.tsx` — added `ReactMarkdown`/`remarkGfm` import, a small `markdownComponents` map, swapped the expanded-entry `<p>` for `<ReactMarkdown>`.
 
 **Verified:** Playwright against the already-running dev server on :3000 — saved an entry with `# Craft`, `**bold**`, and a bullet list; expanded view renders as a real heading/bold/list, not literal `#`/`**` characters. Typecheck clean. Test row deleted afterward.
+
+---
+
+## 2026-08-09 — Family memories: fix edit-view overlap, add remove-photo action
+
+**Ask:** Berto flagged the memory edit view — title/description/date fields were overlapping the photo — and wanted a way to delete just the photo (not the whole memory).
+
+**Root cause:** Editing a memory rendered the form fields in an `absolute inset-0` dark-backdrop layer directly on top of the small (aspect-square) photo thumbnail inside the 2-col grid card — cramped, clipped inputs and a save/cancel row pushed off the bottom edge.
+
+**Fix (`app/_components/family-panel.tsx`):**
+- Editing a memory now breaks that card out of the 2-col grid (`col-span-2`) into a normal top-to-bottom flow: photo (if present) as a plain `h-40` thumbnail up top, then title/description/date/save/cancel below it in document flow — no more overlap.
+- New `editImageUrl` state (seeded from the memory on `startEdit`) decouples the edit-in-progress photo from the saved one; a trash-icon button on the thumbnail clears it locally, swapping to an "Add a photo" dropzone (wired to a new `handleEditPhotoChange` uploader) so a photo can be removed or replaced before saving. `saveEdit` now PATCHes `image_url: editImageUrl` (including explicit `null` for "removed") instead of always re-sending the original `m.image_url`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — seeded a test memory with a photo, opened its edit view (screenshotted: fields no longer overlap the photo), clicked the photo's trash icon (screenshotted: swaps to an "Add a photo" dropzone, fields still clean), never clicked Save so no write happened; separately confirmed Berto's real "Call with David" memory (photo, title, description) was untouched by API check before/after. Typecheck clean. Test memory deleted via the API afterward.
+
+**Note:** the concurrent session's Family/Community work referenced in the note above (2026-08-09, "Manual: render pasted text") landed on `main` between that entry and this one (`memory_date`, optional/nullable photo, edit UI, live MakersLounge count, etc.) — this fix builds on that already-merged version, not the older uncommitted snapshot.

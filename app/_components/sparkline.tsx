@@ -1,14 +1,17 @@
 "use client";
 
+import { Line, LineChart } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { Bucket } from "@/lib/chart-buckets";
-
-const W = 100;
-const H = 28;
 
 function fmtValue(value: number, unit: string) {
   if (unit === "$") return `$${Math.round(value).toLocaleString()}`;
   return `${Math.round(value).toLocaleString()} ${unit}`;
 }
+
+const chartConfig = {
+  value: { label: "Value", color: "var(--primary)" },
+} satisfies ChartConfig;
 
 export function Sparkline({ data, unit, mode }: { data: Bucket[]; unit: string; mode: "sum" | "last" }) {
   const values = data.map((d) => d.value);
@@ -22,34 +25,26 @@ export function Sparkline({ data, unit, mode }: { data: Bucket[]; unit: string; 
     return <p className="text-[11px] text-muted-foreground/50 italic h-7 flex items-center">No data yet</p>;
   }
 
-  const max = Math.max(...values);
-  const min = Math.min(0, ...values);
-  const x = (i: number) => (data.length > 1 ? (i / (data.length - 1)) * W : W / 2);
-  const y = (v: number) => H - ((v - min) / (max - min || 1)) * H;
-  const path = data.map((d, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(d.value).toFixed(1)}`).join(" ");
-
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-7" preserveAspectRatio="none" role="img" aria-label={`${label(data)} trend`}>
-        <path
-          d={path}
-          fill="none"
-          stroke="var(--primary)"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        <circle cx={x(data.length - 1)} cy={y(last.value)} r={2.5} fill="var(--primary)">
-          <title>
-            {last.label}: {fmtValue(last.value, unit)}
-          </title>
-        </circle>
-      </svg>
+      <ChartContainer config={chartConfig} className="aspect-auto h-7 w-full">
+        <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent hideLabel formatter={(value) => fmtValue(Number(value), unit)} />}
+          />
+          <Line
+            dataKey="value"
+            type="monotone"
+            stroke="var(--color-value)"
+            strokeWidth={1.5}
+            dot={false}
+            activeDot={{ r: 3 }}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ChartContainer>
       <p className="text-[11px] text-muted-foreground mt-0.5">{fmtValue(caption, unit)}</p>
     </div>
   );
-}
-
-function label(data: Bucket[]) {
-  return `${data[0]?.label ?? ""}–${data[data.length - 1]?.label ?? ""}`;
 }

@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Wealth-form sparklines: switched to Recharts, removed the now-redundant Reading card
+
+**Ask:** Two follow-ups on the 8 wealth-form tile sparklines: (1) drop the standalone Reading chart card, since Growth's tile sparkline already covers pages read; (2) the hand-rolled SVG sparklines had visibly misshapen peaks (asymmetric/kinked triangles instead of clean curves) — Berto asked to use a proper Next.js charting kit instead.
+
+**Root cause of the misshapen lines:** The old `Sparkline` built raw SVG paths in a `100×28` `viewBox` with `preserveAspectRatio="none"`, stretched to fill each tile's actual box (~280×28px, a very different aspect ratio). That non-uniform x/y stretch distorted stroke width and turned symmetric peaks into lopsided shapes — not a data problem, a rendering-math one.
+
+**Decision (asked Berto):** Added shadcn's `Chart` component (a themed wrapper around Recharts — `npx shadcn add chart`), since the project already standardizes on shadcn/ui. Scoped to just the 8 tile sparklines; left the Training (workout) chart as its hand-rolled SVG for now since it's a different shape of chart (multi-line, % indexed) and isn't broken.
+
+**Files changed:**
+- `components/ui/chart.tsx` — added via shadcn CLI (`ChartContainer`/`ChartTooltip`/`ChartTooltipContent`, wraps Recharts). Added `recharts` as a dependency.
+- `app/_components/sparkline.tsx` — rebuilt on `recharts`' `LineChart` inside `ChartContainer` (`ResponsiveContainer` under the hood handles proper aspect scaling) instead of a hand-rolled SVG path; kept the same props (`data`, `unit`, `mode`) and the same sum/last caption logic from the previous fix, so `home-screen.tsx` didn't need to change its call sites.
+- `app/_components/home-screen.tsx` — removed the "Reading" full-width chart card and its `readingLogs.length > 0` block; `readingLogs` state is still fetched and still feeds the Growth tile's sparkline in `wealthSparklines`, just no longer has its own card.
+- `app/_components/reading-chart.tsx` — deleted (only consumer was the removed card); its `ReadingLog` interface moved inline into `home-screen.tsx` since it's still needed for the `readingLogs` state type.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own :3000 dev server) in Year and Decade views and in dark mode — Reading card gone, all 8 tile sparklines now render smooth, correctly-proportioned peaks with no visible distortion.
+
+**Next steps:** None outstanding. If Training gets visibly awkward at some point too, it's a candidate for the same Recharts treatment.
+
 ## 2026-08-09 — Routines: per-field inline editing (title/goal/each day separately) + larger type
 
 **Ask:** Follow-up on the earlier full-bleed Routines redesign — Berto didn't want the whole routine editable as one big textarea blob; each piece (the title, the goal line, and each individual day) should be its own click-to-edit target. Also bump the font size across the section, which read too small at the new full-bleed width.

@@ -38,7 +38,6 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
-import { ReadingChart, type ReadingLog } from "@/app/_components/reading-chart";
 import { Sparkline } from "@/app/_components/sparkline";
 import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { cn } from "@/lib/utils";
@@ -61,6 +60,13 @@ interface MeasureRow {
   category: string;
   recorded_date: string;
   data: Record<string, number | string | undefined>;
+}
+
+interface ReadingLog {
+  book_title: string;
+  pages: number;
+  logged_date: string;
+  is_estimate: boolean;
 }
 
 interface Meal {
@@ -590,18 +596,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             </p>
             <Card className="rounded-xl px-5 py-4 shadow-none">
               <WorkoutChart logs={workoutLogs} />
-            </Card>
-          </div>
-        )}
-
-        {/* Reading — cumulative pages read this year, with a projected year-end total at current pace */}
-        {readingLogs.length > 0 && (
-          <div className="mb-6">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
-              Reading
-            </p>
-            <Card className="rounded-xl px-5 py-4 shadow-none">
-              <ReadingChart logs={readingLogs} />
             </Card>
           </div>
         )}

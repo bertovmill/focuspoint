@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRightIcon,
   MessageCircleIcon,
@@ -18,6 +18,7 @@ import {
   EyeIcon,
   ThumbsUpIcon,
   ThumbsDownIcon,
+  UploadIcon,
 } from "lucide-react";
 import {
   BarbellIcon,
@@ -55,7 +56,8 @@ export type HomeTarget =
   | "media"
   | "sketches"
   | "measures"
-  | "vision";
+  | "vision"
+  | "family";
 
 interface MeasureRow {
   category: string;
@@ -138,7 +140,7 @@ function dayOfYear(d: Date): number {
 const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] = [
   { label: "Growth", icon: PlantIcon, target: "vision" },
   { label: "Wellness", icon: BarbellIcon, target: "measures" },
-  { label: "Family", icon: UsersThreeIcon, target: "vision" },
+  { label: "Family", icon: UsersThreeIcon, target: "family" },
   { label: "Craft", icon: PenNibIcon, target: "vision" },
   { label: "Money", icon: CoinsIcon, target: "measures" },
   { label: "Community", icon: HandsClappingIcon, target: "vision" },
@@ -261,9 +263,13 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
   const [savingsHistory, setSavingsHistory] = useState<MeasureRow[]>([]);
   const [thoughts, setThoughts] = useState<{ tags: string[] | null; created_at: string }[]>([]);
+  const [memories, setMemories] = useState<{ created_at: string }[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [wealthGranularity, setWealthGranularity] = useState<Granularity>("year");
+  const [memoryTitle, setMemoryTitle] = useState("");
+  const [uploadingMemory, setUploadingMemory] = useState(false);
+  const memoryFileInputRef = useRef<HTMLInputElement>(null);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   const handleMealFeedback = async (feedback: "up" | "down") => {
@@ -281,6 +287,39 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     } catch {
       setTodayMeal(prev);
       toast.error("Couldn't save feedback.");
+    }
+  };
+
+  const handleQuickAddMemory = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are supported");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB");
+      return;
+    }
+    setUploadingMemory(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error();
+      const { url } = await res.json();
+      const createRes = await fetch("/api/memories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: url, title: memoryTitle.trim() || undefined }),
+      });
+      if (!createRes.ok) throw new Error();
+      const row = await createRes.json();
+      setMemories((prev) => [row, ...prev]);
+      setMemoryTitle("");
+      toast.success("Memory added.");
+    } catch {
+      toast.error("Couldn't add memory. Try again.");
+    } finally {
+      setUploadingMemory(false);
     }
   };
 
@@ -355,7 +394,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes] =
+        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes, memoriesRes] =
           await Promise.all([
             fetch("/api/vision?kind=statement"),
             fetch("/api/vision?kind=method"),
@@ -366,6 +405,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/workouts"),
             fetch("/api/reading"),
             fetch("/api/thoughts?limit=1000"),
+            fetch("/api/memories?limit=500"),
           ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -424,6 +464,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
         if (readingRes.ok) setReadingLogs(await readingRes.json());
         if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
+        if (memoriesRes.ok) setMemories(await memoriesRes.json());
       } catch {
         setFormVisions({});
         setFormMethods({});
@@ -449,9 +490,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   }, [onNavigate]);
 
   // One sparkline per form of wealth, all sharing the Month/Year/Decade toggle above the grid.
-  // Growth/Wellness/Money reuse data already tracked elsewhere (pages, workouts, savings);
-  // the remaining 5 forms use a count of thoughts tagged with that form's name as a proxy
-  // signal until they get dedicated tracking.
+  // Growth/Wellness/Money/Family reuse data already tracked elsewhere (pages, workouts, savings,
+  // memories); the remaining 4 forms use a count of thoughts tagged with that form's name as a
+  // proxy signal until they get dedicated tracking.
   const wealthSeries = useMemo(() => {
     const taggedCount = (tag: string) =>
       thoughts
@@ -476,14 +517,18 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         mode: "last",
         unit: "$",
       },
-      family: { points: taggedCount("family"), mode: "sum", unit: "notes" },
+      family: {
+        points: memories.map((m) => ({ t: new Date(m.created_at).getTime(), value: 1 })),
+        mode: "sum",
+        unit: "memories",
+      },
       craft: { points: taggedCount("craft"), mode: "sum", unit: "notes" },
       community: { points: taggedCount("community"), mode: "sum", unit: "notes" },
       adventure: { points: taggedCount("adventure"), mode: "sum", unit: "notes" },
       service: { points: taggedCount("service"), mode: "sum", unit: "notes" },
     };
     return series;
-  }, [readingLogs, workoutLogs, savingsHistory, thoughts]);
+  }, [readingLogs, workoutLogs, savingsHistory, thoughts, memories]);
 
   const wealthSparklines = useMemo(() => {
     const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};
@@ -709,8 +754,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               const visionText = formVisions?.[label.toLowerCase()];
               const methodText = formMethods?.[label.toLowerCase()];
               const spark = wealthSparklines[label.toLowerCase()];
-              const goal = label !== "Money" ? formGoals[label.toLowerCase()] : undefined;
-              const goalTotal = wealthTotals[label.toLowerCase()] ?? 0;
+              const goal = formGoals[label.toLowerCase()];
+              const goalTarget = label === "Money" ? (savings?.goal ?? undefined) : goal?.target;
+              const goalAchieved = label === "Money" ? Boolean(savings?.goal && savings.total >= savings.goal) : goal?.achieved;
               return (
                 <Card
                   key={label}
@@ -734,41 +780,15 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     <Icon size={22} weight="duotone" className="text-primary" />
                     <p className="text-sm font-medium leading-snug pr-4">{label}</p>
                     <div className="mt-auto">
-                      {label === "Money" && savings?.goal && (
-                        <div
-                          className="h-1.5 rounded-full overflow-hidden mb-1"
-                          style={{ background: "var(--chart-track)" }}
-                        >
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, (savings.total / savings.goal) * 100)}%`,
-                              background: "var(--chart-essential)",
-                            }}
-                          />
-                        </div>
+                      {spark && (
+                        <Sparkline
+                          data={spark.buckets}
+                          unit={spark.unit}
+                          mode={spark.mode}
+                          goal={goalTarget}
+                          goalAchieved={goalAchieved}
+                        />
                       )}
-                      {goal && (
-                        <div className="mb-1">
-                          <div
-                            className="h-1.5 rounded-full overflow-hidden mb-1"
-                            style={{ background: "var(--chart-track)" }}
-                          >
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${Math.min(100, (goalTotal / goal.target) * 100)}%`,
-                                background: "var(--chart-essential)",
-                              }}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            {goal.achieved && "🎉 "}
-                            {Math.round(goalTotal).toLocaleString()} / {goal.target.toLocaleString()} {spark?.unit}
-                          </p>
-                        </div>
-                      )}
-                      {spark && <Sparkline data={spark.buckets} unit={spark.unit} mode={spark.mode} />}
                     </div>
                   </button>
                   {isExpanded && (
@@ -797,6 +817,43 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                           </p>
                         )}
                       </div>
+                      {label === "Family" && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                            Add a memory
+                          </p>
+                          <input
+                            ref={memoryFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleQuickAddMemory(file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              value={memoryTitle}
+                              onChange={(e) => setMemoryTitle(e.target.value)}
+                              placeholder="Title (optional)…"
+                              className="flex-1 min-w-0 text-sm rounded-md border border-border bg-transparent px-2.5 py-1.5 outline-none focus:border-primary/50"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={uploadingMemory}
+                              onClick={() => memoryFileInputRef.current?.click()}
+                              className="shrink-0"
+                            >
+                              <UploadIcon className="size-3.5 mr-1.5" />
+                              {uploadingMemory ? "Uploading…" : "Photo"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Card>

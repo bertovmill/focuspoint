@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
+import { FamilyPanel } from "@/app/_components/family-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
 import { ListsPanel } from "@/app/_components/lists-panel";
@@ -244,7 +245,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision";
+type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family";
 
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -1732,6 +1733,13 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {activeTab === "vision" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
             <VisionPanel />
+          </div>
+        )}
+
+        {/* Family */}
+        {activeTab === "family" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <FamilyPanel />
           </div>
         )}
 

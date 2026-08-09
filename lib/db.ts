@@ -214,6 +214,16 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Family memories: a photo + title + description, added from chat, the Family widget, or the /family page.
+  await sql`
+    CREATE TABLE IF NOT EXISTS memories (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      description TEXT,
+      image_url TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

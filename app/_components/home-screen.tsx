@@ -38,6 +38,7 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
+import { ReadingChart, type ReadingLog } from "@/app/_components/reading-chart";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -176,6 +177,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
@@ -201,7 +203,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes] = await Promise.all([
+        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes, readingRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
           fetch("/api/vision?kind=routine"),
@@ -209,6 +211,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           fetch("/api/measures?category=savings_snapshot&limit=1"),
           fetch("/api/meals?limit=1"),
           fetch("/api/workouts"),
+          fetch("/api/reading"),
         ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -255,6 +258,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           setTodayMeal(null);
         }
         if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
+        if (readingRes.ok) setReadingLogs(await readingRes.json());
       } catch {
         setFormVisions({});
         setFormMethods({});
@@ -330,10 +334,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           />
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
-          <div className="absolute inset-x-0 top-0 mx-auto max-w-2xl px-6 py-5 flex items-center justify-between">
+          <div className="absolute inset-x-0 top-0 mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
             {header(true)}
           </div>
-          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-6 pb-3 text-xs font-medium text-white/95">
+          <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-6 pb-3 text-xs font-medium text-white/95">
             {art.place ? (
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(art.place)}`}
@@ -353,7 +357,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       )}
 
       <div className={cn("pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
-      <div className="mx-auto max-w-2xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
@@ -419,6 +423,18 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             </p>
             <Card className="rounded-xl px-5 py-4 shadow-none">
               <WorkoutChart logs={workoutLogs} />
+            </Card>
+          </div>
+        )}
+
+        {/* Reading — cumulative pages read this year, with a projected year-end total at current pace */}
+        {readingLogs.length > 0 && (
+          <div className="mb-6">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+              Reading
+            </p>
+            <Card className="rounded-xl px-5 py-4 shadow-none">
+              <ReadingChart logs={readingLogs} />
             </Card>
           </div>
         )}
@@ -513,7 +529,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         {/* Routines — named recurring schedules, e.g. the weekly workout routine */}
         <div className="mb-10">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">

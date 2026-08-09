@@ -201,6 +201,19 @@ export async function ensureSchema() {
       UNIQUE(exercise, logged_date)
     )
   `;
+  // Reading log: one row per finished book (append-only, like thoughts). `is_estimate`
+  // flags the 15 pre-tracking books seeded as a rough average so the year's pace/projection
+  // isn't starting from zero.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_logs (
+      id SERIAL PRIMARY KEY,
+      book_title TEXT NOT NULL,
+      pages INTEGER NOT NULL,
+      logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      is_estimate BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,

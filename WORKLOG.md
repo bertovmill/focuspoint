@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Home dashboard: Reading chart (Growth) — cumulative pages this year + year-end projection
+
+**Ask:** Berto wants to track pages read (X axis = months, Y axis = pages), for the Growth form of wealth. He's read ~15 books so far this year but hasn't been logging them — wants a projection for the year based on that pace. Going forward, he'll log by telling Cael in chat when he finishes a book, and Cael should use web search to find the page count rather than being asked for it.
+
+**Decisions (asked Berto):** For the 15 already-read books, just estimate rather than looking up real titles — seeded as 15 generic "estimated" rows at a 320-page average (4,800 pages), spread evenly Jan 1–Aug 9 so the pace/projection isn't starting from zero. Chart lives as its own "Reading" card on the Home dashboard (same pattern as the Training/workout chart), not nested inside the Growth tile. Logging happens via chat ("finished reading X") — Cael looks up the page count with `web_search` and logs it automatically, no confirmation needed (matches the workout-logging pattern). Berto also said the long-term direction is for all 8 forms-of-wealth cards to become line charts — scoped down to just Growth/reading for this session; the other 7 need their own metrics defined first, one at a time in later sessions.
+
+**Files changed:**
+- `lib/db.ts` — new `reading_logs` table: `id, book_title TEXT, pages INTEGER, logged_date DATE, is_estimate BOOLEAN, created_at`. Append-only (like `thoughts`) rather than one-row-per-day, since finishing a book is a discrete event, not a mutable daily value. `is_estimate` flags the 15 seeded rows so they can be told apart from real logs later if needed.
+- `agent/tools/log_reading.ts` — new tool: `book_title`, `pages`, optional `date`; inserts a row. Description tells the model to look up the page count with `web_search` first rather than asking the user.
+- `agent/tools/list_reading.ts` — new tool: recent reading history, so Cael can answer pace questions.
+- `agent/instructions.md` — new "Reading" bullet (mirrors the existing Workouts one); also updated the stale "you have no general web-search tool" line — `web_search` is a built-in eve tool and was actually available, just undocumented/unused. Narrowed its sanctioned use to concrete lookups (book page counts) rather than open-ended browsing.
+- `app/api/reading/route.ts` — `GET`, full history oldest-first.
+- `app/_components/reading-chart.tsx` — new component (loaded the `dataviz` skill first): single-series cumulative line, solid from Jan 1 through today, dashed continuation from today to Dec 31 at the current daily pace (`total pages / days elapsed * days in year`). Month labels on X, page counts on Y, direct-labeled legend instead of a hover-only tooltip (no legend box needed for a single series, but the actual-vs-projected distinction needed a label). Reused `--chart-series-1` (already validated) rather than adding a new color.
+- `app/_components/home-screen.tsx` — fetches `/api/reading` alongside the existing calls; new "Reading" card directly under the Training card.
+- DB (production): ran `scripts/migrate.ts` to create the table, then a one-off script seeded the 15 estimated rows.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own dev server on :3000 — didn't start a second one) with the seeded data: solid line Jan→Aug reaching 4,800 pages, dashed projection Aug→Dec reaching ~7,941 pages, legend showing both numbers, month ticks Jan–Dec.
+
+**Next steps:** No real book has been logged yet — next time Berto tells Cael he finished one, it should search for the page count and log it, starting to replace the estimated segment with real data. The other 7 forms-of-wealth cards (Wellness, Family, Craft, Money, Community, Adventure, Service) still need their own chart metrics defined — one at a time in future sessions, per Berto's steer.
+
 ## 2026-08-09 — Home dashboard: remove 2030 vision card and road-to-2030 timeline
 
 **Ask:** Berto wanted the "2030" north-star vision statement card and the "The road to 2030" yearly-milestone timeline removed from the home dashboard.

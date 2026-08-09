@@ -136,17 +136,6 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 
-/** The 2026 → 2030 timeline — one milestone per year, shown as a left-to-right roadmap. */
-const TIMELINE_YEARS = ["2026", "2027", "2028", "2029", "2030"];
-
-/** Timeline zoom levels — same 5 milestones throughout; only the focused year's emphasis changes. */
-const TIMELINE_GRANULARITIES = [
-  { key: "full", label: "3 Years" },
-  { key: "year", label: "1 Year" },
-  { key: "quarter", label: "1 Quarter" },
-] as const;
-type TimelineGranularity = (typeof TIMELINE_GRANULARITIES)[number]["key"];
-
 /** Routine schedule lines are "Day (period): text" or "Goal: text"; this parses one into a week grid. */
 const ROUTINE_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const ROUTINE_DAY_RE = new RegExp(`^(${ROUTINE_DAYS.join("|")})\\s*(?:\\(([^)]+)\\))?:\\s*(.*)$`);
@@ -170,13 +159,6 @@ function parseRoutine(content: string) {
   return { goal, days };
 }
 
-/** Overall life vision — the north star above the 8 forms of wealth. */
-const VISION_2030 =
-  "Incredible health, fitness, energy, grit. Tight relationships with family and friends and " +
-  "people I do business with. My craft is incredibly good — I'm building AI products so good " +
-  "it's jaw-dropping, one of the best in the world, people tangibly feel it. I'm making a ton " +
-  "of money, millions per year. I'm travelling and enjoying the world.";
-
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -189,7 +171,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   // Sourced from vision_items whose title matches the form name. null = still loading.
   const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
   const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
-  const [milestones, setMilestones] = useState<Record<string, string> | null>(null);
   const [routines, setRoutines] = useState<{ title: string; content: string }[] | null>(null);
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
@@ -197,11 +178,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
-  const [timelineGranularity, setTimelineGranularity] = useState<TimelineGranularity>("full");
-  const [focusedYear, setFocusedYear] = useState<string>(() => {
-    const now = new Date().getFullYear().toString();
-    return TIMELINE_YEARS.includes(now) ? now : TIMELINE_YEARS[0];
-  });
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   const handleMealFeedback = async (feedback: "up" | "down") => {
@@ -225,10 +201,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, milestoneRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes] = await Promise.all([
+        const [visionRes, methodRes, routineRes, todosRes, measuresRes, mealsRes, workoutsRes] = await Promise.all([
           fetch("/api/vision?kind=statement"),
           fetch("/api/vision?kind=method"),
-          fetch("/api/vision?kind=milestone"),
           fetch("/api/vision?kind=routine"),
           fetch("/api/todos?limit=200"),
           fetch("/api/measures?category=savings_snapshot&limit=1"),
@@ -259,7 +234,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         };
         setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
         setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
-        setMilestones(milestoneRes.ok ? toFormMap(await milestoneRes.json()) : {});
         setRoutines(routineRes.ok ? toRoutineList(await routineRes.json()) : []);
         if (todosRes.ok) {
           const todos: { completed: boolean }[] = await todosRes.json();
@@ -284,7 +258,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       } catch {
         setFormVisions({});
         setFormMethods({});
-        setMilestones({});
         setRoutines([]);
         setTodayMeal(null);
       }
@@ -383,14 +356,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       <div className="mx-auto max-w-2xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
-
-        {/* Overall vision — north star above the 8 forms */}
-        <Card className="mb-6 rounded-xl px-5 py-4 shadow-none">
-          <p className="text-[11px] font-medium text-primary uppercase tracking-widest mb-1.5">
-            2030
-          </p>
-          <p className="text-sm leading-relaxed">{VISION_2030}</p>
-        </Card>
 
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (
@@ -542,85 +507,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     </div>
                   )}
                 </Card>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Timeline — 2026 to 2030, one milestone per year, left to right, full viewport width */}
-      <div className="mb-10">
-        <div className="mx-auto max-w-2xl px-6 flex items-center justify-between gap-3 mb-3">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
-            The road to 2030
-          </p>
-          <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 shrink-0">
-            {TIMELINE_GRANULARITIES.map((g) => (
-              <button
-                key={g.key}
-                type="button"
-                onClick={() => setTimelineGranularity(g.key)}
-                aria-pressed={timelineGranularity === g.key}
-                className={cn(
-                  "px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap transition-colors",
-                  timelineGranularity === g.key
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="flex gap-0 px-6 pb-1">
-            {TIMELINE_YEARS.map((year, i) => {
-              const text = milestones?.[year.toLowerCase()];
-              const isLast = i === TIMELINE_YEARS.length - 1;
-              const zoomed = timelineGranularity !== "full";
-              const isFocused = year === focusedYear;
-              const showText = !zoomed || isFocused;
-              return (
-                <button
-                  key={year}
-                  type="button"
-                  onClick={() => zoomed && setFocusedYear(year)}
-                  disabled={!zoomed}
-                  aria-pressed={zoomed && isFocused}
-                  className={cn(
-                    "shrink-0 pr-3 text-left transition-[width] duration-200 ease-out disabled:cursor-default",
-                    !zoomed && "flex-1 min-w-[130px]",
-                    zoomed && isFocused && (timelineGranularity === "year" ? "w-[380px]" : "w-[540px]"),
-                    zoomed && !isFocused && (timelineGranularity === "year" ? "w-[72px]" : "w-[48px]"),
-                  )}
-                >
-                  <div className="flex items-center">
-                    <span
-                      className={cn(
-                        "size-2.5 rounded-full shrink-0",
-                        text ? "bg-primary" : "bg-muted-foreground/30",
-                      )}
-                    />
-                    {!isLast && <span className="h-px flex-1 bg-border ml-1" />}
-                  </div>
-                  <p
-                    className={cn(
-                      "font-medium leading-snug mt-2",
-                      showText ? "text-sm" : "text-xs text-muted-foreground",
-                    )}
-                  >
-                    {year}
-                  </p>
-                  {showText &&
-                    (text ? (
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">{text}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic leading-relaxed mt-0.5">
-                        Add your {year} milestone…
-                      </p>
-                    ))}
-                </button>
               );
             })}
           </div>

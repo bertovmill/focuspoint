@@ -2674,3 +2674,22 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Verified:** Playwright against the already-running dev server on :3000 (Berto's own session) — Chapters tab renders, saved a test chapter, confirmed it round-tripped through `/api/vision?kind=chapter` server-side, expand/collapse works, deleted the test row afterward. Typecheck clean.
 
 **Next steps:** Once Berto pastes the Craft chapter into the new Chapters tab, read it and continue the discussion on what the right measure/proxy for Craft is.
+
+---
+
+## 2026-08-09 — Moved the paste-verbatim spot out of Vision into its own "Manual" section
+
+**Ask:** Berto pushed back on putting the paste-in-chapter feature under Vision — he sees it as a distinct thing: "a manual for how to [live]," not part of the vision-setting flow. Wanted a new top-level nav item called "Manual".
+
+**Decision:** Pulled the "chapter" kind's UI out of `vision-panel.tsx` entirely (reverted that file to its pre-Chapters state) and gave it its own top-level nav section, `Manual`, positioned after Family in both the desktop nav rail and the mobile "More" menu. Backend is unchanged — still `vision_items` with `kind="chapter"` (title = source, content = full pasted text); only the UI moved. New standalone `ManualPanel` component fetches only `kind=chapter` directly (no shared state/tab-switching with Vision's statements/goals/board).
+
+**Files changed:**
+- `app/_components/vision-panel.tsx` — reverted to original (Chapters section/state removed).
+- `app/_components/manual-panel.tsx` (new) — standalone paste-and-save UI: title + large textarea, expandable list of saved entries, edit/delete. Modeled on the removed Vision Chapters section.
+- `app/(app)/manual/page.tsx` (new) — empty route stub, same pattern as every other section.
+- `app/(app)/layout.tsx` — added `"manual"` to `MobileTab`, `TAB_PATHS`, `MORE_TABS`, and `NAV_ITEMS` (using `BookMarkedIcon`).
+- `app/_components/dashboard.tsx` — added `"manual"` to `DashboardTab`, renders `<ManualPanel>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — `/manual` renders as its own sidebar item (between Family and Sketches), save/expand/delete round-trips through `/api/vision?kind=chapter` server-side; test row deleted afterward. Typecheck clean.
+
+**Note:** `agent/tools/add_family_memory.ts`, `app/_components/family-panel.tsx`, `app/api/memories/*`, `lib/db.ts`, `app/api/community/`, `lib/luma.ts` were modified/untracked in the working tree from a concurrent session's in-progress Family/Community work — left untouched and uncommitted here for that session to commit itself.

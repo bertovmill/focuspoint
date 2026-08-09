@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon } from "lucide-react";
+import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -41,6 +41,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   measures: "/measures",
   vision: "/vision",
   family: "/family",
+  manual: "/manual",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -57,6 +58,7 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "measures", label: "Measures", icon: GaugeIcon },
   { tab: "vision", label: "Vision", icon: TelescopeIcon },
   { tab: "family", label: "Family", icon: HeartIcon },
+  { tab: "manual", label: "Manual", icon: BookMarkedIcon },
 ];
 
 // Every navigable section, in the order they appear in the desktop nav rail.
@@ -73,6 +75,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "measures", label: "Measures", icon: GaugeIcon },
   { tab: "vision", label: "Vision", icon: TelescopeIcon },
   { tab: "family", label: "Family", icon: HeartIcon },
+  { tab: "manual", label: "Manual", icon: BookMarkedIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
 ];
@@ -256,7 +259,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           <Dashboard
-            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : "todos"}
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "manual" ? "manual" : "todos"}
             onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}

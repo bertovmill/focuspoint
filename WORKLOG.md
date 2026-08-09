@@ -4,6 +4,23 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Family memories: optional photo, editable, date stamp
+
+**Ask:** Berto wanted the Family memory form to not require a photo, wanted memories to be editable after creation, and wanted a date stamp shown on each memory.
+
+**Changes:**
+- `lib/db.ts`: `memories.image_url` is now nullable; added `memory_date DATE NOT NULL DEFAULT CURRENT_DATE` (the date the memory happened, distinct from `created_at` which is upload time). Migration is additive (`ALTER TABLE ... DROP NOT NULL` / `ADD COLUMN IF NOT EXISTS`), safe against the already-deployed table.
+- `app/api/memories/route.ts`: `POST` now accepts memories with no `image_url` as long as a title or description is present; accepts `memory_date` (defaults to today).
+- `app/api/memories/[id]/route.ts`: added `PATCH` to update title/description/image_url/memory_date.
+- `agent/tools/add_family_memory.ts`: `image_url` is now optional on the tool schema too, and it takes an optional `memory_date`.
+- `app/_components/family-panel.tsx`: photo dropzone is now labeled optional with a separate "Save memory without a photo" button; added a date picker to the add form (defaults to today); each memory card now shows its date stamp and has an edit (pencil) button alongside delete that switches the card into an inline edit form (title/description/date, save/cancel). Cards without a photo render as a plain card (icon placeholder + normal-contrast text) instead of the photo-gradient-overlay style.
+
+**Bug caught during verification:** the neon driver serializes `DATE` columns as full ISO timestamps (e.g. `2026-07-15T04:00:00.000Z`), not bare `YYYY-MM-DD` — `formatMemoryDate` originally assumed the latter and produced "Invalid Date". Fixed by slicing to the first 10 chars before parsing (both for display and for seeding the edit form's date input).
+
+**Verified:** `npm run typecheck` passes. Playwright against the live dev server (Berto's own `next dev` on :3000 — did not restart it): created a photo-less memory via the UI flow's API calls, confirmed it rendered as a placeholder card with correct date stamp, edited it via `PATCH` and confirmed the change persisted and re-rendered, opened the inline edit UI on the existing real "Call with David" memory to confirm it populates correctly (did not save, so it was left untouched), then deleted all test rows. Ran `scripts/migrate.ts` once against the dev DB to apply the new `memory_date` column ahead of testing.
+
+---
+
 ## 2026-08-09 — Routines: fixed 4-slot daily template (Morning Routine / AM Workout / PM Workout / Daytime)
 
 **Ask:** Berto wants the Routines section to be his literal "operating system for the week" — every day broken into the same 4 fixed slots (Morning Routine, AM Workout, PM Workout, Daytime), each independently editable, rather than the previous freeform per-entry periods.

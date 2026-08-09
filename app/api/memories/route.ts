@@ -7,9 +7,9 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit") ?? 200), 500);
     const sql = getDb();
     const rows = await sql`
-      SELECT id, title, description, image_url, created_at
+      SELECT id, title, description, image_url, memory_date, created_at
       FROM memories
-      ORDER BY created_at DESC
+      ORDER BY memory_date DESC, created_at DESC
       LIMIT ${limit}
     `;
     return NextResponse.json(rows);
@@ -20,13 +20,20 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { title, description, image_url } = await req.json();
-    if (!image_url?.trim()) return NextResponse.json({ error: "image_url required" }, { status: 400 });
+    const { title, description, image_url, memory_date } = await req.json();
+    if (!image_url?.trim() && !title?.trim() && !description?.trim()) {
+      return NextResponse.json({ error: "A memory needs a photo, title, or description" }, { status: 400 });
+    }
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO memories (title, description, image_url)
-      VALUES (${title?.trim() || null}, ${description?.trim() || null}, ${image_url.trim()})
-      RETURNING id, title, description, image_url, created_at
+      INSERT INTO memories (title, description, image_url, memory_date)
+      VALUES (
+        ${title?.trim() || null},
+        ${description?.trim() || null},
+        ${image_url?.trim() || null},
+        ${memory_date?.trim() || new Date().toISOString().slice(0, 10)}
+      )
+      RETURNING id, title, description, image_url, memory_date, created_at
     `;
     return NextResponse.json(row);
   } catch {

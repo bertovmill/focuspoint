@@ -45,6 +45,7 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
+import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import { playCelebrationSound } from "@/lib/celebration-sound";
 import { focusAppWindow } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
@@ -226,6 +227,12 @@ function compareQueue(a: Todo, b: Todo) {
 function createdAtMs(t: Todo) {
   const ms = t.created_at ? new Date(t.created_at).getTime() : NaN;
   return Number.isNaN(ms) ? Infinity : ms;
+}
+
+// Completed-today tasks sort to the bottom of their section — includes the optimistic
+// "just checked off" state so a task drops immediately, not after the next refetch.
+function isDoneTodayForSort(t: Todo, completingIds: Set<number>) {
+  return completingIds.has(t.id) || (Boolean(t.completed_at) && isToday(t.completed_at));
 }
 
 function isInProgressActive(t: Todo) {
@@ -1020,9 +1027,11 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                     })
                     // Oldest first, so nothing quietly rots at the bottom of the list.
                     // Anything actively being worked on or flagged more urgent jumps
-                    // that queue and rides at the top.
+                    // that queue and rides at the top. Checked-off-today tasks sink to
+                    // the very bottom — once it's done you don't need to see it anymore.
                     .sort(
                       (a, b) =>
+                        Number(isDoneTodayForSort(a, completingIds)) - Number(isDoneTodayForSort(b, completingIds)) ||
                         compareQueue(a, b) ||
                         Number(isDaily(b)) - Number(isDaily(a)) ||
                         Number(isInProgressActive(b)) - Number(isInProgressActive(a)) ||
@@ -1219,21 +1228,27 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 const estimateSeconds = todo.estimated_minutes ? todo.estimated_minutes * 60 : null;
                                 const remaining = estimateSeconds !== null ? estimateSeconds - elapsed : null;
                                 const isOver = remaining !== null && remaining < 0;
+                                if (estimateSeconds === null || remaining === null) {
+                                  return (
+                                    <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
+                                      <TimerIcon className="size-3" />
+                                      Timing
+                                    </Badge>
+                                  );
+                                }
+                                const percent = Math.min(100, Math.max(0, (elapsed / estimateSeconds) * 100));
                                 return (
-                                  <Badge
-                                    variant="outline"
+                                  <AnimatedCircularProgressBar
+                                    value={percent}
+                                    gaugePrimaryColor={isOver ? "var(--destructive)" : "var(--primary)"}
+                                    gaugeSecondaryColor="var(--muted)"
                                     className={cn(
-                                      "shrink-0",
-                                      isOver ? "border-destructive/40 text-destructive" : "border-primary/40 text-primary",
+                                      "size-16 shrink-0 text-[10px] font-semibold leading-none tabular-nums",
+                                      isOver ? "text-destructive" : "text-primary",
                                     )}
                                   >
-                                    <TimerIcon className="size-3" />
-                                    {remaining === null
-                                      ? "Timing"
-                                      : isOver
-                                        ? `+${formatCountdown(-remaining)} over`
-                                        : `${formatCountdown(remaining)} left`}
-                                  </Badge>
+                                    {isOver ? `+${formatCountdown(-remaining)}` : formatCountdown(remaining)}
+                                  </AnimatedCircularProgressBar>
                                 );
                               })()}
                               {todo.in_progress && !todo.timer_started_at && !isDone && (

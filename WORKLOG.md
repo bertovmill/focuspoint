@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-09 — Circular timer progress ring + completed tasks sink to bottom
+
+**Ask:** Berto liked the timer celebration/dimming work and asked for two more things: (1) a "pretty sizable" circular/oval progress indicator for the running timer, for gamification — he specifically asked to use a UI kit rather than build from scratch; (2) completed tasks currently sort into the middle of the list (grouped by "Done today" but still above other active tasks) — he wants them to sink to the very bottom once checked off, since he doesn't need to see them again.
+
+**Decisions:** installed Magic UI's `animated-circular-progress-bar` via the shadcn registry (`npx shadcn add @magicui/animated-circular-progress-bar`) rather than hand-rolling an SVG ring — `components.json` already had the `@magicui` registry configured (from an earlier partial attempt), and the component file was already present untracked in the working tree, so this just completed that setup. Added a `children` override prop to the generated component (it only shipped a hardcoded percent label) so the ring can show the mm:ss countdown instead of a bare percentage — a small, expected local customization per the magic-ui skill's guidance ("prefer prop-level customization" once you own the generated file).
+
+**Changes:**
+- `components/ui/animated-circular-progress-bar.tsx` (new, via shadcn add) — added optional `children` prop to override the centered percent label.
+- `app/_components/dashboard.tsx`:
+  - Replaced the small pill badge for a running timer with a `size-16` `AnimatedCircularProgressBar` showing elapsed-time fill (primary color, or destructive red once over the estimate) with the mm:ss countdown centered inside. Falls back to the old "Timing" badge when a task has no time estimate (no percentage to show). That fallback path is unreachable in practice today (every timer requires an estimate to start), kept for type-safety/future-proofing.
+  - Added `isDoneTodayForSort()` and made it the first tiebreaker in each section's sort comparator, so a task marked done — including the optimistic "just checked off" state via `completingIds`, not just the server-confirmed `completed_at` — immediately drops to the bottom of its section instead of sitting above still-active tasks.
+
+**Verified:** `npm run typecheck` clean. Ran the app on an isolated port (3789) and drove it with Playwright against Berto's real (read-only) task data — confirmed the ring renders in place of the badge with the correct countdown and fill, and confirmed scrolling to the bottom of the Tasks section shows all "Done today" items now sit right above the next section ("Weekly"), below every active task. No test data created/needed this round since verification was read-only against existing tasks.
+
+---
+
 ## 2026-08-09 — Task timer: celebration on completion + focus-mode dimming while running
 
 **Ask:** Berto wanted two things for the task timer: (1) when a timer hits zero, play a sound, show a celebration animation, and bring the app window to the front; (2) while actively doing a timed task, dim the rest of the app so it's easier to lock in.

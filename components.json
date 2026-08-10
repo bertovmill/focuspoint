@@ -23,6 +23,7 @@
     },
     "@v0": {
       "url": "https://v0.dev/chat/api/registry/{name}.json"
-    }
+    },
+    "@magicui": "https://magicui.design/r/{name}"
   }
 }

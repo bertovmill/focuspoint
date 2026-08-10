@@ -272,6 +272,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [newTodoRecurrence, setNewTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [newTodoPriority, setNewTodoPriority] = useState<Todo["priority"]>("normal");
   const [newTodoEstimatedMinutes, setNewTodoEstimatedMinutes] = useState(0);
+  const [newTodoInProgress, setNewTodoInProgress] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -485,15 +486,17 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     const recurrence = newTodoRecurrence;
     const priority = newTodoPriority;
     const estimated_minutes = newTodoEstimatedMinutes;
+    const in_progress = newTodoInProgress;
     setNewTodo("");
     setNewTodoRecurrence("none");
     setNewTodoPriority("normal");
     setNewTodoEstimatedMinutes(0);
+    setNewTodoInProgress(false);
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, recurrence, priority, estimated_minutes }),
+        body: JSON.stringify({ title, recurrence, priority, estimated_minutes, in_progress }),
       });
       if (!res.ok) throw new Error();
       const todo = await res.json();
@@ -503,6 +506,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       setNewTodoRecurrence(recurrence);
       setNewTodoPriority(priority);
       setNewTodoEstimatedMinutes(estimated_minutes ?? 0);
+      setNewTodoInProgress(in_progress);
       toast.error("Couldn't add task. Try again.");
     }
   };
@@ -996,6 +1000,20 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                       </button>
                     </Badge>
                   ))}
+                </div>
+              )}
+              {newTodo.trim() && (
+                <div className="flex items-center gap-1.5">
+                  <PlayIcon className="size-3 text-muted-foreground shrink-0" />
+                  <Badge
+                    asChild
+                    variant={newTodoInProgress ? "default" : "outline"}
+                    className="cursor-pointer"
+                  >
+                    <button type="button" onClick={() => setNewTodoInProgress((v) => !v)}>
+                      In progress
+                    </button>
+                  </Badge>
                 </div>
               )}
             </form>

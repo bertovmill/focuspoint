@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-10 — Set task "in progress" at creation time
+
+**Ask:** Berto wanted to mark a new task as "in progress" right when creating it, instead of having to create it and then toggle it separately.
+
+**Changes:**
+- `app/_components/dashboard.tsx`: added `newTodoInProgress` state and an "In progress" pill (using the existing `PlayIcon`) below the Priority/Duration/Repeat rows in the new-task form; included in the `handleAddTodo` POST body and reset on submit/error.
+- `app/api/todos/route.ts`: `POST` now accepts an optional `in_progress` field (defaults `false`) and inserts it into the `todos` row.
+
+Verified end-to-end with Playwright against a local dev server (port 3789): created a task with the toggle on, confirmed `in_progress: true` came back from `/api/todos`, then deleted the test task.
+
+---
+
 ## 2026-08-09 — Circular timer progress ring + completed tasks sink to bottom
 
 **Ask:** Berto liked the timer celebration/dimming work and asked for two more things: (1) a "pretty sizable" circular/oval progress indicator for the running timer, for gamification — he specifically asked to use a UI kit rather than build from scratch; (2) completed tasks currently sort into the middle of the list (grouped by "Done today" but still above other active tasks) — he wants them to sink to the very bottom once checked off, since he doesn't need to see them again.

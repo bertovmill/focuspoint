@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes } = await req.json();
+    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes, in_progress = false } = await req.json();
     if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
     const parsedEstimate = Number(estimated_minutes);
     if (!Number.isFinite(parsedEstimate) || parsedEstimate <= 0) {
@@ -47,8 +47,8 @@ export async function POST(req: Request) {
     const estimate = Math.trunc(parsedEstimate);
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes)
-      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate})
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress)
+      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${Boolean(in_progress)})
       RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes
     `;
     return NextResponse.json(row);

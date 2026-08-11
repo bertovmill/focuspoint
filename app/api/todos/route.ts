@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { hasWorkingSlot } from "@/lib/working-now";
 
 export async function GET(req: Request) {
   try {
@@ -45,10 +46,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "estimated_minutes required" }, { status: 400 });
     }
     const estimate = Math.trunc(parsedEstimate);
+    // A new task can only land in "working on now" if there's a free slot.
+    const startWorking = Boolean(in_progress) && (await hasWorkingSlot(getDb()));
     const sql = getDb();
     const [row] = await sql`
       INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress)
-      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${Boolean(in_progress)})
+      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${startWorking})
       RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes
     `;
     return NextResponse.json(row);

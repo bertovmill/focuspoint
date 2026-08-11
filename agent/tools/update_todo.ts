@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
+import { hasWorkingSlot, WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "../../lib/working-now.js";
 
 export default defineTool({
   description:
@@ -14,7 +15,9 @@ export default defineTool({
     in_progress: z
       .boolean()
       .optional()
-      .describe("True when the user is actively working on this task now (highlights it in the UI); false to clear"),
+      .describe(
+        `True when the user is actively working on this task now (moves it into the "Working on now" section at the top of the UI); false to clear. At most ${WORKING_LIMIT} tasks can be working-on-now at once — clear one first if it's full.`,
+      ),
     waiting: z
       .boolean()
       .optional()
@@ -24,6 +27,10 @@ export default defineTool({
     // in_progress and waiting are mutually exclusive: setting one clears the other.
     if (patch.in_progress === true) patch.waiting = false;
     else if (patch.waiting === true) patch.in_progress = false;
+    // Only three things can be "working on now" at a time.
+    if (patch.in_progress === true && !(await hasWorkingSlot(getDb(), id))) {
+      return { success: false as const, message: WORKING_LIMIT_MESSAGE };
+    }
     const sql = getDb();
     const [row] = await sql`
       UPDATE todos

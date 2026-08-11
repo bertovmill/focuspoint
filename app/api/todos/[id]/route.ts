@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,6 +22,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     let { in_progress, waiting } = body;
     if (in_progress === true) waiting = false;
     else if (waiting === true) in_progress = false;
+    // Only three things can be "working on now" at a time.
+    if (in_progress === true && !(await hasWorkingSlot(getDb(), id))) {
+      return NextResponse.json({ error: WORKING_LIMIT_MESSAGE }, { status: 409 });
+    }
     const hasDueDate = Object.prototype.hasOwnProperty.call(body, "due_date");
     const due_date = hasDueDate ? body.due_date : undefined;
     // task_number is explicitly nullable (null clears it), so presence of the key

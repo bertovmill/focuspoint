@@ -48,6 +48,9 @@ import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celeb
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import { playCelebrationSound } from "@/lib/celebration-sound";
 import { focusAppWindow } from "@/lib/desktop";
+// Human limit: at most three things can genuinely be worked on at once. Tasks in
+// the "Working on now" section are the live ones; everything else stays dimmed.
+import { WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -294,9 +297,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [nowTick, setNowTick] = useState(() => Date.now());
   // Task whose timer just hit zero — shows the celebration modal until dismissed.
   const [timerCompleteTodo, setTimerCompleteTodo] = useState<Todo | null>(null);
-  // Screen-space rect of the actively-timed task's row, used to punch a spotlight hole
-  // through the focus-mode dark overlay so everything else visually fades away.
-  const [spotlightRect, setSpotlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   // Remembers each task's last-seen "seconds remaining" so we can detect the exact
   // tick a countdown crosses zero, instead of re-firing the celebration every tick.
   const prevRemainingRef = useRef<Map<number, number>>(new Map());
@@ -348,32 +348,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       if (!liveIds.has(id)) prevRemaining.delete(id);
     }
   }, [nowTick, todos]);
-
-  // Tracks the on-screen position of the actively-timed task row so the focus-mode
-  // overlay's spotlight hole follows it (list re-sorts, scrolling, resizing).
-  useEffect(() => {
-    const runningId = todos.find((t) => t.timer_started_at && !t.completed)?.id ?? null;
-    if (!runningId) {
-      setSpotlightRect(null);
-      return;
-    }
-    function measure() {
-      const el = document.querySelector(`[data-todo-id="${runningId}"]`);
-      if (!el) {
-        setSpotlightRect(null);
-        return;
-      }
-      const r = el.getBoundingClientRect();
-      setSpotlightRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
-    };
-  }, [todos, activeTab, nowTick]);
 
   // "N" shortcut: focus the new-task input once the Tasks tab is showing.
   useEffect(() => {
@@ -486,7 +460,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     const recurrence = newTodoRecurrence;
     const priority = newTodoPriority;
     const estimated_minutes = newTodoEstimatedMinutes;
-    const in_progress = newTodoInProgress;
+    const in_progress = newTodoInProgress && workingNowTodos.length < WORKING_LIMIT;
     setNewTodo("");
     setNewTodoRecurrence("none");
     setNewTodoPriority("normal");
@@ -715,6 +689,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const handleToggleInProgress = async (id: number, in_progress: boolean) => {
     const prev = todos;
+    if (in_progress && !isRoomToWorkOn(id)) {
+      toast.error(WORKING_LIMIT_MESSAGE);
+      return;
+    }
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, in_progress, waiting: in_progress ? false : t.waiting } : t)));
     try {
       const res = await fetch(`/api/todos/${id}`, {
@@ -747,6 +725,11 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   const handleToggleTimer = async (todo: Todo) => {
     const action = todo.timer_started_at ? "stop" : "start";
+    // Starting a timer also marks the task in progress, so it has to respect the limit.
+    if (action === "start" && !isRoomToWorkOn(todo.id)) {
+      toast.error(WORKING_LIMIT_MESSAGE);
+      return;
+    }
     const prev = todos;
     // One timer at a time: starting clears any other running timer locally too.
     setTodos((ts) =>
@@ -855,6 +838,18 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     if (t.completed && !doneToday) return false;
     return true;
   });
+
+  // The 1–3 tasks currently being worked on. They're pulled out of the main list
+  // into their own section at the top; everything else renders dimmed behind them.
+  const workingNowTodos = visibleTodos
+    .filter(isInProgressActive)
+    .sort((a, b) => compareQueue(a, b) || priorityRank(b) - priorityRank(a) || createdAtMs(a) - createdAtMs(b));
+  const workingNowIds = new Set(workingNowTodos.map((t) => t.id));
+  // A task already in the section can always be re-toggled; new ones need a free slot.
+  function isRoomToWorkOn(id: number) {
+    return workingNowIds.has(id) || workingNowTodos.length < WORKING_LIMIT;
+  }
+  const workingNowFull = workingNowTodos.length >= WORKING_LIMIT;
 
   const allTags = Array.from(
     new Set(thoughts.flatMap((t) => t.tags ?? [])),
@@ -1008,10 +1003,20 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   <Badge
                     asChild
                     variant={newTodoInProgress ? "default" : "outline"}
-                    className="cursor-pointer"
+                    className={cn("cursor-pointer", workingNowFull && !newTodoInProgress && "opacity-50")}
                   >
-                    <button type="button" onClick={() => setNewTodoInProgress((v) => !v)}>
-                      In progress
+                    <button
+                      type="button"
+                      title={workingNowFull ? `Already working on ${WORKING_LIMIT}` : undefined}
+                      onClick={() => {
+                        if (workingNowFull && !newTodoInProgress) {
+                          toast.error(WORKING_LIMIT_MESSAGE);
+                          return;
+                        }
+                        setNewTodoInProgress((v) => !v);
+                      }}
+                    >
+                      Working on now
                     </button>
                   </Badge>
                 </div>
@@ -1036,9 +1041,21 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               </Empty>
             ) : (
               <div className="space-y-5">
-                {TODO_SECTIONS.map(({ key, label }) => {
-                  const sectionTodos = visibleTodos
+                {[
+                  // "Working on now" always renders first (even empty, as a drop-target
+                  // prompt) — it's the whole point of the screen.
+                  {
+                    key: "working" as const,
+                    label: `Working on now · ${workingNowTodos.length}/${WORKING_LIMIT}`,
+                    working: true,
+                  },
+                  ...TODO_SECTIONS.map((s) => ({ ...s, working: false })),
+                ].map(({ key, label, working }) => {
+                  const sectionTodos = working
+                    ? workingNowTodos
+                    : visibleTodos
                     .filter((t) => {
+                      if (workingNowIds.has(t.id)) return false;
                       const r = t.recurrence ?? "none";
                       // Dailies live at the top of the "none" section, not in one of their own.
                       return key === "none" ? r === "none" || r === "daily" : r === key;
@@ -1057,13 +1074,31 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                         priorityRank(b) - priorityRank(a) ||
                         createdAtMs(a) - createdAtMs(b),
                     );
-                  if (sectionTodos.length === 0) return null;
+                  if (sectionTodos.length === 0 && !working) return null;
                   return (
                     <div key={key}>
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                      <p
+                        className={cn(
+                          "text-xs font-medium uppercase tracking-wider mb-1.5",
+                          working ? "text-primary" : "text-muted-foreground",
+                        )}
+                      >
                         {label}
                       </p>
-                      <ul className="space-y-1.5">
+                      {working && sectionTodos.length === 0 ? (
+                        <p className="rounded-lg border border-dashed border-primary/30 px-3 py-4 text-xs text-muted-foreground">
+                          Nothing active. Right-click a task below and pick “Work on this” — up to {WORKING_LIMIT} at once.
+                        </p>
+                      ) : (
+                      <ul
+                        className={cn(
+                          "space-y-1.5",
+                          working && "rounded-xl border border-primary/30 bg-primary/[0.04] p-1.5",
+                          // Everything that isn't being worked on sits back: readable,
+                          // but visibly not where your attention belongs.
+                          !working && "opacity-50 hover:opacity-100 transition-opacity",
+                        )}
+                      >
                         {sectionTodos.map((todo) => {
                           const isCompleting = completingIds.has(todo.id);
                           const isDoneToday =
@@ -1141,7 +1176,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                               data-todo-id={todo.id}
                               className={cn(
                                 "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
-                                todo.in_progress && !isDone && "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10",
+                                working && !isDone && "border-l-2 border-l-primary bg-card shadow-sm hover:bg-card",
                                 todo.waiting && !todo.in_progress && !isDone && "border-l-2 border-l-amber-500 bg-amber-500/5 hover:bg-amber-500/10",
                                 todo.timer_started_at && !isDone && "relative ring-1 ring-primary/50 bg-card",
                                 isCompleting && "opacity-50",
@@ -1269,14 +1304,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   </AnimatedCircularProgressBar>
                                 );
                               })()}
-                              {todo.in_progress && !todo.timer_started_at && !isDone && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 border-primary/40 text-primary"
-                                >
-                                  In progress
-                                </Badge>
-                              )}
                               {todo.waiting && !todo.in_progress && !isDone && (
                                 <Badge
                                   variant="outline"
@@ -1301,6 +1328,26 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                 >
                                   High
                                 </Badge>
+                              )}
+                              {!isDone && (
+                                <button
+                                  onClick={() => handleToggleInProgress(todo.id, !working)}
+                                  className={cn(
+                                    "shrink-0 transition-opacity text-muted-foreground hover:text-primary",
+                                    working ? "opacity-60 hover:opacity-100" : "opacity-0 group-hover:opacity-100",
+                                    !working && workingNowFull && "hover:text-muted-foreground",
+                                  )}
+                                  title={
+                                    working
+                                      ? "Stop working on this"
+                                      : workingNowFull
+                                        ? `Already working on ${WORKING_LIMIT}`
+                                        : "Work on this now"
+                                  }
+                                  aria-label={working ? "Stop working on this" : "Work on this now"}
+                                >
+                                  {working ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
+                                </button>
                               )}
                               <button
                                 onClick={() => startEditTodo(todo)}
@@ -1343,9 +1390,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   {todo.timer_started_at ? <TimerOffIcon /> : <TimerIcon />}
                                   {todo.timer_started_at ? "Stop timer" : "Start timer"}
                                 </ContextMenuItem>
-                                <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !todo.in_progress)}>
-                                  {todo.in_progress ? <PauseIcon /> : <PlayIcon />}
-                                  {todo.in_progress ? "Clear in progress" : "Mark in progress"}
+                                <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !working)}>
+                                  {working ? <PauseIcon /> : <PlayIcon />}
+                                  {working ? "Stop working on this" : "Work on this now"}
                                 </ContextMenuItem>
                                 <ContextMenuItem onSelect={() => handleToggleWaiting(todo.id, !todo.waiting)}>
                                   <HourglassIcon />
@@ -1364,6 +1411,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                           );
                         })}
                       </ul>
+                      )}
                     </div>
                   );
                 })}
@@ -1968,21 +2016,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
       </div>
       </div>
-
-      {/* Focus mode: while a task's timer is running, dim everything except that task's row. */}
-      {spotlightRect && (
-        <div
-          className="pointer-events-none fixed z-[65] rounded-lg transition-all duration-300 ease-out"
-          style={{
-            top: spotlightRect.top - 6,
-            left: spotlightRect.left - 6,
-            width: spotlightRect.width + 12,
-            height: spotlightRect.height + 12,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.72)",
-          }}
-          aria-hidden
-        />
-      )}
 
       {timerCompleteTodo && (
         <TimerCompleteCelebration

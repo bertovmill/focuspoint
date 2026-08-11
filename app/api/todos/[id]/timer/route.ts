@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { gcalFetch } from "@/lib/google";
+import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 
 // Skip logging blips (e.g. an accidental start/stop) to the calendar.
 const MIN_LOGGED_DURATION_MS = 60_000;
@@ -35,6 +36,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const sql = getDb();
 
     if (action === "start") {
+      // Starting marks the task in progress, so it has to respect the limit of three.
+      if (!(await hasWorkingSlot(sql, id))) {
+        return NextResponse.json({ error: WORKING_LIMIT_MESSAGE }, { status: 409 });
+      }
       const bumped = await sql`
         UPDATE todos
         SET time_spent_seconds = time_spent_seconds + GREATEST(0, EXTRACT(EPOCH FROM (NOW() - timer_started_at)))::int,

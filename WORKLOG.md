@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-11 — Replace focus mode with "Working on now" (max 3)
+
+**Ask:** Berto wanted the focus feature gone — the dark overlay that spotlit a single timing task — and replaced with a "Working on now" section holding at most 3 tasks, with the rest of the list greyed out. Three is his stated human limit.
+
+**Decisions (asked Berto):** reuse the existing `in_progress` flag rather than adding a `working_now` column (no schema change, and the existing "In progress" concept was already this idea without a cap); working-now tasks get their own pinned section at the top rather than staying inline; the rest of the list is always dimmed (~50%, brightening on hover), not only when the limit is hit.
+
+**Changes:**
+- `lib/working-now.ts` (new) — `WORKING_LIMIT = 3`, a shared `WORKING_LIMIT_MESSAGE`, and `hasWorkingSlot(sql, excludeId?)`. Takes the sql client as an argument so the file has no db import and the client dashboard can import the constants.
+- `app/_components/dashboard.tsx` — deleted focus mode entirely (`spotlightRect` state, the measure-on-scroll/resize effect, and the `box-shadow: 0 0 0 9999px` overlay). Tasks list now renders a synthetic "Working on now · N/3" section ahead of `TODO_SECTIONS`, holding the in-progress tasks (excluded from the sections below); it renders even when empty, as a dashed prompt. Working rows sit in a bordered primary-tinted card; every other section's `<ul>` is `opacity-50 hover:opacity-100`. Each row gained a hover play/pause button ("Work on this now" / "Stop working on this") next to edit/delete; the now-redundant "In progress" badge was dropped and the context-menu item reworded. New-task pill renamed "Working on now" and blocked when full. `handleToggleInProgress` and `handleToggleTimer` (which marks in progress) both toast and bail when there's no slot.
+- `app/api/todos/[id]/route.ts` — `PATCH in_progress: true` returns 409 when three are already active.
+- `app/api/todos/[id]/timer/route.ts` — starting a timer 409s when full (it sets `in_progress = TRUE`).
+- `app/api/todos/route.ts` — `POST` clamps `in_progress` to false when there's no free slot.
+- `agent/tools/update_todo.ts` — same 3-task check, so Cael gets `success: false` with the reason instead of silently creating a 4th.
+
+**Verified:** Playwright against a local dev server on :3789 with Berto's real data (3 tasks already in progress). Screenshotted the new layout — "WORKING ON NOW · 3/3" card at top, dimmed list below, no dark overlay. Seeded a test task: `POST` with `in_progress: true` came back `false` (no slot), `PATCH in_progress` → 409, timer start → 409, and clicking the row's play button showed the "You can only work on 3 things at once" toast. Then freed a slot by pausing one task, confirmed the test task moved into the section, restored the original three, and deleted the test task. Typecheck clean.
+
+---
+
 ## 2026-08-10 — Set task "in progress" at creation time
 
 **Ask:** Berto wanted to mark a new task as "in progress" right when creating it, instead of having to create it and then toggle it separately.

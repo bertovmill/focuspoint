@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-13 — Task categories: Events / Calls / AI Agents
+
+**Ask:** Berto wanted tasks taggable with Events, Calls, or AI Agents — "because nothing else I do should be those things."
+
+**Decisions (asked Berto):** one category per task, optional (NULL is the normal case) rather than multi-tag or required; surfaced in all four places he picked — the create form, a chip on each task row, filter buttons above the list, and the agent tools so Cael can set it in chat.
+
+**Files changed:**
+- `lib/task-categories.ts` (new) — shared `TASK_CATEGORIES` / `TASK_CATEGORY_LABELS` / `normalizeCategory()`. No db import, so both the client dashboard and the agent tools import it (same pattern as `lib/working-now.ts`). `normalizeCategory` accepts loose input ("AI Agents", "calls") and returns null for anything unknown — a mislabelled category shouldn't block saving a task.
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS category TEXT` (also run directly against the dev DB, since `ensureSchema()` isn't called per request).
+- `app/api/todos/route.ts` — `category` in every SELECT list; POST normalizes and stores it.
+- `app/api/todos/[id]/route.ts` — PATCH treats `category` as explicitly nullable (`hasOwnProperty` + `CASE WHEN`), same idiom as `task_number`/`estimated_minutes`, so `{category: null}` clears it.
+- `agent/tools/add_todo.ts`, `agent/tools/update_todo.ts` — optional `category` enum; `update_todo` accepts `null` to clear. `list_todos` is `SELECT *` so it picked it up for free.
+- `agent/instructions.md` — tells Cael what the three categories mean and to leave it off when unsure.
+- `app/_components/dashboard.tsx` — `Todo.category`, a per-category badge colour map (violet/sky/emerald, matching the amber "Waiting" idiom), category chips in the create form and the edit form, a chip on each task row (click clears it), a Category radio group in the right-click menu, and a filter row above the list that only offers categories actually in use. The filter hides rows only — the working-now slot count stays honest about what's really in progress, and the "Nothing active" prompt is suppressed while a filter is on (it would otherwise claim nothing is active when the active task is simply a different category).
+
+**Verified:** Playwright against a dev server on :3789 — seeded one task per category plus an uncategorized one (confirmed `"Calls"` normalizes to `calls`, and no category stores as `null`), filtered to Calls (only that task shown), cleared a chip by clicking it (server confirmed `category: null`), reassigned via the right-click menu (server confirmed `calls`), and screenshotted the create-form picker. All test rows deleted afterward; Berto's real tasks untouched.
+
+**Typecheck:** PASS ✓
+
+---
+
 ## 2026-08-11 — Replace focus mode with "Working on now" (max 3)
 
 **Ask:** Berto wanted the focus feature gone — the dark overlay that spotlit a single timing task — and replaced with a "Working on now" section holding at most 3 tasks, with the rest of the list greyed out. Three is his stated human limit.

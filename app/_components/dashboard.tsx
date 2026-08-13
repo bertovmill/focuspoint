@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -51,6 +51,7 @@ import { focusAppWindow } from "@/lib/desktop";
 // Human limit: at most three things can genuinely be worked on at once. Tasks in
 // the "Working on now" section are the live ones; everything else stays dimmed.
 import { WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
+import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -112,7 +113,16 @@ interface Todo {
   time_spent_seconds?: number;
   task_number?: number | null;
   estimated_minutes?: number | null;
+  category?: TaskCategory | null;
 }
+
+// Each category gets its own colour so the list is scannable at a glance —
+// same outline-badge idiom as the amber "Waiting" badge.
+const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
+  events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
+  calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
+  ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+};
 
 interface Thought {
   id: number;
@@ -276,6 +286,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [newTodoPriority, setNewTodoPriority] = useState<Todo["priority"]>("normal");
   const [newTodoEstimatedMinutes, setNewTodoEstimatedMinutes] = useState(0);
   const [newTodoInProgress, setNewTodoInProgress] = useState(false);
+  const [newTodoCategory, setNewTodoCategory] = useState<TaskCategory | null>(null);
+  // Null = show every task; otherwise only tasks with that category.
+  const [todoCategoryFilter, setTodoCategoryFilter] = useState<TaskCategory | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -293,6 +306,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   const [editTodoDueDate, setEditTodoDueDate] = useState("");
   const [editTodoRecurrence, setEditTodoRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
   const [editTodoEstimatedMinutes, setEditTodoEstimatedMinutes] = useState(0);
+  const [editTodoCategory, setEditTodoCategory] = useState<TaskCategory | null>(null);
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
   // Task whose timer just hit zero — shows the celebration modal until dismissed.
@@ -461,16 +475,18 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     const priority = newTodoPriority;
     const estimated_minutes = newTodoEstimatedMinutes;
     const in_progress = newTodoInProgress && workingNowTodos.length < WORKING_LIMIT;
+    const category = newTodoCategory;
     setNewTodo("");
     setNewTodoRecurrence("none");
     setNewTodoPriority("normal");
     setNewTodoEstimatedMinutes(0);
     setNewTodoInProgress(false);
+    setNewTodoCategory(null);
     try {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, recurrence, priority, estimated_minutes, in_progress }),
+        body: JSON.stringify({ title, recurrence, priority, estimated_minutes, in_progress, category }),
       });
       if (!res.ok) throw new Error();
       const todo = await res.json();
@@ -481,6 +497,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       setNewTodoPriority(priority);
       setNewTodoEstimatedMinutes(estimated_minutes ?? 0);
       setNewTodoInProgress(in_progress);
+      setNewTodoCategory(category);
       toast.error("Couldn't add task. Try again.");
     }
   };
@@ -604,6 +621,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     setEditTodoDueDate(todo.due_date ? todo.due_date.slice(0, 10) : "");
     setEditTodoRecurrence(todo.recurrence ?? "none");
     setEditTodoEstimatedMinutes(todo.estimated_minutes ?? 0);
+    setEditTodoCategory(todo.category ?? null);
     setTimeout(() => {
       editTodoRef.current?.focus();
       editTodoRef.current?.select();
@@ -625,6 +643,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       due_date: editTodoDueDate || null,
       recurrence: editTodoRecurrence,
       estimated_minutes: editTodoEstimatedMinutes || null,
+      category: editTodoCategory,
     };
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     setEditingTodoId(null);
@@ -654,6 +673,23 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     } catch {
       setTodos(prev);
       toast.error("Couldn't update priority.");
+    }
+  };
+
+  // Picking the category a task already has clears it — the chip is a toggle.
+  const handleSetCategory = async (id: number, next: TaskCategory | null) => {
+    const prev = todos;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, category: next } : t)));
+    try {
+      const res = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: next }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't update category.");
     }
   };
 
@@ -851,6 +887,12 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
   }
   const workingNowFull = workingNowTodos.length >= WORKING_LIMIT;
 
+  // The category filter only hides rows — the working-now slot count above stays
+  // honest about what's actually in progress.
+  const matchesCategoryFilter = (t: Todo) => !todoCategoryFilter || t.category === todoCategoryFilter;
+  // Which categories are worth offering as filters: the ones actually in use.
+  const usedCategories = TASK_CATEGORIES.filter((c) => visibleTodos.some((t) => t.category === c));
+
   const allTags = Array.from(
     new Set(thoughts.flatMap((t) => t.tags ?? [])),
   ).sort();
@@ -982,6 +1024,24 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               )}
               {newTodo.trim() && (
                 <div className="flex items-center gap-1.5">
+                  <TagIcon className="size-3 text-muted-foreground shrink-0" />
+                  {TASK_CATEGORIES.map((c) => (
+                    <Badge
+                      key={c}
+                      asChild
+                      variant={newTodoCategory === c ? "default" : "outline"}
+                      className={cn("cursor-pointer", newTodoCategory !== c && CATEGORY_BADGE_CLASS[c])}
+                    >
+                      {/* Clicking the selected one clears it — category is optional. */}
+                      <button type="button" onClick={() => setNewTodoCategory((v) => (v === c ? null : c))}>
+                        {TASK_CATEGORY_LABELS[c]}
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {newTodo.trim() && (
+                <div className="flex items-center gap-1.5">
                   <RepeatIcon className="size-3 text-muted-foreground shrink-0" />
                   {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
                     <Badge
@@ -1041,6 +1101,25 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               </Empty>
             ) : (
               <div className="space-y-5">
+                {usedCategories.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge asChild variant={todoCategoryFilter === null ? "default" : "outline"} className="cursor-pointer">
+                      <button type="button" onClick={() => setTodoCategoryFilter(null)}>All</button>
+                    </Badge>
+                    {usedCategories.map((c) => (
+                      <Badge
+                        key={c}
+                        asChild
+                        variant={todoCategoryFilter === c ? "default" : "outline"}
+                        className={cn("cursor-pointer", todoCategoryFilter !== c && CATEGORY_BADGE_CLASS[c])}
+                      >
+                        <button type="button" onClick={() => setTodoCategoryFilter((v) => (v === c ? null : c))}>
+                          {TASK_CATEGORY_LABELS[c]}
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {[
                   // "Working on now" always renders first (even empty, as a drop-target
                   // prompt) — it's the whole point of the screen.
@@ -1052,10 +1131,11 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   ...TODO_SECTIONS.map((s) => ({ ...s, working: false })),
                 ].map(({ key, label, working }) => {
                   const sectionTodos = working
-                    ? workingNowTodos
+                    ? workingNowTodos.filter(matchesCategoryFilter)
                     : visibleTodos
                     .filter((t) => {
                       if (workingNowIds.has(t.id)) return false;
+                      if (!matchesCategoryFilter(t)) return false;
                       const r = t.recurrence ?? "none";
                       // Dailies live at the top of the "none" section, not in one of their own.
                       return key === "none" ? r === "none" || r === "daily" : r === key;
@@ -1074,7 +1154,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                         priorityRank(b) - priorityRank(a) ||
                         createdAtMs(a) - createdAtMs(b),
                     );
-                  if (sectionTodos.length === 0 && !working) return null;
+                  // The "nothing active" prompt only makes sense when nothing really
+                  // is active — under a category filter an empty section just means
+                  // the working task is a different category, so hide it entirely.
+                  if (sectionTodos.length === 0 && (!working || todoCategoryFilter)) return null;
                   return (
                     <div key={key}>
                       <p
@@ -1145,6 +1228,21 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                   >
                                     <button type="button" onClick={() => setEditTodoRecurrence(r)}>
                                       {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                <TagIcon className="size-3 text-muted-foreground shrink-0" />
+                                {TASK_CATEGORIES.map((c) => (
+                                  <Badge
+                                    key={c}
+                                    asChild
+                                    variant={editTodoCategory === c ? "default" : "outline"}
+                                    className={cn("cursor-pointer", editTodoCategory !== c && CATEGORY_BADGE_CLASS[c])}
+                                  >
+                                    <button type="button" onClick={() => setEditTodoCategory((v) => (v === c ? null : c))}>
+                                      {TASK_CATEGORY_LABELS[c]}
                                     </button>
                                   </Badge>
                                 ))}
@@ -1272,6 +1370,22 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                       Created {formatCreated(todo.created_at)}
                                     </span>
                                   )}
+                                  {todo.category && (
+                                    <Badge
+                                      asChild
+                                      variant="outline"
+                                      className={cn("cursor-pointer", CATEGORY_BADGE_CLASS[todo.category])}
+                                    >
+                                      {/* Clicking the chip clears it; right-click menu re-assigns. */}
+                                      <button
+                                        type="button"
+                                        title={`Clear "${TASK_CATEGORY_LABELS[todo.category]}"`}
+                                        onClick={() => handleSetCategory(todo.id, null)}
+                                      >
+                                        {TASK_CATEGORY_LABELS[todo.category]}
+                                      </button>
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                               {todo.timer_started_at && !isDone && (() => {
@@ -1382,6 +1496,21 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                                       )}
                                     >
                                       {p}
+                                    </ContextMenuRadioItem>
+                                  ))}
+                                </ContextMenuRadioGroup>
+                                <ContextMenuSeparator />
+                                <ContextMenuLabel>Category</ContextMenuLabel>
+                                <ContextMenuRadioGroup
+                                  value={todo.category ?? "none"}
+                                  onValueChange={(c) =>
+                                    handleSetCategory(todo.id, c === "none" ? null : (c as TaskCategory))
+                                  }
+                                >
+                                  <ContextMenuRadioItem value="none">None</ContextMenuRadioItem>
+                                  {TASK_CATEGORIES.map((c) => (
+                                    <ContextMenuRadioItem key={c} value={c}>
+                                      {TASK_CATEGORY_LABELS[c]}
                                     </ContextMenuRadioItem>
                                   ))}
                                 </ContextMenuRadioGroup>

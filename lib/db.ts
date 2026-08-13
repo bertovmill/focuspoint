@@ -50,6 +50,9 @@ export async function ensureSchema() {
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER`;
   // Estimated time to complete, in minutes. NULL = no estimate; drives the timer countdown.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER`;
+  // Optional kind of work: 'events' | 'calls' | 'ai_agents' (see lib/task-categories.ts).
+  // NULL = uncategorized, which is most tasks.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS category TEXT`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

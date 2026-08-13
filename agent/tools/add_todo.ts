@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
+import { TASK_CATEGORIES } from "../../lib/task-categories.js";
 
 export default defineTool({
   description: "Add a new todo task for the user.",
@@ -17,13 +18,19 @@ export default defineTool({
       .int()
       .positive()
       .describe("Required. Estimated time to complete this task, in minutes."),
+    category: z
+      .enum(TASK_CATEGORIES)
+      .optional()
+      .describe(
+        "Optional kind of work: 'events' (an event he's running or attending), 'calls' (a call/meeting with someone), or 'ai_agents' (building or wiring up AI agents). Leave it off for anything else — most tasks are none of these.",
+      ),
   }),
-  async execute({ title, priority, due_date, recurrence, estimated_minutes }) {
+  async execute({ title, priority, due_date, recurrence, estimated_minutes, category }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes)
-      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimated_minutes})
-      RETURNING id, title, priority, due_date, recurrence, estimated_minutes, created_at
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, category)
+      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimated_minutes}, ${category ?? null})
+      RETURNING id, title, priority, due_date, recurrence, estimated_minutes, category, created_at
     `;
     return row;
   },

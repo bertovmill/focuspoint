@@ -962,6 +962,26 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {/* Tasks */}
         {activeTab === "todos" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
+            {/* The three pillars sit above everything else on the task list: every
+                task should ladder up to one of them. */}
+            <div className="mb-4 rounded-lg border bg-muted/40 px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Your goal
+              </p>
+              <p className="mt-1 text-sm font-medium leading-snug">
+                More calls, more events, and better AI agents.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {["More calls", "More events", "Better AI agents"].map((pillar) => (
+                  <Badge key={pillar} variant="secondary" className="font-normal">
+                    {pillar}
+                  </Badge>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Three main pillars — the keys to success.
+              </p>
+            </div>
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
               <div className="flex gap-2">
                 <Input

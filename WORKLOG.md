@@ -2903,3 +2903,17 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Note:** committed alongside a concurrent session's in-flight Wellness work (`agent/tools/log_workout.ts`, `list_workouts.ts` — a new `gym_hours` exercise powering a cumulative-hours Wellness goal) present in the working tree at commit time; typecheck was clean so it went in together rather than being separated out.
 
 **Next steps (not done):** Craft still needs a goal/dedicated tracking picked with Berto (last form on the tagged-thoughts proxy).
+
+---
+
+## 2026-08-13 — Tasks: three-pillars goal banner at top of task list
+
+**Ask:** Berto: "add to the top of the task list — your goal is more calls, more events, and better AI agents. Those are your three main pillars and keys to success."
+
+**What was built:** A static banner card pinned above the add-task form on the Tasks tab (`activeTab === "todos"`): "Your goal" eyebrow, the sentence "More calls, more events, and better AI agents.", three secondary badges (More calls / More events / Better AI agents), and a footnote "Three main pillars — the keys to success." Purely presentational — no DB or API changes.
+
+**Decision:** Kept it static/hardcoded rather than sourcing from `vision_items`, since it's a fixed framing statement and the ask was for it to simply sit at the top of the list. Placed above the form (not above only the task groups) so it's the first thing on the tab. Naturally pairs with the just-landed Events / Calls / AI Agents task categories (commit 99936a5).
+
+**Files changed:** `app/_components/dashboard.tsx`.
+
+**Typecheck:** PASS ✓

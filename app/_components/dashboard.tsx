@@ -122,6 +122,7 @@ const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
   events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
   calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
   ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
 };
 
 interface Thought {

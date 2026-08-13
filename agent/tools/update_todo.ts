@@ -28,7 +28,7 @@ export default defineTool({
       .nullable()
       .optional()
       .describe(
-        "Kind of work: 'events', 'calls', or 'ai_agents'. Pass null to clear it — most tasks are none of these.",
+        "Kind of work: 'events', 'calls', 'ai_agents', or 'content'. Pass null to clear it — most tasks are none of these.",
       ),
   }),
   async execute({ id, ...patch }) {

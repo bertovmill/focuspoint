@@ -22,7 +22,7 @@ export default defineTool({
       .enum(TASK_CATEGORIES)
       .optional()
       .describe(
-        "Optional kind of work: 'events' (an event he's running or attending), 'calls' (a call/meeting with someone), or 'ai_agents' (building or wiring up AI agents). Leave it off for anything else — most tasks are none of these.",
+        "Optional kind of work: 'events' (an event he's running or attending), 'calls' (a call/meeting with someone), 'ai_agents' (building or wiring up AI agents), or 'content' (writing, recording, editing or publishing content). Leave it off for anything else — most tasks are none of these.",
       ),
   }),
   async execute({ title, priority, due_date, recurrence, estimated_minutes, category }) {

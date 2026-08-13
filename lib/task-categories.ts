@@ -1,7 +1,7 @@
-// The only three kinds of work worth labelling — everything else Berto does is
+// The only few kinds of work worth labelling — everything else Berto does is
 // just "a task", so category is optional and NULL is the normal case.
 // No db import here — the client dashboard and the agent tools both import these.
-export const TASK_CATEGORIES = ["events", "calls", "ai_agents"] as const;
+export const TASK_CATEGORIES = ["events", "calls", "ai_agents", "content"] as const;
 
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 
@@ -9,6 +9,7 @@ export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
   events: "Events",
   calls: "Calls",
   ai_agents: "AI Agents",
+  content: "Content",
 };
 
 // Accepts anything an API caller or the agent might send ("AI Agents", "calls",

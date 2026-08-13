@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-13 — Added "Content" task category
+
+**Ask:** Add a fourth tag chip, Content, alongside Events / Calls / AI Agents.
+
+**Built:** `content` appended to `TASK_CATEGORIES` with label "Content" and an amber outline badge (violet/sky/emerald were taken). Category column is plain `TEXT`, so no migration. Agent tool descriptions (`add_todo`, `update_todo`) and `agent/instructions.md` updated so Cael knows to label writing/recording/editing/publishing work as `content`.
+
+**Files:** `lib/task-categories.ts`, `app/_components/dashboard.tsx`, `agent/tools/add_todo.ts`, `agent/tools/update_todo.ts`, `agent/instructions.md`.
+
+---
+
 ## 2026-08-13 — Task categories: Events / Calls / AI Agents
 
 **Ask:** Berto wanted tasks taggable with Events, Calls, or AI Agents — "because nothing else I do should be those things."

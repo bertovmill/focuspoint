@@ -2927,3 +2927,34 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Files changed:** `app/_components/dashboard.tsx`.
 
 **Typecheck:** PASS ✓
+
+---
+
+## 2026-08-14 — Completed tasks plot onto Google Calendar
+
+**Ask:** Berto: "when a task gets done, can we plot it onto my calendar? This will help me audit what I did in weeks prior."
+
+**Decisions (asked Berto):**
+- **Destination: real Google Calendar events** on the primary calendar (not an app-only overlay, not a separate "Done" calendar) — so done-blocks show up on his phone and in any Google client.
+- **Shape: a timed block from tracked time** (not an all-day chip) — the block *ends* at the completion moment and starts one duration earlier, so a week view reads as a real picture of where the hours went.
+- Duration precedence: `time_spent_seconds` (tracked timer) → `estimated_minutes` → a flat 15m fallback. Clamped to [5m, 8h] so an estimate-less task still renders visibly and a timer left running overnight can't paint a multi-day bar across the week.
+- Blocks are styled to sit *behind* real meetings: Google colorId 8 ("Graphite"), `transparency: "transparent"` (they're a record, not busy time), and a `✓ ` title prefix. Description carries the provenance ("Completed in focuspoint — 45m tracked." + category when set).
+- Every calendar call is **best-effort** — a Google failure (not connected, revoked token, API blip) is logged and swallowed, never blocking task completion.
+- Uncompleting a task **deletes** its block (`calendar_event_id` on the todo is the handle). Recurring tasks log a fresh block on each completion and the column holds the latest one — past occurrences intentionally stay on the calendar as history.
+
+**Files changed:**
+- `lib/done-block.ts` (new) — builds the Google event body from a completed task; duration precedence + clamping live here. **Deliberately import-free**: the web routes and the agent tool run under different module resolvers (Turbopack vs the eve runtime) which disagree on `.js` extensions in relative imports — Turbopack can't resolve `./task-categories.js`, while eve tools *require* the `.js` suffix. Rather than pick a side, this module takes the category *label* from its caller and imports nothing.
+- `lib/task-calendar.ts` (new) — web-side `logCompletedTaskToCalendar` / `removeCompletedTaskFromCalendar` over `gcalFetch`.
+- `lib/db.ts` — `todos.calendar_event_id TEXT` column (also applied directly to the dev/prod Neon DB, since `ensureSchema()` isn't run per-request).
+- `app/api/todos/[id]/complete/route.ts` — reads the task back *after* banking the running timer (so the block reflects final tracked time), writes the block, stores the event id. Returns `calendar_event_id` in the response.
+- `app/api/todos/[id]/uncomplete/route.ts` — deletes the block and clears the column.
+- `agent/tools/complete_todo.ts` — same behaviour when Cael marks a task done, via the agent's own Google helper.
+- `agent/lib/google-calendar.ts` — new `createRawCalendarEvent(token, body)` that POSTs an already-built event body (the existing `createCalendarEvent` only takes date/time/duration fields, which don't fit a done-block).
+
+**Verified:** end-to-end against the real Google Calendar on a dev server on :3789 — (1) estimate path: a 25m-estimate task completed → `✓ ZZ calendar-plot test`, 17:08–17:33, description "Completed in focuspoint — 25m estimated. / Category: Calls"; (2) tracked path: a task with `time_spent_seconds = 2700` and a 10m estimate → a 45m block, confirming tracked time beats the estimate; (3) uncomplete removed the block from the calendar in both cases. All seed tasks deleted.
+
+**Note:** the first e2e run returned `calendar_event_id: null` with "Google Calendar is not connected" — a stale `google_auth` row whose refresh token had gone invalid. `lib/google.ts` self-healed on the next call by re-seeding from `GOOGLE_REFRESH_TOKEN` in `.env.local`; no code change needed.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** nothing blocking. If the done-blocks turn out to clutter the real calendar, the natural follow-up is moving them to a dedicated secondary "Done" calendar (Berto weighed this option and chose the primary calendar for now) — only `lib/task-calendar.ts` and the agent tool's calendar id would change.

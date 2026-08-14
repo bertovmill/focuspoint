@@ -117,6 +117,24 @@ export async function createCalendarEvent(token: string, ev: CalendarEventInput)
   return { success: true as const, eventId: event.id, link: event.htmlLink };
 }
 
+/**
+ * Posts an already-built Google event body (summary/start/end/colorId/…) as-is.
+ * Used for done-blocks, whose shape is built by lib/done-block.ts rather than
+ * from the date/time/duration fields createCalendarEvent takes.
+ */
+export async function createRawCalendarEvent(token: string, body: Record<string, unknown>) {
+  const res = await fetch(CAL_BASE, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    return { success: false as const, status: res.status, message: await res.text() };
+  }
+  const event = (await res.json()) as { id?: string };
+  return { success: true as const, eventId: event.id };
+}
+
 export interface CalendarEventSummary {
   title: string;
   start: string;

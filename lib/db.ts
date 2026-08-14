@@ -53,6 +53,9 @@ export async function ensureSchema() {
   // Optional kind of work: 'events' | 'calls' | 'ai_agents' (see lib/task-categories.ts).
   // NULL = uncategorized, which is most tasks.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS category TEXT`;
+  // Google Calendar event written when the task was completed, so the block can be
+  // removed again on uncomplete (see lib/task-calendar.ts). NULL = nothing logged.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS calendar_event_id TEXT`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

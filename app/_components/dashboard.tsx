@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ArrowRightIcon, ShareIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -1429,40 +1429,25 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
               <div className="pointer-events-none absolute -bottom-20 -left-10 size-44 rounded-full bg-emerald-500/20 blur-3xl" />
 
               <div className="relative">
-                <h2 className="bg-gradient-to-r from-amber-600 via-violet-600 to-emerald-600 bg-clip-text text-lg font-semibold leading-snug text-transparent sm:text-xl dark:from-amber-300 dark:via-violet-300 dark:to-emerald-300">
-                  More content, more events, better AI agents.
-                </h2>
-
                 {/* Process chart: pillar → what it earns you */}
-                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-3">
                   {PILLAR_FLOW.map((pillar) => (
                     <div
                       key={pillar.label}
+                      title={
+                        pillar.distributes
+                          ? `Creates ${pillar.creates}, and distributes the service`
+                          : `Creates ${pillar.creates}`
+                      }
                       className={cn(
-                        "rounded-lg border bg-background/70 p-3 backdrop-blur-sm",
+                        "flex items-center gap-2 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
                         pillar.border,
                       )}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
-                          <pillar.icon className="size-4" />
-                        </span>
-                        <span className="text-sm font-medium">{pillar.label}</span>
-                      </div>
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <ArrowRightIcon className={cn("size-3.5 shrink-0", pillar.arrow)} />
-                        <span>
-                          creates <span className="font-medium text-foreground">{pillar.creates}</span>
-                        </span>
-                      </div>
-                      {pillar.distributes && (
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <ShareIcon className={cn("size-3.5 shrink-0 opacity-70", pillar.arrow)} />
-                          <span>
-                            and <span className="font-medium text-foreground">distributes</span> it
-                          </span>
-                        </div>
-                      )}
+                      <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
+                        <pillar.icon className="size-3.5" />
+                      </span>
+                      <span className="text-sm font-medium">{pillar.label}</span>
                     </div>
                   ))}
                 </div>

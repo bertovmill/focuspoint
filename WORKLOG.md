@@ -3040,3 +3040,10 @@ server (:3000, Berto's own — Turbopack picked the edits up) in light and dark.
 **Typecheck:** PASS ✓
 
 **Gotcha worth remembering:** the goal row was updated *before* the new code reached production, so for ~40s the still-deployed pages-based card compared 4,800 pages against the new goal of 100 and latched the goal-achieved celebration (`vision_items.achieved = true`, `achieved_at` stamped). Reset to `false`/`NULL` afterwards and confirmed the prod card reads a plain "15 books / 100 books" with no 🎉. **When changing a goal's unit, deploy the code first, then update the goal row** — otherwise the old unit is briefly measured against the new target and can fire a false celebration.
+
+**Follow-up 2 (same day):** hero trimmed further — headline removed, and the
+pillar boxes reduced to just icon + title (the "creates X / and distributes it"
+lines moved into each box's `title` tooltip rather than being deleted outright, so
+the reasoning is still one hover away). Hero is now: three compact pillar chips +
+the "don't chase money" principle line. Unused `ArrowRightIcon` / `ShareIcon` /
+`TargetIcon` imports removed.

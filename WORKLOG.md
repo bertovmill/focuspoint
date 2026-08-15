@@ -3101,3 +3101,13 @@ which was already a direct dependency — no new install. Notes:
   clobber Tailwind's `-translate-x-1/2` centering.
 Verified with Playwright frames at ~0.4s (first chip + arrow drawing) and ~2.5s
 (fully settled, full width).
+
+**Follow-up 9 (same day):** goal hero is now full bleed and replays on every
+visit. Dropped the `chartHasAnimated` module flag from follow-up 8 — the Tasks
+panel unmounts when you leave the tab, so the motion elements remount and the
+intro replays each time you open Tasks; `useReducedMotion()` is now the only
+thing that switches it off. The hero container went from a rounded bordered card
+to `-mx-5 -mt-4 … border-b` (negative margins cancel the panel's `px-5 py-4`), so
+the gradient runs edge to edge under the header with a single bottom border.
+Verified with Playwright: settled full-bleed frame, plus a leave-Tasks →
+return-to-Tasks frame at 420ms showing only the first chip in.

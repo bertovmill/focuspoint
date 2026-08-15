@@ -180,8 +180,6 @@ const CHART_SLOT = "w-full sm:w-auto sm:flex-1";
 const CHART_BEAT = 0.42;
 const CHART_EASE = [0.22, 1, 0.36, 1] as const;
 const CHART_LOOP_DELAY = 1.3;
-// Only on first paint — flipping back to Tasks shouldn't replay it.
-let chartHasAnimated = false;
 // Wide enough for the arrow labels ("More attendees" / "More clients") to sit
 // over the connector without spilling onto the chips.
 const CHART_GAP = "w-24";
@@ -336,14 +334,11 @@ type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
-  // Goal-chart intro: first mount of the page only, and never against the
-  // user's reduced-motion preference.
+  // Goal-chart intro. The Tasks panel unmounts when you leave the tab, so the
+  // chart elements remount — and replay — every time you open Tasks. Only the
+  // user's reduced-motion preference switches it off.
   const reduceMotion = useReducedMotion();
-  const [chartIntro] = useState(() => !chartHasAnimated);
-  useEffect(() => {
-    chartHasAnimated = true;
-  }, []);
-  const playChart = chartIntro && !reduceMotion;
+  const playChart = !reduceMotion;
   // Fade-and-rise for a chip or label; a no-op object leaves it static.
   const chartRise = (delay: number, duration = 0.45) =>
     playChart
@@ -1478,7 +1473,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
             {/* The three pillars sit above everything else on the task list: every
                 task should ladder up to one of them. The mini process chart
                 spells out *why* each pillar matters. */}
-            <div className="relative mb-5 overflow-hidden rounded-xl border bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-4 py-4 sm:px-5 sm:py-5">
+            {/* Full bleed: negative margins cancel the panel's px-5 py-4 so the
+                hero runs to the panel edges. Border on the bottom only — the
+                sides and top have nothing left to sit against. */}
+            <div className="relative -mx-5 -mt-4 mb-5 overflow-hidden border-b bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-5 py-5 sm:px-6 sm:py-6">
               <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-amber-500/20 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-20 -left-10 size-44 rounded-full bg-emerald-500/20 blur-3xl" />
 

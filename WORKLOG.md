@@ -3021,3 +3021,20 @@ under the chart: *"Don't chase money — create the conditions where money becom
 **inevitable**."* The hero is now headline → three pillar cards → principle.
 `TargetIcon` import dropped with the convergence row. Verified on the running dev
 server (:3000, Berto's own — Turbopack picked the edits up) in light and dark.
+
+---
+
+## 2026-08-15 — Growth measured in books, not pages
+
+**Ask:** Berto: "for growth, let's change it from pages read to books."
+
+**Decisions (asked Berto):** goal set to **100 books** (of the options offered — 1,000 / 100 / 31 — he picked 100, a decade-ish target where the 15 books already logged read as a visible 15% rather than hugging the floor the way 4,800/10,000 pages did). Page counts are still recorded on every `reading_logs` row and `log_reading` still looks them up via `web_search` — only the unit the *goal* is measured in changed, so no data was lost or migrated.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — `wealthSeries.growth` now emits one point of `value: 1` per reading log (was `Number(l.pages)`), unit `"books"` (was `"pages"`).
+- `agent/instructions.md` — the Reading line said the chart shows "cumulative pages this year"; now says the Growth card counts books finished against a goal of 100, and notes page counts are still recorded.
+- DB only: `vision_items` id 28 (`kind=goal, title=Growth`) content `10000` → `100`.
+
+**Verified:** Playwright screenshot of the Growth card against the running dev server — reads "15 books / 100 books" with the dashed goal line well above the curve. (Berto's own dev server was already running on :3000 in the focuspoint dir, so per `.claude/skills/verify` this was checked against that server rather than killing it — Turbopack picked the edit up from disk.)
+
+**Typecheck:** PASS ✓

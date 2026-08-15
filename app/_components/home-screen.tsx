@@ -500,7 +500,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
   // One sparkline per form of wealth, all sharing the Month/Year/Decade toggle above the grid.
   // Growth/Wellness/Money/Family/Community/Adventure/Service reuse data already tracked elsewhere
-  // (pages, workouts, savings, memories, Luma subscribers, trips, thank-yous); Craft still uses a
+  // (books, workouts, savings, memories, Luma subscribers, trips, thank-yous); Craft still uses a
   // count of thoughts tagged "craft" as a proxy signal until it gets dedicated tracking.
   const wealthSeries = useMemo(() => {
     const taggedCount = (tag: string) =>
@@ -510,9 +510,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
     const series: Record<string, { points: { t: number; value: number }[]; mode: "sum" | "last"; unit: string }> = {
       growth: {
-        points: readingLogs.map((l) => ({ t: new Date(l.logged_date).getTime(), value: Number(l.pages) })),
+        // Books finished, not pages — one point per reading_logs row. Page counts are
+        // still recorded on each row, they just aren't what the goal is measured in.
+        points: readingLogs.map((l) => ({ t: new Date(l.logged_date).getTime(), value: 1 })),
         mode: "sum",
-        unit: "pages",
+        unit: "books",
       },
       wellness: {
         points: workoutLogs

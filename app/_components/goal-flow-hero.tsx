@@ -185,15 +185,32 @@ export function GoalFlowHero() {
           ))}
         </div>
 
-        {/* Room for the feedback beams to bow through on their way back. The
-            caption sits at the bottom so the deepest curve clears it. */}
-        <div className="hidden h-20 items-end justify-center sm:flex">
-          <span className="text-[10px] leading-none text-muted-foreground/70">
-            Better agents improve the content and the events
-          </span>
+        {/* Room for the feedback beams to bow through on their way back. Each
+            label sits just under the arc it belongs to — the two shallow ones
+            share the upper band, the full-width agents→content curve gets the
+            floor. */}
+        <div className="relative hidden h-36 sm:block">
+          <motion.span
+            className="absolute left-1/3 top-[52px] -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-muted-foreground/70"
+            {...rise(1.9, 0.35)}
+          >
+            Share learnings
+          </motion.span>
+          <motion.span
+            className="absolute left-2/3 top-[52px] -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-muted-foreground/70"
+            {...rise(1.75, 0.35)}
+          >
+            Better agents improve the events
+          </motion.span>
+          <motion.span
+            className="absolute top-[106px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none text-muted-foreground/70"
+            {...rise(2.05, 0.35)}
+          >
+            Share learnings
+          </motion.span>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
-          Better agents improve the content and the events.
+          Events and agents both feed content — share the learnings.
         </p>
 
         {/* Forward flow, then the feedback loop bowing back underneath.
@@ -225,7 +242,7 @@ export function GoalFlowHero() {
             containerRef={containerRef}
             fromRef={bottomAnchors[2]}
             toRef={bottomAnchors[1]}
-            curvature={-42}
+            curvature={-90}
             reverse
             gradientStartColor={PILLARS[2].hex}
             gradientStopColor={PILLARS[1].hex}
@@ -234,17 +251,32 @@ export function GoalFlowHero() {
             delay={1.4}
             {...beamMotion}
           />
+          {/* Events feed the content too — what happens in the room becomes
+              the next post. Mirrors the agents→events arc on the left half. */}
+          <AnimatedBeam
+            containerRef={containerRef}
+            fromRef={bottomAnchors[1]}
+            toRef={bottomAnchors[0]}
+            curvature={-90}
+            reverse
+            gradientStartColor={PILLARS[1].hex}
+            gradientStopColor={PILLARS[0].hex}
+            pathWidth={1.5}
+            duration={5.5}
+            delay={1.6}
+            {...beamMotion}
+          />
           <AnimatedBeam
             containerRef={containerRef}
             fromRef={bottomAnchors[2]}
             toRef={bottomAnchors[0]}
-            curvature={-70}
+            curvature={-190}
             reverse
             gradientStartColor={PILLARS[2].hex}
             gradientStopColor={PILLARS[0].hex}
             pathWidth={1.5}
             duration={5.5}
-            delay={1.7}
+            delay={1.8}
             {...beamMotion}
           />
         </div>

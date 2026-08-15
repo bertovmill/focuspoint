@@ -4,6 +4,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-15 — Goal hero: taller feedback band + "Share learnings" edges
+
+**Ask:** *"can we make it a bit taller, and add a line from events to content -
+and add a label to it called - share learnings. same thing for building agents to
+content - share learnigns."*
+
+**What changed** (`app/_components/goal-flow-hero.tsx`):
+
+- New feedback beam **events → content** (bottom anchors, `curvature={-90}`),
+  mirroring the existing agents → events arc on the left half.
+- The feedback gutter grew `h-20` → `h-36`, and the arcs deepened to use it:
+  agents→events and events→content at `-90`, agents→content at `-190`. (Note:
+  `AnimatedBeam`'s quadratic path dips roughly **half** the curvature value, so
+  -190 ≈ 95px of sag.)
+- The single centred caption was replaced by three per-edge labels positioned at
+  each arc's midpoint: **"Share learnings"** (events→content, left 1/3),
+  **"Better agents improve the events"** (agents→events, left 2/3), and
+  **"Share learnings"** (agents→content, centre, on the floor of the band).
+- Mobile caption reworded to "Events and agents both feed content — share the
+  learnings."
+
+Verified in the running app with Playwright at 1440×1000 — labels sit clear of
+the curves they annotate. `npm run typecheck` clean.
+
+---
+
 ## 2026-08-15 — Tasks is now an Excalidraw notebook
 
 **Ask:** *"for my task list page - i have a bit of a radical idea - lets make it

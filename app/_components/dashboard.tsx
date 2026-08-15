@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import Link from "next/link";
-import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ChevronRightIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ChevronRightIcon, ChevronUpIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -144,6 +144,8 @@ const PILLAR_FLOW = [
     label: "More events",
     icon: UsersIcon,
     creates: "trust",
+    // Labels the arrow coming into this chip from the previous one.
+    inbound: "More attendees",
     traits: ["Energy", "Aura", "Appearance"],
     distributes: true,
     chip: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
@@ -163,6 +165,11 @@ const PILLAR_FLOW = [
     dot: "bg-emerald-500/60",
   },
 ] as const;
+
+// The chip row and the feedback loop under it are two separate flex rows; they
+// only line up because both use these exact widths for slots and gaps.
+const CHART_SLOT = "w-full sm:w-auto sm:max-w-[13rem] sm:flex-1";
+const CHART_GAP = "w-9";
 
 interface Thought {
   id: number;
@@ -1442,13 +1449,28 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                       {/* Connector between boxes — a line flush to both edges with an
                           arrowhead. Runs right on desktop, down when the chips stack. */}
                       {i > 0 && (
-                        <span
-                          aria-hidden
-                          className="flex shrink-0 flex-col items-center self-center text-muted-foreground/60 sm:flex-row"
-                        >
-                          <span className="h-6 w-px bg-current sm:h-px sm:w-8" />
-                          <ChevronRightIcon className="-mt-2 size-3.5 rotate-90 sm:-ml-2 sm:mt-0 sm:rotate-0" />
-                        </span>
+                        <>
+                          {/* Stacked (mobile): the connector runs downward. */}
+                          <span
+                            aria-hidden
+                            className="flex shrink-0 flex-col items-center self-center text-muted-foreground/60 sm:hidden"
+                          >
+                            <span className="h-6 w-px bg-current" />
+                            <ChevronRightIcon className="-mt-2 size-3.5 rotate-90" />
+                          </span>
+                          {/* Row (desktop): fixed width so the feedback loop below
+                              lines its verticals up with the chip centres. */}
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "relative hidden shrink-0 items-center self-center text-muted-foreground/60 sm:flex",
+                              CHART_GAP,
+                            )}
+                          >
+                            <span className="h-px w-full bg-current" />
+                            <ChevronRightIcon className="absolute -right-1 size-3.5" />
+                          </span>
+                        </>
                       )}
                       <div
                         title={
@@ -1457,7 +1479,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             : `Creates ${pillar.creates}`
                         }
                         className={cn(
-                          "w-full rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm sm:w-auto sm:max-w-[13rem] sm:flex-1",
+                          "rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
+                          CHART_SLOT,
                           pillar.border,
                         )}
                       >
@@ -1480,6 +1503,36 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                     </Fragment>
                   ))}
                 </div>
+
+                {/* Feedback loop: better agents make the other two pillars better.
+                    Mirrors the chip row's flex sizing (CHART_SLOT / CHART_GAP) so the
+                    verticals land under each chip's centre. */}
+                <div className="hidden justify-center text-muted-foreground/50 sm:flex">
+                  <div className={cn("relative h-9", CHART_SLOT)}>
+                    <div className="ml-auto h-full w-1/2 rounded-bl-md border-b border-l border-current" />
+                    <ChevronUpIcon className="absolute -top-1.5 left-1/2 size-3.5 -translate-x-1/2" />
+                    <span className="absolute left-1/2 top-2 ml-1.5 text-[10px] leading-none">
+                      Improves
+                    </span>
+                  </div>
+                  <div className={cn("h-9 border-b border-current", CHART_GAP)} />
+                  <div className={cn("relative h-9", CHART_SLOT)}>
+                    <div className="h-full w-full border-b border-current" />
+                    <span className="absolute bottom-0 left-1/2 h-full w-px -translate-x-1/2 bg-current" />
+                    <ChevronUpIcon className="absolute -top-1.5 left-1/2 size-3.5 -translate-x-1/2" />
+                    <span className="absolute left-1/2 top-2 ml-1.5 text-[10px] leading-none">
+                      Improves
+                    </span>
+                  </div>
+                  <div className={cn("h-9 border-b border-current", CHART_GAP)} />
+                  <div className={cn("relative h-9", CHART_SLOT)}>
+                    <div className="mr-auto h-full w-1/2 rounded-br-md border-b border-r border-current" />
+                  </div>
+                </div>
+                {/* Same fact, without the drawing, once the chips stack. */}
+                <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
+                  Better agents improve the content and the events.
+                </p>
 
                 {/* The principle the three pillars serve. */}
                 <p className="mt-3 text-xs leading-snug text-muted-foreground">

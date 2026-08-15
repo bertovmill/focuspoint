@@ -3065,3 +3065,12 @@ flush to both box edges (no gap in the flex row) instead of a floating chevron,
 and the chips are capped at `sm:max-w-[13rem]` with the row centred, so they read
 as a chart rather than three full-width panels. The connector flips to a vertical
 line when the chips stack on mobile.
+
+**Follow-up 6 (same day):** feedback loop added under the chart — a rounded return
+path from "More AI agents" back up into "More content" and "More events", each
+arm labelled *Improves*. Drawn with borders (no SVG): the loop is a second flex
+row that mirrors the chip row's sizing, which is why `CHART_SLOT` / `CHART_GAP`
+now exist as shared constants — change one row's widths without the other and the
+verticals stop landing under the chip centres. The loop is desktop-only; once the
+chips stack, a plain "Better agents improve the content and the events" line
+takes its place.

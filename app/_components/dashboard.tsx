@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import Link from "next/link";
-import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ChevronRightIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -1430,25 +1430,30 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
               <div className="relative">
                 {/* Process chart: pillar → what it earns you */}
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {PILLAR_FLOW.map((pillar) => (
-                    <div
-                      key={pillar.label}
-                      title={
-                        pillar.distributes
-                          ? `Creates ${pillar.creates}, and distributes the service`
-                          : `Creates ${pillar.creates}`
-                      }
-                      className={cn(
-                        "flex items-center gap-2 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
-                        pillar.border,
+                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                  {PILLAR_FLOW.map((pillar, i) => (
+                    <Fragment key={pillar.label}>
+                      {/* Arrow between boxes: points right on desktop, down when stacked. */}
+                      {i > 0 && (
+                        <ChevronRightIcon className="size-4 shrink-0 self-center rotate-90 text-muted-foreground/70 sm:rotate-0" />
                       )}
-                    >
-                      <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
-                        <pillar.icon className="size-3.5" />
-                      </span>
-                      <span className="text-sm font-medium">{pillar.label}</span>
-                    </div>
+                      <div
+                        title={
+                          pillar.distributes
+                            ? `Creates ${pillar.creates}, and distributes the service`
+                            : `Creates ${pillar.creates}`
+                        }
+                        className={cn(
+                          "flex flex-1 items-center gap-2 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
+                          pillar.border,
+                        )}
+                      >
+                        <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
+                          <pillar.icon className="size-3.5" />
+                        </span>
+                        <span className="text-sm font-medium">{pillar.label}</span>
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
 

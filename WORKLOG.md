@@ -3047,3 +3047,8 @@ lines moved into each box's `title` tooltip rather than being deleted outright, 
 the reasoning is still one hover away). Hero is now: three compact pillar chips +
 the "don't chase money" principle line. Unused `ArrowRightIcon` / `ShareIcon` /
 `TargetIcon` imports removed.
+
+**Follow-up 3 (same day):** chevron arrows between the three pillar chips
+(content → events → AI agents). The row is a flex layout rather than a 3-col
+grid so the arrows can sit between boxes; on mobile the chips stack and the
+chevrons rotate 90° to point down.

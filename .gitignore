@@ -14,3 +14,6 @@ dist
 *.mp3
 # Tauri build output
 desktop/src-tauri/target
+
+# Second dev server (npm run dev:3001) keeps its own build dir
+.next-*

@@ -3315,3 +3315,23 @@ consistent across all 15.
 Reduced motion is honoured throughout (`{ duration: 0 }` on the layout
 transition, no scale animation). Verified with Playwright: rail at rest, the
 indicator caught mid-flight between Tasks and Measures, and the mobile bar.
+
+**Follow-up 12 (same day):** a second dev server can now run alongside the first.
+Next 16 permits one dev server *per build directory*, so a second `next dev` in
+this folder was refused outright ("Another next dev server is already running") —
+falling back to port 3001 didn't help, because the conflict is over `.next` and
+its lock, not the port.
+
+Fix: `next.config.ts` now reads `distDir: process.env.NEXT_DIST_DIR ?? ".next"`,
+and `npm run dev:3001` sets `NEXT_DIST_DIR=.next-3001` alongside `--port 3001`.
+The second instance gets its own build dir and lock, so both run at once.
+`.gitignore` now covers `.next-*`, and `tsconfig.json` includes the `.next-3001`
+generated types (Next adds these itself on first run; the auto-edit also
+reformats the whole file, so it was reverted down to just the two new lines).
+
+Verified both ports served 200 simultaneously, then stopped the 3001 instance so
+the port is free.
+
+Cost worth knowing: two dev servers means two Turbopack compilers on the same
+machine, and both write to the same `DATABASE_URL` — they are not isolated
+environments, just a second window onto the same data.

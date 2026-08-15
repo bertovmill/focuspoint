@@ -3111,3 +3111,39 @@ to `-mx-5 -mt-4 … border-b` (negative margins cancel the panel's `px-5 py-4`),
 the gradient runs edge to edge under the header with a single bottom border.
 Verified with Playwright: settled full-bleed frame, plus a leave-Tasks →
 return-to-Tasks frame at 420ms showing only the first chip in.
+
+**Follow-up 10 (same day):** goal hero rebuilt on real registry components
+instead of hand-drawn CSS. Berto's constraint: *"whatever you do, we need to
+leverage packages, and not try to do from scratch."* Installed via the Magic UI
+registry (`npx shadcn@latest add @magicui/animated-beam @magicui/border-beam
+@magicui/dot-pattern`) — all three land in `components/ui/` and use the `motion`
+package already present, so no new npm deps.
+
+The whole hero moved out of `dashboard.tsx` into
+`app/_components/goal-flow-hero.tsx` (it needs its own refs, and dashboard.tsx
+was long enough). Deleted along with it: `PILLAR_FLOW`, `CHART_SLOT`,
+`CHART_GAP`, `CHART_BEAT`, `CHART_EASE`, `CHART_LOOP_DELAY`, `chartRise`,
+`chartDraw` — the hand-rolled connectors, arrowheads and border-drawn feedback
+loop are all gone.
+
+What it is now: three glass chips (`backdrop-blur`, shadow) each wrapped in a
+`<BorderBeam>` tinted to its pillar, wired by four `<AnimatedBeam>`s — content→
+events, events→agents, then two curved returns from agents back to events and
+content — over a masked `<DotPattern>`. Beams travel continuously on a 4.5–5.5s
+cycle; chips still fade up left→right on mount, so the intro still replays on
+every visit to Tasks.
+
+Gotchas worth knowing:
+- `<AnimatedBeam>` draws between two elements in a shared container, so each
+  chip carries three zero-size anchor spans (left/right/bottom edges). Beams
+  attach to those, not to the chips, otherwise a return path cuts straight
+  through the middle of a card.
+- The gap labels sit in an `h-4 self-center` span with the text at `bottom-full`
+  — the beam runs along that span's midline, so anything centred in it gets a
+  line drawn through the text.
+- The feedback band is `h-20 items-end` so the deepest curve (`curvature={-70}`)
+  clears the caption underneath it.
+- Reduced motion: `BorderBeam` is not rendered, and the beams get
+  `duration 0.01 / repeat 0`, which leaves their static path visible.
+Verified with Playwright: desktop hero, 390px mobile stack, and a gradient-
+position sample 700ms apart confirming all four beams are actually travelling.

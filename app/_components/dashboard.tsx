@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
 import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ChevronRightIcon, ChevronUpIcon } from "lucide-react";
+import { GoalFlowHero } from "@/app/_components/goal-flow-hero";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -126,63 +126,6 @@ const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
   ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
   content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
 };
-
-// The goal hero's process chart: each pillar and what it earns. Colors match
-// CATEGORY_BADGE_CLASS so a task's category chip reads as the same pillar.
-const PILLAR_FLOW = [
-  {
-    label: "More content",
-    icon: MegaphoneIcon,
-    creates: "awareness",
-    inbound: undefined,
-    traits: ["Consistency", "Attention to detail"],
-    distributes: true,
-    chip: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    border: "border-amber-500/30",
-    arrow: "text-amber-500",
-    dot: "bg-amber-500/60",
-  },
-  {
-    label: "More events",
-    icon: UsersIcon,
-    creates: "trust",
-    // Labels the arrow coming into this chip from the previous one.
-    inbound: "More attendees",
-    traits: ["Energy", "Aura", "Appearance"],
-    distributes: true,
-    chip: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-    border: "border-violet-500/30",
-    arrow: "text-violet-500",
-    dot: "bg-violet-500/60",
-  },
-  {
-    label: "More AI agents",
-    icon: BotIcon,
-    creates: "higher-value service",
-    inbound: "More clients",
-    traits: ["Reading the docs", "Time coding", "Aggressive tinkering"],
-    distributes: false,
-    chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-    border: "border-emerald-500/30",
-    arrow: "text-emerald-500",
-    dot: "bg-emerald-500/60",
-  },
-] as const;
-
-// The chip row and the feedback loop under it are two separate flex rows; they
-// only line up because both use these exact widths for slots and gaps.
-// No max width: the chart fills the hero edge to edge.
-const CHART_SLOT = "w-full sm:w-auto sm:flex-1";
-
-// The goal chart plays itself once, then holds still: each chip fades up, the
-// arrow into the next chip draws, and the feedback loop closes the circuit last.
-// Whole run lands just under 2s.
-const CHART_BEAT = 0.42;
-const CHART_EASE = [0.22, 1, 0.36, 1] as const;
-const CHART_LOOP_DELAY = 1.3;
-// Wide enough for the arrow labels ("More attendees" / "More clients") to sit
-// over the connector without spilling onto the chips.
-const CHART_GAP = "w-24";
 
 interface Thought {
   id: number;
@@ -334,29 +277,6 @@ type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
-  // Goal-chart intro. The Tasks panel unmounts when you leave the tab, so the
-  // chart elements remount — and replay — every time you open Tasks. Only the
-  // user's reduced-motion preference switches it off.
-  const reduceMotion = useReducedMotion();
-  const playChart = !reduceMotion;
-  // Fade-and-rise for a chip or label; a no-op object leaves it static.
-  const chartRise = (delay: number, duration = 0.45) =>
-    playChart
-      ? {
-          initial: { opacity: 0, y: 6 },
-          animate: { opacity: 1, y: 0 },
-          transition: { delay, duration, ease: CHART_EASE },
-        }
-      : {};
-  // Draws a connector line out from its left edge.
-  const chartDraw = (delay: number, duration = 0.32) =>
-    playChart
-      ? {
-          initial: { scaleX: 0, opacity: 0 },
-          animate: { scaleX: 1, opacity: 1 },
-          transition: { delay, duration, ease: "easeOut" as const },
-        }
-      : {};
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [measureCategory, setMeasureCategory] = useState<Measure["category"]>("daily_checkin");
   const [measureForm, setMeasureForm] = useState<Record<string, string>>({});
@@ -1470,147 +1390,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {/* Tasks */}
         {activeTab === "todos" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
-            {/* The three pillars sit above everything else on the task list: every
-                task should ladder up to one of them. The mini process chart
-                spells out *why* each pillar matters. */}
-            {/* Full bleed: negative margins cancel the panel's px-5 py-4 so the
-                hero runs to the panel edges. Border on the bottom only — the
-                sides and top have nothing left to sit against. */}
-            <div className="relative -mx-5 -mt-4 mb-5 overflow-hidden border-b bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-5 py-5 sm:px-6 sm:py-6">
-              <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-amber-500/20 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-20 -left-10 size-44 rounded-full bg-emerald-500/20 blur-3xl" />
-
-              <div className="relative">
-                {/* Process chart: pillar → what it earns you */}
-                <div className="flex flex-col items-center sm:flex-row sm:items-stretch sm:justify-center">
-                  {PILLAR_FLOW.map((pillar, i) => (
-                    <Fragment key={pillar.label}>
-                      {/* Connector between boxes — a line flush to both edges with an
-                          arrowhead. Runs right on desktop, down when the chips stack. */}
-                      {i > 0 && (
-                        <>
-                          {/* Stacked (mobile): the connector runs downward. */}
-                          <motion.span
-                            aria-hidden
-                            className="flex shrink-0 flex-col items-center self-center text-muted-foreground/60 sm:hidden"
-                            {...chartRise((i - 1) * CHART_BEAT + 0.34, 0.35)}
-                          >
-                            <span className="h-6 w-px bg-current" />
-                            <ChevronRightIcon className="-mt-2 size-3.5 rotate-90" />
-                            {pillar.inbound && (
-                              <span className="text-[10px] leading-none">{pillar.inbound}</span>
-                            )}
-                          </motion.span>
-                          {/* Row (desktop): fixed width so the feedback loop below
-                              lines its verticals up with the chip centres. */}
-                          <span
-                            aria-hidden
-                            className={cn(
-                              "relative hidden shrink-0 items-center self-center text-muted-foreground/60 sm:flex",
-                              CHART_GAP,
-                            )}
-                          >
-                            <motion.span
-                              className="h-px w-full origin-left bg-current"
-                              {...chartDraw((i - 1) * CHART_BEAT + 0.34)}
-                            />
-                            <motion.span
-                              className="absolute -right-1"
-                              {...chartRise((i - 1) * CHART_BEAT + 0.58, 0.3)}
-                            >
-                              <ChevronRightIcon className="size-3.5" />
-                            </motion.span>
-                            {pillar.inbound && (
-                              /* The wrapper keeps the -50% centering off
-                                 motion's transform, which would clobber it. */
-                              <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none">
-                                <motion.span
-                                  className="block"
-                                  {...chartRise((i - 1) * CHART_BEAT + 0.5, 0.35)}
-                                >
-                                  {pillar.inbound}
-                                </motion.span>
-                              </span>
-                            )}
-                          </span>
-                        </>
-                      )}
-                      <motion.div
-                        title={
-                          pillar.distributes
-                            ? `Creates ${pillar.creates}, and distributes the service`
-                            : `Creates ${pillar.creates}`
-                        }
-                        className={cn(
-                          "rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
-                          CHART_SLOT,
-                          pillar.border,
-                        )}
-                        {...chartRise(i * CHART_BEAT)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
-                            <pillar.icon className="size-3.5" />
-                          </span>
-                          <span className="text-sm font-medium">{pillar.label}</span>
-                        </div>
-                        {/* What each pillar actually takes, day to day. */}
-                        <ul className="mt-1.5 space-y-0.5 pl-8">
-                          {pillar.traits.map((trait) => (
-                            <li key={trait} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <span className={cn("size-1 shrink-0 rounded-full", pillar.dot)} />
-                              {trait}
-                            </li>
-                          ))}
-                        </ul>
-                      </motion.div>
-                    </Fragment>
-                  ))}
-                </div>
-
-                {/* Feedback loop: better agents make the other two pillars better.
-                    Mirrors the chip row's flex sizing (CHART_SLOT / CHART_GAP) so the
-                    verticals land under each chip's centre. */}
-                <motion.div
-                  className="hidden justify-center text-muted-foreground/50 sm:flex"
-                  {...chartRise(CHART_LOOP_DELAY, 0.5)}
-                >
-                  <div className={cn("relative h-9", CHART_SLOT)}>
-                    <div className="ml-auto h-full w-1/2 rounded-bl-md border-b border-l border-current" />
-                    <ChevronUpIcon className="absolute -top-1.5 left-1/2 size-3.5 -translate-x-1/2" />
-                    <span className="absolute left-1/2 top-2 ml-1.5 text-[10px] leading-none">
-                      Improves
-                    </span>
-                  </div>
-                  <div className={cn("h-9 border-b border-current", CHART_GAP)} />
-                  <div className={cn("relative h-9", CHART_SLOT)}>
-                    <div className="h-full w-full border-b border-current" />
-                    <span className="absolute bottom-0 left-1/2 h-full w-px -translate-x-1/2 bg-current" />
-                    <ChevronUpIcon className="absolute -top-1.5 left-1/2 size-3.5 -translate-x-1/2" />
-                    <span className="absolute left-1/2 top-2 ml-1.5 text-[10px] leading-none">
-                      Improves
-                    </span>
-                  </div>
-                  <div className={cn("h-9 border-b border-current", CHART_GAP)} />
-                  <div className={cn("relative h-9", CHART_SLOT)}>
-                    <div className="mr-auto h-full w-1/2 rounded-br-md border-b border-r border-current" />
-                  </div>
-                </motion.div>
-                {/* Same fact, without the drawing, once the chips stack. */}
-                <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
-                  Better agents improve the content and the events.
-                </p>
-
-                {/* The principle the three pillars serve. */}
-                <motion.p
-                  className="mt-3 text-xs leading-snug text-muted-foreground"
-                  {...chartRise(CHART_LOOP_DELAY + 0.25, 0.45)}
-                >
-                  Don&apos;t chase money — create the conditions where money becomes{" "}
-                  <span className="font-medium text-foreground">inevitable</span>.
-                </motion.p>
-              </div>
-            </div>
+            {/* The three pillars sit above everything else on the task list:
+                every task should ladder up to one of them. */}
+            <GoalFlowHero />
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
               <div className="flex gap-2">
                 <Input

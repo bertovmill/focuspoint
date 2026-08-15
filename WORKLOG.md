@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-15 — Tasks: recurring and one-off in separate columns
+
+**Ask:** "For the daily recurring tasks and the more one-off tasks, should have different columns."
+
+**Decisions (asked Berto):** left column = everything recurring (dailies first under a "Recurring" header, then Weekly and Monthly sections); right column = one-off tasks. Columns stay side-by-side at every width — no stacking on mobile. "Working on now" is unchanged and still spans full width above both columns.
+
+**Built:** the section-rendering closure was inline in the Tasks JSX as a `.map` callback, so it could only produce one vertical stack. Extracted it to `renderTodoSection({ key, label, working })` in the component body (~410 lines moved verbatim, no behaviour change) and composed the two columns around it. Each section now owns exactly one recurrence value — dailies used to be merged into the "none" section and floated to its top with an `isDaily` sort tiebreak; both that special case and the tiebreak are gone.
+
+**Files:** `app/_components/dashboard.tsx` — `TODO_SECTIONS` → `RECURRING_TODO_SECTIONS` (daily/weekly/monthly), new `renderTodoSection`, two-column `grid grid-cols-2` wrapper.
+
+**Verified:** `npm run typecheck` clean; Playwright screenshot against the running dev server shows Recurring (Daily → Weekly) on the left and One-off on the right.
+
+**Next:** the one-off column is much taller than the recurring one, so there's dead space at the bottom left. If that bugs him, a masonry/`columns-2` flow or per-column scrolling would fill it.
+
+---
+
 ## 2026-08-13 — Added "Content" task category
 
 **Ask:** Add a fourth tag chip, Content, alongside Events / Calls / AI Agents.

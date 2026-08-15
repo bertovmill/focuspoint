@@ -90,10 +90,11 @@ const MEASURE_FIELDS: Record<Measure["category"], { key: string; label: string; 
   ],
 };
 
-// Daily recurring todos have no section of their own — they ride at the top of
-// the main list (see `sectionTodos` below) so they're the first thing seen each day.
-const TODO_SECTIONS = [
-  { key: "none" as const, label: "Tasks" },
+// The left-hand column of the task list: everything that repeats, dailies first
+// (they're the first thing you want to see each day). One-off tasks get their own
+// column on the right — see `renderTodoSection` below.
+const RECURRING_TODO_SECTIONS = [
+  { key: "daily" as const, label: "Recurring" },
   { key: "weekly" as const, label: "Weekly" },
   { key: "monthly" as const, label: "Monthly" },
 ];
@@ -936,6 +937,431 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
       ? thoughts.filter((t) => t.tags?.includes(tagFilter))
       : thoughts;
 
+  // Renders one task section: the "Working on now" band, or one recurrence group.
+  // Extracted from the JSX so the Tasks screen can lay sections out in two columns —
+  // recurring habits on the left, one-off tasks on the right.
+  const renderTodoSection = ({
+    key,
+    label,
+    working,
+  }: {
+    key: "working" | "daily" | "weekly" | "monthly" | "none";
+    label: string;
+    working: boolean;
+  }) => {
+      const sectionTodos = working
+        ? workingNowTodos.filter(matchesCategoryFilter)
+        : visibleTodos
+        .filter((t) => {
+          if (workingNowIds.has(t.id)) return false;
+          if (!matchesCategoryFilter(t)) return false;
+          // Each section owns exactly one recurrence — "none" is the one-off column.
+          return (t.recurrence ?? "none") === key;
+        })
+        // Oldest first, so nothing quietly rots at the bottom of the list.
+        // Anything actively being worked on or flagged more urgent jumps
+        // that queue and rides at the top. Checked-off-today tasks sink to
+        // the very bottom — once it's done you don't need to see it anymore.
+        .sort(
+          (a, b) =>
+            Number(isDoneTodayForSort(a, completingIds)) - Number(isDoneTodayForSort(b, completingIds)) ||
+            compareQueue(a, b) ||
+            Number(isInProgressActive(b)) - Number(isInProgressActive(a)) ||
+            Number(isWaitingActive(b)) - Number(isWaitingActive(a)) ||
+            priorityRank(b) - priorityRank(a) ||
+            createdAtMs(a) - createdAtMs(b),
+        );
+      // The "nothing active" prompt only makes sense when nothing really
+      // is active — under a category filter an empty section just means
+      // the working task is a different category, so hide it entirely.
+      if (sectionTodos.length === 0 && (!working || todoCategoryFilter)) return null;
+      return (
+        <div key={key}>
+          <p
+            className={cn(
+              "text-xs font-medium uppercase tracking-wider mb-1.5",
+              working ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            {label}
+          </p>
+          {working && sectionTodos.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-primary/30 px-3 py-4 text-xs text-muted-foreground">
+              Nothing active. Right-click a task below and pick “Work on this” — up to {WORKING_LIMIT} at once.
+            </p>
+          ) : (
+          <ul
+            className={cn(
+              "space-y-1.5",
+              working && "rounded-xl border border-primary/30 bg-primary/[0.04] p-1.5",
+              // Everything that isn't being worked on sits back: readable,
+              // but visibly not where your attention belongs.
+              !working && "opacity-50 hover:opacity-100 transition-opacity",
+            )}
+          >
+            {sectionTodos.map((todo) => {
+              const isCompleting = completingIds.has(todo.id);
+              const isDoneToday =
+                !isCompleting && Boolean(todo.completed_at) && isToday(todo.completed_at);
+              const isDone = isCompleting || isDoneToday;
+              return editingTodoId === todo.id ? (
+                <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
+                  <Input
+                    ref={editTodoRef}
+                    value={editTodoTitle}
+                    onChange={(e) => setEditTodoTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEditTodo(todo.id);
+                      if (e.key === "Escape") cancelEditTodo();
+                    }}
+                    className="mb-2"
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                      <Badge
+                        key={p}
+                        asChild
+                        variant={editTodoPriority === p ? "default" : "outline"}
+                        className={cn(
+                          "cursor-pointer capitalize",
+                          p === "urgent" && editTodoPriority !== p && "border-priority-urgent/40 text-priority-urgent",
+                        )}
+                      >
+                        <button type="button" onClick={() => setEditTodoPriority(p)}>{p}</button>
+                      </Badge>
+                    ))}
+                    <Input
+                      type="date"
+                      value={editTodoDueDate}
+                      onChange={(e) => setEditTodoDueDate(e.target.value)}
+                      className="h-7 w-auto text-xs"
+                    />
+                    {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
+                      <Badge
+                        key={r}
+                        asChild
+                        variant={editTodoRecurrence === r ? "default" : "outline"}
+                        className="cursor-pointer"
+                      >
+                        <button type="button" onClick={() => setEditTodoRecurrence(r)}>
+                          {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    <TagIcon className="size-3 text-muted-foreground shrink-0" />
+                    {TASK_CATEGORIES.map((c) => (
+                      <Badge
+                        key={c}
+                        asChild
+                        variant={editTodoCategory === c ? "default" : "outline"}
+                        className={cn("cursor-pointer", editTodoCategory !== c && CATEGORY_BADGE_CLASS[c])}
+                      >
+                        <button type="button" onClick={() => setEditTodoCategory((v) => (v === c ? null : c))}>
+                          {TASK_CATEGORY_LABELS[c]}
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    <TimerIcon className="size-3 text-muted-foreground shrink-0" />
+                    {ESTIMATE_OPTIONS.map((m) => (
+                      <Badge
+                        key={m}
+                        asChild
+                        variant={editTodoEstimatedMinutes === m ? "default" : "outline"}
+                        className="cursor-pointer"
+                      >
+                        <button type="button" onClick={() => setEditTodoEstimatedMinutes(m)}>
+                          {formatEstimateLabel(m)}
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="xs" onClick={() => saveEditTodo(todo.id)}>Save</Button>
+                    <Button size="xs" variant="outline" onClick={cancelEditTodo}>Cancel</Button>
+                  </div>
+                </li>
+              ) : (
+                <ContextMenu key={todo.id}>
+                  <ContextMenuTrigger asChild>
+                <li
+                  data-todo-id={todo.id}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
+                    working && !isDone && "border-l-2 border-l-primary bg-card shadow-sm hover:bg-card",
+                    todo.waiting && !todo.in_progress && !isDone && "border-l-2 border-l-amber-500 bg-amber-500/5 hover:bg-amber-500/10",
+                    todo.timer_started_at && !isDone && "relative ring-1 ring-primary/50 bg-card",
+                    isCompleting && "opacity-50",
+                    isDoneToday && "opacity-60",
+                  )}
+                >
+                  {numberingTodoId === todo.id ? (
+                    <input
+                      autoFocus
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      defaultValue={todo.task_number ?? ""}
+                      placeholder="#"
+                      onBlur={(e) => {
+                        if (cancelNumberRef.current) {
+                          cancelNumberRef.current = false;
+                          setNumberingTodoId(null);
+                          return;
+                        }
+                        handleSetTaskNumber(todo.id, e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") {
+                          cancelNumberRef.current = true;
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="mt-0.5 shrink-0 size-6 rounded-md border border-primary bg-background text-center text-xs font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      aria-label="Task number"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNumberingTodoId(todo.id)}
+                      title={todo.task_number ? "Change task number" : "Set task number"}
+                      aria-label={todo.task_number ? `Task number ${todo.task_number}` : "Set task number"}
+                      className={cn(
+                        "mt-0.5 shrink-0 size-6 rounded-md border text-xs font-semibold tabular-nums flex items-center justify-center transition-all",
+                        todo.task_number
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-transparent text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:border-border",
+                        isDone && "opacity-40",
+                      )}
+                    >
+                      {todo.task_number ?? "#"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => (isDoneToday ? handleUncomplete(todo.id) : handleComplete(todo.id))}
+                    disabled={isCompleting}
+                    title={isDoneToday ? "Undo" : undefined}
+                    className={cn(
+                      "mt-0.5 shrink-0 size-4 rounded-full border transition-colors flex items-center justify-center",
+                      isDone
+                        ? "bg-primary border-primary"
+                        : "border-border group-hover:border-primary/60",
+                    )}
+                  >
+                    {isDone ? (
+                      <CheckIcon className="size-2.5 text-primary-foreground" />
+                    ) : (
+                      <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isDone && "line-through text-muted-foreground")}>
+                      {todo.title}
+                    </p>
+                    <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
+                      {isDoneToday ? (
+                        <span className="flex items-center gap-1">
+                          <CheckIcon className="size-3" />
+                          Done today
+                        </span>
+                      ) : isDaily(todo) ? (
+                        // Dailies show the repeat marker instead of a due date — the
+                        // date is just "tomorrow" bookkeeping and reads as noise.
+                        <span className="flex items-center gap-1">
+                          <RepeatIcon className="size-3" />
+                          Daily
+                        </span>
+                      ) : todo.due_date ? (
+                        <span className="flex items-center gap-1">
+                          <ClockIcon className="size-3" />
+                          {formatDate(todo.due_date)}
+                        </span>
+                      ) : null}
+                      {formatCreated(todo.created_at) && (
+                        <span className="flex items-center gap-1">
+                          <CalendarDaysIcon className="size-3" />
+                          Created {formatCreated(todo.created_at)}
+                        </span>
+                      )}
+                      {todo.category && (
+                        <Badge
+                          asChild
+                          variant="outline"
+                          className={cn("cursor-pointer", CATEGORY_BADGE_CLASS[todo.category])}
+                        >
+                          {/* Clicking the chip clears it; right-click menu re-assigns. */}
+                          <button
+                            type="button"
+                            title={`Clear "${TASK_CATEGORY_LABELS[todo.category]}"`}
+                            onClick={() => handleSetCategory(todo.id, null)}
+                          >
+                            {TASK_CATEGORY_LABELS[todo.category]}
+                          </button>
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {todo.timer_started_at && !isDone && (() => {
+                    const elapsed =
+                      (todo.time_spent_seconds ?? 0) +
+                      Math.max(0, (nowTick - new Date(todo.timer_started_at).getTime()) / 1000);
+                    const estimateSeconds = todo.estimated_minutes ? todo.estimated_minutes * 60 : null;
+                    const remaining = estimateSeconds !== null ? estimateSeconds - elapsed : null;
+                    const isOver = remaining !== null && remaining < 0;
+                    if (estimateSeconds === null || remaining === null) {
+                      return (
+                        <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
+                          <TimerIcon className="size-3" />
+                          Timing
+                        </Badge>
+                      );
+                    }
+                    const percent = Math.min(100, Math.max(0, (elapsed / estimateSeconds) * 100));
+                    return (
+                      <AnimatedCircularProgressBar
+                        value={percent}
+                        gaugePrimaryColor={isOver ? "var(--destructive)" : "var(--primary)"}
+                        gaugeSecondaryColor="var(--muted)"
+                        className={cn(
+                          "size-16 shrink-0 text-[10px] font-semibold leading-none tabular-nums",
+                          isOver ? "text-destructive" : "text-primary",
+                        )}
+                      >
+                        {isOver ? `+${formatCountdown(-remaining)}` : formatCountdown(remaining)}
+                      </AnimatedCircularProgressBar>
+                    );
+                  })()}
+                  {todo.waiting && !todo.in_progress && !isDone && (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                    >
+                      <HourglassIcon className="size-3" />
+                      Waiting
+                    </Badge>
+                  )}
+                  {todo.priority === "urgent" && (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-priority-urgent/40 text-priority-urgent"
+                    >
+                      Urgent
+                    </Badge>
+                  )}
+                  {todo.priority === "high" && (
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-priority-high/40 text-priority-high"
+                    >
+                      High
+                    </Badge>
+                  )}
+                  {!isDone && (
+                    <button
+                      onClick={() => handleToggleInProgress(todo.id, !working)}
+                      className={cn(
+                        "shrink-0 transition-opacity text-muted-foreground hover:text-primary",
+                        working ? "opacity-60 hover:opacity-100" : "opacity-0 group-hover:opacity-100",
+                        !working && workingNowFull && "hover:text-muted-foreground",
+                      )}
+                      title={
+                        working
+                          ? "Stop working on this"
+                          : workingNowFull
+                            ? `Already working on ${WORKING_LIMIT}`
+                            : "Work on this now"
+                      }
+                      aria-label={working ? "Stop working on this" : "Work on this now"}
+                    >
+                      {working ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => startEditTodo(todo)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                    aria-label="Edit task"
+                  >
+                    <PencilIcon className="size-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTodo(todo.id)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    aria-label="Delete task"
+                  >
+                    <TrashIcon className="size-3.5" />
+                  </button>
+                </li>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuLabel>Priority</ContextMenuLabel>
+                    <ContextMenuRadioGroup
+                      value={todo.priority}
+                      onValueChange={(p) => handleSetPriority(todo.id, p as Todo["priority"])}
+                    >
+                      {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                        <ContextMenuRadioItem
+                          key={p}
+                          value={p}
+                          className={cn(
+                            "capitalize",
+                            p === "urgent" && "text-priority-urgent focus:text-priority-urgent",
+                            p === "high" && "text-priority-high focus:text-priority-high",
+                          )}
+                        >
+                          {p}
+                        </ContextMenuRadioItem>
+                      ))}
+                    </ContextMenuRadioGroup>
+                    <ContextMenuSeparator />
+                    <ContextMenuLabel>Category</ContextMenuLabel>
+                    <ContextMenuRadioGroup
+                      value={todo.category ?? "none"}
+                      onValueChange={(c) =>
+                        handleSetCategory(todo.id, c === "none" ? null : (c as TaskCategory))
+                      }
+                    >
+                      <ContextMenuRadioItem value="none">None</ContextMenuRadioItem>
+                      {TASK_CATEGORIES.map((c) => (
+                        <ContextMenuRadioItem key={c} value={c}>
+                          {TASK_CATEGORY_LABELS[c]}
+                        </ContextMenuRadioItem>
+                      ))}
+                    </ContextMenuRadioGroup>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={() => handleToggleTimer(todo)}>
+                      {todo.timer_started_at ? <TimerOffIcon /> : <TimerIcon />}
+                      {todo.timer_started_at ? "Stop timer" : "Start timer"}
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !working)}>
+                      {working ? <PauseIcon /> : <PlayIcon />}
+                      {working ? "Stop working on this" : "Work on this now"}
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => handleToggleWaiting(todo.id, !todo.waiting)}>
+                      <HourglassIcon />
+                      {todo.waiting ? "Clear waiting" : "Mark waiting"}
+                    </ContextMenuItem>
+                    <ContextMenuItem onSelect={() => startEditTodo(todo)}>
+                      <PencilIcon />
+                      Edit…
+                    </ContextMenuItem>
+                    <ContextMenuItem variant="destructive" onSelect={() => handleDeleteTodo(todo.id)}>
+                      <TrashIcon />
+                      Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            })}
+          </ul>
+          )}
+        </div>
+      );
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Compact header */}
@@ -1219,430 +1645,26 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                     ))}
                   </div>
                 )}
-                {[
-                  // "Working on now" always renders first (even empty, as a drop-target
-                  // prompt) — it's the whole point of the screen.
-                  {
-                    key: "working" as const,
-                    label: `Working on now · ${workingNowTodos.length}/${WORKING_LIMIT}`,
-                    working: true,
-                  },
-                  ...TODO_SECTIONS.map((s) => ({ ...s, working: false })),
-                ].map(({ key, label, working }) => {
-                  const sectionTodos = working
-                    ? workingNowTodos.filter(matchesCategoryFilter)
-                    : visibleTodos
-                    .filter((t) => {
-                      if (workingNowIds.has(t.id)) return false;
-                      if (!matchesCategoryFilter(t)) return false;
-                      const r = t.recurrence ?? "none";
-                      // Dailies live at the top of the "none" section, not in one of their own.
-                      return key === "none" ? r === "none" || r === "daily" : r === key;
-                    })
-                    // Oldest first, so nothing quietly rots at the bottom of the list.
-                    // Anything actively being worked on or flagged more urgent jumps
-                    // that queue and rides at the top. Checked-off-today tasks sink to
-                    // the very bottom — once it's done you don't need to see it anymore.
-                    .sort(
-                      (a, b) =>
-                        Number(isDoneTodayForSort(a, completingIds)) - Number(isDoneTodayForSort(b, completingIds)) ||
-                        compareQueue(a, b) ||
-                        Number(isDaily(b)) - Number(isDaily(a)) ||
-                        Number(isInProgressActive(b)) - Number(isInProgressActive(a)) ||
-                        Number(isWaitingActive(b)) - Number(isWaitingActive(a)) ||
-                        priorityRank(b) - priorityRank(a) ||
-                        createdAtMs(a) - createdAtMs(b),
-                    );
-                  // The "nothing active" prompt only makes sense when nothing really
-                  // is active — under a category filter an empty section just means
-                  // the working task is a different category, so hide it entirely.
-                  if (sectionTodos.length === 0 && (!working || todoCategoryFilter)) return null;
-                  return (
-                    <div key={key}>
-                      <p
-                        className={cn(
-                          "text-xs font-medium uppercase tracking-wider mb-1.5",
-                          working ? "text-primary" : "text-muted-foreground",
-                        )}
-                      >
-                        {label}
-                      </p>
-                      {working && sectionTodos.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-primary/30 px-3 py-4 text-xs text-muted-foreground">
-                          Nothing active. Right-click a task below and pick “Work on this” — up to {WORKING_LIMIT} at once.
-                        </p>
-                      ) : (
-                      <ul
-                        className={cn(
-                          "space-y-1.5",
-                          working && "rounded-xl border border-primary/30 bg-primary/[0.04] p-1.5",
-                          // Everything that isn't being worked on sits back: readable,
-                          // but visibly not where your attention belongs.
-                          !working && "opacity-50 hover:opacity-100 transition-opacity",
-                        )}
-                      >
-                        {sectionTodos.map((todo) => {
-                          const isCompleting = completingIds.has(todo.id);
-                          const isDoneToday =
-                            !isCompleting && Boolean(todo.completed_at) && isToday(todo.completed_at);
-                          const isDone = isCompleting || isDoneToday;
-                          return editingTodoId === todo.id ? (
-                            <li key={todo.id} className="rounded-lg px-2 py-2.5 bg-muted/40">
-                              <Input
-                                ref={editTodoRef}
-                                value={editTodoTitle}
-                                onChange={(e) => setEditTodoTitle(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveEditTodo(todo.id);
-                                  if (e.key === "Escape") cancelEditTodo();
-                                }}
-                                className="mb-2"
-                              />
-                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                {(["low", "normal", "high", "urgent"] as const).map((p) => (
-                                  <Badge
-                                    key={p}
-                                    asChild
-                                    variant={editTodoPriority === p ? "default" : "outline"}
-                                    className={cn(
-                                      "cursor-pointer capitalize",
-                                      p === "urgent" && editTodoPriority !== p && "border-priority-urgent/40 text-priority-urgent",
-                                    )}
-                                  >
-                                    <button type="button" onClick={() => setEditTodoPriority(p)}>{p}</button>
-                                  </Badge>
-                                ))}
-                                <Input
-                                  type="date"
-                                  value={editTodoDueDate}
-                                  onChange={(e) => setEditTodoDueDate(e.target.value)}
-                                  className="h-7 w-auto text-xs"
-                                />
-                                {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
-                                  <Badge
-                                    key={r}
-                                    asChild
-                                    variant={editTodoRecurrence === r ? "default" : "outline"}
-                                    className="cursor-pointer"
-                                  >
-                                    <button type="button" onClick={() => setEditTodoRecurrence(r)}>
-                                      {r === "none" ? "Once" : r.charAt(0).toUpperCase() + r.slice(1)}
-                                    </button>
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                <TagIcon className="size-3 text-muted-foreground shrink-0" />
-                                {TASK_CATEGORIES.map((c) => (
-                                  <Badge
-                                    key={c}
-                                    asChild
-                                    variant={editTodoCategory === c ? "default" : "outline"}
-                                    className={cn("cursor-pointer", editTodoCategory !== c && CATEGORY_BADGE_CLASS[c])}
-                                  >
-                                    <button type="button" onClick={() => setEditTodoCategory((v) => (v === c ? null : c))}>
-                                      {TASK_CATEGORY_LABELS[c]}
-                                    </button>
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                                <TimerIcon className="size-3 text-muted-foreground shrink-0" />
-                                {ESTIMATE_OPTIONS.map((m) => (
-                                  <Badge
-                                    key={m}
-                                    asChild
-                                    variant={editTodoEstimatedMinutes === m ? "default" : "outline"}
-                                    className="cursor-pointer"
-                                  >
-                                    <button type="button" onClick={() => setEditTodoEstimatedMinutes(m)}>
-                                      {formatEstimateLabel(m)}
-                                    </button>
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="flex gap-2">
-                                <Button size="xs" onClick={() => saveEditTodo(todo.id)}>Save</Button>
-                                <Button size="xs" variant="outline" onClick={cancelEditTodo}>Cancel</Button>
-                              </div>
-                            </li>
-                          ) : (
-                            <ContextMenu key={todo.id}>
-                              <ContextMenuTrigger asChild>
-                            <li
-                              data-todo-id={todo.id}
-                              className={cn(
-                                "flex items-start gap-3 rounded-lg px-2 py-2.5 hover:bg-muted/40 transition-colors group",
-                                working && !isDone && "border-l-2 border-l-primary bg-card shadow-sm hover:bg-card",
-                                todo.waiting && !todo.in_progress && !isDone && "border-l-2 border-l-amber-500 bg-amber-500/5 hover:bg-amber-500/10",
-                                todo.timer_started_at && !isDone && "relative ring-1 ring-primary/50 bg-card",
-                                isCompleting && "opacity-50",
-                                isDoneToday && "opacity-60",
-                              )}
-                            >
-                              {numberingTodoId === todo.id ? (
-                                <input
-                                  autoFocus
-                                  type="number"
-                                  inputMode="numeric"
-                                  min={1}
-                                  defaultValue={todo.task_number ?? ""}
-                                  placeholder="#"
-                                  onBlur={(e) => {
-                                    if (cancelNumberRef.current) {
-                                      cancelNumberRef.current = false;
-                                      setNumberingTodoId(null);
-                                      return;
-                                    }
-                                    handleSetTaskNumber(todo.id, e.target.value);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") e.currentTarget.blur();
-                                    if (e.key === "Escape") {
-                                      cancelNumberRef.current = true;
-                                      e.currentTarget.blur();
-                                    }
-                                  }}
-                                  className="mt-0.5 shrink-0 size-6 rounded-md border border-primary bg-background text-center text-xs font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                  aria-label="Task number"
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setNumberingTodoId(todo.id)}
-                                  title={todo.task_number ? "Change task number" : "Set task number"}
-                                  aria-label={todo.task_number ? `Task number ${todo.task_number}` : "Set task number"}
-                                  className={cn(
-                                    "mt-0.5 shrink-0 size-6 rounded-md border text-xs font-semibold tabular-nums flex items-center justify-center transition-all",
-                                    todo.task_number
-                                      ? "border-primary/40 bg-primary/10 text-primary"
-                                      : "border-transparent text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:border-border",
-                                    isDone && "opacity-40",
-                                  )}
-                                >
-                                  {todo.task_number ?? "#"}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => (isDoneToday ? handleUncomplete(todo.id) : handleComplete(todo.id))}
-                                disabled={isCompleting}
-                                title={isDoneToday ? "Undo" : undefined}
-                                className={cn(
-                                  "mt-0.5 shrink-0 size-4 rounded-full border transition-colors flex items-center justify-center",
-                                  isDone
-                                    ? "bg-primary border-primary"
-                                    : "border-border group-hover:border-primary/60",
-                                )}
-                              >
-                                {isDone ? (
-                                  <CheckIcon className="size-2.5 text-primary-foreground" />
-                                ) : (
-                                  <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
-                                )}
-                              </button>
-                              <div className="flex-1 min-w-0">
-                                <p className={cn("text-sm leading-snug", priorityColor(todo.priority), isDone && "line-through text-muted-foreground")}>
-                                  {todo.title}
-                                </p>
-                                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-0.5">
-                                  {isDoneToday ? (
-                                    <span className="flex items-center gap-1">
-                                      <CheckIcon className="size-3" />
-                                      Done today
-                                    </span>
-                                  ) : isDaily(todo) ? (
-                                    // Dailies show the repeat marker instead of a due date — the
-                                    // date is just "tomorrow" bookkeeping and reads as noise.
-                                    <span className="flex items-center gap-1">
-                                      <RepeatIcon className="size-3" />
-                                      Daily
-                                    </span>
-                                  ) : todo.due_date ? (
-                                    <span className="flex items-center gap-1">
-                                      <ClockIcon className="size-3" />
-                                      {formatDate(todo.due_date)}
-                                    </span>
-                                  ) : null}
-                                  {formatCreated(todo.created_at) && (
-                                    <span className="flex items-center gap-1">
-                                      <CalendarDaysIcon className="size-3" />
-                                      Created {formatCreated(todo.created_at)}
-                                    </span>
-                                  )}
-                                  {todo.category && (
-                                    <Badge
-                                      asChild
-                                      variant="outline"
-                                      className={cn("cursor-pointer", CATEGORY_BADGE_CLASS[todo.category])}
-                                    >
-                                      {/* Clicking the chip clears it; right-click menu re-assigns. */}
-                                      <button
-                                        type="button"
-                                        title={`Clear "${TASK_CATEGORY_LABELS[todo.category]}"`}
-                                        onClick={() => handleSetCategory(todo.id, null)}
-                                      >
-                                        {TASK_CATEGORY_LABELS[todo.category]}
-                                      </button>
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              {todo.timer_started_at && !isDone && (() => {
-                                const elapsed =
-                                  (todo.time_spent_seconds ?? 0) +
-                                  Math.max(0, (nowTick - new Date(todo.timer_started_at).getTime()) / 1000);
-                                const estimateSeconds = todo.estimated_minutes ? todo.estimated_minutes * 60 : null;
-                                const remaining = estimateSeconds !== null ? estimateSeconds - elapsed : null;
-                                const isOver = remaining !== null && remaining < 0;
-                                if (estimateSeconds === null || remaining === null) {
-                                  return (
-                                    <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
-                                      <TimerIcon className="size-3" />
-                                      Timing
-                                    </Badge>
-                                  );
-                                }
-                                const percent = Math.min(100, Math.max(0, (elapsed / estimateSeconds) * 100));
-                                return (
-                                  <AnimatedCircularProgressBar
-                                    value={percent}
-                                    gaugePrimaryColor={isOver ? "var(--destructive)" : "var(--primary)"}
-                                    gaugeSecondaryColor="var(--muted)"
-                                    className={cn(
-                                      "size-16 shrink-0 text-[10px] font-semibold leading-none tabular-nums",
-                                      isOver ? "text-destructive" : "text-primary",
-                                    )}
-                                  >
-                                    {isOver ? `+${formatCountdown(-remaining)}` : formatCountdown(remaining)}
-                                  </AnimatedCircularProgressBar>
-                                );
-                              })()}
-                              {todo.waiting && !todo.in_progress && !isDone && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 border-amber-500/40 text-amber-600 dark:text-amber-400"
-                                >
-                                  <HourglassIcon className="size-3" />
-                                  Waiting
-                                </Badge>
-                              )}
-                              {todo.priority === "urgent" && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 border-priority-urgent/40 text-priority-urgent"
-                                >
-                                  Urgent
-                                </Badge>
-                              )}
-                              {todo.priority === "high" && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 border-priority-high/40 text-priority-high"
-                                >
-                                  High
-                                </Badge>
-                              )}
-                              {!isDone && (
-                                <button
-                                  onClick={() => handleToggleInProgress(todo.id, !working)}
-                                  className={cn(
-                                    "shrink-0 transition-opacity text-muted-foreground hover:text-primary",
-                                    working ? "opacity-60 hover:opacity-100" : "opacity-0 group-hover:opacity-100",
-                                    !working && workingNowFull && "hover:text-muted-foreground",
-                                  )}
-                                  title={
-                                    working
-                                      ? "Stop working on this"
-                                      : workingNowFull
-                                        ? `Already working on ${WORKING_LIMIT}`
-                                        : "Work on this now"
-                                  }
-                                  aria-label={working ? "Stop working on this" : "Work on this now"}
-                                >
-                                  {working ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => startEditTodo(todo)}
-                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                                aria-label="Edit task"
-                              >
-                                <PencilIcon className="size-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteTodo(todo.id)}
-                                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                                aria-label="Delete task"
-                              >
-                                <TrashIcon className="size-3.5" />
-                              </button>
-                            </li>
-                              </ContextMenuTrigger>
-                              <ContextMenuContent>
-                                <ContextMenuLabel>Priority</ContextMenuLabel>
-                                <ContextMenuRadioGroup
-                                  value={todo.priority}
-                                  onValueChange={(p) => handleSetPriority(todo.id, p as Todo["priority"])}
-                                >
-                                  {(["low", "normal", "high", "urgent"] as const).map((p) => (
-                                    <ContextMenuRadioItem
-                                      key={p}
-                                      value={p}
-                                      className={cn(
-                                        "capitalize",
-                                        p === "urgent" && "text-priority-urgent focus:text-priority-urgent",
-                                        p === "high" && "text-priority-high focus:text-priority-high",
-                                      )}
-                                    >
-                                      {p}
-                                    </ContextMenuRadioItem>
-                                  ))}
-                                </ContextMenuRadioGroup>
-                                <ContextMenuSeparator />
-                                <ContextMenuLabel>Category</ContextMenuLabel>
-                                <ContextMenuRadioGroup
-                                  value={todo.category ?? "none"}
-                                  onValueChange={(c) =>
-                                    handleSetCategory(todo.id, c === "none" ? null : (c as TaskCategory))
-                                  }
-                                >
-                                  <ContextMenuRadioItem value="none">None</ContextMenuRadioItem>
-                                  {TASK_CATEGORIES.map((c) => (
-                                    <ContextMenuRadioItem key={c} value={c}>
-                                      {TASK_CATEGORY_LABELS[c]}
-                                    </ContextMenuRadioItem>
-                                  ))}
-                                </ContextMenuRadioGroup>
-                                <ContextMenuSeparator />
-                                <ContextMenuItem onSelect={() => handleToggleTimer(todo)}>
-                                  {todo.timer_started_at ? <TimerOffIcon /> : <TimerIcon />}
-                                  {todo.timer_started_at ? "Stop timer" : "Start timer"}
-                                </ContextMenuItem>
-                                <ContextMenuItem onSelect={() => handleToggleInProgress(todo.id, !working)}>
-                                  {working ? <PauseIcon /> : <PlayIcon />}
-                                  {working ? "Stop working on this" : "Work on this now"}
-                                </ContextMenuItem>
-                                <ContextMenuItem onSelect={() => handleToggleWaiting(todo.id, !todo.waiting)}>
-                                  <HourglassIcon />
-                                  {todo.waiting ? "Clear waiting" : "Mark waiting"}
-                                </ContextMenuItem>
-                                <ContextMenuItem onSelect={() => startEditTodo(todo)}>
-                                  <PencilIcon />
-                                  Edit…
-                                </ContextMenuItem>
-                                <ContextMenuItem variant="destructive" onSelect={() => handleDeleteTodo(todo.id)}>
-                                  <TrashIcon />
-                                  Delete
-                                </ContextMenuItem>
-                              </ContextMenuContent>
-                            </ContextMenu>
-                          );
-                        })}
-                      </ul>
-                      )}
-                    </div>
-                  );
+                {renderTodoSection({
+                  // "Working on now" always renders first, full width (even empty, as a
+                  // drop-target prompt) — it's the whole point of the screen.
+                  key: "working",
+                  label: `Working on now · ${workingNowTodos.length}/${WORKING_LIMIT}`,
+                  working: true,
                 })}
+                {/* Two standing columns: recurring habits on the left, one-off work on the
+                    right. They are different kinds of task and reading them interleaved
+                    buried the one-offs under a wall of dailies. */}
+                <div className="grid grid-cols-2 gap-x-3 sm:gap-x-4 items-start">
+                  <div className="space-y-5 min-w-0">
+                    {RECURRING_TODO_SECTIONS.map((s) => (
+                      <div key={s.key}>{renderTodoSection({ ...s, working: false })}</div>
+                    ))}
+                  </div>
+                  <div className="min-w-0">
+                    {renderTodoSection({ key: "none", label: "One-off", working: false })}
+                  </div>
+                </div>
               </div>
             )}
           </div>

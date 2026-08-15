@@ -4,6 +4,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-15 — Goal hero: drag-to-collapse handle
+
+**Ask:** *"can we make the top banner collapsible? so have a little handle on
+the bottom to drag up?"*
+
+**What changed** (`app/_components/goal-flow-hero.tsx`):
+
+- The old `GoalFlowHero` body was renamed `HeroBody`; the exported
+  `GoalFlowHero` is now a wrapper that clips it to a `height` state and renders
+  a 16px handle strip **below** the banner.
+- Handle behaviour: **drag** (pointer capture, `cursor-ns-resize`) resizes
+  between 0 and the banner's natural height; **click / Enter / Space** toggles
+  fully open ↔ fully shut. A drag ending within 40px of either end snaps there,
+  so you can't leave a sliver. A pointer that moved <4px counts as a click.
+- Natural height is tracked with a `ResizeObserver` on the content, so the
+  clamp stays right when the banner reflows (e.g. window resize).
+- State persists in `localStorage` under `focuspoint:goal-hero-height`
+  (`"full"` or a pixel count), restored after mount so SSR stays deterministic.
+- The handle lives outside the clipped region, so it's still grabbable when the
+  banner is fully collapsed. `border-b` moved from the banner to the handle.
+
+Verified with Playwright at 1440×900: expanded → mid-drag → dragged → collapsed
+→ reload (still collapsed) → click to re-expand. `npm run typecheck` clean.
+
+---
+
 ## 2026-08-15 — Goal hero: taller feedback band + "Share learnings" edges
 
 **Ask:** *"can we make it a bit taller, and add a line from events to content -

@@ -3052,3 +3052,10 @@ the "don't chase money" principle line. Unused `ArrowRightIcon` / `ShareIcon` /
 (content → events → AI agents). The row is a flex layout rather than a 3-col
 grid so the arrows can sit between boxes; on mobile the chips stack and the
 chevrons rotate 90° to point down.
+
+**Follow-up 4 (same day):** each pillar chip now lists what it actually takes,
+day to day, as a small bulleted list (`traits` on `PILLAR_FLOW`, bullet dot tinted
+per pillar): content → consistency, attention to detail; events → energy, aura,
+appearance; AI agents → reading the docs, time coding, aggressive tinkering. Third
+pillar renamed "Better AI agents" → "More AI agents". Row switched to
+`sm:items-stretch` so the three boxes stay equal height with the arrows centred.

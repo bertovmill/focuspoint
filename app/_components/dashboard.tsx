@@ -133,28 +133,34 @@ const PILLAR_FLOW = [
     label: "More content",
     icon: MegaphoneIcon,
     creates: "awareness",
+    traits: ["Consistency", "Attention to detail"],
     distributes: true,
     chip: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
     border: "border-amber-500/30",
     arrow: "text-amber-500",
+    dot: "bg-amber-500/60",
   },
   {
     label: "More events",
     icon: UsersIcon,
     creates: "trust",
+    traits: ["Energy", "Aura", "Appearance"],
     distributes: true,
     chip: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
     border: "border-violet-500/30",
     arrow: "text-violet-500",
+    dot: "bg-violet-500/60",
   },
   {
-    label: "Better AI agents",
+    label: "More AI agents",
     icon: BotIcon,
     creates: "higher-value service",
+    traits: ["Reading the docs", "Time coding", "Aggressive tinkering"],
     distributes: false,
     chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
     border: "border-emerald-500/30",
     arrow: "text-emerald-500",
+    dot: "bg-emerald-500/60",
   },
 ] as const;
 
@@ -1430,7 +1436,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
               <div className="relative">
                 {/* Process chart: pillar → what it earns you */}
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-stretch sm:gap-2">
                   {PILLAR_FLOW.map((pillar, i) => (
                     <Fragment key={pillar.label}>
                       {/* Arrow between boxes: points right on desktop, down when stacked. */}
@@ -1444,14 +1450,25 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             : `Creates ${pillar.creates}`
                         }
                         className={cn(
-                          "flex flex-1 items-center gap-2 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
+                          "flex-1 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
                           pillar.border,
                         )}
                       >
-                        <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
-                          <pillar.icon className="size-3.5" />
-                        </span>
-                        <span className="text-sm font-medium">{pillar.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
+                            <pillar.icon className="size-3.5" />
+                          </span>
+                          <span className="text-sm font-medium">{pillar.label}</span>
+                        </div>
+                        {/* What each pillar actually takes, day to day. */}
+                        <ul className="mt-1.5 space-y-0.5 pl-8">
+                          {pillar.traits.map((trait) => (
+                            <li key={trait} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span className={cn("size-1 shrink-0 rounded-full", pillar.dot)} />
+                              {trait}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </Fragment>
                   ))}

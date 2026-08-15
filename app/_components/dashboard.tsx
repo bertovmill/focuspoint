@@ -1436,12 +1436,19 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
               <div className="relative">
                 {/* Process chart: pillar → what it earns you */}
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-stretch sm:gap-2">
+                <div className="flex flex-col items-center sm:flex-row sm:items-stretch sm:justify-center">
                   {PILLAR_FLOW.map((pillar, i) => (
                     <Fragment key={pillar.label}>
-                      {/* Arrow between boxes: points right on desktop, down when stacked. */}
+                      {/* Connector between boxes — a line flush to both edges with an
+                          arrowhead. Runs right on desktop, down when the chips stack. */}
                       {i > 0 && (
-                        <ChevronRightIcon className="size-4 shrink-0 self-center rotate-90 text-muted-foreground/70 sm:rotate-0" />
+                        <span
+                          aria-hidden
+                          className="flex shrink-0 flex-col items-center self-center text-muted-foreground/60 sm:flex-row"
+                        >
+                          <span className="h-6 w-px bg-current sm:h-px sm:w-8" />
+                          <ChevronRightIcon className="-mt-2 size-3.5 rotate-90 sm:-ml-2 sm:mt-0 sm:rotate-0" />
+                        </span>
                       )}
                       <div
                         title={
@@ -1450,7 +1457,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             : `Creates ${pillar.creates}`
                         }
                         className={cn(
-                          "flex-1 rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm",
+                          "w-full rounded-lg border bg-background/70 px-2.5 py-2 backdrop-blur-sm sm:w-auto sm:max-w-[13rem] sm:flex-1",
                           pillar.border,
                         )}
                       >

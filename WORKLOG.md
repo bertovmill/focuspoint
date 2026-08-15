@@ -3059,3 +3059,9 @@ per pillar): content → consistency, attention to detail; events → energy, au
 appearance; AI agents → reading the docs, time coding, aggressive tinkering. Third
 pillar renamed "Better AI agents" → "More AI agents". Row switched to
 `sm:items-stretch` so the three boxes stay equal height with the arrows centred.
+
+**Follow-up 5 (same day):** connectors between chips are now a line + arrowhead
+flush to both box edges (no gap in the flex row) instead of a floating chevron,
+and the chips are capped at `sm:max-w-[13rem]` with the row centred, so they read
+as a chart rather than three full-width panels. The connector flips to a vertical
+line when the chips stack on mobile.

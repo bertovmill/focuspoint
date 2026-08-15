@@ -133,6 +133,7 @@ const PILLAR_FLOW = [
     label: "More content",
     icon: MegaphoneIcon,
     creates: "awareness",
+    inbound: undefined,
     traits: ["Consistency", "Attention to detail"],
     distributes: true,
     chip: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
@@ -157,6 +158,7 @@ const PILLAR_FLOW = [
     label: "More AI agents",
     icon: BotIcon,
     creates: "higher-value service",
+    inbound: "More clients",
     traits: ["Reading the docs", "Time coding", "Aggressive tinkering"],
     distributes: false,
     chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -169,7 +171,9 @@ const PILLAR_FLOW = [
 // The chip row and the feedback loop under it are two separate flex rows; they
 // only line up because both use these exact widths for slots and gaps.
 const CHART_SLOT = "w-full sm:w-auto sm:max-w-[13rem] sm:flex-1";
-const CHART_GAP = "w-9";
+// Wide enough for the arrow labels ("More attendees" / "More clients") to sit
+// over the connector without spilling onto the chips.
+const CHART_GAP = "w-24";
 
 interface Thought {
   id: number;
@@ -1457,6 +1461,9 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                           >
                             <span className="h-6 w-px bg-current" />
                             <ChevronRightIcon className="-mt-2 size-3.5 rotate-90" />
+                            {pillar.inbound && (
+                              <span className="text-[10px] leading-none">{pillar.inbound}</span>
+                            )}
                           </span>
                           {/* Row (desktop): fixed width so the feedback loop below
                               lines its verticals up with the chip centres. */}
@@ -1469,6 +1476,11 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                           >
                             <span className="h-px w-full bg-current" />
                             <ChevronRightIcon className="absolute -right-1 size-3.5" />
+                            {pillar.inbound && (
+                              <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none">
+                                {pillar.inbound}
+                              </span>
+                            )}
                           </span>
                         </>
                       )}

@@ -3074,3 +3074,13 @@ now exist as shared constants — change one row's widths without the other and 
 verticals stop landing under the chip centres. The loop is desktop-only; once the
 chips stack, a plain "Better agents improve the content and the events" line
 takes its place.
+
+**Follow-up 7 (same day):** the forward arrows in the goal hero are now labelled
+with what each step actually produces — content → events reads *More attendees*,
+events → AI agents reads *More clients*. Added as an `inbound` field on
+`PILLAR_FLOW` (the label for the arrow coming *into* that chip), rendered above
+the connector line on desktop and under the vertical connector on mobile.
+`CHART_GAP` widened `w-9` → `w-24` so the labels sit over the arrow without
+spilling onto the chips — note this constant is shared with the feedback-loop
+row, which is what keeps the *Improves* verticals aligned under the chip centres.
+Verified with a Playwright screenshot against the local dev server.

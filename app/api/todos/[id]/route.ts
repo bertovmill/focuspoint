@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 import { normalizeCategory } from "@/lib/task-categories";
+import { removeCompletedTaskFromCalendar } from "@/lib/task-calendar";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const sql = getDb();
+    // Deleting the task takes its completed-block off the calendar too, so the
+    // calendar never keeps a record of work whose task no longer exists.
+    const [todo] = await sql`SELECT calendar_event_id FROM todos WHERE id = ${id}`;
+    await removeCompletedTaskFromCalendar(todo?.calendar_event_id);
     await sql`DELETE FROM todos WHERE id = ${id}`;
     return NextResponse.json({ success: true });
   } catch {

@@ -2958,3 +2958,7 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Typecheck:** PASS ✓
 
 **Next steps (not done):** nothing blocking. If the done-blocks turn out to clutter the real calendar, the natural follow-up is moving them to a dedicated secondary "Done" calendar (Berto weighed this option and chose the primary calendar for now) — only `lib/task-calendar.ts` and the agent tool's calendar id would change.
+
+**Follow-up (same day):** deleting a *completed* task left its block orphaned on the calendar (found while cleaning up a production deploy probe). `DELETE /api/todos/[id]` now removes the block first — verified: complete → delete the task without uncompleting → block is gone from the calendar.
+
+**Deploy:** the live app is **cael-agent.vercel.app**, which deploys from GitHub on push to `main` (the CLI-linked `aucctus/focuspoint` project — focuspoint-beta.vercel.app — is a *different*, empty database and is not the live app; its `todos` table doesn't even exist, so the new column was only needed on the DB in `.env.local`, which cael-agent shares). Confirmed live in production by completing a throwaway task there and seeing `calendar_event_id` come back.

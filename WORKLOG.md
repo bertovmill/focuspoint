@@ -2962,3 +2962,38 @@ No API or schema changes needed — `POST /api/todos` already accepted `priority
 **Follow-up (same day):** deleting a *completed* task left its block orphaned on the calendar (found while cleaning up a production deploy probe). `DELETE /api/todos/[id]` now removes the block first — verified: complete → delete the task without uncompleting → block is gone from the calendar.
 
 **Deploy:** the live app is **cael-agent.vercel.app**, which deploys from GitHub on push to `main` (the CLI-linked `aucctus/focuspoint` project — focuspoint-beta.vercel.app — is a *different*, empty database and is not the live app; its `todos` table doesn't even exist, so the new column was only needed on the DB in `.env.local`, which cael-agent shares). Confirmed live in production by completing a throwaway task there and seeing `calendar_event_id` come back.
+
+---
+
+## 2026-08-15 — Goal banner → three-pillars hero with a process chart
+
+**What was built:** the "Your goal" banner at the top of the task list was a flat
+muted box with three badges. It's now a hero card: a soft amber→violet→emerald
+gradient with two blurred colour blooms, a gradient-text headline, and a small
+process chart underneath that spells out *why* each pillar matters.
+
+**The chart:** three cards, one per pillar, each showing `pillar → what it creates`:
+- More content → creates **awareness**, and **distributes** the service
+- More events → creates **trust**, and **distributes** the service
+- Better AI agents → creates a **higher-value service**
+
+Below them, a dashed convergence row ("The service — known through awareness,
+chosen through trust, worth more through better agents. Content and events build
+it *and* carry it to people."). Wording change: the first pillar is now "More
+content" rather than "More calls", matching how Berto described the model.
+
+**Decisions:**
+- Pillar colours reuse `CATEGORY_BADGE_CLASS` (content=amber, events=violet,
+  ai_agents=emerald) so a task's category chip reads as the same pillar.
+- The distribution relationship is shown *per pillar* (a small share-icon line on
+  content and events) rather than as extra arrows — arrows converging from two
+  cards would need SVG and didn't survive the mobile stack.
+- Chart is a `PILLAR_FLOW` const near `CATEGORY_BADGE_CLASS`, not inline JSX.
+- Grid is `sm:grid-cols-3`, stacking to one column on mobile.
+
+**Files changed:** `app/_components/dashboard.tsx` only (new `PILLAR_FLOW` const,
+new lucide imports: Megaphone/Users/Bot/ArrowRight/Target/Share).
+
+**Verified:** dev server on :3789, Playwright screenshots in both light and dark
+mode — gradient, blooms, and gradient text all read correctly in both themes; no
+seed data created. **Typecheck:** PASS ✓

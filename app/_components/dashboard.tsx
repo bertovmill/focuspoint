@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ArrowRightIcon, TargetIcon, ShareIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -124,6 +124,38 @@ const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
   ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
   content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
 };
+
+// The goal hero's process chart: each pillar and what it earns. Colors match
+// CATEGORY_BADGE_CLASS so a task's category chip reads as the same pillar.
+const PILLAR_FLOW = [
+  {
+    label: "More content",
+    icon: MegaphoneIcon,
+    creates: "awareness",
+    distributes: true,
+    chip: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    border: "border-amber-500/30",
+    arrow: "text-amber-500",
+  },
+  {
+    label: "More events",
+    icon: UsersIcon,
+    creates: "trust",
+    distributes: true,
+    chip: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+    border: "border-violet-500/30",
+    arrow: "text-violet-500",
+  },
+  {
+    label: "Better AI agents",
+    icon: BotIcon,
+    creates: "higher-value service",
+    distributes: false,
+    chip: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    border: "border-emerald-500/30",
+    arrow: "text-emerald-500",
+  },
+] as const;
 
 interface Thought {
   id: number;
@@ -964,24 +996,70 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {activeTab === "todos" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
             {/* The three pillars sit above everything else on the task list: every
-                task should ladder up to one of them. */}
-            <div className="mb-4 rounded-lg border bg-muted/40 px-4 py-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Your goal
-              </p>
-              <p className="mt-1 text-sm font-medium leading-snug">
-                More calls, more events, and better AI agents.
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {["More calls", "More events", "Better AI agents"].map((pillar) => (
-                  <Badge key={pillar} variant="secondary" className="font-normal">
-                    {pillar}
-                  </Badge>
-                ))}
+                task should ladder up to one of them. The mini process chart below
+                spells out *why* each pillar matters and how they feed the service. */}
+            <div className="relative mb-5 overflow-hidden rounded-xl border bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-4 py-4 sm:px-5 sm:py-5">
+              <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-amber-500/20 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-10 size-44 rounded-full bg-emerald-500/20 blur-3xl" />
+
+              <div className="relative">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Your goal
+                </p>
+                <h2 className="mt-1 bg-gradient-to-r from-amber-600 via-violet-600 to-emerald-600 bg-clip-text text-lg font-semibold leading-snug text-transparent sm:text-xl dark:from-amber-300 dark:via-violet-300 dark:to-emerald-300">
+                  More content, more events, better AI agents.
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Three pillars — every task should ladder up to one of them.
+                </p>
+
+                {/* Process chart: pillar → what it earns you */}
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  {PILLAR_FLOW.map((pillar) => (
+                    <div
+                      key={pillar.label}
+                      className={cn(
+                        "rounded-lg border bg-background/70 p-3 backdrop-blur-sm",
+                        pillar.border,
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
+                          <pillar.icon className="size-4" />
+                        </span>
+                        <span className="text-sm font-medium">{pillar.label}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <ArrowRightIcon className={cn("size-3.5 shrink-0", pillar.arrow)} />
+                        <span>
+                          creates <span className="font-medium text-foreground">{pillar.creates}</span>
+                        </span>
+                      </div>
+                      {pillar.distributes && (
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <ShareIcon className={cn("size-3.5 shrink-0 opacity-70", pillar.arrow)} />
+                          <span>
+                            and <span className="font-medium text-foreground">distributes</span> it
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Everything converges on the service itself */}
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-2.5 backdrop-blur-sm">
+                  <TargetIcon className="size-4 shrink-0 text-foreground/70" />
+                  <p className="text-xs leading-snug">
+                    <span className="font-medium">The service</span>{" "}
+                    <span className="text-muted-foreground">
+                      — known through awareness, chosen through trust, worth more through better
+                      agents. Content and events build it{" "}
+                      <em className="not-italic font-medium text-foreground">and</em> carry it to people.
+                    </span>
+                  </p>
+                </div>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Three main pillars — the keys to success.
-              </p>
             </div>
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">
               <div className="flex gap-2">

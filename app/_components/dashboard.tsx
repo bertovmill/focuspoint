@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ArrowRightIcon, TargetIcon, ShareIcon } from "lucide-react";
+import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ArrowRightIcon, ShareIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -1422,22 +1422,16 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
         {activeTab === "todos" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
             {/* The three pillars sit above everything else on the task list: every
-                task should ladder up to one of them. The mini process chart below
-                spells out *why* each pillar matters and how they feed the service. */}
+                task should ladder up to one of them. The mini process chart
+                spells out *why* each pillar matters. */}
             <div className="relative mb-5 overflow-hidden rounded-xl border bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-4 py-4 sm:px-5 sm:py-5">
               <div className="pointer-events-none absolute -right-16 -top-16 size-44 rounded-full bg-amber-500/20 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-20 -left-10 size-44 rounded-full bg-emerald-500/20 blur-3xl" />
 
               <div className="relative">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Your goal
-                </p>
-                <h2 className="mt-1 bg-gradient-to-r from-amber-600 via-violet-600 to-emerald-600 bg-clip-text text-lg font-semibold leading-snug text-transparent sm:text-xl dark:from-amber-300 dark:via-violet-300 dark:to-emerald-300">
+                <h2 className="bg-gradient-to-r from-amber-600 via-violet-600 to-emerald-600 bg-clip-text text-lg font-semibold leading-snug text-transparent sm:text-xl dark:from-amber-300 dark:via-violet-300 dark:to-emerald-300">
                   More content, more events, better AI agents.
                 </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Three pillars — every task should ladder up to one of them.
-                </p>
 
                 {/* Process chart: pillar → what it earns you */}
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -1473,18 +1467,11 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   ))}
                 </div>
 
-                {/* Everything converges on the service itself */}
-                <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-2.5 backdrop-blur-sm">
-                  <TargetIcon className="size-4 shrink-0 text-foreground/70" />
-                  <p className="text-xs leading-snug">
-                    <span className="font-medium">The service</span>{" "}
-                    <span className="text-muted-foreground">
-                      — known through awareness, chosen through trust, worth more through better
-                      agents. Content and events build it{" "}
-                      <em className="not-italic font-medium text-foreground">and</em> carry it to people.
-                    </span>
-                  </p>
-                </div>
+                {/* The principle the three pillars serve. */}
+                <p className="mt-3 text-xs leading-snug text-muted-foreground">
+                  Don&apos;t chase money — create the conditions where money becomes{" "}
+                  <span className="font-medium text-foreground">inevitable</span>.
+                </p>
               </div>
             </div>
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">

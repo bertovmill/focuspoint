@@ -3013,3 +3013,11 @@ new lucide imports: Megaphone/Users/Bot/ArrowRight/Target/Share).
 **Verified:** dev server on :3789, Playwright screenshots in both light and dark
 mode — gradient, blooms, and gradient text all read correctly in both themes; no
 seed data created. **Typecheck:** PASS ✓
+
+**Follow-up (same day):** Berto trimmed the hero's prose — removed the "Your goal"
+eyebrow, the "Three pillars — every task should ladder up to one of them" line,
+and the dashed "The service" convergence row. In their place, one principle line
+under the chart: *"Don't chase money — create the conditions where money becomes
+**inevitable**."* The hero is now headline → three pillar cards → principle.
+`TargetIcon` import dropped with the convergence row. Verified on the running dev
+server (:3000, Berto's own — Turbopack picked the edits up) in light and dark.

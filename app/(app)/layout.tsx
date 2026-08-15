@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "motion/react";
 import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
@@ -61,6 +62,15 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "manual", label: "Manual", icon: BookMarkedIcon },
 ];
 
+// Home, Chat, Tasks, Notes, Lists — the same five the mobile bar promotes above
+// the "More" menu. The rail draws a rule after them to say the same thing.
+const PRIMARY_NAV_COUNT = 5;
+
+// The selected state is one element that travels between items rather than a
+// background that blinks on and off. Both navs share this spring so the rail and
+// the mobile bar move with the same weight.
+const NAV_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.7 };
+
 // Every navigable section, in the order they appear in the desktop nav rail.
 const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "home", label: "Home", icon: HomeIcon },
@@ -105,6 +115,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
     for (const path of Object.values(TAB_PATHS)) router.prefetch(path);
   }, [router]);
   const [navRailOpen, setNavRailOpen] = useState(true);
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
     const stored = window.localStorage.getItem(NAV_RAIL_STORAGE_KEY);
     if (stored !== null) setNavRailOpen(stored === "1");
@@ -222,23 +233,52 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
-          {NAV_ITEMS.map(({ tab, label, icon: Icon }) => (
-            <button
-              key={tab}
-              onClick={() => setMobileTab(tab)}
-              title={label}
-              className={cn(
-                "flex items-center gap-3 w-full rounded-lg py-2 text-sm transition-colors",
-                navRailOpen ? "px-2.5" : "justify-center px-0",
-                mobileTab === tab
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          {NAV_ITEMS.map(({ tab, label, icon: Icon }, i) => {
+            const active = mobileTab === tab;
+            return (
+              <Fragment key={tab}>
+              {/* The mobile bar already treats the first five as primary and
+                  buries the rest under "More". The rail says the same thing
+                  with a rule instead of a menu — same order, same hierarchy. */}
+              {i === PRIMARY_NAV_COUNT && (
+                <div aria-hidden className="mx-2.5 my-1.5 border-t border-border/70" />
               )}
-            >
-              <Icon className="size-4 shrink-0" />
-              {navRailOpen && <span className="truncate">{label}</span>}
-            </button>
-          ))}
+              <button
+                onClick={() => setMobileTab(tab)}
+                title={label}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group relative flex w-full items-center gap-3 rounded-lg py-2 text-sm transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                  navRailOpen ? "px-2.5" : "justify-center px-0",
+                  active
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {/* Hover wash sits under the indicator so the two never stack. */}
+                {!active && (
+                  <span className="absolute inset-0 rounded-lg bg-muted opacity-0 transition-opacity group-hover:opacity-100" />
+                )}
+                {active && (
+                  <motion.span
+                    layoutId="navRailActive"
+                    transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
+                    className="absolute inset-0 rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/15"
+                  />
+                )}
+                <motion.span
+                  className="relative shrink-0"
+                  animate={reduceMotion ? undefined : { scale: active ? 1.08 : 1 }}
+                  transition={NAV_SPRING}
+                >
+                  <Icon className="size-4" />
+                </motion.span>
+                {navRailOpen && <span className="relative truncate">{label}</span>}
+              </button>
+              </Fragment>
+            );
+          })}
         </nav>
       </aside>
 
@@ -337,30 +377,35 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           icon={<HomeIcon className="size-5" />}
           active={mobileTab === "home"}
           onClick={() => setMobileTab("home")}
+          reduceMotion={reduceMotion}
         />
         <NavButton
           label="Chat"
           icon={<MessageCircleIcon className="size-5" />}
           active={mobileTab === "chat"}
           onClick={() => setMobileTab("chat")}
+          reduceMotion={reduceMotion}
         />
         <NavButton
           label="Tasks"
           icon={<ListTodoIcon className="size-5" />}
           active={mobileTab === "tasks"}
           onClick={() => setMobileTab("tasks")}
+          reduceMotion={reduceMotion}
         />
         <NavButton
           label="Notes"
           icon={<FileTextIcon className="size-5" />}
           active={mobileTab === "notes"}
           onClick={() => setMobileTab("notes")}
+          reduceMotion={reduceMotion}
         />
         <NavButton
           label="Lists"
           icon={<ListChecksIcon className="size-5" />}
           active={mobileTab === "lists"}
           onClick={() => setMobileTab("lists")}
+          reduceMotion={reduceMotion}
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -400,22 +445,40 @@ function NavButton({
   icon,
   active,
   onClick,
+  reduceMotion,
 }: {
   label: string;
   icon: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  reduceMotion?: boolean | null;
 }) {
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
+        "relative flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
         active ? "text-primary" : "text-muted-foreground",
       )}
     >
-      {icon}
-      <span className="text-[10px] font-medium">{label}</span>
+      {/* Same travelling indicator as the desktop rail, sized for a thumb. */}
+      {active && (
+        <motion.span
+          layoutId="mobileNavActive"
+          transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
+          className="absolute inset-x-2 inset-y-1.5 rounded-xl bg-primary/10"
+        />
+      )}
+      <motion.span
+        className="relative"
+        animate={reduceMotion ? undefined : { y: active ? -1 : 0, scale: active ? 1.06 : 1 }}
+        transition={NAV_SPRING}
+      >
+        {icon}
+      </motion.span>
+      <span className="relative text-[10px] font-medium">{label}</span>
     </button>
   );
 }

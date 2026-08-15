@@ -175,6 +175,10 @@ export function TaskCanvas({
   // reads the current zoom.
   const viewRef = useRef<View>({ scrollX: 0, scrollY: 0, zoom: 1 });
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirror, so the pointer handlers can read the current tasks without being rebuilt
+  // (and re-bound) on every todos change.
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
 
   // ---------------------------------------------------------------- scene load/save
 
@@ -286,6 +290,43 @@ export function TaskCanvas({
     applyTransform(viewRef.current);
   }, [applyTransform, cardHost]);
 
+  // Excalidraw listens for wheel on its interactive <canvas>, which is a *sibling* of
+  // the card layer, not an ancestor — so a wheel event over a card bubbles up to the
+  // shared container and dies there, and the notebook won't scroll or zoom under your
+  // cursor. Re-dispatch an equivalent event on the canvas so cards are transparent to
+  // scrolling. (Empty canvas needs none of this: those events hit the canvas directly.)
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer || !cardHost) return;
+    const canvas = cardHost.querySelector<HTMLCanvasElement>("canvas.interactive");
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      // Guard against re-entering on the event we just synthesised.
+      if (!e.isTrusted) return;
+      e.preventDefault();
+      canvas.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          deltaZ: e.deltaZ,
+          deltaMode: e.deltaMode,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          // ctrl/meta + wheel is pinch-zoom — forwarding the modifiers keeps that working.
+          ctrlKey: e.ctrlKey,
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    };
+    // Non-passive, otherwise preventDefault is a no-op and the page fights the canvas.
+    layer.addEventListener("wheel", onWheel, { passive: false });
+    return () => layer.removeEventListener("wheel", onWheel);
+  }, [cardHost]);
+
   // --------------------------------------------------------------- card placement
 
   // Tasks that have never been placed get dropped down the inbox column, below
@@ -331,11 +372,25 @@ export function TaskCanvas({
 
   // ------------------------------------------------------------------------ drag
 
-  const dragRef = useRef<{ id: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  // A press anywhere on the card that isn't a real control starts a drag — including on
+  // the title, which is most of the card's surface. Title *editing* is then a click that
+  // didn't move: anything past DRAG_SLOP is a drag, anything under it opens the editor.
+  // (Reserving the title as a no-drag zone made cards feel undraggable, since the title
+  // is the obvious thing to grab.)
+  const DRAG_SLOP = 3;
+  const dragRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    onTitle: boolean;
+    moved: boolean;
+  } | null>(null);
 
   const handleCardPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>, todo: Todo) => {
-      // Buttons, checkboxes and the title input keep their own clicks.
+      // Checkbox, action buttons and the title input keep their own clicks.
       if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
       if (e.button !== 0) return;
       e.stopPropagation();
@@ -346,6 +401,8 @@ export function TaskCanvas({
         startY: e.clientY,
         originX: todo.canvas_x ?? 0,
         originY: todo.canvas_y ?? 0,
+        onTitle: Boolean((e.target as HTMLElement).closest("[data-card-title]")),
+        moved: false,
       };
     },
     [],
@@ -355,10 +412,12 @@ export function TaskCanvas({
     (e: React.PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current;
       if (!drag) return;
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.moved && Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
+      drag.moved = true;
       const { zoom } = viewRef.current;
-      const x = drag.originX + (e.clientX - drag.startX) / zoom;
-      const y = drag.originY + (e.clientY - drag.startY) / zoom;
-      onLocalPatch(drag.id, { canvas_x: x, canvas_y: y });
+      onLocalPatch(drag.id, { canvas_x: drag.originX + dx / zoom, canvas_y: drag.originY + dy / zoom });
     },
     [onLocalPatch],
   );
@@ -368,9 +427,18 @@ export function TaskCanvas({
       const drag = dragRef.current;
       if (!drag) return;
       dragRef.current = null;
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      const moved = Math.abs(e.clientX - drag.startX) > 2 || Math.abs(e.clientY - drag.startY) > 2;
-      if (!moved) return;
+      if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      }
+      if (!drag.moved) {
+        // A press that never moved: on the title, that's "edit me".
+        if (drag.onTitle && e.type === "pointerup") {
+          const todo = todosRef.current.find((t) => t.id === drag.id);
+          setEditingId(drag.id);
+          setEditTitle(todo?.title ?? "");
+        }
+        return;
+      }
       const { zoom } = viewRef.current;
       const x = drag.originX + (e.clientX - drag.startX) / zoom;
       const y = drag.originY + (e.clientY - drag.startY) / zoom;
@@ -503,12 +571,19 @@ export function TaskCanvas({
                 />
               </div>
             ) : (
-              <button
-                data-no-drag
-                type="button"
-                onClick={() => {
-                  setEditingId(todo.id);
-                  setEditTitle(todo.title);
+              // Deliberately not data-no-drag: the title is the natural place to grab a
+              // card, so it drags, and the pointer-up handler opens the editor when the
+              // press didn't move.
+              <div
+                data-card-title
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setEditingId(todo.id);
+                    setEditTitle(todo.title);
+                  }
                 }}
                 className={cn(
                   "block w-full text-left text-[13px] font-medium leading-snug",
@@ -516,7 +591,7 @@ export function TaskCanvas({
                 )}
               >
                 {todo.title}
-              </button>
+              </div>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-1">
               {/* The priority dot doubles as the priority control: click cycles it. */}

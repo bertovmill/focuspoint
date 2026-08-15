@@ -3228,3 +3228,35 @@ Gotchas worth knowing:
   `duration 0.01 / repeat 0`, which leaves their static path visible.
 Verified with Playwright: desktop hero, 390px mobile stack, and a gradient-
 position sample 700ms apart confirming all four beams are actually travelling.
+
+**Follow-up 11 (same day):** design pass on the app shell — `app/(app)/layout.tsx`.
+The goal hero had become the best-looking thing in the app, which made the chrome
+around it look flat; the fix was to spread the craft into the surface that gets
+touched every session rather than add another effect to the hero.
+
+Three changes, all driven by `motion` (already installed):
+1. **Travelling selected state.** The active nav background is now a single
+   `motion.span` with `layoutId="navRailActive"` that glides between items on a
+   spring (`NAV_SPRING`, shared by both navs) instead of a background that blinks
+   on and off. It visibly stretches mid-flight, which is the whole effect.
+2. **Icon weight follows selection** — the active item's icon scales to 1.08 on
+   the same spring; the mobile bar's also lifts 1px.
+3. **Rail hierarchy.** A hairline rule after the first five items
+   (`PRIMARY_NAV_COUNT`). This isn't new IA — the mobile bar already promotes
+   exactly Home/Chat/Tasks/Notes/Lists and buries the rest under "More". The rail
+   now says the same thing with a rule instead of a menu. Order is unchanged.
+
+Also added: `aria-current="page"` on the active item, visible focus rings on all
+nav buttons, and the hover wash moved to its own layer so it can never stack with
+the indicator.
+
+Rejected on the way: **lucide-animated** (the animated Lucide registry) for the
+nav icons. Only 9 of the 15 icons focuspoint uses exist there — `list-todo`,
+`list-checks`, `book-open`, `calendar-clock`, `image` and `book-marked` all 404,
+and no substitute set covers them. A sidebar where 9 icons animate and 6 sit dead
+is worse than one where none do. Getting the same result from `motion` keeps it
+consistent across all 15.
+
+Reduced motion is honoured throughout (`{ duration: 0 }` on the layout
+transition, no scale animation). Verified with Playwright: rail at rest, the
+indicator caught mid-flight between Tasks and Measures, and the mobile bar.

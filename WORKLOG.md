@@ -78,6 +78,35 @@ full page reload (and renders *under* the cards), and a checkbox click came back
 `completed: true` from `/api/todos`. Mobile at 390px renders too. Test task and test
 stroke were cleaned up afterwards.
 
+**Follow-up 1 (same day):** *"i'd also like to be able to scroll pan, and be able to
+drag the boxes around."* Both were genuinely broken; both reproduced before fixing.
+
+- **Scroll/pan over a card did nothing.** Excalidraw binds its wheel handler to
+  `canvas.excalidraw__canvas.interactive`, which is a **sibling** of the card layer,
+  not an ancestor — so a wheel event over a card bubbles up to the shared `.excalidraw`
+  container (confirmed with a capture-phase listener) and dies there, never crossing the
+  canvas. Wheel over *empty* canvas was always fine, which is what made it confusing.
+  Fix: a non-passive `wheel` listener on the card layer re-dispatches an equivalent
+  `WheelEvent` on the canvas, forwarding deltas and modifier keys — so ctrl/⌘+wheel
+  pinch-zoom keeps working too. Guarded on `e.isTrusted` so the synthetic event can't
+  re-enter.
+- **Cards couldn't be dragged by their title**, which is the obvious place to grab one.
+  The title was a click-to-edit `<button data-no-drag>`, so it was a dead zone covering
+  most of the card; only the thin padding around it dragged. Fix: the title is no longer
+  no-drag. A press anywhere that isn't a real control starts a drag, and the two gestures
+  are told apart by movement — past `DRAG_SLOP` (3px) it's a drag, under it (on the
+  title) it opens the editor on pointer-up. Keyboard users get Enter/Space on the title.
+
+**Verified:** 7-point Playwright regression on a scratch card, all passing — wheel over a
+card pans, ctrl+wheel zooms, drag by title moves *and* persists to the DB, the drag does
+not open the editor, a plain click does, the checkbox still persists, and freehand drawing
+still works. `typecheck` + `build` clean. Scratch card, test stroke and a card nudged
+during testing were all restored/removed.
+
+**Caveat:** two-finger pinch-zoom *over a card* on touch devices still won't zoom — the
+forwarding covers wheel, not touch. One-finger card dragging and pinch over empty canvas
+are unaffected.
+
 **Next:** the goal hero eats ~500px on a 390px phone, which squeezes the canvas hard —
 worth making it collapsible on mobile if it annoys him. Cards are also placed but never
 auto-grouped; a "tidy up" action that re-flows everything back into inbox columns would

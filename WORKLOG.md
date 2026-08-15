@@ -3038,3 +3038,5 @@ server (:3000, Berto's own — Turbopack picked the edits up) in light and dark.
 **Verified:** Playwright screenshot of the Growth card against the running dev server — reads "15 books / 100 books" with the dashed goal line well above the curve. (Berto's own dev server was already running on :3000 in the focuspoint dir, so per `.claude/skills/verify` this was checked against that server rather than killing it — Turbopack picked the edit up from disk.)
 
 **Typecheck:** PASS ✓
+
+**Gotcha worth remembering:** the goal row was updated *before* the new code reached production, so for ~40s the still-deployed pages-based card compared 4,800 pages against the new goal of 100 and latched the goal-achieved celebration (`vision_items.achieved = true`, `achieved_at` stamped). Reset to `false`/`NULL` afterwards and confirmed the prod card reads a plain "15 books / 100 books" with no 🎉. **When changing a goal's unit, deploy the code first, then update the goal row** — otherwise the old unit is briefly measured against the new target and can fire a false celebration.

@@ -4,8 +4,12 @@ import type { ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon } from "lucide-react";
+import Link from "next/link";
+import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
+import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { ModeToggle } from "@/app/_components/mode-toggle";
+import { PinButton } from "@/app/_components/pin-button";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Dashboard } from "@/app/_components/dashboard";
@@ -223,7 +227,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           navRailOpen ? "lg:w-52" : "lg:w-14",
         )}
       >
-        <div className="flex items-center h-14 px-2 shrink-0">
+        <div className="flex items-center gap-1.5 h-14 px-2 shrink-0">
           <button
             onClick={toggleNavRail}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
@@ -231,6 +235,13 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           >
             <PanelLeftIcon className="size-4" />
           </button>
+          {/* The identity that used to sit in the dashboard's top bar. */}
+          {navRailOpen && (
+            <div className="flex items-center gap-2 min-w-0">
+              <CaelAvatar size={24} />
+              <span className="text-sm font-semibold tracking-tight truncate">Cael</span>
+            </div>
+          )}
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
           {NAV_ITEMS.map(({ tab, label, icon: Icon }, i) => {
@@ -280,6 +291,36 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             );
           })}
         </nav>
+        {/* Utility controls — pin, traces, panel collapse, theme. These used to
+            live in the dashboard's top bar; the rail holds them now so the
+            content panel is header-free. */}
+        <div
+          className={cn(
+            "shrink-0 border-t border-border px-2 py-2 flex items-center gap-1",
+            navRailOpen ? "flex-row" : "flex-col",
+          )}
+        >
+          <PinButton iconClassName="size-4" />
+          <Link
+            href="/traces"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="View agent traces"
+            title="Agent traces"
+          >
+            <ActivityIcon className="size-4" />
+          </Link>
+          {mobileTab === "chat" && sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Collapse panel"
+              title="Collapse panel"
+            >
+              <PanelLeftCloseIcon className="size-4" />
+            </button>
+          )}
+          <ModeToggle />
+        </div>
       </aside>
 
       {/* Dashboard panel — sidebar when chat is active, takes over the full main view otherwise */}
@@ -300,11 +341,8 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "manual" ? "manual" : "todos"}
-            onCollapse={() => setSidebarOpen(false)}
             onRunJobWithChat={handleRunJobWithChat}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
-            isExpanded={mobileTab !== "chat"}
-            onBackToChat={() => setMobileTab("chat")}
             focusNewTaskSignal={focusNewTaskSignal}
           />
         </div>

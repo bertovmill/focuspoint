@@ -3335,3 +3335,40 @@ the port is free.
 Cost worth knowing: two dev servers means two Turbopack compilers on the same
 machine, and both write to the same `DATABASE_URL` — they are not isolated
 environments, just a second window onto the same data.
+
+---
+
+## 2026-08-15 — Dashboard top bar removed; its controls moved into the nav rail
+
+The panel header ("Cael / 37 tasks, 2 urgent" plus pin, traces, collapse and
+theme buttons) was eating a full row above every section for very little. It's
+gone; the content panel now starts at the top edge.
+
+Nothing was lost — the pieces moved into the desktop nav rail
+(`app/(app)/layout.tsx`):
+
+- **Identity**: `CaelAvatar` (24px) + "Cael" now sit in the rail's header row
+  next to the collapse toggle, shown only when the rail is expanded.
+- **Utility footer**: a bordered row at the bottom of the rail holds
+  `PinButton`, the `/traces` link, and `ModeToggle`. It stacks vertically when
+  the rail is collapsed to icons.
+- **Collapse panel**: the old `onCollapse` prop is gone; the rail renders the
+  button itself (`setSidebarOpen(false)`) and only when it's meaningful —
+  `mobileTab === "chat" && sidebarOpen`.
+- **Back to chat** was dropped: the rail's Chat item already does exactly that.
+
+Dropped along the way: the "N tasks, M urgent" count line (`activeTodos` /
+`highPriority` were only used for it), and the `onCollapse` / `isExpanded` /
+`onBackToChat` props on `<Dashboard>`.
+
+Files: `app/_components/dashboard.tsx` (header block + now-unused imports/props
+removed), `app/(app)/layout.tsx` (rail header identity + utility footer).
+
+Note: the rail is `lg:`-only, so on mobile the pin and theme toggle are now
+reachable from the Home screen (which already has both) rather than from every
+section.
+
+Verified with Playwright on a private dev server (port 3789): /tasks renders
+with no header bar and the goal hero flush to the top; /chat shows the tasks
+sidebar header-free with the collapse button present in the rail footer.
+`npm run typecheck` clean.

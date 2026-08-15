@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
-import { PlusIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
+import { PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { GoalFlowHero } from "@/app/_components/goal-flow-hero";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
@@ -33,9 +32,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { ModeToggle } from "@/app/_components/mode-toggle";
-import { CaelAvatar } from "@/app/_components/cael-avatar";
-import { PinButton } from "@/app/_components/pin-button";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
 import { playCelebrationSound } from "@/lib/celebration-sound";
 import { focusAppWindow } from "@/lib/desktop";
@@ -188,7 +184,7 @@ interface UploadedImage {
 
 type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual";
 
-export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
+export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabChange, focusNewTaskSignal }: { activeTab?: DashboardTab; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [measures, setMeasures] = useState<Measure[]>([]);
@@ -649,8 +645,6 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
     }
   };
 
-  const activeTodos = todos.filter((t) => !t.completed);
-  const highPriority = activeTodos.filter((t) => t.priority === "high" || t.priority === "urgent");
   // Active todos, plus anything (of any recurrence) crossed off today — so today's
   // completions stay visible (struck through) instead of vanishing immediately.
   // Daily todos are never gated on due_date: an unfinished one carries over and
@@ -690,56 +684,8 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Compact header */}
-      <div className="px-4 pt-4 pb-3 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <CaelAvatar size={36} />
-            <div>
-              <h1 className="text-base font-semibold tracking-tight leading-tight">Cael</h1>
-              {!loading && (
-                <p className="text-[11px] text-muted-foreground leading-tight">
-                  {activeTodos.length === 0
-                    ? "All clear"
-                    : `${activeTodos.length} task${activeTodos.length !== 1 ? "s" : ""}${highPriority.length > 0 ? `, ${highPriority.length} urgent` : ""}`}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <PinButton iconClassName="size-3.5" />
-            {isExpanded && onBackToChat && (
-              <button
-                onClick={onBackToChat}
-                className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="Back to chat"
-                title="Back to chat"
-              >
-                <MessageCircleIcon className="size-3.5" />
-              </button>
-            )}
-            <Link
-              href="/traces"
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="View agent traces"
-              title="Agent traces"
-            >
-              <ActivityIcon className="size-3.5" />
-            </Link>
-            {onCollapse && (
-              <button
-                onClick={onCollapse}
-                className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="Collapse panel"
-              >
-                <PanelLeftCloseIcon className="size-3.5" />
-              </button>
-            )}
-            <ModeToggle />
-          </div>
-        </div>
-      </div>
-
+      {/* No header bar here — the identity line and its icon buttons moved to the
+          desktop nav rail (app/(app)/layout.tsx) so the panel is all content. */}
       <div className="flex flex-1 min-h-0 flex-col">
       {/* Content area */}
       <div className="flex-1 overflow-y-auto min-h-0">

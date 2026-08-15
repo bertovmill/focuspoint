@@ -4,6 +4,87 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-15 — Tasks is now an Excalidraw notebook
+
+**Ask:** *"for my task list page - i have a bit of a radical idea - lets make it
+excalidraw - but with a little bit of support, like the daily tasks are added each
+day, the checked off boxes get stored, but I can add anything ... more of a free
+flowing notebook rather than a rigid list."*
+
+**Decisions (asked Berto):** the canvas **replaces** the Tasks tab (not a new tab
+alongside it), and tasks render as **React cards floating over the canvas** rather
+than as native Excalidraw shapes — so a checkbox is a real checkbox writing to the
+`todos` table, while the ink around it is a real Excalidraw scene.
+
+**How it fits together.** Two independent layers over one viewport:
+
+- *Ink* — a single, never-ending Excalidraw scene, row `id = 1` of the new
+  `task_canvas` table, autosaved 1.5s after the last edit (same debounce idiom as
+  the Sketches tab). Task cards are deliberately **not** in this scene.
+- *Cards* — `todos` rows positioned by two new columns, `canvas_x` / `canvas_y`, in
+  Excalidraw **scene** coordinates so they survive pan and zoom. Written by
+  `POST /api/todos/[id]/position`, its own sub-route (like `/timer`, `/complete`) so
+  a drag doesn't round-trip the big COALESCE update in `PATCH /api/todos/[id]`.
+
+The card layer is **portaled into the `.excalidraw` container**, not mounted as a
+sibling. That one decision buys two things: Excalidraw's own z-index scale puts its
+canvases at 1–2 and its toolbar UI at 4, so the layer at **3** sits above the drawing
+and below the controls; and because the layer lives inside Excalidraw's DOM, wheel
+events over a card still bubble to Excalidraw, so scrolling and zooming work over a
+card instead of dead-zoning on it. The layer's transform is written imperatively from
+`onChange` (`translate(scrollX*zoom, scrollY*zoom) scale(zoom)`) rather than through
+React state, so panning doesn't re-render 37 cards a frame.
+
+**Gotchas worth knowing:**
+- The card layer spans the whole canvas, so it **must** stay `pointer-events: none`;
+  only the cards opt back in. Giving the layer `auto` (the first cut) silently ate
+  every click on empty canvas — Excalidraw never saw a pointerdown and nothing could
+  be drawn at all. Caught only because the persistence test found 0 elements.
+- Cards also go inert while a drawing tool is active (`activeTool.type !== "selection"`),
+  so you can drag an arrow straight across a card.
+- Auto-placement runs *before* cards render, so card height is estimated from title
+  length (`estimateCardHeight`) rather than measured. A fixed height guess overlapped
+  every card with a wrapped title.
+- The inbox column wraps every 8 cards (`INBOX_COL_MAX`) and starts at scene
+  (24, 120) — a fresh canvas opens at scene (0,0), which is exactly where our toolbar
+  and Excalidraw's both sit, so cards placed on the origin open underneath them.
+
+**Nothing was dropped in the swap.** The old list's features moved onto the cards:
+checkbox, inline title edit, timer play/pause with live countdown, working-on-now
+(still capped at `WORKING_LIMIT`), waiting, and a priority dot that cycles on click.
+Recurrence, category and estimate moved to a **right-click context menu** on the card.
+The one genuine casualty is `task_number` — the manual "do this next" queue — which
+has no meaning on a canvas where position *is* the ordering.
+
+**Files:**
+- `app/_components/task-canvas.tsx` — new, the whole surface.
+- `lib/todo.ts` — new; the `Todo` interface plus the few helpers both the dashboard
+  and the canvas need, so the type isn't declared twice.
+- `app/api/task-canvas/route.ts`, `app/api/todos/[id]/position/route.ts` — new.
+- `lib/db.ts` — `todos.canvas_x` / `canvas_y`, `task_canvas` table (applied to Neon).
+- `app/_components/dashboard.tsx` — **-852 lines**: the whole old Tasks UI is gone
+  (`renderTodoSection`, the create form, every edit/numbering state field). What's left
+  is the shared handlers the canvas calls, plus new `handleUpdateTodo` /
+  `handleTodoCreated` / `handleLocalTodoPatch`.
+- `app/_components/goal-flow-hero.tsx` — dropped `-mx-5 -mt-4 mb-5`; it's naturally
+  full-bleed now that the Tasks tab is an unpadded flex column.
+- `components/ui/checkbox.tsx` — added from the shadcn registry (not hand-rolled).
+
+**Verified:** `npm run typecheck` and `npm run build` clean; a `--noUnusedLocals` pass
+confirms no dead code left behind. Playwright against the dev server: 37 cards portaled
+inside `.excalidraw` at z-index 3 with no console errors, a card dragged 260×40px
+persisted to the DB at exactly the expected scene coords, a freehand stroke survived a
+full page reload (and renders *under* the cards), and a checkbox click came back
+`completed: true` from `/api/todos`. Mobile at 390px renders too. Test task and test
+stroke were cleaned up afterwards.
+
+**Next:** the goal hero eats ~500px on a 390px phone, which squeezes the canvas hard —
+worth making it collapsible on mobile if it annoys him. Cards are also placed but never
+auto-grouped; a "tidy up" action that re-flows everything back into inbox columns would
+be a cheap escape hatch once the canvas gets messy.
+
+---
+
 ## 2026-08-15 — Tasks: recurring and one-off in separate columns
 
 **Ask:** "For the daily recurring tasks and the more one-off tasks, should have different columns."

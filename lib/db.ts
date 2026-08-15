@@ -56,6 +56,11 @@ export async function ensureSchema() {
   // Google Calendar event written when the task was completed, so the block can be
   // removed again on uncomplete (see lib/task-calendar.ts). NULL = nothing logged.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS calendar_event_id TEXT`;
+  // Where the task's card sits on the Tasks canvas, in Excalidraw *scene* coordinates
+  // (not pixels — they survive pan/zoom). NULL on both = never placed, so the canvas
+  // auto-drops it into the inbox column and persists the position it landed on.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,
@@ -169,6 +174,17 @@ export async function ensureSchema() {
   // the PNG thumbnail for the gallery. Sketches drawn before the Excalidraw switch have a
   // NULL scene and are re-opened by importing their PNG as an image element.
   await sql`ALTER TABLE sketches ADD COLUMN IF NOT EXISTS scene JSONB`;
+  // The Tasks canvas: one single, never-ending Excalidraw scene (id = 1) holding the
+  // freeform half of the notebook — arrows, scribbles, headings, anything Berto draws
+  // around the task cards. The cards themselves are NOT in here; they're `todos` rows
+  // positioned by canvas_x/canvas_y and rendered as React on top of this scene.
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_canvas (
+      id INTEGER PRIMARY KEY,
+      scene JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   // Google Calendar OAuth tokens — single-user app, one row (id = 1)
   await sql`
     CREATE TABLE IF NOT EXISTS google_auth (

@@ -1,0 +1,781 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
+import { useTheme } from "next-themes";
+import {
+  CheckIcon,
+  ClockIcon,
+  CrosshairIcon,
+  HourglassIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
+  RepeatIcon,
+  TargetIcon,
+  TrashIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import type { ExcalidrawImperativeAPI, BinaryFiles } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
+import {
+  ESTIMATE_OPTIONS,
+  formatCountdown,
+  formatEstimateLabel,
+  isDoneToday,
+  PRIORITIES,
+  remainingSeconds,
+  type Todo,
+} from "@/lib/todo";
+import { cn } from "@/lib/utils";
+
+import "@excalidraw/excalidraw/index.css";
+
+// Excalidraw touches window/document at module scope, so it can't be server-rendered.
+const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+});
+
+// The persisted document. appState is deliberately a small whitelist — the full appState
+// carries transient junk (and a `collaborators` Map that doesn't survive JSON).
+interface Scene {
+  elements: readonly ExcalidrawElement[];
+  appState: { viewBackgroundColor?: string; gridSize?: number | null };
+  files: BinaryFiles;
+}
+
+const AUTOSAVE_MS = 1500;
+
+// Card geometry, in Excalidraw *scene* units (1 unit = 1px at 100% zoom).
+const CARD_W = 236;
+const CARD_GAP = 12;
+// Where never-placed tasks land: tidy columns near the scene origin, so there's always
+// one predictable place to look when something new shows up. Offset rather than sitting
+// exactly on the origin — a fresh canvas opens at scene (0,0),
+// and both our toolbar (top left) and Excalidraw's (top centre) live up there, so the
+// first row of cards would open underneath them.
+const INBOX_X = 24;
+const INBOX_Y = 120;
+const INBOX_COL_W = CARD_W + 32;
+// A column any longer than this is a wall, which is exactly what the canvas is meant
+// to replace — wrap into a new column instead.
+const INBOX_COL_MAX = 8;
+
+// Cards are auto-height (the title wraps), and auto-placement runs before they've
+// rendered, so estimate: a one-line card is ~62px and each extra wrapped line adds
+// ~17px. Roughly 27 characters fit on a line at CARD_W.
+function estimateCardHeight(title: string) {
+  const lines = Math.max(1, Math.ceil(title.length / 27));
+  return 62 + (lines - 1) * 17;
+}
+
+// Excalidraw layers its own canvases at z-index 1–2 and its toolbar UI at 4. Slotting
+// the card layer at 3 puts cards above the drawing but under Excalidraw's controls —
+// and because the layer is portaled *inside* the Excalidraw container, wheel events
+// over a card still bubble to Excalidraw, so pan/zoom keeps working over the cards.
+const CARD_LAYER_Z = 3;
+
+const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
+  events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
+  calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
+  ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+};
+
+const PRIORITY_DOT: Record<Todo["priority"], string> = {
+  urgent: "bg-priority-urgent",
+  high: "bg-priority-high",
+  normal: "bg-muted-foreground/40",
+  low: "bg-muted-foreground/20",
+};
+
+interface View {
+  scrollX: number;
+  scrollY: number;
+  zoom: number;
+}
+
+export interface TaskCanvasProps {
+  todos: Todo[];
+  loading: boolean;
+  /** Ticks once a second in the parent so every countdown runs off one clock. */
+  nowTick: number;
+  completingIds: Set<number>;
+  onComplete: (id: number) => void;
+  onUncomplete: (id: number) => void;
+  onToggleTimer: (todo: Todo) => void;
+  /** "Working on now" — capped at WORKING_LIMIT by the parent. */
+  onToggleInProgress: (id: number, in_progress: boolean) => void;
+  onToggleWaiting: (id: number, waiting: boolean) => void;
+  onDelete: (id: number) => void;
+  /** PATCHes the task and syncs parent state. */
+  onUpdate: (id: number, patch: Partial<Todo>) => void;
+  /** Parent pushes the new row into its own list. */
+  onCreated: (todo: Todo) => void;
+  /** State-only patch — the canvas has already persisted it (or is mid-drag). */
+  onLocalPatch: (id: number, patch: Partial<Todo>) => void;
+}
+
+export function TaskCanvas({
+  todos,
+  loading,
+  nowTick,
+  completingIds,
+  onComplete,
+  onUncomplete,
+  onToggleTimer,
+  onToggleInProgress,
+  onToggleWaiting,
+  onDelete,
+  onUpdate,
+  onCreated,
+  onLocalPatch,
+}: TaskCanvasProps) {
+  const { resolvedTheme } = useTheme();
+  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [initialScene, setInitialScene] = useState<Scene | null>(null);
+  const [sceneLoading, setSceneLoading] = useState(true);
+  // Where to portal the card layer, and whether the drawing tool currently wants the
+  // pointer (so you can scribble straight over a card).
+  const [cardHost, setCardHost] = useState<HTMLElement | null>(null);
+  const [drawing, setDrawing] = useState(false);
+
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newEstimate, setNewEstimate] = useState<number>(30);
+  const [creating, setCreating] = useState(false);
+  const composerRef = useRef<HTMLInputElement>(null);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  // The live view transform. Kept in a ref (not state) and written straight to the
+  // layer's style so panning doesn't re-render every card, and so drag maths always
+  // reads the current zoom.
+  const viewRef = useRef<View>({ scrollX: 0, scrollY: 0, zoom: 1 });
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---------------------------------------------------------------- scene load/save
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/task-canvas");
+        const data = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        const scene = data?.scene ?? {};
+        setInitialScene({
+          elements: scene.elements ?? [],
+          appState: scene.appState ?? {},
+          files: scene.files ?? {},
+        });
+      } catch {
+        if (!cancelled) setInitialScene({ elements: [], appState: {}, files: {} });
+      } finally {
+        if (!cancelled) setSceneLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveScene = useCallback(async () => {
+    if (!api) return;
+    const appState = api.getAppState();
+    const scene: Scene = {
+      elements: api.getSceneElements(),
+      appState: {
+        viewBackgroundColor: appState.viewBackgroundColor,
+        gridSize: appState.gridSize,
+      },
+      files: api.getFiles(),
+    };
+    try {
+      await fetch("/api/task-canvas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scene }),
+      });
+    } catch {
+      // Autosave is best-effort — the next edit re-arms it rather than nagging.
+    }
+  }, [api]);
+
+  // Flush a pending save on unmount so leaving the tab mid-debounce doesn't drop it.
+  const saveSceneRef = useRef(saveScene);
+  saveSceneRef.current = saveScene;
+  useEffect(
+    () => () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        saveSceneRef.current();
+      }
+    },
+    [],
+  );
+
+  // ------------------------------------------------------------------- view + host
+
+  const applyTransform = useCallback((v: View) => {
+    const el = layerRef.current;
+    if (!el) return;
+    // Excalidraw maps scene → viewport as (sceneX + scrollX) * zoom, so the layer
+    // translates by scrollX*zoom and scales by zoom, with cards laid out at raw
+    // scene coordinates inside it.
+    el.style.transform = `translate(${v.scrollX * v.zoom}px, ${v.scrollY * v.zoom}px) scale(${v.zoom})`;
+  }, []);
+
+  const handleChange = useCallback(
+    (_elements: readonly ExcalidrawElement[], appState: { scrollX: number; scrollY: number; zoom: { value: number }; activeTool: { type: string } }) => {
+      const next: View = { scrollX: appState.scrollX, scrollY: appState.scrollY, zoom: appState.zoom.value };
+      const prev = viewRef.current;
+      if (next.scrollX !== prev.scrollX || next.scrollY !== prev.scrollY || next.zoom !== prev.zoom) {
+        viewRef.current = next;
+        applyTransform(next);
+      }
+      // Anything other than selection is a drawing tool — let the pointer through to
+      // the canvas so you can draw an arrow that starts on top of a card.
+      const isDrawing = appState.activeTool.type !== "selection";
+      setDrawing((d) => (d === isDrawing ? d : isDrawing));
+
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        autoSaveTimerRef.current = null;
+        saveSceneRef.current();
+      }, AUTOSAVE_MS);
+    },
+    [applyTransform],
+  );
+
+  // Find the Excalidraw container to portal the card layer into, once it has mounted.
+  useEffect(() => {
+    if (!api) return;
+    const host = wrapRef.current?.querySelector<HTMLElement>(".excalidraw") ?? null;
+    setCardHost(host);
+    // The initial view isn't reported until the first change, so seed it here.
+    const appState = api.getAppState();
+    viewRef.current = { scrollX: appState.scrollX, scrollY: appState.scrollY, zoom: appState.zoom.value };
+  }, [api]);
+
+  // The transform lives on a ref-managed style, so re-apply it whenever the layer
+  // remounts (portal host arriving, theme swap) or React would blow it away.
+  useEffect(() => {
+    applyTransform(viewRef.current);
+  }, [applyTransform, cardHost]);
+
+  // --------------------------------------------------------------- card placement
+
+  // Tasks that have never been placed get dropped down the inbox column, below
+  // whatever is already parked there, and the position is persisted so they stop
+  // moving. Guarded by a ref so a re-render mid-request doesn't double-post.
+  const placingRef = useRef(new Set<number>());
+  useEffect(() => {
+    const unplaced = todos.filter((t) => t.canvas_x == null || t.canvas_y == null);
+    if (unplaced.length === 0) return;
+    const placed = todos.filter((t) => t.canvas_x != null && t.canvas_y != null);
+    // Only cards still parked in an inbox column push new arrivals down; anything
+    // dragged out into the notebook is left alone.
+    const colBottom = new Map<number, number>();
+    const colCount = new Map<number, number>();
+    for (const t of placed) {
+      const offset = (t.canvas_x ?? 0) - INBOX_X;
+      if (offset < 0 || offset % INBOX_COL_W !== 0) continue;
+      const col = offset / INBOX_COL_W;
+      colBottom.set(col, Math.max(colBottom.get(col) ?? INBOX_Y, (t.canvas_y ?? 0) + estimateCardHeight(t.title) + CARD_GAP));
+      colCount.set(col, (colCount.get(col) ?? 0) + 1);
+    }
+    // Start filling at the first column with room left.
+    let col = 0;
+    while ((colCount.get(col) ?? 0) >= INBOX_COL_MAX) col += 1;
+    for (const t of unplaced) {
+      if (placingRef.current.has(t.id)) continue;
+      placingRef.current.add(t.id);
+      if ((colCount.get(col) ?? 0) >= INBOX_COL_MAX) col += 1;
+      const x = INBOX_X + col * INBOX_COL_W;
+      const y = colBottom.get(col) ?? INBOX_Y;
+      colBottom.set(col, y + estimateCardHeight(t.title) + CARD_GAP);
+      colCount.set(col, (colCount.get(col) ?? 0) + 1);
+      onLocalPatch(t.id, { canvas_x: x, canvas_y: y });
+      fetch(`/api/todos/${t.id}/position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x, y }),
+      }).catch(() => {
+        placingRef.current.delete(t.id);
+      });
+    }
+  }, [todos, onLocalPatch]);
+
+  // ------------------------------------------------------------------------ drag
+
+  const dragRef = useRef<{ id: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+
+  const handleCardPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, todo: Todo) => {
+      // Buttons, checkboxes and the title input keep their own clicks.
+      if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      dragRef.current = {
+        id: todo.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: todo.canvas_x ?? 0,
+        originY: todo.canvas_y ?? 0,
+      };
+    },
+    [],
+  );
+
+  const handleCardPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const { zoom } = viewRef.current;
+      const x = drag.originX + (e.clientX - drag.startX) / zoom;
+      const y = drag.originY + (e.clientY - drag.startY) / zoom;
+      onLocalPatch(drag.id, { canvas_x: x, canvas_y: y });
+    },
+    [onLocalPatch],
+  );
+
+  const handleCardPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      dragRef.current = null;
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      const moved = Math.abs(e.clientX - drag.startX) > 2 || Math.abs(e.clientY - drag.startY) > 2;
+      if (!moved) return;
+      const { zoom } = viewRef.current;
+      const x = drag.originX + (e.clientX - drag.startX) / zoom;
+      const y = drag.originY + (e.clientY - drag.startY) / zoom;
+      fetch(`/api/todos/${drag.id}/position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x, y }),
+      }).catch(() => toast.error("Couldn't save card position."));
+    },
+    [],
+  );
+
+  // ------------------------------------------------------------------- add a task
+
+  const createTask = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const title = newTitle.trim();
+      if (!title || creating) return;
+      setCreating(true);
+      try {
+        const res = await fetch("/api/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, estimated_minutes: newEstimate }),
+        });
+        if (!res.ok) throw new Error();
+        const todo: Todo = await res.json();
+        onCreated(todo);
+        setNewTitle("");
+        composerRef.current?.focus();
+      } catch {
+        toast.error("Couldn't add task.");
+      } finally {
+        setCreating(false);
+      }
+    },
+    [creating, newEstimate, newTitle, onCreated],
+  );
+
+  useEffect(() => {
+    if (composerOpen) composerRef.current?.focus();
+  }, [composerOpen]);
+
+  // Centres the view on the task cards — the way back when you've wandered off into
+  // empty canvas. Excalidraw's own scrollToContent only knows about its elements.
+  const fitToCards = useCallback(() => {
+    const placed = todos.filter((t) => t.canvas_x != null && t.canvas_y != null);
+    const host = wrapRef.current;
+    if (!api || placed.length === 0 || !host) return;
+    const minX = Math.min(...placed.map((t) => t.canvas_x!));
+    const maxX = Math.max(...placed.map((t) => t.canvas_x! + CARD_W));
+    const minY = Math.min(...placed.map((t) => t.canvas_y!));
+    const maxY = Math.max(...placed.map((t) => t.canvas_y! + estimateCardHeight(t.title)));
+    // Extra headroom up top so recentring doesn't tuck the first row under our
+    // toolbar or Excalidraw's.
+    const pad = 60;
+    const padTop = 120;
+    const w = host.clientWidth;
+    const h = host.clientHeight;
+    const zoom = Math.min(1.2, Math.max(0.2, Math.min(w / (maxX - minX + pad * 2), h / (maxY - minY + padTop + pad))));
+    api.updateScene({
+      appState: {
+        zoom: { value: zoom as never },
+        scrollX: (w / zoom - (maxX - minX)) / 2 - minX,
+        scrollY: padTop / zoom - minY,
+      },
+    });
+  }, [api, todos]);
+
+  // ---------------------------------------------------------------------- render
+
+  const doneToday = useMemo(() => todos.filter(isDoneToday).length, [todos]);
+
+  const cards = todos.map((todo) => {
+    const done = isDoneToday(todo) || completingIds.has(todo.id);
+    const running = Boolean(todo.timer_started_at);
+    const remaining = remainingSeconds(todo, nowTick);
+    const overdue = remaining !== null && remaining < 0;
+    return (
+      // Right-click is where the fields that don't earn a permanent spot on the card
+      // live — recurrence, category, estimate. The card face stays note-like.
+      <ContextMenu key={todo.id}>
+        <ContextMenuTrigger asChild>
+      <div
+        data-task-card={todo.id}
+        onPointerDown={(e) => handleCardPointerDown(e, todo)}
+        onPointerMove={handleCardPointerMove}
+        onPointerUp={handleCardPointerUp}
+        onPointerCancel={handleCardPointerUp}
+        style={{
+          position: "absolute",
+          left: todo.canvas_x ?? 0,
+          top: todo.canvas_y ?? 0,
+          width: CARD_W,
+          pointerEvents: drawing ? "none" : "auto",
+        }}
+        className={cn(
+          "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-colors active:cursor-grabbing",
+          todo.in_progress && !done && "border-primary/60 ring-1 ring-primary/25",
+          todo.waiting && !todo.in_progress && !done && "border-amber-500/50",
+          done && "opacity-55",
+        )}
+      >
+        <div className="flex items-start gap-2">
+          <div data-no-drag className="pt-0.5">
+            <Checkbox
+              checked={done}
+              aria-label={done ? `Uncheck ${todo.title}` : `Check off ${todo.title}`}
+              onCheckedChange={(checked) => (checked ? onComplete(todo.id) : onUncomplete(todo.id))}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            {editingId === todo.id ? (
+              <div data-no-drag>
+                <Input
+                  autoFocus
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onBlur={() => {
+                    const title = editTitle.trim();
+                    if (title && title !== todo.title) onUpdate(todo.id, { title });
+                    setEditingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-6 px-1 text-[13px]"
+                />
+              </div>
+            ) : (
+              <button
+                data-no-drag
+                type="button"
+                onClick={() => {
+                  setEditingId(todo.id);
+                  setEditTitle(todo.title);
+                }}
+                className={cn(
+                  "block w-full text-left text-[13px] font-medium leading-snug",
+                  done && "line-through text-muted-foreground",
+                )}
+              >
+                {todo.title}
+              </button>
+            )}
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {/* The priority dot doubles as the priority control: click cycles it. */}
+              <button
+                data-no-drag
+                type="button"
+                title={`Priority: ${todo.priority} — click to change`}
+                aria-label={`Priority ${todo.priority}, click to change`}
+                onClick={() =>
+                  onUpdate(todo.id, {
+                    priority: PRIORITIES[(PRIORITIES.indexOf(todo.priority) + 1) % PRIORITIES.length],
+                  })
+                }
+                className={cn("size-2 rounded-full ring-offset-1 hover:ring-1 hover:ring-ring", PRIORITY_DOT[todo.priority])}
+              />
+              {todo.recurrence && todo.recurrence !== "none" && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                  <RepeatIcon className="size-2.5" />
+                  {todo.recurrence}
+                </span>
+              )}
+              {todo.category && (
+                <Badge variant="outline" className={cn("h-4 px-1 text-[9px]", CATEGORY_BADGE_CLASS[todo.category])}>
+                  {TASK_CATEGORY_LABELS[todo.category]}
+                </Badge>
+              )}
+              {todo.estimated_minutes ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 text-[10px] tabular-nums",
+                    running ? (overdue ? "text-priority-urgent" : "text-primary") : "text-muted-foreground",
+                  )}
+                >
+                  <ClockIcon className="size-2.5" />
+                  {remaining !== null && (running || (todo.time_spent_seconds ?? 0) > 0)
+                    ? `${overdue ? "-" : ""}${formatCountdown(Math.abs(remaining))}`
+                    : formatEstimateLabel(todo.estimated_minutes)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          {/* Actions stay hidden until hover so the card reads as a note, not a widget —
+              unless the task is live (working / waiting / timing), in which case the
+              lit-up control is the status indicator. */}
+          <div
+            data-no-drag
+            className={cn(
+              "grid shrink-0 grid-cols-2 gap-0.5 transition-opacity focus-within:opacity-100 group-hover:opacity-100",
+              todo.in_progress || todo.waiting || running ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {!done && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onToggleInProgress(todo.id, !todo.in_progress)}
+                  aria-label={todo.in_progress ? `Stop working on ${todo.title}` : `Work on ${todo.title} now`}
+                  title="Working on now"
+                  className={cn(
+                    "rounded p-0.5 hover:bg-muted",
+                    todo.in_progress ? "text-primary opacity-100" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <TargetIcon className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleWaiting(todo.id, !todo.waiting)}
+                  aria-label={todo.waiting ? `Stop waiting on ${todo.title}` : `Mark ${todo.title} as waiting`}
+                  title="Waiting on something"
+                  className={cn(
+                    "rounded p-0.5 hover:bg-muted",
+                    todo.waiting ? "text-amber-500 opacity-100" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <HourglassIcon className="size-3" />
+                </button>
+              </>
+            )}
+            {!done && todo.estimated_minutes ? (
+              <button
+                type="button"
+                onClick={() => onToggleTimer(todo)}
+                aria-label={running ? `Pause timer for ${todo.title}` : `Start timer for ${todo.title}`}
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                {running ? <PauseIcon className="size-3" /> : <PlayIcon className="size-3" />}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onDelete(todo.id)}
+              aria-label={`Delete ${todo.title}`}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-priority-urgent"
+            >
+              <TrashIcon className="size-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-44">
+          <ContextMenuLabel className="text-xs">Repeats</ContextMenuLabel>
+          <ContextMenuRadioGroup
+            value={todo.recurrence ?? "none"}
+            onValueChange={(v) => onUpdate(todo.id, { recurrence: v as Todo["recurrence"] })}
+          >
+            {(["none", "daily", "weekly", "monthly"] as const).map((r) => (
+              <ContextMenuRadioItem key={r} value={r} className="text-xs capitalize">
+                {r === "none" ? "One-off" : r}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+          <ContextMenuSeparator />
+          <ContextMenuLabel className="text-xs">Category</ContextMenuLabel>
+          <ContextMenuRadioGroup
+            value={todo.category ?? "none"}
+            onValueChange={(v) => onUpdate(todo.id, { category: v === "none" ? null : (v as TaskCategory) })}
+          >
+            <ContextMenuRadioItem value="none" className="text-xs">
+              None
+            </ContextMenuRadioItem>
+            {TASK_CATEGORIES.map((c) => (
+              <ContextMenuRadioItem key={c} value={c} className="text-xs">
+                {TASK_CATEGORY_LABELS[c]}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+          <ContextMenuSeparator />
+          <ContextMenuLabel className="text-xs">Estimate</ContextMenuLabel>
+          <ContextMenuRadioGroup
+            value={String(todo.estimated_minutes ?? "")}
+            onValueChange={(v) => onUpdate(todo.id, { estimated_minutes: Number(v) })}
+          >
+            {ESTIMATE_OPTIONS.map((m) => (
+              <ContextMenuRadioItem key={m} value={String(m)} className="text-xs">
+                {formatEstimateLabel(m)}
+              </ContextMenuRadioItem>
+            ))}
+          </ContextMenuRadioGroup>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" className="text-xs" onClick={() => onDelete(todo.id)}>
+            <TrashIcon className="size-3" />
+            Delete task
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  });
+
+  return (
+    <div ref={wrapRef} className="relative h-full w-full">
+      {sceneLoading || !initialScene ? (
+        <Skeleton className="h-full w-full" />
+      ) : (
+        <Excalidraw
+          excalidrawAPI={setApi}
+          onChange={handleChange as never}
+          theme={resolvedTheme === "dark" ? "dark" : "light"}
+          initialData={{
+            elements: initialScene.elements,
+            // gridSize is nullable in the stored scene but only optional in AppState,
+            // so a persisted `null` (grid off) has to become `undefined`.
+            appState: {
+              viewBackgroundColor: initialScene.appState.viewBackgroundColor,
+              gridSize: initialScene.appState.gridSize ?? undefined,
+              viewModeEnabled: false,
+            },
+            files: initialScene.files,
+            scrollToContent: false,
+          }}
+        />
+      )}
+
+      {/* The task cards, portaled inside the Excalidraw container so they sit above the
+          drawing canvases but below Excalidraw's own toolbar — and so wheel events over
+          a card still reach Excalidraw and pan/zoom the whole notebook together. */}
+      {cardHost &&
+        createPortal(
+          <div
+            ref={layerRef}
+            style={{
+              position: "absolute",
+              inset: 0,
+              transformOrigin: "0 0",
+              zIndex: CARD_LAYER_Z,
+              // The layer spans the whole canvas, so it must stay inert — otherwise it
+              // swallows every click on empty canvas and Excalidraw never sees them.
+              // Only the cards themselves opt back in, and even they go inert while a
+              // drawing tool is active so you can scribble straight across them.
+              pointerEvents: "none",
+            }}
+            className={cn(drawing && "opacity-90")}
+          >
+            {cards}
+          </div>,
+          cardHost,
+        )}
+
+      {/* Our own controls, kept clear of Excalidraw's toolbar (top centre) and zoom
+          controls (bottom left). */}
+      <div className="pointer-events-none absolute left-3 top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2">
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setComposerOpen((v) => !v)}>
+            <PlusIcon className="size-3.5" />
+            Task
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-7 gap-1 px-2 text-xs"
+            onClick={fitToCards}
+            title="Centre the view on your task cards"
+          >
+            <CrosshairIcon className="size-3.5" />
+            Find tasks
+          </Button>
+          {!loading && (
+            <span className="rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] text-muted-foreground backdrop-blur-sm">
+              <CheckIcon className="mr-0.5 inline size-3" />
+              {doneToday}/{todos.length} today
+            </span>
+          )}
+        </div>
+        {composerOpen && (
+          <form
+            onSubmit={createTask}
+            className="pointer-events-auto rounded-xl border bg-card/95 p-2 shadow-lg backdrop-blur-sm"
+          >
+            <Input
+              ref={composerRef}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setComposerOpen(false);
+              }}
+              placeholder="Add a task…"
+              className="h-7 text-xs"
+            />
+            <div className="mt-1.5 flex items-center gap-1">
+              {ESTIMATE_OPTIONS.map((m) => (
+                <Badge
+                  key={m}
+                  asChild
+                  variant={newEstimate === m ? "default" : "outline"}
+                  className="h-5 cursor-pointer px-1.5 text-[10px]"
+                >
+                  <button type="button" onClick={() => setNewEstimate(m)}>
+                    {formatEstimateLabel(m)}
+                  </button>
+                </Badge>
+              ))}
+              <Button type="submit" size="sm" className="ml-auto h-5 px-2 text-[10px]" disabled={creating}>
+                Add
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}

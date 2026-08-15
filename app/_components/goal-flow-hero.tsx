@@ -94,7 +94,9 @@ export function GoalFlowHero() {
     : undefined;
 
   return (
-    <div className="relative -mx-5 -mt-4 mb-5 overflow-hidden border-b bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-5 py-5 sm:px-6 sm:py-6">
+    // Full bleed on its own — the Tasks tab gives it an unpadded flex row, so it no
+    // longer cancels container padding with negative margins.
+    <div className="relative overflow-hidden border-b bg-gradient-to-br from-amber-500/10 via-violet-500/10 to-emerald-500/10 px-5 py-5 sm:px-6 sm:py-6">
       {/* Ambient layers, back to front: dot grid, then the two colour blooms. */}
       <DotPattern
         cr={0.7}

@@ -3084,3 +3084,20 @@ the connector line on desktop and under the vertical connector on mobile.
 spilling onto the chips — note this constant is shared with the feedback-loop
 row, which is what keeps the *Improves* verticals aligned under the chip centres.
 Verified with a Playwright screenshot against the local dev server.
+
+**Follow-up 8 (same day):** goal hero now runs the full width of the task panel
+— dropped the `sm:max-w-[13rem]` cap from `CHART_SLOT` so the three chips stretch
+edge to edge — and plays a one-shot intro on first paint: each chip fades up
+left→right (`CHART_BEAT` 0.42s apart), the arrow into the next chip draws from
+its left edge, then the feedback loop and the closing principle line settle in
+(~1.9s total, then completely still). Built with `motion` (Framer Motion v12),
+which was already a direct dependency — no new install. Notes:
+- `chartHasAnimated` is a module-level flag, so the intro plays once per page
+  load rather than every time you flip back to the Tasks tab. Flip that to a
+  per-mount `useState` if it should replay on each visit.
+- `useReducedMotion()` short-circuits the whole thing to a static render.
+- Arrow labels are wrapped in a plain positioned `<span>` with the motion
+  element inside: motion writes an inline `transform`, which would otherwise
+  clobber Tailwind's `-translate-x-1/2` centering.
+Verified with Playwright frames at ~0.4s (first chip + arrow drawing) and ~2.5s
+(fully settled, full width).

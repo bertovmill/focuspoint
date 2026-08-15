@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import Link from "next/link";
+import { motion, useReducedMotion } from "motion/react";
 import { TagIcon, CheckIcon, PlusIcon, CircleIcon, BrainIcon, ClockIcon, PanelLeftCloseIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, CalendarDaysIcon, ActivityIcon, MessageCircleIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon, PlayIcon, PauseIcon, TimerIcon, TimerOffIcon, FlagIcon, MegaphoneIcon, UsersIcon, BotIcon, ChevronRightIcon, ChevronUpIcon } from "lucide-react";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
@@ -170,7 +171,17 @@ const PILLAR_FLOW = [
 
 // The chip row and the feedback loop under it are two separate flex rows; they
 // only line up because both use these exact widths for slots and gaps.
-const CHART_SLOT = "w-full sm:w-auto sm:max-w-[13rem] sm:flex-1";
+// No max width: the chart fills the hero edge to edge.
+const CHART_SLOT = "w-full sm:w-auto sm:flex-1";
+
+// The goal chart plays itself once, then holds still: each chip fades up, the
+// arrow into the next chip draws, and the feedback loop closes the circuit last.
+// Whole run lands just under 2s.
+const CHART_BEAT = 0.42;
+const CHART_EASE = [0.22, 1, 0.36, 1] as const;
+const CHART_LOOP_DELAY = 1.3;
+// Only on first paint — flipping back to Tasks shouldn't replay it.
+let chartHasAnimated = false;
 // Wide enough for the arrow labels ("More attendees" / "More clients") to sit
 // over the connector without spilling onto the chips.
 const CHART_GAP = "w-24";
@@ -325,6 +336,32 @@ type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal
 export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithChat, onTabChange, isExpanded, onBackToChat, focusNewTaskSignal }: { activeTab?: DashboardTab; onCollapse?: () => void; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; isExpanded?: boolean; onBackToChat?: () => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
+  // Goal-chart intro: first mount of the page only, and never against the
+  // user's reduced-motion preference.
+  const reduceMotion = useReducedMotion();
+  const [chartIntro] = useState(() => !chartHasAnimated);
+  useEffect(() => {
+    chartHasAnimated = true;
+  }, []);
+  const playChart = chartIntro && !reduceMotion;
+  // Fade-and-rise for a chip or label; a no-op object leaves it static.
+  const chartRise = (delay: number, duration = 0.45) =>
+    playChart
+      ? {
+          initial: { opacity: 0, y: 6 },
+          animate: { opacity: 1, y: 0 },
+          transition: { delay, duration, ease: CHART_EASE },
+        }
+      : {};
+  // Draws a connector line out from its left edge.
+  const chartDraw = (delay: number, duration = 0.32) =>
+    playChart
+      ? {
+          initial: { scaleX: 0, opacity: 0 },
+          animate: { scaleX: 1, opacity: 1 },
+          transition: { delay, duration, ease: "easeOut" as const },
+        }
+      : {};
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [measureCategory, setMeasureCategory] = useState<Measure["category"]>("daily_checkin");
   const [measureForm, setMeasureForm] = useState<Record<string, string>>({});
@@ -1455,16 +1492,17 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                       {i > 0 && (
                         <>
                           {/* Stacked (mobile): the connector runs downward. */}
-                          <span
+                          <motion.span
                             aria-hidden
                             className="flex shrink-0 flex-col items-center self-center text-muted-foreground/60 sm:hidden"
+                            {...chartRise((i - 1) * CHART_BEAT + 0.34, 0.35)}
                           >
                             <span className="h-6 w-px bg-current" />
                             <ChevronRightIcon className="-mt-2 size-3.5 rotate-90" />
                             {pillar.inbound && (
                               <span className="text-[10px] leading-none">{pillar.inbound}</span>
                             )}
-                          </span>
+                          </motion.span>
                           {/* Row (desktop): fixed width so the feedback loop below
                               lines its verticals up with the chip centres. */}
                           <span
@@ -1474,17 +1512,32 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                               CHART_GAP,
                             )}
                           >
-                            <span className="h-px w-full bg-current" />
-                            <ChevronRightIcon className="absolute -right-1 size-3.5" />
+                            <motion.span
+                              className="h-px w-full origin-left bg-current"
+                              {...chartDraw((i - 1) * CHART_BEAT + 0.34)}
+                            />
+                            <motion.span
+                              className="absolute -right-1"
+                              {...chartRise((i - 1) * CHART_BEAT + 0.58, 0.3)}
+                            >
+                              <ChevronRightIcon className="size-3.5" />
+                            </motion.span>
                             {pillar.inbound && (
+                              /* The wrapper keeps the -50% centering off
+                                 motion's transform, which would clobber it. */
                               <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-[10px] leading-none">
-                                {pillar.inbound}
+                                <motion.span
+                                  className="block"
+                                  {...chartRise((i - 1) * CHART_BEAT + 0.5, 0.35)}
+                                >
+                                  {pillar.inbound}
+                                </motion.span>
                               </span>
                             )}
                           </span>
                         </>
                       )}
-                      <div
+                      <motion.div
                         title={
                           pillar.distributes
                             ? `Creates ${pillar.creates}, and distributes the service`
@@ -1495,6 +1548,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                           CHART_SLOT,
                           pillar.border,
                         )}
+                        {...chartRise(i * CHART_BEAT)}
                       >
                         <div className="flex items-center gap-2">
                           <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md", pillar.chip)}>
@@ -1511,7 +1565,7 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                             </li>
                           ))}
                         </ul>
-                      </div>
+                      </motion.div>
                     </Fragment>
                   ))}
                 </div>
@@ -1519,7 +1573,10 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                 {/* Feedback loop: better agents make the other two pillars better.
                     Mirrors the chip row's flex sizing (CHART_SLOT / CHART_GAP) so the
                     verticals land under each chip's centre. */}
-                <div className="hidden justify-center text-muted-foreground/50 sm:flex">
+                <motion.div
+                  className="hidden justify-center text-muted-foreground/50 sm:flex"
+                  {...chartRise(CHART_LOOP_DELAY, 0.5)}
+                >
                   <div className={cn("relative h-9", CHART_SLOT)}>
                     <div className="ml-auto h-full w-1/2 rounded-bl-md border-b border-l border-current" />
                     <ChevronUpIcon className="absolute -top-1.5 left-1/2 size-3.5 -translate-x-1/2" />
@@ -1540,17 +1597,20 @@ export function Dashboard({ activeTab: controlledTab, onCollapse, onRunJobWithCh
                   <div className={cn("relative h-9", CHART_SLOT)}>
                     <div className="mr-auto h-full w-1/2 rounded-br-md border-b border-r border-current" />
                   </div>
-                </div>
+                </motion.div>
                 {/* Same fact, without the drawing, once the chips stack. */}
                 <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
                   Better agents improve the content and the events.
                 </p>
 
                 {/* The principle the three pillars serve. */}
-                <p className="mt-3 text-xs leading-snug text-muted-foreground">
+                <motion.p
+                  className="mt-3 text-xs leading-snug text-muted-foreground"
+                  {...chartRise(CHART_LOOP_DELAY + 0.25, 0.45)}
+                >
                   Don&apos;t chase money — create the conditions where money becomes{" "}
                   <span className="font-medium text-foreground">inevitable</span>.
-                </p>
+                </motion.p>
               </div>
             </div>
             <form onSubmit={handleAddTodo} className="flex flex-col gap-2 mb-5">

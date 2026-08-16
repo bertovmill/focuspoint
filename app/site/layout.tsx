@@ -5,6 +5,7 @@ import { PUBLIC_HOST, SITE_PREFIX, BOOKING_URL, isPublicHost } from "@/lib/publi
 import { SiteBasePathProvider, SiteLink } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
 import { NewsletterPopup } from "./_components/newsletter-popup";
+import { SubscribeForm } from "./_components/subscribe-form";
 import { PageGrain } from "./_components/grain";
 
 export const metadata: Metadata = {
@@ -45,6 +46,22 @@ export default async function SiteLayout({ children }: { readonly children: Reac
         <main className="flex-1">{children}</main>
         <NewsletterPopup enabled={newsletterEnabled} />
         <footer className="border-t border-border/60">
+          {/* The always-available way to subscribe. The popup asks once and is gone
+              for good; this is here on every page, for everyone who dismissed it. */}
+          {newsletterEnabled && (
+            <div className="border-b border-border/60">
+              <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+                <div className="max-w-md">
+                  <h2 className="font-medium tracking-tight text-foreground">Get what I&apos;m learning</h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    Occasional notes on building AI agents and running a life with one. No spam, one
+                    click to leave.
+                  </p>
+                </div>
+                <SubscribeForm className="sm:max-w-sm" />
+              </div>
+            </div>
+          )}
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} Berto Mill</p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -56,6 +73,9 @@ export default async function SiteLayout({ children }: { readonly children: Reac
               </SiteLink>
               <SiteLink href="/building" className="transition-colors hover:text-foreground">
                 Building
+              </SiteLink>
+              <SiteLink href="/newsletter" className="transition-colors hover:text-foreground">
+                Newsletter
               </SiteLink>
               <a
                 href={BOOKING_URL}

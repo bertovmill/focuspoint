@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { getContent, listContent, formatDate } from "@/lib/content";
 import { Prose } from "../../_components/prose";
 import { PostFooterCta } from "../../_components/post-footer-cta";
+import { PostNewsletterCta } from "../../_components/post-newsletter-cta";
 import { SiteLink } from "../../_components/site-link";
 
 export async function generateStaticParams() {
@@ -50,6 +51,7 @@ export default async function WritingPostPage({ params }: { params: Promise<{ sl
         <Prose>{post.body}</Prose>
       </div>
 
+      <PostNewsletterCta />
       <PostFooterCta />
     </article>
   );

@@ -4006,3 +4006,34 @@ Still open: `RESEND_API_KEY` and `RESEND_AUDIENCE_ID` must be added to the
 `cael-agent` project in the Vercel dashboard. Until both exist in production the
 layout passes `enabled={false}` and the popup stays hidden — the signup is live
 locally but not yet on bertomill.com.
+
+**Follow-up: newsletter is a real subscription now (2026-08-16).**
+
+The popup was the only way to subscribe, and it fires once per visitor — anyone
+who dismissed it could never sign up again. Added the persistent surfaces:
+
+- **`SubscribeForm`** (`app/site/_components/subscribe-form.tsx`) — every surface
+  renders this one component, so there's a single submit path, one set of error
+  messages and one success state. `variant` only changes layout. The popup was
+  refactored onto it and lost its duplicate handler.
+- **Footer**, on every page (`app/site/layout.tsx`), behind `newsletterEnabled`.
+- **After every article and episode** — `PostNewsletterCta`, placed above the
+  booking CTA so the lower-commitment ask comes first.
+- **`/newsletter`** — a linkable page with the pitch and the archive of what's
+  been published, so "what am I signing up for?" answers itself. Added to
+  `app/sitemap.ts` and the footer nav.
+- **Welcome email** on signup, from `berto@bertomill.com` (override with
+  `NEWSLETTER_FROM`). Plain text on purpose — reads like a note from a person and
+  lands in the primary tab more often than a styled template. Failures are logged
+  and swallowed: the subscriber is already on the list, so a bounced courtesy
+  email shouldn't turn a successful signup into an error. Duplicates don't get a
+  second one.
+
+Verified on a dev server: all four surfaces render, and a real signup returned
+`ok` **and delivered the welcome email** (Resend `last_event: delivered`) — first
+send on the new domain, so deliverability is confirmed end to end.
+
+Trap worth remembering: starting a second dev server without `NEXT_DIST_DIR`
+while another is running gives a server that answers `/` but **404s every other
+route** — it isn't a routing bug. Use `NEXT_DIST_DIR=.next-<port>`, as
+`npm run dev:3001` already does.

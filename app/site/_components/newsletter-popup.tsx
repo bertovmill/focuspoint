@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckIcon, MailIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SubscribeForm } from "./subscribe-form";
 
 /**
  * Newsletter signup, shown once per visitor.
@@ -21,13 +21,9 @@ const STORAGE_KEY = "bertomill.newsletter";
 const DELAY_MS = 30_000;
 const SCROLL_FRACTION = 0.5;
 
-type Status = "idle" | "submitting" | "done" | "error";
-
 export function NewsletterPopup({ enabled }: { enabled: boolean }) {
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
     // Don't interrupt anyone with a form that can't submit — the server only
@@ -73,35 +69,14 @@ export function NewsletterPopup({ enabled }: { enabled: boolean }) {
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next && status !== "done") remember("dismissed");
+    if (!next && !subscribed) remember("dismissed");
   };
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (status === "submitting") return;
-    setStatus("submitting");
-    setError(null);
-    try {
-      const res = await fetch("/api/site/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error ?? "Couldn't sign you up just now.");
-      setStatus("done");
-      remember("subscribed");
-      window.setTimeout(() => setOpen(false), 2200);
-    } catch (err) {
-      setStatus("error");
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        {status === "done" ? (
+        {subscribed ? (
           <div className="py-6 text-center">
             <div className="mx-auto grid size-11 place-items-center rounded-full bg-primary/10">
               <CheckIcon className="size-5 text-primary" />
@@ -124,27 +99,18 @@ export function NewsletterPopup({ enabled }: { enabled: boolean }) {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={onSubmit} className="mt-2 flex flex-col gap-3">
-              <Input
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@example.com"
-                aria-label="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={status === "submitting"}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex items-center gap-2">
-                <Button type="submit" disabled={status === "submitting" || email.trim().length === 0}>
-                  {status === "submitting" ? "Signing you up…" : "Subscribe"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                  Not now
-                </Button>
-              </div>
-            </form>
+            <SubscribeForm
+              variant="stacked"
+              className="mt-2"
+              onSuccess={() => {
+                setSubscribed(true);
+                remember("subscribed");
+                window.setTimeout(() => setOpen(false), 2200);
+              }}
+            />
+            <Button type="button" variant="ghost" className="mt-1 self-start" onClick={() => onOpenChange(false)}>
+              Not now
+            </Button>
           </>
         )}
       </DialogContent>

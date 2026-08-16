@@ -52,7 +52,11 @@ async function waitForHandDrawnFont(deadlineMs = 5000) {
 
 // Remembered across sessions so the board stays however it was last left.
 const HEIGHT_KEY = "focuspoint:strategy-board-height";
-const DEFAULT_HEIGHT = 360;
+const DEFAULT_HEIGHT = 400;
+// Excalidraw floats its toolbar over the top of the canvas, so a centred fit puts
+// the flywheel behind it. The fitted view is pushed down by this much — more than
+// the toolbar's own height, since it also has to give back the fit's top margin.
+const TOOLBAR_CLEARANCE = 80;
 const MIN_HEIGHT = 160;
 const MAX_HEIGHT = 900;
 // Below this a drag snaps the board shut rather than leaving a useless sliver.
@@ -95,9 +99,6 @@ export function StrategyBoard() {
         if (cancelled) return;
         const scene = data?.scene ?? {};
         const elements: ExcalidrawElement[] = scene.elements ?? [];
-        // A row that has never been written (updated_at null) gets the starting
-        // flywheel. An existing row that's empty stays empty — clearing the board
-        // is a deliberate act and shouldn't undo itself on the next visit.
         setInitialScene({
           elements,
           appState: scene.appState ?? {},
@@ -204,7 +205,13 @@ export function StrategyBoard() {
       const { width, height } = api.getAppState();
       if (elements.length > 0 && width > 0 && height > 0) {
         fittedRef.current = true;
-        api.scrollToContent(elements, { fitToContent: true, animate: false });
+        // viewportZoomFactor leaves a margin so the board doesn't open wall-to-wall…
+        api.scrollToContent(elements, { fitToContent: true, viewportZoomFactor: 0.8, animate: false });
+        // …and the fitted view is then nudged down, because a centred fit parks the
+        // top of the flywheel underneath Excalidraw's floating toolbar. Scene maps to
+        // viewport as (sceneY + scrollY) * zoom, so a bigger scrollY moves ink down.
+        const { scrollY, zoom } = api.getAppState();
+        api.updateScene({ appState: { scrollY: scrollY + TOOLBAR_CLEARANCE / zoom.value } });
         return;
       }
       if (++tries < 25) timer = setTimeout(tick, 100);

@@ -139,7 +139,9 @@ export const STRATEGY_SEED: ExcalidrawElementSkeleton[] = [
   {
     type: "text",
     id: "strategy-creed",
-    x: COL_X[0],
+    // Under the middle pillar rather than flush left: bottom-left of the board is
+    // where Excalidraw parks its zoom and undo controls.
+    x: COL_X[1] - 40,
     y: BOX_Y + BOX_H + 250,
     text: "Don't chase money — create the\nconditions where money becomes inevitable.",
     fontSize: 20,

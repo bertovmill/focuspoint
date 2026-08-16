@@ -4,6 +4,66 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — The strategy banner is now its own Excalidraw board
+
+**Ask:** *"i want this top level strategy to also be editable - maybe like the
+excalidraw board, but a separate board from the one under."* Plus, mid-build:
+*"love it and style keep that nice color gradient background for it."*
+
+**Decision (asked Berto, three options offered):** a **second Excalidraw board**,
+seeded once with the flywheel drawn as real Excalidraw shapes. The alternatives —
+keeping the animated hero but making its text DB-editable, or toggling between the
+two — were declined. So `GoalFlowHero` is **deleted**: no more AnimatedBeam arcs or
+BorderBeam glow, the connectors are hand-drawn arrows now.
+
+**How it fits together.** Same idiom as the Tasks notebook, one row over:
+
+- `app/_components/strategy-board.tsx` — the board. Loads from
+  `/api/strategy-canvas`, autosaves 1.5s after the last edit, flushes on unmount.
+- `app/api/strategy-canvas/route.ts` — `task_canvas` **row 2** (row 1 is the task
+  notebook). Two independent scenes, one table.
+- `lib/strategy-seed.ts` — the flywheel as an `ExcalidrawElementSkeleton[]`: three
+  transparent rounded boxes with bound labels, two bound forward arrows ("More
+  attendees", "More clients"), three dashed feedback arcs, and the creed. It's a
+  *seed, not a source of truth* — stamped once, then never consulted again.
+- The gradient wash, dot grid and colour blooms stayed; the Excalidraw canvas sits
+  on top with `viewBackgroundColor: "transparent"` so they read through it. Both
+  the container and its canvas need clearing in CSS (`.strategy-board .excalidraw`
+  in globals.css) — the scene's background colour alone isn't enough.
+- The drag-to-collapse handle came over from the old hero, but now resizes between
+  0 and 900px around a 400px default (no ResizeObserver: a canvas has no natural
+  height). Key: `focuspoint:strategy-board-height`.
+
+**Three traps, all of which cost a round of debugging:**
+
+1. **Seeding must happen *after* Excalidraw mounts.** `convertToExcalidrawElements`
+   measures each bound label once and bakes the width into the element. Excalidraw
+   registers its hand-drawn font (Excalifont) on *component mount*, so converting
+   for `initialData` measures in a fallback font — and every label saves clipped
+   mid-word ("Attention to d"). The board now mounts empty and gets stamped via
+   `updateScene` once the font is up.
+2. **`document.fonts.check()` is useless as a readiness test.** It answers "are all
+   *matching* faces loaded?", which is vacuously `true` while no face matches at
+   all. It returned true 500ms in, with Excalifont nowhere in `document.fonts`.
+   `waitForHandDrawnFont()` polls the registry for the face itself instead.
+3. **`scrollToContent` against an unmeasured canvas silently does nothing.**
+   Excalidraw reports `appState.width/height` as 0 until it has measured its
+   container, so the fit was a no-op and the board opened at 100% with the flywheel
+   cropped. It now polls for a non-zero viewport, then fits at
+   `viewportZoomFactor: 0.8` and pushes the view down `TOOLBAR_CLEARANCE` px — a
+   centred fit parks the top of the flywheel behind Excalidraw's floating toolbar.
+
+**Seeding rule:** a board whose row has never been written (`updated_at` null) gets
+the flywheel. An existing but empty row stays empty — clearing the board is
+deliberate and shouldn't undo itself on the next visit.
+
+Verified with Playwright at 1440×950: fresh seed renders unclipped and fitted (70%),
+reload path fits the same way, and dragging the "More content" pillar moved it
+(x 40 → 125.7) and persisted, label bound and intact. `npm run typecheck` clean.
+Row 2 was reset afterwards, so the first real visit stamps a clean flywheel.
+
+---
+
 ## 2026-08-16 — bertomill.com: split-hero homepage
 
 **Ask:** *"can we work on making the design of the front facing version of our

@@ -40,6 +40,24 @@ const DESIRED = [
   { type: "A", name: `cael.${ZONE}`, content: APEX_IP, comment: "Vercel cael-agent — private Cael app" },
 ];
 
+/**
+ * Mail records (SPF/DKIM/MX) for the Resend sending domain, passed in as JSON by
+ * `scripts/resend-setup.mjs` rather than hardcoded — the DKIM key is generated per
+ * domain, so it can't be known ahead of time. Routing them through this script
+ * keeps every record in the zone created by one reviewed, idempotent path.
+ */
+if (process.env.RESEND_DNS_JSON) {
+  for (const r of JSON.parse(process.env.RESEND_DNS_JSON)) {
+    DESIRED.push({
+      type: r.type,
+      name: r.name,
+      content: r.content,
+      ...(r.priority != null ? { priority: r.priority } : {}),
+      comment: "Resend — newsletter sending",
+    });
+  }
+}
+
 async function cf(path, init = {}) {
   const res = await fetch(`${API}${path}`, {
     ...init,
@@ -71,7 +89,10 @@ const existing = await cf(`/zones/${zoneId}/dns_records?per_page=100`);
 
 for (const want of DESIRED) {
   const current = existing.find((r) => r.type === want.type && r.name === want.name);
-  const payload = { ...want, ttl: 1, proxied: false };
+  // `proxied` is only meaningful for record types the CDN can sit in front of;
+  // sending it on a TXT or MX is rejected.
+  const proxiable = ["A", "AAAA", "CNAME"].includes(want.type);
+  const payload = { ...want, ttl: 1, ...(proxiable ? { proxied: false } : {}) };
 
   if (!current) {
     console.log(`${APPLY ? "creating" : "would create"}  ${want.type.padEnd(5)} ${want.name} → ${want.content}`);
@@ -79,7 +100,7 @@ for (const want of DESIRED) {
     continue;
   }
 
-  if (current.content === want.content && current.proxied === false) {
+  if (current.content === want.content && (!proxiable || current.proxied === false)) {
     console.log(`unchanged      ${want.type.padEnd(5)} ${want.name} → ${want.content}`);
     continue;
   }

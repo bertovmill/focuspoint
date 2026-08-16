@@ -4131,3 +4131,31 @@ bare `../app/(app)/lists/page.tsx` line in it — malformed output from two dev 
 writing that directory at once, nothing to do with the source. Deleting the file
 fixes it; it regenerates. Always build/dev with `NEXT_DIST_DIR` set when another
 session's server is up.
+
+**Follow-up: a Newsletter section inside Cael (2026-08-16).**
+
+Subscribers only existed in Resend's dashboard. Added a read-only section at
+`/newsletter` on the private host — count, the full list with signup dates,
+unsubscribed rows struck through, and a cumulative growth chart.
+
+Deliberately read-only: no send, no delete, no edit. Sending stays in Resend where
+the confirm steps and the audit trail already are, and an app that can't email the
+list can't email it by accident.
+
+- `app/api/newsletter/subscribers/route.ts` — note the path. It's under
+  `/api/newsletter/`, **not** `/api/site/`, so it inherits the private gate rather
+  than the public allowlist. Verified: 401 unauthenticated, 200 for the owner,
+  **404 on bertomill.com** — the public signup form can never read back who else
+  is on the list.
+- `app/_components/newsletter-panel.tsx` — recharts area chart via the project's
+  existing `ChartContainer`. The chart only renders with 2+ distinct signup days;
+  with everything on one day there's no line to draw.
+
+Wiring note: adding a section normally means touching `dashboard.tsx` (1,200 lines,
+and shared with whatever else is in flight). Avoided entirely — the panel renders in
+the same `<aside>` slot via a single conditional in `app/(app)/layout.tsx`, and
+`app/(app)/newsletter/page.tsx` is the usual null stub. Only `layout.tsx` changed.
+
+Trap: a regex insert put `MailIcon` into the wrong import block and broke the build
+with a bare `TS1005: ',' expected`. The lucide import in that file is one long single
+line — worth editing by hand rather than by pattern.

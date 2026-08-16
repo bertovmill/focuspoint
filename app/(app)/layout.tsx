@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon } from "lucide-react";
+import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { ModeToggle } from "@/app/_components/mode-toggle";
@@ -13,6 +13,7 @@ import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { PIN_EVENT } from "@/app/_components/pin-button";
@@ -27,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -48,6 +49,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   vision: "/vision",
   family: "/family",
   manual: "/manual",
+  newsletter: "/newsletter",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -65,6 +67,7 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "vision", label: "Vision", icon: TelescopeIcon },
   { tab: "family", label: "Family", icon: HeartIcon },
   { tab: "manual", label: "Manual", icon: BookMarkedIcon },
+  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
 // Home, Chat, Tasks, Notes, Lists — the same five the mobile bar promotes above
@@ -93,6 +96,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "manual", label: "Manual", icon: BookMarkedIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
+  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
 const NAV_RAIL_STORAGE_KEY = "focuspoint:nav-rail-open";
@@ -341,12 +345,16 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       >
         {/* Inner wrapper keeps a fixed width so content doesn't reflow during animation, only when acting as a sidebar */}
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
+          {mobileTab === "newsletter" ? (
+            <NewsletterPanel />
+          ) : (
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "manual" ? "manual" : "todos"}
             onRunJobWithChat={handleRunJobWithChat}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
             focusNewTaskSignal={focusNewTaskSignal}
           />
+          )}
         </div>
       </aside>
 

@@ -3884,3 +3884,41 @@ Files: `app/_components/pipeline-lanes.tsx`. `npm run typecheck` clean.
   accept terms at the `verification_uri`, re-run
   `vercel integration add resend --no-claim --scope bertmill19s-projects`, create
   an Audience in Resend, add `RESEND_AUDIENCE_ID`, then `vercel env pull` + deploy.
+
+**Follow-up: Resend newsletter wired up (2026-08-16).**
+
+The Vercel Marketplace resource never provisioned — `vercel integration add resend`
+cleared the terms gate but then needed a second browser step that never completed,
+and `vercel integration list` still shows only Neon. Went direct through Berto's
+own Resend account instead (billing is Resend's rather than unified through Vercel;
+functionally identical).
+
+- **Audience** `bertomill.com newsletter` → `RESEND_AUDIENCE_ID=dbfef196-7db2-4caa-94dc-2bbafb0dc55c`.
+- **Sending domain** `bertomill.com` (`f9756c80-…`). The free plan allows exactly one
+  domain and `yourbibbuddy.com` held the slot; it was `not_started` (added, never
+  verified, so nothing had ever sent from it) and was deleted with Berto's okay.
+- **DNS** written through `scripts/cloudflare-dns.mjs` via `RESEND_DNS_JSON`:
+  DKIM `TXT resend._domainkey`, plus `MX` and SPF `TXT` on **send.bertomill.com**.
+  Resend scopes SPF/MX to that subdomain, so the apex stays clean for real mail
+  (e.g. Google Workspace) later. DKIM resolved immediately; verification requested.
+
+Verified end-to-end against the live Resend API on a dev server: a real POST to
+`/api/site/subscribe` returned `{"ok":true}` and the contact appeared in the
+Audience; a second submit of the same address also returned `ok` **without**
+creating a duplicate; a malformed address still got a 400. Test contact deleted,
+audience back to 0.
+
+Two traps worth remembering:
+
+- **`.env.local` had no trailing newline**, so `echo 'X=y' >> .env.local` merged onto
+  the previous line and corrupted `RESEND_API_KEY`. The file now ends with a
+  newline; still worth checking `grep -c` after any append.
+- **The Vercel CLI has lost the `bertmill19s-projects` scope** — `vercel teams ls`
+  lists only `aucctus`/`aucctus-9e16163a`, so there is no CLI path to production
+  env vars. They have to be set in the dashboard, and deploys go via
+  `git push origin main`.
+
+Still open: `RESEND_API_KEY` and `RESEND_AUDIENCE_ID` must be added to the
+`cael-agent` project in the Vercel dashboard. Until both exist in production the
+layout passes `enabled={false}` and the popup stays hidden — the signup is live
+locally but not yet on bertomill.com.

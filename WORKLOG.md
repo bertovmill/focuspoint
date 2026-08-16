@@ -4037,3 +4037,41 @@ Trap worth remembering: starting a second dev server without `NEXT_DIST_DIR`
 while another is running gives a server that answers `/` but **404s every other
 route** — it isn't a routing bug. Use `NEXT_DIST_DIR=.next-<port>`, as
 `npm run dev:3001` already does.
+
+**Follow-up: the welcome email now honours its own unsubscribe promise (2026-08-16).**
+
+Berto tested the signup and the email landed in Gmail's **Inbox** — not Promotions,
+not Spam — on the first send from a brand-new domain. DKIM + SPF doing their job.
+
+Reading it back, though, the copy said "just hit unsubscribe" and there was no
+link and no header to hit. A transactional `/emails` send gets no unsubscribe
+machinery for free (only Broadcasts do), so the email made a promise the code
+didn't keep. That's also a compliance problem, not just a tidiness one: CASL
+requires a working unsubscribe in commercial email, and Gmail/Yahoo bulk-sender
+rules expect one-click.
+
+- **`lib/newsletter-token.ts`** — HMAC-signed unsubscribe links. The address has to
+  travel in the URL (an email client has no session), so it's signed to stop anyone
+  unsubscribing a third party by editing the query string. Verified with
+  `timingSafeEqual`. The key derives from `RESEND_API_KEY` to avoid provisioning a
+  second secret — documented trade-off: rotating that key invalidates links already
+  sitting in inboxes. Set `NEWSLETTER_SECRET` to decouple them.
+- **`app/api/site/unsubscribe/route.ts`** — `GET` for a human clicking the link
+  (returns a small self-contained HTML page that doesn't depend on the site's CSS
+  loading), `POST` for Gmail/Apple Mail's native button (RFC 8058). Marks the contact
+  `unsubscribed: true` rather than deleting, so they stay suppressed if the list is
+  ever re-imported. A 404 from Resend is treated as success — someone who isn't on
+  the list already has what they wanted.
+- The welcome email now carries the real link plus `List-Unsubscribe` and
+  `List-Unsubscribe-Post` headers.
+
+Verified locally against the live Resend API: tampered token → 400; the valid token
+replayed against a *different* address → 400; one-click `POST` → 200 and the contact
+actually flipped to `unsubscribed: true`; the `GET` page renders. Test contacts
+deleted — the list is back to Berto's own address only.
+
+Trap: `npm run typecheck` was failing on `.next/dev/types/validator.ts`, which had a
+bare `../app/(app)/lists/page.tsx` line in it — malformed output from two dev servers
+writing that directory at once, nothing to do with the source. Deleting the file
+fixes it; it regenerates. Always build/dev with `NEXT_DIST_DIR` set when another
+session's server is up.

@@ -33,6 +33,10 @@ function isAlwaysAllowed(pathname: string): boolean {
     pathname.startsWith(PASSWORD_SIGN_IN_PATH) ||
     pathname.startsWith(NOT_AUTHORIZED_PATH) ||
     pathname.startsWith("/api/auth") ||
+    // Clerk's own proxy path. The gate matches every route, so without this the
+    // handshake that *establishes* a session gets redirected to the sign-in page
+    // it is trying to complete — a loop with no way out.
+    pathname.startsWith("/__clerk") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||

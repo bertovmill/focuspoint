@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
-import { GoalFlowHero } from "@/app/_components/goal-flow-hero";
+import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
@@ -697,9 +697,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
           // around them — arrows, headings, scribbles — is freeform drawing. h-full so
           // the canvas claims the whole panel instead of a fixed box.
           <div className="flex h-full flex-col pb-16 lg:pb-0">
-            {/* The three pillars sit above everything else: every task should ladder
-                up to one of them. */}
-            <GoalFlowHero />
+            {/* The strategy sits above everything else: every task should ladder up
+                to it. Its own Excalidraw scene, separate from the notebook below. */}
+            <StrategyBoard />
             <div className="min-h-0 flex-1">
               <TaskCanvas
                 todos={visibleTodos}

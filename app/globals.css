@@ -3,11 +3,12 @@
 @source "../node_modules/streamdown/dist/*.js";
 
 /*
- * A screen big enough to pin the homepage hero card beside the scrolling panels.
- * Height matters as much as width here: the card is a fixed viewport-height box,
- * so on a short laptop pinning it would strand its lower half below the fold.
+ * A laptop-height viewport. The homepage hero card is pinned to the viewport
+ * height on every desktop screen, so on a short one its contents have to give a
+ * little — smaller headline, tighter gaps — rather than the card giving up its
+ * pin. Height-based, so it fires on a 1440x800 laptop but not a 1440x1000 one.
  */
-@custom-variant hero-pinned (@media (min-width: 1024px) and (min-height: 840px));
+@custom-variant short (@media (min-width: 1024px) and (max-height: 880px));
 
 @theme inline {
   --color-background: var(--background);
@@ -224,4 +225,14 @@
 .fc .fc-timegrid-axis-cushion {
   color: var(--muted-foreground);
   font-size: 0.7rem;
+}
+
+/* The strategy board draws on a transparent canvas so the amber → violet →
+   emerald gradient behind it reads through. Excalidraw paints its own container
+   and the static canvas with the app background, so both have to be cleared —
+   the scene's viewBackgroundColor alone isn't enough. */
+.strategy-board .excalidraw,
+.strategy-board .excalidraw .excalidraw__canvas,
+.strategy-board .excalidraw .excalidraw-canvas-buttons {
+  background: transparent !important;
 }

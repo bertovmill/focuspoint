@@ -51,11 +51,17 @@ Re-run: `node --env-file=.env.local scripts/generate-site-art.mjs [key ...]`.
    explicit `PUBLIC_ASSET_DIRS` allowlist; the list stays explicit because
    anything on it answers without a session.
 2. At 1280×700 the pinned hero clipped its own stats mid-number (content 736px
-   in a 610px box). Added a `hero-pinned` custom variant in `globals.css`
-   (`min-width: 1024px and min-height: 840px`) — below that the card is a
-   normal block that scrolls away. Needed `self-start` on the aside too: a grid
-   item stretches to its row by default, and the row is four panels tall, so
-   without it the unpinned card ballooned to ~2500px.
+   in a 610px box). **First attempt was wrong** — I stopped pinning below
+   840px tall, which fixed the clipping but cost the layout its whole point on
+   any laptop. Berto caught it immediately: the card scrolled away on his own
+   screen. The card now stays pinned on every desktop screen and its *content*
+   gives instead: a `short` variant in `globals.css`
+   (`min-width: 1024px and max-height: 880px`) tightens the headline, copy and
+   stat spacing, with `overflow-y-auto` on the card as the last-resort backstop.
+   Measured 0px overflow at 720/760/800/900/1000px tall and at 1280×700.
+
+   The lesson worth keeping: when a fixed-height box overflows, shrink what's
+   in it — don't surrender the property that makes the design work.
 
 Verified with Playwright at 1440×950 (pinned), 1280×700 (unpinned), 390×844
 mobile, and dark mode. No console errors. `npm run typecheck` and

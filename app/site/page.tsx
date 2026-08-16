@@ -16,20 +16,20 @@ export const revalidate = 300;
 const PANEL_HEIGHT = "lg:h-[calc(100svh-5.5rem)]";
 
 /**
- * Pinning the hero only pays off when the viewport can hold it — see the
- * `hero-pinned` variant in globals.css. On anything shorter the card stays a
- * normal block that scrolls away with the page, which costs nothing.
+ * The card stays put on every desktop screen — that's the whole idea of the
+ * layout, so it is never traded away for a short viewport. Instead the card's
+ * own content is sized to fit a panel (see the `short` variant, which tightens
+ * the type and spacing below 880px tall), with `overflow-y-auto` on the card as
+ * the last-resort backstop so nothing can ever be cut off unreachably.
  */
-const HERO_PIN =
-  // `self-start` matters: a grid item stretches to its row by default, and the
-  // row here is four panels tall. Without it the unpinned card grows to ~2500px
-  // and its contents drift apart.
-  "self-start hero-pinned:sticky hero-pinned:top-20 hero-pinned:h-[calc(100svh-5.5rem)]";
+const HERO_PIN = "lg:sticky lg:top-20 lg:h-[calc(100svh-5.5rem)]";
 
 function StatTile({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <div className="font-mono text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{value}</div>
+      <div className="font-mono text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl short:sm:text-2xl">
+        {value}
+      </div>
       <div className="mt-0.5 text-xs leading-snug text-muted-foreground">{label}</div>
     </div>
   );
@@ -51,14 +51,11 @@ export default async function SiteHomePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         {/* LEFT: the pitch. Pinned on desktop while the panels scroll past it. */}
         <aside className={HERO_PIN}>
-          {/* The card is pinned to the viewport height, so on a short laptop the
-              stats below would be sliced in half. Scrolling inside the card keeps
-              the full-height look without ever hiding content. */}
           <RevealOnView
             as="div"
             intensity="hero"
             staggerChildren
-            className="relative flex flex-col justify-between gap-10 overflow-y-auto rounded-3xl border border-border bg-card p-6 hero-pinned:h-full sm:p-8"
+            className="relative flex flex-col justify-between gap-10 overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 lg:h-full short:gap-6"
           >
             {/* Texture — barely there, just enough to stop the card reading as flat. */}
             <DotPattern
@@ -69,7 +66,7 @@ export default async function SiteHomePage() {
             />
 
             <div className="relative">
-              <div className="mb-8 flex items-center gap-2.5">
+              <div className="mb-8 flex items-center gap-2.5 short:mb-5">
                 <Image
                   src="/berto-headshot.jpg"
                   alt="Berto Mill"
@@ -88,17 +85,17 @@ export default async function SiteHomePage() {
               </p>
 
               <AnimatedHeading
-                className="mt-4 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-[2.75rem]"
+                className="mt-4 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-[2.75rem] short:mt-3 short:sm:text-[2.25rem]"
                 lines={["I build AI agents,", "and I let one run my life."]}
               />
 
-              <p className="mt-5 max-w-[46ch] leading-relaxed text-muted-foreground">
+              <p className="mt-5 max-w-[46ch] leading-relaxed text-muted-foreground short:mt-4 short:text-sm">
                 For the past while I&apos;ve been building <span className="text-foreground">Cael</span> — a personal
                 agent that holds my goals, my reading, my training and my calendar, and nudges me toward the life I
                 said I wanted. This site is the window into that.
               </p>
 
-              <div className="mt-7 flex flex-wrap items-center gap-3">
+              <div className="mt-7 flex flex-wrap items-center gap-3 short:mt-5">
                 <SiteLink
                   href="/building"
                   className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
@@ -118,10 +115,10 @@ export default async function SiteHomePage() {
             {/* The stats take the slot a portfolio would give to client logos. */}
             {stats && (
               <div className="relative">
-                <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground short:mb-3">
                   Live from Cael&apos;s database
                 </p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 lg:grid-cols-2">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 lg:grid-cols-2 short:gap-y-3">
                   <StatTile value={String(stats.booksRead)} label="Books finished" />
                   <StatTile value={String(stats.tasksShipped)} label="Tasks completed" />
                   <StatTile value={String(stats.shippedLast30Days)} label="Shipped, 30 days" />

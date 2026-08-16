@@ -1,6 +1,6 @@
 // The task row shape, shared by the dashboard and the Tasks canvas. It mirrors the
 // columns the /api/todos routes select — keep the two in step.
-import type { TaskCategory } from "@/lib/task-categories";
+import { isLaneCategory, type TaskCategory } from "@/lib/task-categories";
 
 export interface Todo {
   id: number;
@@ -28,14 +28,15 @@ export interface Todo {
   parent_id?: number | null;
 }
 
-// A content piece is a top-level `content` task; its children are the steps to ship
-// it. Both live in the pinned Content lane, not as free-floating canvas cards.
-export function isContentPiece(t: Todo) {
-  return t.category === "content" && t.parent_id == null;
+// A piece is a top-level task in one of the pipeline categories (Content, Code,
+// Community, Sales); its children are the steps to ship it. Both live in the pinned
+// pipeline panel, not as free-floating canvas cards.
+export function isLanePiece(t: Todo) {
+  return t.parent_id == null && isLaneCategory(t.category);
 }
 
-export function isInContentLane(t: Todo) {
-  return isContentPiece(t) || t.parent_id != null;
+export function isInLane(t: Todo) {
+  return isLanePiece(t) || t.parent_id != null;
 }
 
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;

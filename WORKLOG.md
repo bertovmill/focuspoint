@@ -3543,3 +3543,50 @@ The public chat is the one thing unverified end-to-end: the AI Gateway call
 needs a live `VERCEL_OIDC_TOKEN`, which expired locally and can't be refreshed
 while the CLI is logged out. It resolves automatically in production; worth one
 message through `/chat` after the first deploy.
+
+**Follow-up (same day): bertomill.com is live.** The "needs Berto" block above is
+resolved — DNS, domains and production deploy are all done.
+
+Two things about the environment were wrong in the earlier entry:
+
+- **The Vercel project is `cael-agent` (`prj_RTIFlE60…`), not `focuspoint`.**
+  `.vercel/project.json` pointed at `prj_UNY93…`, a stale link — that, not an
+  expired session, was the real cause of the "Not authorized" / "Could not
+  retrieve Project Settings" errors. Re-linked with
+  `vercel link --yes --project cael-agent`. Note the CLI here (56.3.1) needs an
+  explicit `--scope bertmill19s-projects` on most commands, and its `whoami`
+  reports Not authorized even when auth is fine — don't trust it as a signal.
+- **Vercel asked for `A <name> 76.76.21.21` on all three names**, subdomains
+  included — not a CNAME to `cname.vercel-dns.com`. `scripts/cloudflare-dns.mjs`
+  follows what `vercel domains inspect` actually returned.
+
+**DNS** is managed programmatically via `scripts/cloudflare-dns.mjs` — a plain
+`fetch` against Cloudflare's v4 API, no CLI needed. It's an idempotent upsert
+keyed on (type, name), so re-running converges instead of duplicating; run it
+bare for a dry-run plan, `--apply` to commit. Needs `CLOUDFLARE_API_TOKEN` in
+`.env.local` (Zone:DNS:Edit + Zone:Zone:Read, scoped to bertomill.com).
+
+All three records are **unproxied (grey cloud)** deliberately: Vercel terminates
+TLS itself, and Cloudflare's proxy buffers streaming responses — which
+`/api/site/chat` depends on. Zone `3169224ba645aa26016d370829ee94a1`.
+
+Verified against production:
+
+- `bertomill.com` — all 5 pages, both article routes, robots and sitemap: 200,
+  valid cert.
+- `www.bertomill.com` → 308 to the apex. `cael.bertomill.com` → 307 to `/login`,
+  login 200, unauthenticated `/api/todos` 401. `cael-agent.vercel.app` still 200.
+- On the public host `/api/todos`, `/api/thoughts`, `/traces`, `/login`, `/site`,
+  `/eve/v1/health` and `/_eve_internal/eve` all 404.
+- Public Cael answered a real question correctly (15 books toward 100) and
+  refused a combined prompt-extraction + savings + private-data probe.
+
+Gotcha worth remembering: this sandbox blocks arbitrary outbound domains, so a
+fresh domain returns `000` from curl and looks dead when it isn't. Test with
+`curl --resolve bertomill.com:443:76.76.21.21` instead. Also: zsh does not
+word-split unquoted variables, so `$FLAGS` holding `--resolve x:y:z` reaches
+curl as one argument.
+
+Related: `vercel link` rewrote `.env.local` but **merged** rather than replaced,
+so `CLOUDFLARE_API_TOKEN` survived. It also pulled a fresh `VERCEL_OIDC_TOKEN`,
+which is what finally made the AI Gateway call work locally.

@@ -36,13 +36,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
-import { ContentLane } from "@/app/_components/content-lane";
+import { PipelineLanes } from "@/app/_components/pipeline-lanes";
 import {
   ESTIMATE_OPTIONS,
   formatCountdown,
   formatEstimateLabel,
   isDoneToday,
-  isInContentLane,
+  isInLane,
   PRIORITIES,
   remainingSeconds,
   type Todo,
@@ -96,7 +96,7 @@ function estimateCardHeight(title: string) {
 // over a card still bubble to Excalidraw, so pan/zoom keeps working over the cards.
 const CARD_LAYER_Z = 3;
 
-// The pinned Content lane, and how far the canvas toolbar slides right to clear it.
+// The pinned pipeline panel, and how far the canvas toolbar slides right to clear it.
 const LANE_COLLAPSED_KEY = "focuspoint.content-lane.collapsed";
 const LANE_OPEN_OFFSET = "16.5rem";
 const LANE_CLOSED_OFFSET = "2.75rem";
@@ -106,6 +106,9 @@ const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
   calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
   ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
   content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  code: "border-indigo-500/40 text-indigo-600 dark:text-indigo-400",
+  community: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+  sales: "border-green-600/40 text-green-700 dark:text-green-400",
 };
 
 const PRIORITY_DOT: Record<Todo["priority"], string> = {
@@ -189,9 +192,9 @@ export function TaskCanvas({
     });
   }, []);
 
-  // Content pieces and the tasks hanging off them live in the pinned Content lane,
-  // never as free-floating cards — otherwise the same task would sit in two places.
-  const canvasTodos = useMemo(() => todos.filter((t) => !isInContentLane(t)), [todos]);
+  // Pipeline pieces and the tasks hanging off them live in the pinned panel, never
+  // as free-floating cards — otherwise the same task would sit in two places.
+  const canvasTodos = useMemo(() => todos.filter((t) => !isInLane(t)), [todos]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -818,9 +821,9 @@ export function TaskCanvas({
           cardHost,
         )}
 
-      {/* The content pipeline: pinned to the canvas rather than drawn on it, so it
-          holds its place while the notebook pans and zooms underneath. */}
-      <ContentLane
+      {/* The pipelines (Content, Code, Community, Sales): pinned to the canvas rather
+          than drawn on it, so they hold their place while the notebook pans. */}
+      <PipelineLanes
         todos={todos}
         collapsed={laneCollapsed}
         onToggleCollapsed={toggleLane}

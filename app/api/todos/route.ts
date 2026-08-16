@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hasWorkingSlot } from "@/lib/working-now";
-import { normalizeCategory } from "@/lib/task-categories";
+import { isLaneCategory, normalizeCategory } from "@/lib/task-categories";
 
 export async function GET(req: Request) {
   try {
@@ -45,12 +45,13 @@ export async function POST(req: Request) {
     const normalizedCategory = normalizeCategory(category);
     const parsedParent = Number(parent_id);
     const parent = Number.isFinite(parsedParent) && parsedParent > 0 ? Math.trunc(parsedParent) : null;
-    // A content *piece* is a container, not a unit of work — it has no estimate and
-    // nothing to time. Every other task still has to declare how long it'll take.
-    const isContentPiece = normalizedCategory === "content" && parent === null;
+    // A pipeline *piece* (Content, Code, Community, Sales) is a container, not a unit
+    // of work — it has no estimate and nothing to time. Every other task still has to
+    // declare how long it'll take.
+    const isPiece = parent === null && isLaneCategory(normalizedCategory);
     const parsedEstimate = Number(estimated_minutes);
     const hasEstimate = Number.isFinite(parsedEstimate) && parsedEstimate > 0;
-    if (!hasEstimate && !isContentPiece) {
+    if (!hasEstimate && !isPiece) {
       return NextResponse.json({ error: "estimated_minutes required" }, { status: 400 });
     }
     const estimate = hasEstimate ? Math.trunc(parsedEstimate) : null;

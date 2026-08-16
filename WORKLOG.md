@@ -4,6 +4,72 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — Luma, mirrored into Cael
+
+**Ask:** *"connect cael to luma so we can pull all luma details into cael, and use
+that as context for things like newsletters"* → *"check what the luma api has to
+offer, and pull it all in, saving it to a db each time."*
+
+**What the key can actually reach** (surveyed live, not from docs):
+
+| endpoint | gives |
+| --- | --- |
+| `/calendar/list-events` | every event — but **no description** |
+| `/event/get?api_id=` | the full event: `description`, `description_md`, tags, hosts |
+| `/event/get-guests?event_id=` | guests: name, email, phone, approval, check-in, answers |
+| `/calendar/list-people` | people: email, attendance counts, revenue, membership |
+| `/calendars/contacts/list` | contacts — what the Community chart already used |
+| coupons / hosts / ticket-types | 404 on this key |
+
+Note the parameter names: `/event/get` wants **`api_id`**, `/event/get-guests`
+wants **`event_id`**. Neither is interchangeable, and the error message for the
+wrong one just says "Missing event identifier".
+
+**Scale:** 20 events, **7,614 guest registrations**, 1,185 people.
+
+**The mirror** (`lib/luma-sync.ts` → `luma_events`, `luma_guests`, `luma_people`,
+`luma_sync_runs`). Every table keeps the whole API object in a `raw` JSONB column,
+so a field Luma adds later isn't lost just because the schema didn't name it. The
+sync is an **upsert, never a wipe-and-reload**: a row Luma stops returning stays
+put rather than vanishing from Cael's memory. Each event costs a second call —
+the list shape has no description, and the description is the most useful thing
+here for writing a newsletter.
+
+**Two performance facts worth keeping.** The first version inserted each guest
+individually: 7,614 round trips to Neon, a **4m57s** sync — exactly the function
+timeout. Batched into multi-row `VALUES` (chunks of 200, via `sql.query` since the
+Neon driver takes values not SQL fragments) it dropped to **~24s** — and promptly
+tripped Luma's **rate limit**, because it was now fast enough to. So `lumaGet`
+retries 429s and 5xx with backoff, honouring `Retry-After`; a full sync now takes
+~1m45s including waits.
+
+**Scheduling is constrained:** Vercel Hobby allows one cron per day across the
+whole project, and `agent/schedules/dispatcher.ts` already owns it. The Luma pull
+piggybacks on that daily tick — placed *above* the `MY_PHONE_NUMBER` guard so a
+missing phone number doesn't also stop the calendar updating, and wrapped so a
+Luma outage can't stop scheduled tasks from dispatching. Between ticks there's
+`sync_luma` (agent) and `POST /api/luma/sync`.
+
+**Tools:** `list_luma_events` (upcoming/past with turnout), `get_luma_event`
+(one event in full, matched by name — a person says "MakersLounge #8", not
+`evt-XFOBcAemtEsl5tT` — plus signup sources), `sync_luma` (refresh / check).
+`agent/instructions.md` now tells Cael to read these *before* drafting anything
+audience-facing, and never to invent a date, headcount or venue.
+
+**Reading the numbers:** `guest_count` is everyone who registered including
+waitlist and never-approved; `approved_count` and `checked_in_count` are who was
+actually in the room. The gap is enormous — Meetup #12: 1,187 registered, 48
+approved, 17 checked in — so a newsletter quoting `guest_count` as attendance
+would be wildly wrong. This is written into the instructions.
+
+**Verified:** full sync run end-to-end (20 / 7,614 / 1,185), all 20 events have
+descriptions (avg 2,239 chars), the exact tool queries return real rows, eve's
+build registers all three tools, `npm run typecheck` clean. Note there are
+currently **no upcoming events** — the last was Aug 10 — so `list_luma_events`
+defaults to an empty list until something new is published on Luma.
+
+---
+
 ## 2026-08-16 — Clerk live in production, and a privilege-escalation hole closed
 
 Berto created the Clerk app and ran the CLI skill; `clerk init` detected the

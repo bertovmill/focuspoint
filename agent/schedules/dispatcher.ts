@@ -3,6 +3,7 @@ import { defineSchedule } from "eve/schedules";
 import twilio from "../channels/twilio.js";
 import { getDb } from "../../lib/db.js";
 import { cronMatchesDate } from "../../lib/cron.js";
+import { syncLuma } from "../../lib/luma-sync.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Vercel Hobby plans cap ALL cron jobs at once per day, so this wakes once daily
@@ -11,6 +12,18 @@ import { cronMatchesDate } from "../../lib/cron.js";
 export default defineSchedule({
   cron: "0 13 * * *",
   async run({ receive, waitUntil, appAuth }) {
+    // Refresh the Luma mirror first. Vercel Hobby allows exactly one cron a day
+    // across the whole project, so this tick is the only scheduled slot there is
+    // and the sync has to share it. Deliberately above the phone-number guard —
+    // a missing MY_PHONE_NUMBER shouldn't also stop the calendar from updating —
+    // and never fatal: Luma being down must not stop tasks from dispatching.
+    try {
+      const luma = await syncLuma();
+      console.log(`[dispatcher] Luma: ${luma.events} events, ${luma.guests} guests, ${luma.people} people.`);
+    } catch (err) {
+      console.warn("[dispatcher] Luma sync failed:", err);
+    }
+
     const phoneNumber = process.env.MY_PHONE_NUMBER;
     if (!phoneNumber) {
       console.warn("[dispatcher] MY_PHONE_NUMBER not set — skipping run.");

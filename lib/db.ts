@@ -191,6 +191,86 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // ── Luma mirror ────────────────────────────────────────────────────────────
+  // The MakersLounge calendar, pulled in whole so Cael can use it as context —
+  // what's coming up, how the last one went, who keeps showing up. Every table
+  // keeps the full API object in `raw`: Luma adds fields over time, JSONB costs
+  // nothing, and it means a schema gap never loses data that was already fetched.
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_events (
+      api_id TEXT PRIMARY KEY,
+      name TEXT,
+      description TEXT,
+      description_md TEXT,
+      url TEXT,
+      cover_url TEXT,
+      start_at TIMESTAMPTZ,
+      end_at TIMESTAMPTZ,
+      timezone TEXT,
+      location_type TEXT,
+      address TEXT,
+      visibility TEXT,
+      spots_remaining INTEGER,
+      registration_open BOOLEAN,
+      require_approval BOOLEAN,
+      guest_count INTEGER,
+      approved_count INTEGER,
+      checked_in_count INTEGER,
+      hosts JSONB,
+      tags JSONB,
+      raw JSONB,
+      created_at TIMESTAMPTZ,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_guests (
+      api_id TEXT PRIMARY KEY,
+      event_api_id TEXT NOT NULL,
+      name TEXT,
+      email TEXT,
+      phone_number TEXT,
+      approval_status TEXT,
+      registered_at TIMESTAMPTZ,
+      joined_at TIMESTAMPTZ,
+      invited_at TIMESTAMPTZ,
+      checked_in_at TIMESTAMPTZ,
+      source TEXT,
+      registration_answers JSONB,
+      raw JSONB,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS luma_guests_event_idx ON luma_guests (event_api_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS luma_guests_email_idx ON luma_guests (email)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_people (
+      api_id TEXT PRIMARY KEY,
+      email TEXT,
+      name TEXT,
+      first_seen_at TIMESTAMPTZ,
+      event_approved_count INTEGER,
+      event_checked_in_count INTEGER,
+      revenue_usd_cents INTEGER,
+      membership JSONB,
+      tags JSONB,
+      raw JSONB,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // One row per sync so a stale answer can always be explained — "as of when".
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_sync_runs (
+      id SERIAL PRIMARY KEY,
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      finished_at TIMESTAMPTZ,
+      events INTEGER DEFAULT 0,
+      guests INTEGER DEFAULT 0,
+      people INTEGER DEFAULT 0,
+      ok BOOLEAN DEFAULT FALSE,
+      error TEXT
+    )
+  `;
   // Everyone who has ever signed in through Clerk. A ledger of accounts, not an
   // authorisation table: `is_owner` is a mirror of the email check in lib/owner.ts,
   // recorded for visibility, and never read to decide access. See lib/users.ts.

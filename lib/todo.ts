@@ -23,6 +23,19 @@ export interface Todo {
   // wherever it landed.
   canvas_x?: number | null;
   canvas_y?: number | null;
+  // Set when this task belongs to a content piece (see the Content lane). The piece
+  // itself is a category='content' row with parent_id null.
+  parent_id?: number | null;
+}
+
+// A content piece is a top-level `content` task; its children are the steps to ship
+// it. Both live in the pinned Content lane, not as free-floating canvas cards.
+export function isContentPiece(t: Todo) {
+  return t.category === "content" && t.parent_id == null;
+}
+
+export function isInContentLane(t: Todo) {
+  return isContentPiece(t) || t.parent_id != null;
 }
 
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;

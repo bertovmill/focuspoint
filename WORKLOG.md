@@ -3398,3 +3398,58 @@ Verified with Playwright on a private dev server (port 3789): /tasks renders
 with no header bar and the goal hero flush to the top; /chat shows the tasks
 sidebar header-free with the collapse button present in the rail footer.
 `npm run typecheck` clean.
+
+---
+
+## 2026-08-16 — Content lane: a pinned column with nested tasks
+
+The Tasks canvas now has a **Content** lane pinned to its left edge. It doesn't
+pan or zoom with the notebook — it holds its place while the canvas moves
+underneath.
+
+**Model.** One new column, `todos.parent_id INTEGER REFERENCES todos(id) ON
+DELETE CASCADE`:
+
+- A **content piece** is a `category='content'` row with `parent_id` NULL —
+  a video, a post, an episode. It's a container, so it carries no estimate and
+  no timer.
+- The steps to ship it are ordinary todos with `parent_id` set to the piece.
+  They're real tasks: checkbox, "working on now", timers, the lot.
+- Deleting a piece cascades to its checklist.
+
+Two helpers in `lib/todo.ts` — `isContentPiece()` and `isInContentLane()`.
+Anything in the lane is filtered *out* of the canvas card layer
+(`canvasTodos` in `task-canvas.tsx`), so no task exists in two places at once.
+Existing `content`-category tasks migrate into the lane as pieces on their own.
+
+**UI** (`app/_components/content-lane.tsx`): each piece is a disclosure row with
+a `done/total` count, an "Add task" composer under it, and "Add content piece"
+at the foot of the lane. Titles rename on double-click. Adding a piece opens its
+task composer straight away — a piece with no steps is just a card.
+
+The lane collapses to a vertical "Content" tab; the state lives in
+`task-canvas.tsx` (localStorage `focuspoint.content-lane.collapsed`) because the
+canvas toolbar slides right to clear it. It's positioned `top-12 bottom-14` so
+it covers neither our toolbar nor Excalidraw's zoom controls.
+
+**API.** `parent_id` added to every todo SELECT/RETURNING list in
+`app/api/todos/route.ts` and `app/api/todos/[id]/route.ts`. POST accepts
+`parent_id`, and `estimated_minutes` is now optional *only* for a content piece
+(still required for every real task). Child tasks created from the lane default
+to a 30m estimate, editable from the canvas context menu.
+
+Note: the migration rides on `ensureSchema()`, which no todos route calls —
+hitting any route that does (e.g. `/api/scheduled-tasks`) applies it. That
+happens on any normal page load in prod.
+
+Files: `lib/db.ts`, `lib/todo.ts`, `app/api/todos/route.ts`,
+`app/api/todos/[id]/route.ts`, `app/_components/content-lane.tsx` (new),
+`app/_components/task-canvas.tsx`.
+
+Verified with Playwright on a private dev server (port 3789): seeded a piece
+with children, added a task through the lane's composer, checked one off and
+confirmed it persisted server-side, collapsed and reopened the lane. Test rows
+deleted. `npm run typecheck` and `npm run build` both clean.
+
+Next: dragging an existing canvas card onto a piece to adopt it (needs
+`parent_id` on PATCH), and a per-piece due date once a publishing cadence exists.

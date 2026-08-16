@@ -36,11 +36,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
+import { ContentLane } from "@/app/_components/content-lane";
 import {
   ESTIMATE_OPTIONS,
   formatCountdown,
   formatEstimateLabel,
   isDoneToday,
+  isInContentLane,
   PRIORITIES,
   remainingSeconds,
   type Todo,
@@ -93,6 +95,11 @@ function estimateCardHeight(title: string) {
 // and because the layer is portaled *inside* the Excalidraw container, wheel events
 // over a card still bubble to Excalidraw, so pan/zoom keeps working over the cards.
 const CARD_LAYER_Z = 3;
+
+// The pinned Content lane, and how far the canvas toolbar slides right to clear it.
+const LANE_COLLAPSED_KEY = "focuspoint.content-lane.collapsed";
+const LANE_OPEN_OFFSET = "16.5rem";
+const LANE_CLOSED_OFFSET = "2.75rem";
 
 const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
   events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
@@ -167,6 +174,24 @@ export function TaskCanvas({
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+
+  // Lane open/closed lives here, not in the lane, because the canvas toolbar has to
+  // shift out of its way. Starts closed and is corrected from localStorage on mount,
+  // so the server render and the first client render agree.
+  const [laneCollapsed, setLaneCollapsed] = useState(false);
+  useEffect(() => {
+    setLaneCollapsed(window.localStorage.getItem(LANE_COLLAPSED_KEY) === "1");
+  }, []);
+  const toggleLane = useCallback(() => {
+    setLaneCollapsed((c) => {
+      window.localStorage.setItem(LANE_COLLAPSED_KEY, c ? "0" : "1");
+      return !c;
+    });
+  }, []);
+
+  // Content pieces and the tasks hanging off them live in the pinned Content lane,
+  // never as free-floating cards — otherwise the same task would sit in two places.
+  const canvasTodos = useMemo(() => todos.filter((t) => !isInContentLane(t)), [todos]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -334,9 +359,9 @@ export function TaskCanvas({
   // moving. Guarded by a ref so a re-render mid-request doesn't double-post.
   const placingRef = useRef(new Set<number>());
   useEffect(() => {
-    const unplaced = todos.filter((t) => t.canvas_x == null || t.canvas_y == null);
+    const unplaced = canvasTodos.filter((t) => t.canvas_x == null || t.canvas_y == null);
     if (unplaced.length === 0) return;
-    const placed = todos.filter((t) => t.canvas_x != null && t.canvas_y != null);
+    const placed = canvasTodos.filter((t) => t.canvas_x != null && t.canvas_y != null);
     // Only cards still parked in an inbox column push new arrivals down; anything
     // dragged out into the notebook is left alone.
     const colBottom = new Map<number, number>();
@@ -368,7 +393,7 @@ export function TaskCanvas({
         placingRef.current.delete(t.id);
       });
     }
-  }, [todos, onLocalPatch]);
+  }, [canvasTodos, onLocalPatch]);
 
   // ------------------------------------------------------------------------ drag
 
@@ -486,7 +511,7 @@ export function TaskCanvas({
   // Centres the view on the task cards — the way back when you've wandered off into
   // empty canvas. Excalidraw's own scrollToContent only knows about its elements.
   const fitToCards = useCallback(() => {
-    const placed = todos.filter((t) => t.canvas_x != null && t.canvas_y != null);
+    const placed = canvasTodos.filter((t) => t.canvas_x != null && t.canvas_y != null);
     const host = wrapRef.current;
     if (!api || placed.length === 0 || !host) return;
     const minX = Math.min(...placed.map((t) => t.canvas_x!));
@@ -507,13 +532,15 @@ export function TaskCanvas({
         scrollY: padTop / zoom - minY,
       },
     });
-  }, [api, todos]);
+  }, [api, canvasTodos]);
 
   // ---------------------------------------------------------------------- render
 
+  // The counter covers everything on the Tasks screen, lane included — it's "how much
+  // did I get done today", not "how many cards are on the canvas".
   const doneToday = useMemo(() => todos.filter(isDoneToday).length, [todos]);
 
-  const cards = todos.map((todo) => {
+  const cards = canvasTodos.map((todo) => {
     const done = isDoneToday(todo) || completingIds.has(todo.id);
     const running = Boolean(todo.timer_started_at);
     const remaining = remainingSeconds(todo, nowTick);
@@ -791,9 +818,27 @@ export function TaskCanvas({
           cardHost,
         )}
 
+      {/* The content pipeline: pinned to the canvas rather than drawn on it, so it
+          holds its place while the notebook pans and zooms underneath. */}
+      <ContentLane
+        todos={todos}
+        collapsed={laneCollapsed}
+        onToggleCollapsed={toggleLane}
+        completingIds={completingIds}
+        onComplete={onComplete}
+        onUncomplete={onUncomplete}
+        onToggleInProgress={onToggleInProgress}
+        onDelete={onDelete}
+        onUpdate={onUpdate}
+        onCreated={onCreated}
+      />
+
       {/* Our own controls, kept clear of Excalidraw's toolbar (top centre) and zoom
           controls (bottom left). */}
-      <div className="pointer-events-none absolute left-3 top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2">
+      <div
+        style={{ left: laneCollapsed ? LANE_CLOSED_OFFSET : LANE_OPEN_OFFSET }}
+        className="pointer-events-none absolute top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2 transition-[left] duration-150"
+      >
         <div className="pointer-events-auto flex items-center gap-1.5">
           <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setComposerOpen((v) => !v)}>
             <PlusIcon className="size-3.5" />

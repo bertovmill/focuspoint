@@ -61,6 +61,11 @@ export async function ensureSchema() {
   // auto-drops it into the inbox column and persists the position it landed on.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION`;
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION`;
+  // Parent task, used by the Content lane on the Tasks canvas: a category='content'
+  // row with parent_id NULL is a content *piece* (a video, a post), and the tasks
+  // needed to ship it hang off it as children. NULL = a normal standalone task.
+  // Cascade so deleting the piece takes its checklist with it.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES todos(id) ON DELETE CASCADE`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

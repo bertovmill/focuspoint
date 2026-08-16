@@ -191,6 +191,19 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Everyone who has ever signed in through Clerk. A ledger of accounts, not an
+  // authorisation table: `is_owner` is a mirror of the email check in lib/owner.ts,
+  // recorded for visibility, and never read to decide access. See lib/users.ts.
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      clerk_user_id TEXT UNIQUE NOT NULL,
+      email TEXT,
+      is_owner BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   // Google Calendar OAuth tokens — single-user app, one row (id = 1)
   await sql`
     CREATE TABLE IF NOT EXISTS google_auth (

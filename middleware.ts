@@ -1,5 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { SESSION_COOKIE, isValidSession } from "@/lib/session";
+import { resolveViewer } from "@/lib/clerk-owner";
+import {
+  CLERK_SERVER_ENABLED,
+  NOT_AUTHORIZED_PATH,
+  PASSWORD_SIGN_IN_PATH,
+  SIGN_IN_PATH,
+} from "@/lib/owner";
 import {
   PUBLIC_HOST,
   SITE_PREFIX,
@@ -9,7 +17,37 @@ import {
   isPrivateOnlyPath,
 } from "@/lib/public-site";
 
-export function middleware(request: NextRequest) {
+/**
+ * What `clerkMiddleware` hands the handler. Typed loosely on purpose: the only
+ * two things this gate needs are the user id and the raw claims, and the rest of
+ * Clerk's auth object changes shape between majors.
+ */
+type AuthResolver = () => Promise<{ userId: string | null; sessionClaims?: unknown }>;
+
+/** Paths on the private host that must answer before anyone is signed in. */
+function isAlwaysAllowed(pathname: string): boolean {
+  return (
+    // The two ways in, and the page shown to people who can't come in.
+    pathname.startsWith(SIGN_IN_PATH) ||
+    pathname.startsWith("/sign-up") ||
+    pathname.startsWith(PASSWORD_SIGN_IN_PATH) ||
+    pathname.startsWith(NOT_AUTHORIZED_PATH) ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/icon.svg" ||
+    // Files served straight from public/. next/image's optimizer refetches its
+    // source over HTTP without a session cookie, so gating these would 307 it to
+    // the sign-in page and it would report "the requested resource isn't a valid image".
+    isPublicAsset(pathname) ||
+    pathname === "/eve/v1/health" ||
+    pathname.startsWith("/eve/v1/twilio/")
+  );
+}
+
+const isApiPath = (pathname: string) => pathname.startsWith("/api") || pathname.startsWith("/eve");
+
+async function handle(request: NextRequest, auth: AuthResolver | null): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   // ── bertomill.com: the public site. No session, no Cael. ──────────────────
@@ -32,24 +70,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // ── cael.bertomill.com: the private app. Everything below is unchanged. ───
+  // ── cael.bertomill.com: the private app. ──────────────────────────────────
 
-  // Always allow: login page, auth API, static assets, eve health check, Twilio webhook
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/icon.svg" ||
-    // Files served straight from public/. next/image's optimizer refetches its
-    // source over HTTP without a session cookie, so gating these would 307 it to
-    // /login and it would report "the requested resource isn't a valid image".
-    isPublicAsset(pathname) ||
-    pathname === "/eve/v1/health" ||
-    pathname.startsWith("/eve/v1/twilio/")
-  ) {
-    return NextResponse.next();
+  // The password form moved when Clerk became the front door.
+  if (pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = CLERK_SERVER_ENABLED ? SIGN_IN_PATH : PASSWORD_SIGN_IN_PATH;
+    return NextResponse.redirect(url);
   }
+
+  if (isAlwaysAllowed(pathname)) return NextResponse.next();
 
   // Allow Vercel cron invocations — they carry Authorization: Bearer <CRON_SECRET>
   // and never have a session cookie. The individual route handlers re-verify this header.
@@ -58,20 +88,49 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const valid = isValidSession(request.cookies.get(SESSION_COOKIE)?.value);
-
-  if (!valid) {
-    // API / eve routes get a 401, not a redirect
-    if (pathname.startsWith("/api") || pathname.startsWith("/eve")) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  // 1. A Clerk session. Signing in is open to anyone, but only the owner gets in:
+  //    everyone else holds an account and is shown the door, politely.
+  if (auth) {
+    const { userId, sessionClaims } = await auth();
+    if (userId) {
+      const viewer = await resolveViewer(userId, sessionClaims);
+      if (viewer.isOwner) return NextResponse.next();
+      if (isApiPath(pathname)) {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
+      // Rewritten, not redirected, so the URL they tried is preserved.
+      const url = request.nextUrl.clone();
+      url.pathname = NOT_AUTHORIZED_PATH;
+      return NextResponse.rewrite(url);
     }
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // 2. The password cookie, kept as the way in when Clerk is down or unconfigured.
+  if (isValidSession(request.cookies.get(SESSION_COOKIE)?.value)) {
+    return NextResponse.next();
+  }
+
+  // 3. Nobody. API / eve routes get a 401, not a redirect.
+  if (isApiPath(pathname)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+  const url = request.nextUrl.clone();
+  url.pathname = CLERK_SERVER_ENABLED ? SIGN_IN_PATH : PASSWORD_SIGN_IN_PATH;
+  return NextResponse.redirect(url);
 }
+
+/**
+ * Clerk only wraps the request when it's actually configured.
+ *
+ * `clerkMiddleware()` throws without a publishable/secret key, which would take
+ * the whole app down — including the password login that is supposed to be the
+ * fallback. So until the keys land, this is the plain gate it always was.
+ */
+const middleware = CLERK_SERVER_ENABLED
+  ? clerkMiddleware(async (auth, request) => handle(request as NextRequest, auth as AuthResolver))
+  : (request: NextRequest) => handle(request, null);
+
+export default middleware;
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image).*)"],

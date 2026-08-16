@@ -9,6 +9,7 @@ import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon,
 import { AgentChat } from "@/app/_components/agent-chat";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { ModeToggle } from "@/app/_components/mode-toggle";
+import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
 import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
@@ -320,6 +321,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             </button>
           )}
           <ModeToggle />
+          <AccountButton />
         </div>
       </aside>
 

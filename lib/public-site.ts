@@ -14,6 +14,18 @@
 /** The apex domain the public site is served from. */
 export const PUBLIC_HOST = "bertomill.com";
 
+/** The private host. Accounts live here, so it owns the whole sign-in flow. */
+export const CAEL_HOST = "cael.bertomill.com";
+
+/**
+ * Where "Sign in" on the public site points.
+ *
+ * Deliberately a cross-origin link rather than a form on bertomill.com: keeping
+ * Clerk on one origin avoids satellite-domain configuration, and leaves the
+ * public site free of auth JS entirely.
+ */
+export const CAEL_SIGN_IN_URL = `https://${CAEL_HOST}/sign-in`;
+
 /** Google Appointment Schedule — the one place visitors book time with Berto. */
 export const BOOKING_URL = "https://calendar.app.google/ZuKPqRgQpYNPwjhB6";
 

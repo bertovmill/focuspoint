@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MenuIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BOOKING_URL } from "@/lib/public-site";
+import { BOOKING_URL, CAEL_SIGN_IN_URL } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 
@@ -51,6 +51,13 @@ export function SiteNav() {
               {item.label}
             </SiteLink>
           ))}
+          {/* Accounts live on the private host, so this leaves the site. */}
+          <a
+            href={CAEL_SIGN_IN_URL}
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Sign in
+          </a>
           <a
             href={BOOKING_URL}
             target="_blank"
@@ -91,6 +98,13 @@ export function SiteNav() {
                 {item.label}
               </SiteLink>
             ))}
+            <a
+              href={CAEL_SIGN_IN_URL}
+              onClick={() => setOpen(false)}
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Sign in
+            </a>
             <a
               href={BOOKING_URL}
               target="_blank"

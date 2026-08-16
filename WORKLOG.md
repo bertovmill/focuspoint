@@ -4,6 +4,68 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — Clerk accounts, with Cael still owner-only
+
+**Ask:** *"can we get to the backend via a login with clerk, obviously only for
+bertmill19@gmail.com to be able to access the backend"* — then: *"others can be
+subscribers and users on the app, but only bertmill19@gmail.com will have the
+ability to access cael in its full effect."*
+
+**Decisions (asked Berto):** sign-up is **open to anyone**, but a non-owner gets
+an account and nothing else — Cael bounces them to a "this is private" page. The
+**password login stays** as a fallback (moved to `/login-password`), because
+being locked out of your own life-agent by a misconfigured auth provider is a bad
+day. Keys come from Berto by hand; the CLI can no longer reach the prod scope.
+
+**The gate is an email, checked in one place.** `lib/owner.ts` holds
+`OWNER_EMAIL` and `isOwnerEmail()`; every other layer asks it. There is a `users`
+table, but it is a **ledger, not an authority** — `is_owner` there is a mirror of
+the email check, recorded for visibility, never read to decide access. A row is
+easy to write; an email is the actual claim.
+
+**Three doors, all gated the same way:**
+- `middleware.ts` — Clerk session → owner? in : "not authorized". No Clerk
+  session → the password cookie. Neither → `/sign-in`. API/eve paths get 401/403
+  instead of a redirect.
+- `agent/channels/eve.ts` — the agent transport can drive every tool Cael has, so
+  it authenticates independently: an owner Clerk session *or* the password cookie.
+  A signed-in non-owner is rejected here exactly as everywhere else.
+- `app/layout.tsx` — mounts `ClerkProvider` on the private host only, and records
+  the account in `users` on the way past.
+
+**Clerk lives on one origin.** All auth is on `cael.bertomill.com`; bertomill.com
+gets a plain "Sign in" link pointing at it (`CAEL_SIGN_IN_URL`). That sidesteps
+Clerk satellite-domain configuration entirely and keeps Clerk's JS off the
+marketing site — the root layout checks the host before mounting the provider.
+
+**Everything is inert until the keys land.** `CLERK_ENABLED` /
+`CLERK_SERVER_ENABLED` key off the env vars, and `clerkMiddleware()` is only
+*called* when configured — calling it without keys throws, which would take down
+the very password login that is meant to be the fallback. Same pattern as
+`newsletterEnabled`. Note `NEXT_PUBLIC_*` is inlined at build time, so adding the
+keys needs a redeploy, not just a restart.
+
+**Owner resolution avoids a per-request round trip.** A session token doesn't
+reliably carry an email (Clerk's default claims have varied, and a custom token
+template can drop it), so `lib/clerk-owner.ts` reads the claim when present and
+falls back to a Clerk API lookup, caching the verdict per user id for 5 minutes
+in module scope. Clerk unreachable → fails closed; the password login is the way
+back in, which is the whole reason it was kept.
+
+**Files:** `lib/owner.ts`, `lib/clerk-owner.ts`, `lib/users.ts` (new);
+`app/sign-in`, `app/sign-up`, `app/not-authorized`, `app/_components/auth-shell.tsx`,
+`app/_components/account-button.tsx` (new); `app/login` → `app/login-password`;
+`middleware.ts`, `app/layout.tsx`, `agent/channels/eve.ts`, `lib/db.ts`,
+`lib/public-site.ts`, `app/site/_components/site-nav.tsx`, `app/(app)/layout.tsx`.
+
+Verified un-keyed (the state this ships in): `/` redirects to `/login-password`,
+`/login` redirects there too, the password cookie still opens the app and the API,
+an unauthenticated API call still 401s, and the public site renders "Sign in".
+`npm run typecheck` and a full `npm run build` both clean. The Clerk flow itself
+can't be verified until the keys exist.
+
+---
+
 ## 2026-08-16 — The strategy banner is now its own Excalidraw board
 
 **Ask:** *"i want this top level strategy to also be editable - maybe like the

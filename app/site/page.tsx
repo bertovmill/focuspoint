@@ -76,7 +76,7 @@ export default async function SiteHomePage() {
                   sizes="44px"
                   className="size-11 rounded-full object-cover ring-1 ring-border"
                 />
-                <span className="text-lg font-semibold tracking-tight">Berto Mill</span>
+                <span className="text-lg font-extrabold tracking-tight">Berto Mill</span>
                 <span className="size-1.5 rounded-full bg-primary" aria-hidden />
               </div>
 
@@ -85,7 +85,12 @@ export default async function SiteHomePage() {
               </p>
 
               <AnimatedHeading
-                className="mt-4 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-[2.75rem] short:mt-3 short:sm:text-[2.25rem]"
+                // font-black is the template's signature — Geist at 900 is what
+                // makes the headline read as a wordmark rather than body copy.
+                // 2.5rem, not 2.75: at 900 weight "I build AI agents," measures
+                // 354px against 350px of card, so the wider cut has to come down
+                // a step or the first line breaks and strands a word.
+                className="mt-4 text-4xl font-black leading-[1.05] tracking-tight sm:text-[2.5rem] short:mt-3 short:sm:text-[2.25rem]"
                 lines={["I build AI agents,", "and I let one run my life."]}
               />
 

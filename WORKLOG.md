@@ -123,6 +123,14 @@ Re-run: `node --env-file=.env.local scripts/generate-site-art.mjs [key ...]`.
    The lesson worth keeping: when a fixed-height box overflows, shrink what's
    in it — don't surrender the property that makes the design work.
 
+**Type** — Berto asked for "the same font as the example". The typeface already
+matched: the template loads Geist + Geist Mono, and so do we (`app/layout.tsx`,
+variable 100–900). The real difference was **weight** — the template sets its
+headline in `font-black` (900) and its wordmark in `font-extrabold` (800) where
+ours were `semibold`. Matched both. The headline also had to drop from 2.75rem
+to 2.5rem: at 900 weight "I build AI agents," measures 354px against 350px of
+card, so it broke and stranded a word. Measured, didn't guess.
+
 Verified with Playwright at 1440×950 (pinned), 1280×700 (unpinned), 390×844
 mobile, and dark mode. No console errors. `npm run typecheck` and
 `npm run build` both clean.

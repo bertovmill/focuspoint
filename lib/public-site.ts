@@ -14,6 +14,9 @@
 /** The apex domain the public site is served from. */
 export const PUBLIC_HOST = "bertomill.com";
 
+/** Google Appointment Schedule — the one place visitors book time with Berto. */
+export const BOOKING_URL = "https://calendar.app.google/ZuKPqRgQpYNPwjhB6";
+
 /** Path prefix the public tree actually lives at on disk. Never appears in a public URL. */
 export const SITE_PREFIX = "/site";
 
@@ -37,7 +40,21 @@ export function isPublicHost(host: string | null | undefined): boolean {
  */
 const PUBLIC_PASSTHROUGH = ["/_next", "/api/site", "/favicon.ico", "/icon.svg", "/robots.txt", "/sitemap.xml"];
 
+/**
+ * Static files served straight out of `public/` — images and fonts only, and only
+ * at the top level. Without this a request for /berto-headshot.jpg gets rewritten
+ * to /site/berto-headshot.jpg and 404s, which also breaks next/image, since the
+ * optimizer fetches its source through this same host.
+ */
+const PUBLIC_ASSET_RE = /^\/[\w.-]+\.(?:jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?)$/i;
+
+/** A top-level file in `public/` — an image or font, never a page or an API route. */
+export function isPublicAsset(pathname: string): boolean {
+  return PUBLIC_ASSET_RE.test(pathname);
+}
+
 export function isPublicPassthrough(pathname: string): boolean {
+  if (isPublicAsset(pathname)) return true;
   return PUBLIC_PASSTHROUGH.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

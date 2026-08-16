@@ -3652,3 +3652,40 @@ and some pieces are one-liners that never get broken down at all — auto-tickin
 their children would invent completions that never happened.
 
 Files: `app/_components/pipeline-lanes.tsx`. `npm run typecheck` clean.
+
+**Follow-up: headshot, booking link, newsletter popup (2026-08-16).**
+
+- **Headshot** from `~/Downloads/berto-headshot.png` (800×800, 793KB) re-encoded
+  to `public/berto-headshot.jpg` — 108KB via sharp/mozjpeg. PNG was the wrong
+  container for a photo and re-encoding as PNG actually made it *larger* (1.3MB).
+  Used in the nav (28px), the home hero (176px, flex not float so it can't bleed
+  into the next section), and as the OpenGraph image. Twitter card is `summary`,
+  not `summary_large_image` — a square portrait letterboxes badly in the latter.
+- **Static assets now bypass auth on both hosts** (`isPublicAsset()` in
+  `lib/public-site.ts`, wired into both middleware branches). Without this
+  `next/image` returned 400 "The requested resource isn't a valid image … received
+  null": the optimizer refetches its source over HTTP with no session cookie, got
+  307'd to `/login`, and parsed the HTML as an image. Scoped to a regex of
+  top-level image/font files, so no page or API route can slip through.
+- **Booking link** (`BOOKING_URL` in `lib/public-site.ts`) in the nav as a primary
+  button (desktop + mobile menu), in the footer, and as `<PostFooterCta />` at the
+  end of every article and episode.
+- **Newsletter popup** (`app/site/_components/newsletter-popup.tsx`) composed from
+  the shadcn dialog/input/button already in the project — so focus trapping,
+  Escape and scroll-lock come for free. Fires on whichever comes first: 30s or 50%
+  scroll. Dismissal and subscription both remembered in localStorage.
+
+  Backend is **Resend** (`app/api/site/subscribe/route.ts`), discovered via
+  `vercel integration discover --category messaging`; the address goes into a
+  Resend Audience. Plain fetch, no SDK. A duplicate returns `ok` rather than
+  "already subscribed", which would leak list membership to anyone guessing.
+  Validation runs *before* the credential check so malformed input gets a 400
+  regardless of config.
+
+  **Resend is not provisioned yet** — `vercel integration add resend` returned
+  `integration_terms_acceptance_required`, a browser step. Until `RESEND_API_KEY`
+  and `RESEND_AUDIENCE_ID` exist the layout passes `enabled={false}` and the popup
+  never renders, so nobody meets a form that can't submit. To finish:
+  accept terms at the `verification_uri`, re-run
+  `vercel integration add resend --no-claim --scope bertmill19s-projects`, create
+  an Audience in Resend, add `RESEND_AUDIENCE_ID`, then `vercel env pull` + deploy.

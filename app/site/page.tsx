@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { getPublicStats } from "@/lib/public-data";
 import { listContent, formatDate } from "@/lib/content";
@@ -30,32 +31,50 @@ export default async function SiteHomePage() {
     <div className="mx-auto max-w-5xl px-6">
       {/* Hero */}
       <section className="border-b border-border/60 py-20 sm:py-28">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Toronto · building in public</p>
-        <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-          I build AI agents, and I let one run my life.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-          I&apos;m Berto. For the past while I&apos;ve been building{" "}
-          <span className="text-foreground">Cael</span>
-          {" — a personal agent that holds my goals, my "}
-          reading, my training and my calendar, and nudges me toward the life I said I wanted. This
-          site is the window into that: what I&apos;m building, what I&apos;m learning, and the real
-          numbers underneath.
-        </p>
-        <div className="mt-9 flex flex-wrap items-center gap-3">
-          <SiteLink
-            href="/building"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            See the numbers
-            <ArrowRightIcon className="size-4" />
-          </SiteLink>
-          <SiteLink
-            href="/chat"
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-          >
-            Ask Cael about me
-          </SiteLink>
+        {/* Portrait leads on mobile, sits right of the copy on desktop — the headline
+            keeps the top-left position the eye lands on first either way. */}
+        <div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:gap-12">
+          <div className="min-w-0 flex-1 sm:order-1">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
+              Toronto · building in public
+            </p>
+            <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+              I build AI agents, and I let one run my life.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+              I&apos;m Berto. For the past while I&apos;ve been building{" "}
+              <span className="text-foreground">Cael</span>
+              {" — a personal agent that holds my goals, my "}
+              reading, my training and my calendar, and nudges me toward the life I said I wanted.
+              This site is the window into that: what I&apos;m building, what I&apos;m learning, and
+              the real numbers underneath.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <SiteLink
+                href="/building"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                See the numbers
+                <ArrowRightIcon className="size-4" />
+              </SiteLink>
+              <SiteLink
+                href="/chat"
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Ask Cael about me
+              </SiteLink>
+            </div>
+          </div>
+
+          <Image
+            src="/berto-headshot.jpg"
+            alt="Berto Mill"
+            width={800}
+            height={800}
+            priority
+            sizes="(min-width: 640px) 176px, 96px"
+            className="size-24 shrink-0 rounded-2xl object-cover ring-1 ring-border sm:order-2 sm:size-44"
+          />
         </div>
       </section>
 

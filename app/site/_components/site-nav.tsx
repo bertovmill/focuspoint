@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MenuIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BOOKING_URL } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 
@@ -25,9 +27,14 @@ export function SiteNav() {
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
         <SiteLink href="/" className="group flex items-center gap-2.5 font-medium tracking-tight">
-          <span className="grid size-7 place-items-center rounded-full bg-primary text-[13px] font-semibold text-primary-foreground">
-            B
-          </span>
+          <Image
+            src="/berto-headshot.jpg"
+            alt=""
+            width={28}
+            height={28}
+            priority
+            className="size-7 rounded-full object-cover ring-1 ring-border"
+          />
           <span className="transition-colors group-hover:text-primary">Berto Mill</span>
         </SiteLink>
 
@@ -44,6 +51,14 @@ export function SiteNav() {
               {item.label}
             </SiteLink>
           ))}
+          <a
+            href={BOOKING_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Book a meeting
+          </a>
           <div className="ml-1">
             <ModeToggle />
           </div>
@@ -76,6 +91,15 @@ export function SiteNav() {
                 {item.label}
               </SiteLink>
             ))}
+            <a
+              href={BOOKING_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+              className="mt-2 rounded-lg bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground"
+            >
+              Book a meeting
+            </a>
             <div className="pt-2">
               <ModeToggle />
             </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 import { getContent, listContent, formatDate } from "@/lib/content";
 import { Prose } from "../../_components/prose";
+import { PostFooterCta } from "../../_components/post-footer-cta";
 import { SiteLink } from "../../_components/site-link";
 
 export async function generateStaticParams() {
@@ -67,6 +68,8 @@ export default async function PodcastEpisodePage({ params }: { params: Promise<{
       <div className="mt-10">
         <Prose>{ep.body}</Prose>
       </div>
+
+      <PostFooterCta />
     </article>
   );
 }

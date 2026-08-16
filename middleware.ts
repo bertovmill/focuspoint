@@ -5,6 +5,7 @@ import {
   SITE_PREFIX,
   isPublicHost,
   isPublicPassthrough,
+  isPublicAsset,
   isPrivateOnlyPath,
 } from "@/lib/public-site";
 
@@ -40,6 +41,10 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||
+    // Files served straight from public/. next/image's optimizer refetches its
+    // source over HTTP without a session cookie, so gating these would 307 it to
+    // /login and it would report "the requested resource isn't a valid image".
+    isPublicAsset(pathname) ||
     pathname === "/eve/v1/health" ||
     pathname.startsWith("/eve/v1/twilio/")
   ) {

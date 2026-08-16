@@ -3590,3 +3590,49 @@ curl as one argument.
 Related: `vercel link` rewrote `.env.local` but **merged** rather than replaced,
 so `CLOUDFLARE_API_TOKEN` survived. It also pulled a fresh `VERCEL_OIDC_TOKEN`,
 which is what finally made the AI Gateway call work locally.
+
+---
+
+## 2026-08-16 — Four pipeline lanes, and titles that wrap
+
+The Content lane became **four** stacked lanes in one pinned panel: **Content,
+Code, Community, Sales**. Each is a collapsible section with its own accent, its
+own pieces, and its own "Add piece" composer. All four are visible at once —
+collapse the ones you're not working in.
+
+`content-lane.tsx` → `pipeline-lanes.tsx` (`<PipelineLanes>`). The generalisation
+lives in `lib/task-categories.ts`:
+
+- `TASK_CATEGORIES` gains `code`, `community`, `sales` — so they're also normal
+  category chips on canvas cards, and the agent's `add_todo` / `update_todo`
+  accept them (both read the enum).
+- `LANE_CATEGORIES` (`content`, `code`, `community`, `sales`) is the ordered
+  subset that gets a lane, plus an `isLaneCategory()` guard.
+- `lib/todo.ts`: `isContentPiece`/`isInContentLane` → `isLanePiece`/`isInLane`.
+- The API's "a piece needs no estimate" rule now keys off `isLaneCategory`
+  rather than a hardcoded `'content'`.
+
+Badge colours for the new categories on canvas cards: code indigo, community
+rose, sales green (`CATEGORY_BADGE_CLASS` in `task-canvas.tsx`). Each lane's
+piece rule takes the same accent, which is the only place the colour shows in
+the panel — four saturated lanes would fight each other.
+
+**Titles now wrap** instead of truncating (`break-words`, no `hyphens-auto` —
+auto-hyphenation broke "community" mid-word and read as a typo). Piece titles
+were the only clipped text; child tasks and canvas cards already wrapped. Every
+row's controls got `shrink-0` + `mt-px` so they stay put against a title that
+now runs to three lines.
+
+Note: this work was swept into commit b07694d ("Point bertomill.com at Vercel
+via the Cloudflare API") by a concurrent session running `git add -A` on the
+shared checkout — the code is all there, just filed under an unrelated message.
+
+Files: `lib/task-categories.ts`, `lib/todo.ts`, `lib/db.ts`,
+`app/api/todos/route.ts`, `app/_components/pipeline-lanes.tsx` (renamed from
+`content-lane.tsx`), `app/_components/task-canvas.tsx`.
+
+Verified with Playwright on a private dev server (port 3789): seeded a piece per
+lane with long wrapping titles, added a Sales piece and a task under it through
+the panel's own composers, collapsed the Community lane, confirmed every row
+persisted server-side with the right `category`/`parent_id`. Test rows deleted.
+`npm run typecheck` and `npm run build` clean.

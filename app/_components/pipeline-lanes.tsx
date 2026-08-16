@@ -211,7 +211,7 @@ export function PipelineLanes({
             startEditing(t);
           }
         }}
-        className={cn("block break-words hyphens-auto", className)}
+        className={cn("block break-words", className)}
       >
         {t.title}
       </span>

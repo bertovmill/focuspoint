@@ -2,6 +2,13 @@
 @import "../node_modules/tw-shimmer/src/index.css";
 @source "../node_modules/streamdown/dist/*.js";
 
+/*
+ * A screen big enough to pin the homepage hero card beside the scrolling panels.
+ * Height matters as much as width here: the card is a fixed viewport-height box,
+ * so on a short laptop pinning it would strand its lower half below the fold.
+ */
+@custom-variant hero-pinned (@media (min-width: 1024px) and (min-height: 840px));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

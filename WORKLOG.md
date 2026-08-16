@@ -4,6 +4,65 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — bertomill.com: split-hero homepage
+
+**Ask:** *"can we work on making the design of the front facing version of our
+app — take some inspo from this template? `~/Documents/portfolio-template-v0`"*
+plus, mid-build, *"we also are going to need to generate some images similar to
+that"*.
+
+The template is a v0 portfolio: dark, a **sticky left card** holding the pitch,
+and a right column of full-viewport project panels that scroll past it. Berto
+picked the full structural adopt (over motion-only / dark-only) and chose four
+story cards for the right column over live-data or screenshot cards.
+
+**What changed**
+
+- `app/site/page.tsx` — rewritten from a centred editorial column into the
+  split hero. Left: headshot + wordmark, animated headline, the pitch, both
+  CTAs, and the four live stats. The stats deliberately take the slot the
+  template gives to client logos — it's the same "here's the proof" beat.
+  Right: four full-height `StoryCard`s (Cael → `/chat`, Building in public →
+  `/building`, Writing → `/writing`, Podcast → `/podcast`), each pulling its
+  pills from real data (counts, latest post title, episode duration).
+- `app/site/_components/reveal-on-view.tsx`, `animated-heading.tsx` — ported
+  from the template's `motion` primitives (already a dep). Both bail out under
+  `prefers-reduced-motion`; the heading keeps the real sentence on `aria-label`
+  so assistive tech reads one sentence, not a pile of spans.
+- `app/site/_components/story-card.tsx` — new. Gradient hairline, full-bleed
+  art under a black wash, whole card is one link.
+- Hero card texture uses the existing `components/ui/dot-pattern.tsx` (Magic UI,
+  already installed). The template used a WebGL shader package for this; the
+  SVG one is a wash rather than a dep.
+
+**Card art** — `scripts/generate-site-art.mjs` (new) generates the four renders
+through the AI Gateway (`gpt-image-1`, 1024×1536) and compresses with sharp on
+the way out: ~1.5 MB → 35–77 KB each, no visible loss, since they're near-black
+images behind a dark overlay. Committed to `public/site-art/`, not generated at
+build time — the front page must not have an AI call in its request path.
+Re-run: `node --env-file=.env.local scripts/generate-site-art.mjs [key ...]`.
+
+**Two bugs found while verifying, both fixed**
+
+1. The art 400'd through `next/image`. `isPublicAsset` in `lib/public-site.ts`
+   only matched *top-level* files in `public/`, so `/site-art/*.webp` got
+   gated — and the optimizer refetches its source over HTTP with no session
+   cookie, so it got a redirect and reported "not a valid image". Added an
+   explicit `PUBLIC_ASSET_DIRS` allowlist; the list stays explicit because
+   anything on it answers without a session.
+2. At 1280×700 the pinned hero clipped its own stats mid-number (content 736px
+   in a 610px box). Added a `hero-pinned` custom variant in `globals.css`
+   (`min-width: 1024px and min-height: 840px`) — below that the card is a
+   normal block that scrolls away. Needed `self-start` on the aside too: a grid
+   item stretches to its row by default, and the row is four panels tall, so
+   without it the unpinned card ballooned to ~2500px.
+
+Verified with Playwright at 1440×950 (pinned), 1280×700 (unpinned), 390×844
+mobile, and dark mode. No console errors. `npm run typecheck` and
+`npm run build` both clean.
+
+---
+
 ## 2026-08-15 — Goal hero: drag-to-collapse handle
 
 **Ask:** *"can we make the top banner collapsible? so have a little handle on

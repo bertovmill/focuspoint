@@ -41,14 +41,23 @@ export function isPublicHost(host: string | null | undefined): boolean {
 const PUBLIC_PASSTHROUGH = ["/_next", "/api/site", "/favicon.ico", "/icon.svg", "/robots.txt", "/sitemap.xml"];
 
 /**
- * Static files served straight out of `public/` — images and fonts only, and only
- * at the top level. Without this a request for /berto-headshot.jpg gets rewritten
- * to /site/berto-headshot.jpg and 404s, which also breaks next/image, since the
- * optimizer fetches its source through this same host.
+ * Static files served straight out of `public/` — images and fonts only, at the
+ * top level or inside one of the asset folders below. Without this a request for
+ * /berto-headshot.jpg gets rewritten to /site/berto-headshot.jpg and 404s, which
+ * also breaks next/image, since the optimizer fetches its source through this
+ * same host and carries no session cookie.
+ *
+ * Keep the folder list explicit: anything matched here answers without a session,
+ * so a new entry is a deliberate decision to make that directory world-readable.
  */
-const PUBLIC_ASSET_RE = /^\/[\w.-]+\.(?:jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?)$/i;
+const PUBLIC_ASSET_DIRS = ["site-art"];
 
-/** A top-level file in `public/` — an image or font, never a page or an API route. */
+const PUBLIC_ASSET_RE = new RegExp(
+  `^/(?:(?:${PUBLIC_ASSET_DIRS.join("|")})/)?[\\w.-]+\\.(?:jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?)$`,
+  "i",
+);
+
+/** A file in `public/` — an image or font, never a page or an API route. */
 export function isPublicAsset(pathname: string): boolean {
   return PUBLIC_ASSET_RE.test(pathname);
 }

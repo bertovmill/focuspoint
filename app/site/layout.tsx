@@ -5,6 +5,7 @@ import { PUBLIC_HOST, SITE_PREFIX, BOOKING_URL, isPublicHost } from "@/lib/publi
 import { SiteBasePathProvider, SiteLink } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
 import { NewsletterPopup } from "./_components/newsletter-popup";
+import { PageGrain } from "./_components/grain";
 
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
@@ -39,6 +40,7 @@ export default async function SiteLayout({ children }: { readonly children: Reac
   return (
     <SiteBasePathProvider value={basePath}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
+        <PageGrain />
         <SiteNav />
         <main className="flex-1">{children}</main>
         <NewsletterPopup enabled={newsletterEnabled} />

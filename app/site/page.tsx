@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { ArrowRightIcon } from "lucide-react";
-import { DotPattern } from "@/components/ui/dot-pattern";
-import { cn } from "@/lib/utils";
+import { SurfaceTexture, AmbientBloom } from "./_components/grain";
 import { getPublicStats } from "@/lib/public-data";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
@@ -57,13 +56,22 @@ export default async function SiteHomePage() {
             staggerChildren
             className="relative flex flex-col justify-between gap-10 overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 lg:h-full short:gap-6"
           >
-            {/* Texture — barely there, just enough to stop the card reading as flat. */}
-            <DotPattern
-              width={14}
-              height={14}
-              cr={0.9}
-              className="pointer-events-none absolute inset-0 h-full w-full fill-foreground/[0.12] [mask-image:radial-gradient(400px_circle_at_30%_20%,white,transparent)]"
-            />
+            {/* Both texture layers live one level down on purpose. `RevealOnView`
+                with `staggerChildren` writes an inline `opacity` onto each direct
+                child as it animates it in, and an inline style beats a class — put
+                these at the top level and they render at full strength, which
+                turns the card grey and the corner light into a flare. */}
+            <div className="pointer-events-none absolute inset-0">
+              {/* Warm light in the corner, so the card reads as lit rather than
+                  filled. Broad and masked to one corner: a tight radius on a dark
+                  surface reads as a lens flare, not as light. */}
+              <AmbientBloom className="absolute inset-0 opacity-70 blur-3xl [mask-image:radial-gradient(130%_80%_at_0%_0%,white,transparent_65%)] dark:opacity-100" />
+
+              {/* Pressed-paper grain across the whole surface. Even coverage, no
+                  mask — real grain doesn't stop halfway. This replaced a dot grid,
+                  which is the one texture that reads instantly as "generated". */}
+              <SurfaceTexture className="absolute inset-0 opacity-5 mix-blend-multiply dark:opacity-10 dark:mix-blend-overlay" />
+            </div>
 
             <div className="relative">
               <div className="mb-8 flex items-center gap-2.5 short:mb-5">

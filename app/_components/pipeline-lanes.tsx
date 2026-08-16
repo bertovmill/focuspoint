@@ -308,6 +308,18 @@ export function PipelineLanes({
                           >
                             {open ? <ChevronDownIcon className="size-3.5" /> : <ChevronRightIcon className="size-3.5" />}
                           </button>
+                          {/* A piece is checkable in its own right: some pieces never get
+                              broken into tasks, and the ones that do still need a "this
+                              whole thing is shipped" moment. Checking it leaves the
+                              children alone — they're their own record of what got done. */}
+                          <Checkbox
+                            checked={pieceDone}
+                            className="mt-0.5 size-3.5 shrink-0"
+                            aria-label={pieceDone ? `Uncheck ${piece.title}` : `Check off ${piece.title}`}
+                            onCheckedChange={(checked) =>
+                              checked ? onComplete(piece.id) : onUncomplete(piece.id)
+                            }
+                          />
                           <div className="min-w-0 flex-1">
                             {titleField(
                               piece,

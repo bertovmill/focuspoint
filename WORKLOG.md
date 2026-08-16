@@ -3636,3 +3636,19 @@ lane with long wrapping titles, added a Sales piece and a task under it through
 the panel's own composers, collapsed the Community lane, confirmed every row
 persisted server-side with the right `category`/`parent_id`. Test rows deleted.
 `npm run typecheck` and `npm run build` clean.
+
+## 2026-08-16 — Pipeline pieces are checkable too
+
+Child tasks in the Pipelines panel already had checkboxes; the pieces above
+them didn't, so there was no way to mark a whole piece shipped. Added a
+`Checkbox` to the piece row in `app/_components/pipeline-lanes.tsx`, between the
+expand chevron and the title, wired to the same `onComplete`/`onUncomplete`
+handlers the child rows use (they take a bare id, so parents need no special
+casing).
+
+Decision: checking a piece does **not** cascade to its children. The `n/m`
+counter next to the title is the honest record of which steps actually got done,
+and some pieces are one-liners that never get broken down at all — auto-ticking
+their children would invent completions that never happened.
+
+Files: `app/_components/pipeline-lanes.tsx`. `npm run typecheck` clean.

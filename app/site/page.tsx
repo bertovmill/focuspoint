@@ -151,8 +151,8 @@ export default async function SiteHomePage() {
             tags={["Live", "Ask anything"]}
             href="/chat"
             imageSrc="/site-art/cael.webp"
-            gradientFrom="#7c2d12"
-            gradientTo="#c2410c"
+            gradientFrom="#5c2f1f"
+            gradientTo="#a85c3e"
             priority
             className={PANEL_HEIGHT}
           />

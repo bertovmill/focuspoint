@@ -48,7 +48,10 @@
   --card-foreground: oklch(0.09 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.09 0 0);
-  --primary: oklch(0.68 0.22 37);
+  /* Terracotta, not the old neon orange. Chroma 0.13 instead of 0.22 and a
+     darker lightness: it keeps the warmth but stops shouting, and white text on
+     it measures 5.15:1 where the old orange managed only 3.22:1 and failed AA. */
+  --primary: oklch(0.55 0.13 38);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.2 0 0);
@@ -59,7 +62,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.68 0.22 37);
+  --ring: oklch(0.55 0.13 38);
   --priority-high: oklch(0.58 0.22 27);
   --priority-urgent: oklch(0.55 0.25 15);
   --radius: 0.5rem;
@@ -85,7 +88,9 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.15 0 0);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.72 0.22 37);
+  /* Terracotta again, lifted for a dark ground. Kept a touch brighter than the
+     light-mode value so it still carries against near-black. */
+  --primary: oklch(0.68 0.13 40);
   --primary-foreground: oklch(0.1 0 0);
   --secondary: oklch(0.22 0 0);
   --secondary-foreground: oklch(0.97 0 0);
@@ -96,7 +101,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.97 0 0 / 10%);
   --input: oklch(0.97 0 0 / 12%);
-  --ring: oklch(0.72 0.22 37);
+  --ring: oklch(0.68 0.13 40);
   --priority-high: oklch(0.68 0.22 27);
   --priority-urgent: oklch(0.7 0.24 15);
   --chart-essential: #3987e5;

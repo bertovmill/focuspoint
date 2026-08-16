@@ -4,6 +4,42 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — Accent: orange → terracotta
+
+**Ask:** *"this orange can be something a bit more tasteful"*.
+
+Rendered four candidates against the current orange as real screenshots (not
+hex swatches) and measured white-on-button contrast from actual pixels, so the
+choice was made on evidence. Berto picked terracotta, applied everywhere.
+
+- `--primary` light: `oklch(0.68 0.22 37)` → **`oklch(0.55 0.13 38)`**
+- `--primary` dark: `oklch(0.72 0.22 37)` → **`oklch(0.68 0.13 40)`**
+- `--ring` follows `--primary` in both modes.
+
+Chroma drops from 0.22 to 0.13 and lightness comes down — the warmth stays, the
+neon goes. **This also fixed an accessibility bug nobody had asked about:** white
+text on the old orange measured 3.22:1, which fails WCAG AA. Terracotta measures
+5.15:1 in light and 6.94:1 in dark.
+
+`--primary` is a single shared token, so the private Cael app changed with the
+public site — deliberate, and it fixes the same failing button contrast there.
+
+Two dependants were tuned to the old orange and had to follow, or they'd have
+been left brighter than the accent:
+
+- `AmbientBloom`'s colours in `app/site/_components/grain.tsx`.
+- The Cael story card's gradient hairline (`#7c2d12`/`#c2410c` → `#5c2f1f`/
+  `#a85c3e`). The other three panels are blue/gold/violet by design and were
+  left alone.
+
+Left alone deliberately: the `#f97316` fallbacks in the two confetti components
+are chart-palette variety, not the brand accent.
+
+Verified in both modes on both hosts, no console errors, typecheck and build
+clean.
+
+---
+
 ## 2026-08-16 — bertomill.com: grain and ambient light
 
 **Ask:** *"this site feels a bit too robotic, can we add a little modern day

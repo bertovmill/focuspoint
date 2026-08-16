@@ -53,10 +53,20 @@ users and sign-in tickets (Cloudflare Turnstile blocks headless sign-up):
 Every test user and ledger row was deleted afterwards; the Clerk dev instance and
 the `users` table are both back to empty.
 
-**Still open:** Google OAuth has no production credentials
-(`clerk deploy status` → `oauth_pending`), so "Continue with Google" won't work on
-the live instance until a Google Cloud OAuth client is attached. Email + password
-sign-in works today, and the owner gate is by verified email either way.
+**Google OAuth is attached** — the production instance uses Berto's own Google
+Cloud OAuth client (redirect URI `https://clerk.bertomill.com/v1/oauth_callback`;
+Authorized JavaScript origins stays **empty**, since Clerk does the exchange
+server-side). `clerk deploy status` now reports `complete: true` with
+`oauth.configured: ["google"]`.
+
+**One last-mile trap, worth knowing for any future DNS change:** after the Clerk
+CNAMEs went in, the sign-in page rendered the shell with no Clerk card. Nothing was
+wrong with the app — the ISP resolver was still serving a cached **NXDOMAIN** from
+before the records existed (Cloudflare's SOA negative TTL is 1800s), and after that
+expired macOS's own cache kept returning `ENOTFOUND` to `getaddrinfo` while `dig`
+answered fine. `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`
+cleared it. Diagnosis shortcut: if `dig` resolves but `curl`/Chrome don't, it's the
+local cache, not the zone.
 
 ---
 

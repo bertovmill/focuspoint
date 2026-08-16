@@ -2,7 +2,7 @@ import { eveChannel } from "eve/channels/eve";
 import { localDev, vercelOidc, type AuthFn } from "eve/channels/auth";
 import { createClerkClient } from "@clerk/backend";
 import { SESSION_COOKIE, isValidSession } from "@/lib/session";
-import { CLERK_SERVER_ENABLED, isOwnerEmail } from "@/lib/owner";
+import { CLERK_SERVER_ENABLED, isOwnerUser } from "@/lib/owner";
 
 /**
  * The agent transport is the app's back door — it can drive every tool Cael has —
@@ -51,11 +51,11 @@ function clerkAuth(): AuthFn<Request> {
       const { userId } = state.toAuth();
       if (!userId) return null;
 
-      // Resolve the email from Clerk rather than trusting a claim shape: this
-      // grants full tool access, so it's worth the round trip.
-      const user = await client.users.getUser(userId);
-      const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null;
-      if (!isOwnerEmail(email)) return null;
+      // Same rule as the page gate, from the same module: a verified owner
+      // address, resolved from Clerk rather than trusted from a claim. An account
+      // can carry an email it never confirmed, and accepting one here would hand
+      // the agent to whoever typed the owner's address into their own profile.
+      if (!isOwnerUser(await client.users.getUser(userId))) return null;
 
       return {
         attributes: {},

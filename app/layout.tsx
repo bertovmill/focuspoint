@@ -49,8 +49,8 @@ export default async function RootLayout({ children }: { readonly children: Reac
     // Record the account on the way past. Middleware already decided whether they
     // get in; this is only the ledger, and it must never block the render.
     try {
-      const { userId, sessionClaims } = await auth();
-      if (userId) await ensureUserRow(await resolveViewer(userId, sessionClaims));
+      const { userId } = await auth();
+      if (userId) await ensureUserRow(await resolveViewer(userId));
     } catch {
       // No session, or the DB is unreachable. Neither is worth a blank page.
     }

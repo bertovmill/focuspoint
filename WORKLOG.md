@@ -4,6 +4,62 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-16 — Clerk live in production, and a privilege-escalation hole closed
+
+Berto created the Clerk app and ran the CLI skill; `clerk init` detected the
+hand-built wiring from the previous entry and **skipped all of it** (middleware,
+provider, both auth pages), writing only env vars. Nothing was overwritten.
+
+**Production is live.** `pk_live` is in the bundle, unauthenticated `/` now goes
+to `/sign-in`, and the password fallback still opens the app. The Clerk
+production instance is `bertomill.com`, so its Frontend API is
+`clerk.bertomill.com` — which didn't resolve. `clerk deploy status` emits the
+pending records as JSON, so they went into the zone through the existing
+idempotent path rather than by hand: `scripts/cloudflare-dns.mjs` now takes a
+`CLERK_DNS_JSON` env var exactly like `RESEND_DNS_JSON`. All five CNAMEs are
+**unproxied** — Clerk terminates its own TLS and the cert challenge can't pass
+through Cloudflare's orange cloud. DNS, SSL and mail all report complete.
+
+**The bug worth remembering.** The first cut resolved the owner as
+`primaryEmailAddress ?? emailAddresses[0]` with *no verification check*. A Clerk
+account can carry an address that was added but never confirmed — so anyone who
+typed `bertmill19@gmail.com` into their own profile would have been handed the
+full app and every tool the agent has. Now `isOwnerUser()` counts **only
+verified** addresses, and **any** verified address rather than just the primary:
+verification already proves control of the inbox, so demanding it also be primary
+buys no safety and would lock the owner out for having signed up with a different
+address first.
+
+`isOwnerUser` lives in `lib/owner.ts`, the dependency-free module, because its two
+callers run in different worlds: middleware and the pages go through
+`@clerk/nextjs`, while the eve channel runs in a plain Node process that **cannot
+import that package at all** — its ESM build fails to resolve `routeMatcher` and
+the agent server exits on startup. That's why the rule can't live next to the
+Clerk plumbing.
+
+Also fixed while running the real flow: middleware was swallowing Clerk's own
+`/__clerk/*` handshake path (a sign-in loop with no exit), and `<SignedIn>` was
+removed in Core 3 and 500'd the app for a password-cookie session.
+
+**Verified** against the live dev instance, driving a browser with backend-API
+users and sign-in tickets (Cloudflare Turnstile blocks headless sign-up):
+
+| account | result |
+| --- | --- |
+| plain non-owner | bounced to "Cael is private", `/api/*` 403, eve 401 |
+| owner address present but **unverified** | bounced, 403 — the hole, closed |
+| owner address **verified** | full app, `/api/todos` 200 |
+
+Every test user and ledger row was deleted afterwards; the Clerk dev instance and
+the `users` table are both back to empty.
+
+**Still open:** Google OAuth has no production credentials
+(`clerk deploy status` → `oauth_pending`), so "Continue with Google" won't work on
+the live instance until a Google Cloud OAuth client is attached. Email + password
+sign-in works today, and the owner gate is by verified email either way.
+
+---
+
 ## 2026-08-16 — Accent: orange → terracotta
 
 **Ask:** *"this orange can be something a bit more tasteful"*.

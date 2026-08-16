@@ -25,6 +25,40 @@ export function isOwnerEmail(email: string | null | undefined): boolean {
   return email.trim().toLowerCase() === OWNER_EMAIL;
 }
 
+/** The part of a Clerk user this app's decision depends on. */
+export interface ClerkUserish {
+  primaryEmailAddressId?: string | null;
+  emailAddresses: readonly { id: string; emailAddress: string; verification: { status: string } | null }[];
+}
+
+/** Only addresses Clerk has confirmed the person actually controls. */
+export const verifiedAddresses = (user: ClerkUserish) =>
+  user.emailAddresses.filter((e) => e.verification?.status === "verified");
+
+/**
+ * Is this the owner? — the one security decision in the app.
+ *
+ * It lives here, in the module with no dependencies, because both callers need
+ * it and they run in different worlds: middleware and the pages go through
+ * `@clerk/nextjs`, while the eve channel runs in a plain Node process that
+ * cannot even import that package (its ESM build fails to resolve, and the
+ * agent server exits on startup).
+ *
+ * Two rules, both load-bearing:
+ *
+ * 1. **Verified only.** A Clerk account can carry addresses that were added but
+ *    never confirmed, so trusting `primaryEmailAddress ?? emailAddresses[0]`
+ *    would let anyone who types the owner's address into their own profile walk
+ *    into the full app and every tool the agent has.
+ * 2. **Any verified address, not just the primary.** Verification *is* proof of
+ *    control — nobody reaches it without the inbox — so requiring it also be
+ *    primary buys no safety, and would lock the owner out for something as
+ *    ordinary as having signed up with a different address first.
+ */
+export function isOwnerUser(user: ClerkUserish): boolean {
+  return verifiedAddresses(user).some((e) => isOwnerEmail(e.emailAddress));
+}
+
 /**
  * Is Clerk configured?
  *

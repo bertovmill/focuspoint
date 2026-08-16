@@ -95,9 +95,9 @@ async function handle(request: NextRequest, auth: AuthResolver | null): Promise<
   // 1. A Clerk session. Signing in is open to anyone, but only the owner gets in:
   //    everyone else holds an account and is shown the door, politely.
   if (auth) {
-    const { userId, sessionClaims } = await auth();
+    const { userId } = await auth();
     if (userId) {
-      const viewer = await resolveViewer(userId, sessionClaims);
+      const viewer = await resolveViewer(userId);
       if (viewer.isOwner) return NextResponse.next();
       if (isApiPath(pathname)) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });

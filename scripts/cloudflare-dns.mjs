@@ -58,6 +58,29 @@ if (process.env.RESEND_DNS_JSON) {
   }
 }
 
+/**
+ * Clerk's production instance records, passed in as JSON the same way — the mail
+ * and DKIM hosts carry a per-instance id, so they can't be hardcoded either.
+ * Get them straight from the CLI:
+ *
+ *   CLERK_DNS_JSON=$(clerk deploy status | jq -c .pendingDnsRecords) \
+ *     node --env-file=.env.local scripts/cloudflare-dns.mjs --apply
+ *
+ * These must stay **unproxied** like everything else here: Clerk terminates TLS
+ * on its own edge, and its certificate challenge can't pass through the orange
+ * cloud. Clerk names its fields host/value rather than name/content.
+ */
+if (process.env.CLERK_DNS_JSON) {
+  for (const r of JSON.parse(process.env.CLERK_DNS_JSON)) {
+    DESIRED.push({
+      type: r.type,
+      name: r.host ?? r.name,
+      content: r.value ?? r.content,
+      comment: "Clerk — production instance",
+    });
+  }
+}
+
 async function cf(path, init = {}) {
   const res = await fetch(`${API}${path}`, {
     ...init,

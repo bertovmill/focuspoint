@@ -29,8 +29,8 @@ export default async function NotAuthorizedPage() {
     );
   }
 
-  const { userId, sessionClaims } = await auth();
-  const viewer = await resolveViewer(userId, sessionClaims);
+  const { userId } = await auth();
+  const viewer = await resolveViewer(userId);
   // Best-effort: a failed write shouldn't turn "you can't come in" into a crash.
   await ensureUserRow(viewer).catch(() => {});
 

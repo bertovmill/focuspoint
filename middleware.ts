@@ -1,8 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, isValidSession } from "@/lib/session";
+import {
+  PUBLIC_HOST,
+  SITE_PREFIX,
+  isPublicHost,
+  isPublicPassthrough,
+  isPrivateOnlyPath,
+} from "@/lib/public-site";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── bertomill.com: the public site. No session, no Cael. ──────────────────
+  // Served from the `app/site` tree via rewrite, so visitors see clean URLs.
+  if (isPublicHost(request.headers.get("host"))) {
+    // Consolidate www onto the apex so there's one canonical origin.
+    const host = (request.headers.get("host") ?? "").toLowerCase();
+    if (host.startsWith(`www.${PUBLIC_HOST}`)) {
+      const url = request.nextUrl.clone();
+      url.host = PUBLIC_HOST;
+      return NextResponse.redirect(url, 308);
+    }
+    if (isPublicPassthrough(pathname)) return NextResponse.next();
+    // Cael's API, agent transport and traces are not reachable from the public host.
+    if (isPrivateOnlyPath(pathname) || pathname.startsWith(SITE_PREFIX) || pathname.startsWith("/login")) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `${SITE_PREFIX}${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // ── cael.bertomill.com: the private app. Everything below is unchanged. ───
 
   // Always allow: login page, auth API, static assets, eve health check, Twilio webhook
   if (

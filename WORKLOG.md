@@ -3453,3 +3453,93 @@ deleted. `npm run typecheck` and `npm run build` both clean.
 
 Next: dragging an existing canvas card onto a piece to adopt it (needs
 `parent_id` on PATCH), and a per-piece due date once a publishing cadence exists.
+
+---
+
+## 2026-08-16 — bertomill.com: a public front, Cael moves behind it
+
+The app now serves two audiences out of one codebase, split by hostname:
+
+- **bertomill.com** — the public site. No auth, no Cael.
+- **cael.bertomill.com** — the private life-agent, exactly as it was.
+
+**Routing.** `lib/public-site.ts` holds the split; `middleware.ts` applies it.
+On a public host the request is rewritten `/x` → `/site/x`, so the pages live
+under `app/site/` (a real path, not a route group — both trees need to own "/")
+while visitors only ever see clean URLs. `www` 308s to the apex.
+
+Everything that isn't the public site 404s on the public host: `/api/*` (except
+`/api/site`), `/eve*`, `/traces`, `/login`, and `/site` itself. The passthrough
+list is an explicit allowlist, not a denylist. Eve's channel already enforces its
+own auth (`vercelOidc`/`localDev`/`cookieAuth`), so the agent transport is
+covered twice over.
+
+Locally the public build is reachable at `site.localhost:3789` — `isPublicHost()`
+matches any `site.*` host so no DNS or hosts-file edit is needed. On any other
+host the `/site` prefix is real, which is why links go through `SiteLink` /
+`useSiteHref` (`app/site/_components/site-link.tsx`): the server layout resolves
+the prefix once and every link is authored the public way.
+
+**The public/private boundary is one file.** `lib/public-data.ts` is the only
+module the public pages may use to reach the database, and every query in it
+returns an aggregate — a count, a sum, a percentage. No task title, journal
+entry, thought or dollar figure crosses it. Money is `redacted`: the site shows
+`22% of target` and never the balance.
+
+**Pages** (`app/site/`): `/` (portfolio + live counters), `/writing` +
+`/writing/[slug]`, `/podcast` + `/podcast/[slug]`, `/building` (the 8 forms with
+live progress), `/chat` (public Cael). Plus `app/robots.ts` and `app/sitemap.ts`.
+
+**Writing and podcast are markdown on disk** (`content/writing`,
+`content/podcast`), loaded by `lib/content.ts` — published work is versioned with
+the code and reviewable in a diff, and needs no auth path to edit. Seeded with
+three pieces: the Eve build conversation (from `article-draft.md`) as the first
+episode, plus two articles.
+
+**Public Cael** (`app/api/site/chat/route.ts`) is deliberately *not* the agent in
+`agent/`. It's a tool-less `streamText` call whose entire knowledge of Berto is a
+context block built from `lib/public-data.ts` aggregates and published markdown.
+It cannot read or write anything. Guards: 16-message / 1500-char ceilings, the
+transcript is rebuilt from scratch so a caller can't smuggle in a system turn,
+and a 12-req/min per-IP throttle.
+
+Three bugs found and fixed during verification:
+
+- Unquoted `date: 2026-08-16` in frontmatter is parsed by YAML into a `Date`, not
+  a string — a `typeof === "string"` check silently datelined every post
+  1 Jan 1970. `toDateString()` now accepts both.
+- Craft has no goal row, so its card rendered "10 / 0 notes". Forms now carry
+  `hasTarget`; without one they show the count and no bar. Money's target isn't
+  in `vision_items` at all — it rides on the savings snapshots, so it falls back
+  to the newest snapshot carrying a `goal`.
+- The chat route returned 200 with an empty body when the model call failed
+  (the stream closes after headers are sent). `onError` logs it server-side and
+  the client now treats an empty completed turn as an error instead of leaving a
+  blank bubble.
+
+Also: `getPublicVisions()` reads `kind='statement'`, not `'vision'` — those are
+the per-form vision statements, and they're the one non-aggregate thing on the
+public side. Dropping the call in `app/site/building/page.tsx` reverts the cards
+to numbers only.
+
+Verified against a private dev server (3789): public host serves all 5 pages
+with no cookie; `/api/todos`, `/traces`, `/login`, `/site` and `/eve/v1/health`
+all 404 there; the private host still 307s to `/login`. Chat guards return
+400/400/400 and the throttle trips at 12. Screenshots taken light, dark and
+mobile. `npm run typecheck` and `npm run build` clean.
+
+**Not done — needs Berto:** the Vercel CLI session is expired (`vercel whoami`
+→ Not authorized), so `bertomill.com` is not attached to the project yet and
+nothing is deployed. After `vercel login`:
+
+```
+vercel domains add bertomill.com focuspoint
+vercel domains add www.bertomill.com focuspoint
+vercel domains add cael.bertomill.com focuspoint
+vercel --prod
+```
+
+The public chat is the one thing unverified end-to-end: the AI Gateway call
+needs a live `VERCEL_OIDC_TOKEN`, which expired locally and can't be refreshed
+while the CLI is logged out. It resolves automatically in production; worth one
+message through `/chat` after the first deploy.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 import { normalizeCategory } from "@/lib/task-categories";
+import { normalizeCardColor } from "@/lib/task-colors";
 import { removeCompletedTaskFromCalendar } from "@/lib/task-calendar";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -54,6 +55,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // — not truthiness — decides whether we touch the column.
     const hasCategory = Object.prototype.hasOwnProperty.call(body, "category");
     const category = normalizeCategory(body.category);
+    // Same nullable-by-presence rule for the card colour: sending color:null clears it
+    // back to a plain card, omitting the key leaves whatever's there.
+    const hasColor = Object.prototype.hasOwnProperty.call(body, "color");
+    const color = normalizeCardColor(body.color);
     const sql = getDb();
     // Queue positions are slots: giving #3 to this task takes it from whoever had it.
     if (hasTaskNumber && task_number !== null) {
@@ -74,9 +79,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             waiting = COALESCE(${waiting ?? null}, waiting),
             task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
-            category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END
+            category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
+            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
         `
       : await sql`
           UPDATE todos
@@ -88,9 +94,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             waiting = COALESCE(${waiting ?? null}, waiting),
             task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
-            category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END
+            category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
+            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

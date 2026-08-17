@@ -4378,3 +4378,40 @@ Testing note for next time: seed canvas test tasks with **no category** — a la
 category (code/content/community/sales) sends the task to the pipeline panel, not
 the canvas. And the Tasks screen is the `/tasks` route; clicking the sidebar
 label doesn't change the URL in a fresh browser context.
+
+## 2026-08-17 — Right-click a task card to colour it
+
+Task cards on the canvas can now be painted from their right-click menu. New
+`Colour` section at the top of the menu: a row of five swatches — yellow, green,
+blue, purple, and an empty one that clears back to a plain card. Clicking the
+colour a card already has also clears it.
+
+Design decision (asked Berto): the colour is a **free, cosmetic** property, not a
+derived view of `in_progress`. He wants to paint a card whatever he likes; the
+working convention is yellow = pending, green = in progress, but nothing in the
+code enforces it. The alternative — a Status radio group that drove the colour
+from the existing flag — was rejected.
+
+- `lib/task-colors.ts` (new) — the palette: `CARD_COLORS`, the Tailwind classes
+  for card / swatch (spelled out per variant, since Tailwind can't see
+  interpolated names), and `normalizeCardColor()` for API input.
+- `lib/db.ts` — `todos.color TEXT` (nullable; NULL = plain card). Applied to the
+  live Neon DB directly as well, since `ensureSchema()` doesn't run per request.
+- `app/api/todos/route.ts`, `app/api/todos/[id]/route.ts` — `color` added to every
+  SELECT/RETURNING list, accepted on POST, and nullable-by-presence on PATCH
+  (`color: null` clears, omitting the key leaves it) — same pattern as `category`.
+- `app/_components/task-canvas.tsx` — swatch row, card tint, and Duplicate now
+  carries the colour over.
+
+Knock-on: **`waiting` moved off amber to slate** (`text-slate-500` /
+`border-slate-400`). Amber now belongs to the yellow card colour, and two amber
+signals on one board would have been unreadable. A coloured card also keeps its
+own border when `in_progress` — the primary *ring* still marks "working on now",
+so the colour isn't overridden by live state.
+
+Verified in the running app (Playwright, dev server on :3789, `/tasks`):
+right-click → green tinted the card `bg-emerald-100/90` and persisted
+`color: "green"` server-side; → yellow flipped it to `bg-amber-100/90` /
+`color: "yellow"`; Duplicate produced a second yellow card; → No colour cleared
+both the classes and the column back to null. `npm run typecheck` clean. Test
+rows deleted (0 leftover).

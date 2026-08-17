@@ -67,6 +67,9 @@ export async function ensureSchema() {
   // needed to ship it hang off it as children. NULL = a normal standalone task.
   // Cascade so deleting the piece takes its checklist with it.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES todos(id) ON DELETE CASCADE`;
+  // Cosmetic card colour picked from the canvas right-click menu (see lib/task-colors.ts).
+  // NULL = a plain card. Deliberately not tied to in_progress/waiting.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS color TEXT`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

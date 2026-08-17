@@ -37,6 +37,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
+import {
+  CARD_COLORS,
+  CARD_COLOR_CLASSES,
+  CARD_COLOR_LABELS,
+  CARD_COLOR_SWATCH_CLASSES,
+  type CardColor,
+} from "@/lib/task-colors";
 import { PipelineLanes } from "@/app/_components/pipeline-lanes";
 import {
   ESTIMATE_OPTIONS,
@@ -568,6 +575,7 @@ export function TaskCanvas({
             recurrence: todo.recurrence ?? "none",
             estimated_minutes: todo.estimated_minutes,
             category: todo.category,
+            color: todo.color,
             ...(todo.canvas_x != null && todo.canvas_y != null
               ? { canvas_x: todo.canvas_x + CARD_W + CARD_GAP, canvas_y: todo.canvas_y }
               : {}),
@@ -781,8 +789,13 @@ export function TaskCanvas({
         }}
         className={cn(
           "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-all duration-500 active:cursor-grabbing",
-          todo.in_progress && !done && "border-primary/60 ring-1 ring-primary/25",
-          todo.waiting && !todo.in_progress && !done && "border-amber-500/50",
+          // A hand-picked colour paints the whole card (see lib/task-colors.ts). It wins
+          // the border back from the live-state styles below — the ring still marks
+          // "working on now", so nothing is lost by letting the colour show.
+          todo.color && !done && CARD_COLOR_CLASSES[todo.color],
+          todo.in_progress && !done && "ring-1 ring-primary/25",
+          todo.in_progress && !done && !todo.color && "border-primary/60",
+          todo.waiting && !todo.in_progress && !done && !todo.color && "border-slate-400/70 dark:border-slate-400/50",
           // Checked off: fade and shrink away over the window the parent holds the card
           // open for, so it visibly leaves rather than blinking out.
           done && "scale-95 opacity-0",
@@ -909,7 +922,9 @@ export function TaskCanvas({
                   title="Waiting on something"
                   className={cn(
                     "rounded p-0.5 hover:bg-muted",
-                    todo.waiting ? "text-amber-500 opacity-100" : "text-muted-foreground hover:text-foreground",
+                    // Slate, not amber: amber now belongs to the yellow card colour, and
+                    // "waiting" shouldn't read as the same signal as a pending card.
+                    todo.waiting ? "text-slate-500 opacity-100 dark:text-slate-300" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <HourglassIcon className="size-3" />
@@ -939,6 +954,36 @@ export function TaskCanvas({
       </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-44">
+          {/* Colour first: it's the one thing here that's purely about how the board
+              *looks*, and it's the most-reached-for item. Yellow = pending, green =
+              in progress by convention — the code doesn't enforce it. */}
+          <ContextMenuLabel className="text-xs">Colour</ContextMenuLabel>
+          <div className="flex items-center gap-1 px-2 pb-1">
+            {CARD_COLORS.map((c) => (
+              <ContextMenuItem
+                key={c}
+                aria-label={CARD_COLOR_LABELS[c]}
+                title={CARD_COLOR_LABELS[c]}
+                onSelect={() => onUpdate(todo.id, { color: todo.color === c ? null : (c as CardColor) })}
+                className={cn(
+                  "size-5 shrink-0 justify-center rounded-full border p-0",
+                  CARD_COLOR_SWATCH_CLASSES[c],
+                  todo.color === c ? "ring-2 ring-foreground/60 ring-offset-1 ring-offset-popover" : "border-black/10",
+                )}
+              />
+            ))}
+            {/* Clears the colour — the plain card surface, shown as an empty swatch. */}
+            <ContextMenuItem
+              aria-label="No colour"
+              title="No colour"
+              onSelect={() => onUpdate(todo.id, { color: null })}
+              className={cn(
+                "size-5 shrink-0 justify-center rounded-full border border-border bg-card p-0",
+                !todo.color && "ring-2 ring-foreground/60 ring-offset-1 ring-offset-popover",
+              )}
+            />
+          </div>
+          <ContextMenuSeparator />
           <ContextMenuLabel className="text-xs">Repeats</ContextMenuLabel>
           <ContextMenuRadioGroup
             value={todo.recurrence ?? "none"}

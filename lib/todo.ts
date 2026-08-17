@@ -1,6 +1,7 @@
 // The task row shape, shared by the dashboard and the Tasks canvas. It mirrors the
 // columns the /api/todos routes select — keep the two in step.
 import { isLaneCategory, type TaskCategory } from "@/lib/task-categories";
+import type { CardColor } from "@/lib/task-colors";
 
 export interface Todo {
   id: number;
@@ -18,6 +19,8 @@ export interface Todo {
   task_number?: number | null;
   estimated_minutes?: number | null;
   category?: TaskCategory | null;
+  // Cosmetic card colour set from the canvas right-click menu. Null = plain card.
+  color?: CardColor | null;
   // Position of the task's card on the Tasks canvas, in Excalidraw scene coordinates.
   // Null on both = never placed; the canvas drops it into the inbox column and saves
   // wherever it landed.

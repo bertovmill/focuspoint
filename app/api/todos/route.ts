@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hasWorkingSlot } from "@/lib/working-now";
 import { isLaneCategory, normalizeCategory } from "@/lib/task-categories";
+import { normalizeCardColor } from "@/lib/task-colors";
 
 export async function GET(req: Request) {
   try {
@@ -12,21 +13,21 @@ export async function GET(req: Request) {
     const rows =
       includeCompleted === "true"
         ? await sql`
-            SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+            SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
             FROM todos
             ORDER BY completed ASC, in_progress DESC, waiting DESC, priority DESC, created_at DESC
             LIMIT ${limit}
           `
         : includeCompleted === "today"
           ? await sql`
-              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
               FROM todos
               WHERE completed = FALSE OR completed_at::date = CURRENT_DATE
               ORDER BY completed ASC, in_progress DESC, waiting DESC, priority DESC, created_at DESC
               LIMIT ${limit}
             `
           : await sql`
-              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
               FROM todos
               WHERE completed = FALSE
               ORDER BY in_progress DESC, waiting DESC, priority DESC, created_at DESC
@@ -40,9 +41,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes, in_progress = false, category, parent_id, canvas_x, canvas_y } = await req.json();
+    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes, in_progress = false, category, parent_id, canvas_x, canvas_y, color } = await req.json();
     if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
     const normalizedCategory = normalizeCategory(category);
+    const normalizedColor = normalizeCardColor(color);
     const parsedParent = Number(parent_id);
     const parent = Number.isFinite(parsedParent) && parsedParent > 0 ? Math.trunc(parsedParent) : null;
     // A pipeline *piece* (Content, Code, Community, Sales) is a container, not a unit
@@ -64,9 +66,9 @@ export async function POST(req: Request) {
     const hasPosition = Number.isFinite(x) && Number.isFinite(y);
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress, category, parent_id, canvas_x, canvas_y)
-      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${startWorking}, ${normalizedCategory}, ${parent}, ${hasPosition ? Math.round(x) : null}, ${hasPosition ? Math.round(y) : null})
-      RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress, category, parent_id, canvas_x, canvas_y, color)
+      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${startWorking}, ${normalizedCategory}, ${parent}, ${hasPosition ? Math.round(x) : null}, ${hasPosition ? Math.round(y) : null}, ${normalizedColor})
+      RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
     `;
     return NextResponse.json(row);
   } catch {

@@ -210,7 +210,22 @@ export function TaskCanvas({
 
   // Pipeline pieces and the tasks hanging off them live in the pinned panel, never
   // as free-floating cards — otherwise the same task would sit in two places.
-  const canvasTodos = useMemo(() => todos.filter((t) => !isInLane(t)), [todos]);
+  //
+  // A checked-off card leaves the board: the canvas is the *open* work, and finished
+  // cards would otherwise silt it up. It sticks around for the ~600ms the parent keeps
+  // it in `completingIds`, so you still see it tick and fade before it goes. (The done
+  // count in the toolbar, and the list view, both still know about it.)
+  //
+  // `completed` alone isn't enough: a recurring task never flips it — it just gets a new
+  // due date — so `isDoneToday` is what makes a daily card leave today and come back
+  // tomorrow.
+  const canvasTodos = useMemo(
+    () =>
+      todos.filter(
+        (t) => !isInLane(t) && (!(t.completed || isDoneToday(t)) || completingIds.has(t.id)),
+      ),
+    [todos, completingIds],
+  );
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
@@ -765,10 +780,12 @@ export function TaskCanvas({
           pointerEvents: drawing ? "none" : "auto",
         }}
         className={cn(
-          "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-colors active:cursor-grabbing",
+          "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-all duration-500 active:cursor-grabbing",
           todo.in_progress && !done && "border-primary/60 ring-1 ring-primary/25",
           todo.waiting && !todo.in_progress && !done && "border-amber-500/50",
-          done && "opacity-55",
+          // Checked off: fade and shrink away over the window the parent holds the card
+          // open for, so it visibly leaves rather than blinking out.
+          done && "scale-95 opacity-0",
         )}
       >
         <div className="flex items-start gap-2">

@@ -4347,3 +4347,34 @@ Scope note: pipeline-lane cards (`pipeline-lanes.tsx`) have no context menu, so
 duplicate is canvas-only for now.
 
 Verified: `npm run typecheck` clean.
+
+## 2026-08-17 — Checked-off cards leave the canvas
+
+Follow-up to the duplicate work above. Checking off a task card now removes it
+from the board instead of leaving it greyed out: `canvasTodos` in
+`task-canvas.tsx` filters out anything done, and the card fades + shrinks
+(`transition-all duration-500`, `scale-95 opacity-0`) during the ~600ms window
+the parent already keeps it in `completingIds`, so it visibly leaves rather than
+blinking out.
+
+Two subtleties:
+
+- The filter tests `t.completed || isDoneToday(t)`. `completed` alone isn't
+  enough — a **recurring** task never flips it (`handleComplete` in
+  `dashboard.tsx` only rolls its due date), so it would have gone `opacity-0`
+  and stayed on the board as an invisible click-blocker. With `isDoneToday`, a
+  daily card leaves today and comes back tomorrow.
+- The `doneToday` counter in the toolbar reads `todos`, not `canvasTodos`, so
+  "N/M today" is unaffected. Un-checking now happens in list view, not on the
+  canvas.
+
+Verified in the running app (Playwright, dev server on :3789, `/tasks` route):
+right-click → Duplicate created a copy at x=548 for an original at x=300
+(300 + CARD_W 236 + CARD_GAP 12) with estimate/priority carried over and the new
+card rendered on the board; checking off the original removed it from the DOM
+within ~1.5s while the copy stayed. Test rows deleted.
+
+Testing note for next time: seed canvas test tasks with **no category** — a lane
+category (code/content/community/sales) sends the task to the pipeline panel, not
+the canvas. And the Tasks screen is the `/tasks` route; clicking the sidebar
+label doesn't change the URL in a fresh browser context.

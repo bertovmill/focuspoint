@@ -4,6 +4,59 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-17 — Cael can read the sketches
+
+**Ask:** *"can we give our agent cael the tool to read our /sketches as data?"*
+
+Sketches were write-only to Cael: 27 drawings on the canvas, and the agent had no
+idea any of them existed. Now it has `list_sketches` (browse by title/date, with a
+text preview) and `read_sketch` (one sketch in full, by id or title).
+
+**How a sketch becomes readable.** A sketch is stored as `scene` JSONB — a flat
+array of Excalidraw elements with absolute coordinates. eve's `toModelOutput` only
+carries text or JSON, so there's no handing Cael the PNG to look at; the meaning has
+to be reconstructed from the element array. `lib/sketch-text.ts` does that, and the
+whole trick is that a diagram's meaning lives in two places the flat array hides:
+
+- **which text belongs to which shape** — `containerId`, when the text was typed
+  *into* a box.
+- **which shapes an arrow joins** — `startBinding` / `endBinding`.
+
+Resolve both and a flowchart reads as `A → B` instead of a pile of loose strings.
+
+**Two gaps the naive version left, both fixed geometrically.** First pass on
+"Vision 2027" (77 elements) produced `100 sales Aucctus → ?` — because Berto mostly
+*doesn't* type into boxes, he types text and drags it on top of one, so
+`containerId` is null and 20 rectangles read as unlabeled. Fix: a shape adopts a
+text element as its label when exactly one sits inside its bounds. Exactly one —
+two or more means the shape is a grouping region, not a labelled node, and
+collapsing all of it into one caption would be a lie.
+
+Second, hand-drawn arrows that never snapped to a shape were dropped entirely. Fix:
+resolve a loose endpoint to the nearest named element within **24px**. Tight on
+purpose — a wrong connection misleads worse than a missing one — and a connection
+is only reported when *both* ends resolve.
+
+Together those turned "Vision 2027" from 4 broken connections into 9 real ones, and
+recovered the whole "Flywheel" cycle from what is, structurally, just loose text and
+three arrows:
+
+```
+Better Content → Better at AI → Better Events → Better Content
+```
+
+**Known limits, and Cael is told about them in `instructions.md`:** sketches drawn
+before the Excalidraw switch (ids ≤ 14) have a NULL scene — they're a flat PNG and
+have no text to give, so both tools say "image-only" rather than showing empty.
+Arrows drawn far from anything still don't resolve. The instruction is explicit that
+Cael reads the structure, not the picture, and should say when the drawing doesn't
+say.
+
+**Files:** `lib/sketch-text.ts` (new), `agent/tools/list_sketches.ts` (new),
+`agent/tools/read_sketch.ts` (new), `agent/instructions.md`.
+
+---
+
 ## 2026-08-16 — Luma, mirrored into Cael
 
 **Ask:** *"connect cael to luma so we can pull all luma details into cael, and use

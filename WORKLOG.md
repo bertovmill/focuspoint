@@ -4235,3 +4235,43 @@ the same `<aside>` slot via a single conditional in `app/(app)/layout.tsx`, and
 Trap: a regex insert put `MailIcon` into the wrong import block and broke the build
 with a bare `TS1005: ',' expected`. The lucide import in that file is one long single
 line — worth editing by hand rather than by pattern.
+
+**Spawn a task where you're looking, on the task canvas (2026-08-17).**
+
+Two ways to make a todo without reaching for the toolbar:
+
+- **Press `N`** anywhere on the Tasks screen — the composer opens under the cursor.
+- **Right-click empty canvas** — a one-item "New task here" menu (which advertises
+  the `N` shortcut) opens the same composer at that point.
+
+Either way the new card is created *already positioned*, so it lands exactly where
+you asked instead of being swept into the inbox columns.
+
+- `app/api/todos/route.ts` — POST now accepts optional `canvas_x` / `canvas_y`.
+  When present the row is inserted with them, so the canvas's auto-placement
+  effect (which only touches rows with a null position) leaves it alone.
+- `app/_components/task-canvas.tsx` — one composer with two homes (`{at:"toolbar"}`
+  or `{at:"board", ...point}`); a `Spawn` carries both frames, container-relative
+  px for the popover and scene units for the card. Scene coords are the inverse of
+  Excalidraw's `(scene + scroll) * zoom`.
+
+Gotchas worth remembering:
+
+- `N` was **already** a global shortcut in `app/(app)/layout.tsx` (jump to Tasks +
+  focus the list-view input). The canvas handler is registered on `window` in the
+  **capture** phase and `stopPropagation()`s, so it wins whenever the board is
+  visible, and the layout one still handles `N` from any other screen. The same
+  capture trick is why Excalidraw's own document-level shortcuts never see the key.
+- The contextmenu interceptor only fires when the hit target is a raw `<canvas>`
+  **and** nothing is selected — so per-card menus, Excalidraw's toolbar menus, and
+  its selection menu (copy / layer order) are all untouched.
+- The Tasks screen stacks **two** Excalidraw boards (strategy board above, task
+  canvas below). When testing with Playwright, resolve the task canvas as
+  `document.querySelector("[data-task-card]").closest(".excalidraw")` — grabbing
+  `canvas.interactive` first hits the strategy board and every coordinate is wrong.
+  (With the cursor outside the task canvas, `N` falls back to its centre — worked
+  as designed, and that's what made the first test look broken.)
+
+Verified in the running app: card created via `N` at (863,537) rendered at exactly
+(863,537); right-click card at (565,716) likewise; both persisted server-side with
+their positions; card context menus still open. Test rows deleted.

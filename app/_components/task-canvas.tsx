@@ -124,6 +124,17 @@ interface View {
   zoom: number;
 }
 
+// A point on the board, in both frames: where to draw the popover (container-relative
+// pixels) and where the card it creates should live (scene units).
+interface Spawn {
+  left: number;
+  top: number;
+  sceneX: number;
+  sceneY: number;
+}
+
+type Composer = { at: "toolbar" } | ({ at: "board" } & Spawn);
+
 export interface TaskCanvasProps {
   todos: Todo[];
   loading: boolean;
@@ -169,11 +180,15 @@ export function TaskCanvas({
   const [cardHost, setCardHost] = useState<HTMLElement | null>(null);
   const [drawing, setDrawing] = useState(false);
 
-  const [composerOpen, setComposerOpen] = useState(false);
+  // The composer is either docked under the toolbar ("toolbar") or floating at a point
+  // on the board — right-click / "N" — in which case the new card lands exactly there.
+  const [composer, setComposer] = useState<Composer | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newEstimate, setNewEstimate] = useState<number>(30);
   const [creating, setCreating] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
+  // Right-click on empty canvas puts this one-item menu under the cursor.
+  const [boardMenu, setBoardMenu] = useState<Spawn | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -486,30 +501,135 @@ export function TaskCanvas({
       e.preventDefault();
       const title = newTitle.trim();
       if (!title || creating) return;
+      const at = composer;
       setCreating(true);
       try {
         const res = await fetch("/api/todos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, estimated_minutes: newEstimate }),
+          body: JSON.stringify({
+            title,
+            estimated_minutes: newEstimate,
+            // Cards spawned on the board keep the spot you picked; the toolbar composer
+            // leaves placement to the inbox columns.
+            ...(at?.at === "board" ? { canvas_x: at.sceneX, canvas_y: at.sceneY } : {}),
+          }),
         });
         if (!res.ok) throw new Error();
         const todo: Todo = await res.json();
         onCreated(todo);
         setNewTitle("");
-        composerRef.current?.focus();
+        // A board composer has used up its spot — a second task would land on top of the
+        // first — so it closes. The toolbar one stays open for rapid entry.
+        if (at?.at === "board") setComposer(null);
+        else composerRef.current?.focus();
       } catch {
         toast.error("Couldn't add task.");
       } finally {
         setCreating(false);
       }
     },
-    [creating, newEstimate, newTitle, onCreated],
+    [composer, creating, newEstimate, newTitle, onCreated],
   );
 
   useEffect(() => {
-    if (composerOpen) composerRef.current?.focus();
-  }, [composerOpen]);
+    if (composer) composerRef.current?.focus();
+  }, [composer]);
+
+  // ------------------------------------------------- spawn a task where you're looking
+
+  // Container-relative pointer position, so "N" can drop a card under the cursor rather
+  // than at some arbitrary default.
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  const spawnAt = useCallback((clientX: number, clientY: number): Spawn => {
+    const rect = wrapRef.current!.getBoundingClientRect();
+    const { scrollX, scrollY, zoom } = viewRef.current;
+    const left = clientX - rect.left;
+    const top = clientY - rect.top;
+    // Excalidraw maps scene → viewport as (scene + scroll) * zoom; invert it.
+    return { left, top, sceneX: left / zoom - scrollX, sceneY: top / zoom - scrollY };
+  }, []);
+
+  const openBoardComposer = useCallback(
+    (clientX: number, clientY: number) => {
+      setBoardMenu(null);
+      setNewTitle("");
+      setComposer({ at: "board", ...spawnAt(clientX, clientY) });
+    },
+    [spawnAt],
+  );
+
+  // "N" anywhere on the board opens the composer under the cursor. Captured on window so
+  // Excalidraw's own document-level shortcuts never see the key.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "n" && e.key !== "N") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      // Never steal the letter from anything you can type into — our own inputs,
+      // Excalidraw's text tool, the chat box.
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const host = wrapRef.current;
+      if (!host || !host.isConnected || host.offsetParent === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = host.getBoundingClientRect();
+      const p = pointerRef.current;
+      // Off-canvas (or no pointer yet) → drop it in the middle of what you're looking at.
+      const inside = p && p.x >= rect.left && p.x <= rect.right && p.y >= rect.top && p.y <= rect.bottom;
+      openBoardComposer(
+        inside ? p!.x : rect.left + rect.width / 2,
+        inside ? p!.y : rect.top + rect.height / 2,
+      );
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [openBoardComposer]);
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, []);
+
+  // Right-click on bare canvas offers "New task here" instead of Excalidraw's canvas
+  // menu. Cards keep their own menu (they stop the event), and Excalidraw's toolbar and
+  // element menus are untouched — only hits on the raw <canvas> are intercepted.
+  useEffect(() => {
+    const host = cardHost;
+    if (!host) return;
+    const onContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.tagName !== "CANVAS") return;
+      // A right-click with something selected is Excalidraw's business (copy, layer
+      // order, delete) — don't hijack it.
+      if ((api?.getAppState().selectedElementIds &&
+        Object.keys(api.getAppState().selectedElementIds).length > 0)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setBoardMenu(spawnAt(e.clientX, e.clientY));
+    };
+    host.addEventListener("contextmenu", onContextMenu, true);
+    return () => host.removeEventListener("contextmenu", onContextMenu, true);
+  }, [api, cardHost, spawnAt]);
+
+  // Escape / a click elsewhere dismisses the board menu.
+  useEffect(() => {
+    if (!boardMenu) return;
+    const close = () => setBoardMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [boardMenu]);
 
   // Centres the view on the task cards — the way back when you've wandered off into
   // empty canvas. Excalidraw's own scrollToContent only knows about its elements.
@@ -542,6 +662,53 @@ export function TaskCanvas({
   // The counter covers everything on the Tasks screen, lane included — it's "how much
   // did I get done today", not "how many cards are on the canvas".
   const doneToday = useMemo(() => todos.filter(isDoneToday).length, [todos]);
+
+  // One composer, two homes (toolbar dropdown / floating on the board). Only ever one is
+  // mounted at a time, so sharing the element keeps the input state and focus simple.
+  const composerForm = (
+    <form
+      onSubmit={createTask}
+      className="pointer-events-auto rounded-xl border bg-card/95 p-2 shadow-lg backdrop-blur-sm"
+    >
+      <Input
+        ref={composerRef}
+        value={newTitle}
+        onChange={(e) => setNewTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setComposer(null);
+        }}
+        placeholder="Add a task…"
+        className="h-7 text-xs"
+      />
+      <div className="mt-1.5 flex items-center gap-1">
+        {ESTIMATE_OPTIONS.map((m) => (
+          <Badge
+            key={m}
+            asChild
+            variant={newEstimate === m ? "default" : "outline"}
+            className="h-5 cursor-pointer px-1.5 text-[10px]"
+          >
+            <button type="button" onClick={() => setNewEstimate(m)}>
+              {formatEstimateLabel(m)}
+            </button>
+          </Badge>
+        ))}
+        <Button type="submit" size="sm" className="ml-auto h-5 px-2 text-[10px]" disabled={creating}>
+          Add
+        </Button>
+      </div>
+    </form>
+  );
+
+  // Keep a popover from hanging off the right or bottom edge of the board.
+  const clampLeft = (left: number) => {
+    const w = wrapRef.current?.clientWidth ?? 0;
+    return Math.max(8, w ? Math.min(left, Math.max(8, w - (CARD_W + 24))) : left);
+  };
+  const clampTop = (top: number) => {
+    const h = wrapRef.current?.clientHeight ?? 0;
+    return Math.max(8, h ? Math.min(top, Math.max(8, h - 110)) : top);
+  };
 
   const cards = canvasTodos.map((todo) => {
     const done = isDoneToday(todo) || completingIds.has(todo.id);
@@ -843,7 +1010,12 @@ export function TaskCanvas({
         className="pointer-events-none absolute top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2 transition-[left] duration-150"
       >
         <div className="pointer-events-auto flex items-center gap-1.5">
-          <Button size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setComposerOpen((v) => !v)}>
+          <Button
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs"
+            title="Add a task (or press N to drop one under your cursor)"
+            onClick={() => setComposer((c) => (c ? null : { at: "toolbar" }))}
+          >
             <PlusIcon className="size-3.5" />
             Task
           </Button>
@@ -864,41 +1036,45 @@ export function TaskCanvas({
             </span>
           )}
         </div>
-        {composerOpen && (
-          <form
-            onSubmit={createTask}
-            className="pointer-events-auto rounded-xl border bg-card/95 p-2 shadow-lg backdrop-blur-sm"
-          >
-            <Input
-              ref={composerRef}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setComposerOpen(false);
-              }}
-              placeholder="Add a task…"
-              className="h-7 text-xs"
-            />
-            <div className="mt-1.5 flex items-center gap-1">
-              {ESTIMATE_OPTIONS.map((m) => (
-                <Badge
-                  key={m}
-                  asChild
-                  variant={newEstimate === m ? "default" : "outline"}
-                  className="h-5 cursor-pointer px-1.5 text-[10px]"
-                >
-                  <button type="button" onClick={() => setNewEstimate(m)}>
-                    {formatEstimateLabel(m)}
-                  </button>
-                </Badge>
-              ))}
-              <Button type="submit" size="sm" className="ml-auto h-5 px-2 text-[10px]" disabled={creating}>
-                Add
-              </Button>
-            </div>
-          </form>
-        )}
+        {composer?.at === "toolbar" && composerForm}
       </div>
+
+      {/* Right-click on empty canvas: one item, and it advertises the shortcut. */}
+      {boardMenu && (
+        <div
+          style={{ left: clampLeft(boardMenu.left), top: clampTop(boardMenu.top) }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute z-[6] w-40 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
+        >
+          <button
+            type="button"
+            autoFocus
+            onClick={() => openBoardComposer(...menuClientPoint(boardMenu, wrapRef.current))}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent"
+          >
+            <PlusIcon className="size-3.5" />
+            New task here
+            <kbd className="ml-auto rounded border px-1 text-[10px] text-muted-foreground">N</kbd>
+          </button>
+        </div>
+      )}
+
+      {/* The board composer: same form, parked where you asked for the card. */}
+      {composer?.at === "board" && (
+        <div
+          style={{ left: clampLeft(composer.left), top: clampTop(composer.top), width: CARD_W + 16 }}
+          className="absolute z-[6]"
+        >
+          {composerForm}
+        </div>
+      )}
     </div>
   );
+}
+
+// The menu stores container-relative coords; re-derive client coords so the composer it
+// opens lands on exactly the same spot.
+function menuClientPoint(spawn: Spawn, host: HTMLElement | null): [number, number] {
+  const rect = host?.getBoundingClientRect();
+  return [(rect?.left ?? 0) + spawn.left, (rect?.top ?? 0) + spawn.top];
 }

@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes, in_progress = false, category, parent_id } = await req.json();
+    const { title, priority = "normal", due_date, recurrence = "none", estimated_minutes, in_progress = false, category, parent_id, canvas_x, canvas_y } = await req.json();
     if (!title?.trim()) return NextResponse.json({ error: "title required" }, { status: 400 });
     const normalizedCategory = normalizeCategory(category);
     const parsedParent = Number(parent_id);
@@ -57,10 +57,15 @@ export async function POST(req: Request) {
     const estimate = hasEstimate ? Math.trunc(parsedEstimate) : null;
     // A new task can only land in "working on now" if there's a free slot.
     const startWorking = Boolean(in_progress) && (await hasWorkingSlot(getDb()));
+    // A task created straight onto the canvas (right-click / "N") already knows where it
+    // belongs, so it skips the inbox auto-placement and lands under the cursor.
+    const x = Number(canvas_x);
+    const y = Number(canvas_y);
+    const hasPosition = Number.isFinite(x) && Number.isFinite(y);
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress, category, parent_id)
-      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${startWorking}, ${normalizedCategory}, ${parent})
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, in_progress, category, parent_id, canvas_x, canvas_y)
+      VALUES (${title.trim()}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimate}, ${startWorking}, ${normalizedCategory}, ${parent}, ${hasPosition ? Math.round(x) : null}, ${hasPosition ? Math.round(y) : null})
       RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id
     `;
     return NextResponse.json(row);

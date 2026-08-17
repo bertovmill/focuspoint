@@ -4328,3 +4328,22 @@ Gotchas worth remembering:
 Verified in the running app: card created via `N` at (863,537) rendered at exactly
 (863,537); right-click card at (565,716) likewise; both persisted server-side with
 their positions; card context menus still open. Test rows deleted.
+
+## 2026-08-17 — Right-click → Duplicate on task cards
+
+Task cards on the canvas can now be duplicated from their existing right-click
+menu (`app/_components/task-canvas.tsx`). The new `duplicateTask` callback POSTs
+to `/api/todos` with the fields that describe the *work* — title, priority,
+recurrence, estimated_minutes, category — and places the copy one card-width +
+gap to the right of the original so it reads as a sibling rather than hiding
+underneath it. Live state (completed, timers, in_progress/waiting) is
+deliberately not copied.
+
+No API changes were needed: `POST /api/todos` already accepts `canvas_x`/
+`canvas_y` (added for the "spawn a task where you're looking" work), so the copy
+skips inbox auto-placement.
+
+Scope note: pipeline-lane cards (`pipeline-lanes.tsx`) have no context menu, so
+duplicate is canvas-only for now.
+
+Verified: `npm run typecheck` clean.

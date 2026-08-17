@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import {
   CheckIcon,
   ClockIcon,
+  CopyIcon,
   CrosshairIcon,
   HourglassIcon,
   PauseIcon,
@@ -536,6 +537,36 @@ export function TaskCanvas({
     if (composer) composerRef.current?.focus();
   }, [composer]);
 
+  // Right-click → Duplicate. Copies the fields that describe the *work* (title, estimate,
+  // priority, category, recurrence) and drops the copy one card-width to the right, so it
+  // reads as a sibling instead of hiding under the original. Live state — done, timers,
+  // working/waiting — deliberately doesn't come along.
+  const duplicateTask = useCallback(
+    async (todo: Todo) => {
+      try {
+        const res = await fetch("/api/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: todo.title,
+            priority: todo.priority,
+            recurrence: todo.recurrence ?? "none",
+            estimated_minutes: todo.estimated_minutes,
+            category: todo.category,
+            ...(todo.canvas_x != null && todo.canvas_y != null
+              ? { canvas_x: todo.canvas_x + CARD_W + CARD_GAP, canvas_y: todo.canvas_y }
+              : {}),
+          }),
+        });
+        if (!res.ok) throw new Error();
+        onCreated(await res.json());
+      } catch {
+        toast.error("Couldn't duplicate task.");
+      }
+    },
+    [onCreated],
+  );
+
   // ------------------------------------------------- spawn a task where you're looking
 
   // Container-relative pointer position, so "N" can drop a card under the cursor rather
@@ -930,6 +961,10 @@ export function TaskCanvas({
             ))}
           </ContextMenuRadioGroup>
           <ContextMenuSeparator />
+          <ContextMenuItem className="text-xs" onClick={() => duplicateTask(todo)}>
+            <CopyIcon className="size-3" />
+            Duplicate
+          </ContextMenuItem>
           <ContextMenuItem variant="destructive" className="text-xs" onClick={() => onDelete(todo.id)}>
             <TrashIcon className="size-3" />
             Delete task

@@ -4449,3 +4449,15 @@ right-click → green tinted the card `bg-emerald-100/90` and persisted
 `color: "yellow"`; Duplicate produced a second yellow card; → No colour cleared
 both the classes and the column back to null. `npm run typecheck` clean. Test
 rows deleted (0 leftover).
+
+## 2026-08-18 — Completed pieces/tasks leave the Pipelines panel
+
+The Pipelines panel kept every checked-off piece and task on screen, struck through,
+so finished content piled up above the live work. Now a completed item drops out of
+its lane once its check animation finishes (same rule the canvas uses: it stays while
+it's in `completingIds`, then goes). Each lane grows a small "Show N done" / "Hide
+done" toggle at the bottom when it has hidden items, so the record — and unchecking
+— is still one click away. The piece's `x/y` sub-task counter still counts every task,
+and the lane header count now shows only live pieces.
+
+Files: `app/_components/pipeline-lanes.tsx`.

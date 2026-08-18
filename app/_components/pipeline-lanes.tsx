@@ -88,6 +88,8 @@ export function PipelineLanes({
   // headings, and the checklists are the whole point of the panel.
   const [closedLanes, setClosedLanes] = useState<Set<LaneCategory>>(new Set());
   const [closedIds, setClosedIds] = useState<Set<number>>(new Set());
+  // Lanes whose finished pieces/tasks are being shown again.
+  const [showDoneLanes, setShowDoneLanes] = useState<Set<LaneCategory>>(new Set());
   // Which lane's "add a piece" input is open, and which piece's "add a task" input is.
   const [pieceComposerFor, setPieceComposerFor] = useState<LaneCategory | null>(null);
   const [newPiece, setNewPiece] = useState("");
@@ -119,6 +121,15 @@ export function PipelineLanes({
 
   const isDone = useCallback(
     (t: Todo) => isDoneToday(t) || completingIds.has(t.id),
+    [completingIds],
+  );
+
+  // A checked-off piece or task drops out of its lane the same way a checked-off card
+  // leaves the canvas: it stays put while it's in `completingIds` so you see the tick
+  // land, then it's gone. The lane's "N done" toggle brings them back when you want the
+  // record (or need to uncheck something).
+  const isHidden = useCallback(
+    (t: Todo) => (t.completed || isDoneToday(t)) && !completingIds.has(t.id),
     [completingIds],
   );
 
@@ -254,7 +265,21 @@ export function PipelineLanes({
         {LANE_CATEGORIES.map((lane) => {
           const meta = LANE_META[lane];
           const LaneIcon = meta.icon;
-          const pieces = piecesByLane.get(lane) ?? [];
+          const allPieces = piecesByLane.get(lane) ?? [];
+          const showDone = showDoneLanes.has(lane);
+          const pieces = showDone ? allPieces : allPieces.filter((p) => !isHidden(p));
+          // Finished work still hiding in this lane: whole pieces, plus tasks under the
+          // pieces that are still in flight.
+          const hiddenCount = showDone
+            ? 0
+            : allPieces.reduce(
+                (n, p) =>
+                  n +
+                  (isHidden(p)
+                    ? 1
+                    : (childrenOf.get(p.id) ?? []).filter(isHidden).length),
+                0,
+              );
           const laneOpen = !closedLanes.has(lane);
           return (
             <section key={lane} className="border-b last:border-b-0">
@@ -288,6 +313,9 @@ export function PipelineLanes({
                   {pieces.map((piece) => {
                     const kids = childrenOf.get(piece.id) ?? [];
                     const doneKids = kids.filter(isDone).length;
+                    // The x/y counter still counts every task — it's the record of how
+                    // far the piece has come — but only the unfinished ones are listed.
+                    const visibleKids = showDone ? kids : kids.filter((k) => !isHidden(k));
                     const open = !closedIds.has(piece.id);
                     const pieceDone = isDone(piece);
                     return (
@@ -347,7 +375,7 @@ export function PipelineLanes({
 
                         {open && (
                           <div className={cn("ml-4 border-l pl-1.5", meta.rule)}>
-                            {kids.map((kid) => {
+                            {visibleKids.map((kid) => {
                               const done = isDone(kid);
                               return (
                                 <div key={kid.id} className="group flex items-start gap-1.5 py-0.5 pl-1 pr-0.5">
@@ -434,6 +462,23 @@ export function PipelineLanes({
                     );
                   })}
 
+                  {(hiddenCount > 0 || showDone) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowDoneLanes((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(lane)) next.delete(lane);
+                          else next.add(lane);
+                          return next;
+                        })
+                      }
+                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-[10.5px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      {showDone ? "Hide done" : `Show ${hiddenCount} done`}
+                    </button>
+                  )}
+
                   {pieceComposerFor === lane ? (
                     <form onSubmit={(e) => addPiece(e, lane)} className="px-1 pt-0.5">
                       <Input
@@ -463,7 +508,7 @@ export function PipelineLanes({
                       className="flex w-full items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       <PlusIcon className="size-3" />
-                      {pieces.length === 0
+                      {allPieces.length === 0
                         ? `Add your first ${TASK_CATEGORY_LABELS[lane].toLowerCase()} piece`
                         : "Add piece"}
                     </button>

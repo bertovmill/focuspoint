@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-18 — Task cards drag without lag
+
+**Ask:** *"our cards on our tasks canvas are not dragging very responsively, there is a lag"*
+
+Two things were making a dragged card trail the cursor:
+
+1. **Every pointermove went through React state.** `handleCardPointerMove` called
+   `onLocalPatch`, which is `setTodos` on the dashboard — so each mouse frame
+   re-rendered the whole dashboard tree: every card, the pipeline lanes, the
+   whole canvas subtree. At 100+ pointer events/sec that's a lot of reconciliation
+   between the pointer and the pixel.
+2. **The card class was `transition-all duration-500`**, which includes `left`/`top`.
+   Every position change was animated over half a second, so the card literally
+   eased toward the cursor by design.
+
+**Fix (`app/_components/task-canvas.tsx`):** the live drag is now written straight
+to the dragged card's own `transform`, once per animation frame, with no React
+state involved. `dragRef` carries the element plus the pending delta and a rAF
+handle; the first move past the slop threshold takes the card off the shared
+transition (`transition: none`, `willChange: transform`, `zIndex: 2`). On
+pointerup the inline styles are cleared and `onLocalPatch` runs exactly once, in
+the same tick, so `left`/`top` take over the offset before paint — the card stays
+exactly where it was let go. The class list also drops `transition-all` for an
+explicit property list (opacity, transform, colours, shadow) so `left`/`top`
+can never animate.
+
+**Verified** with Playwright against a local dev server: the card tracks the
+cursor mid-drag (200/100px moved = 200/100px of card travel), settles with no
+snap-back or slide, and the new position persists (`canvas_x/y` = 700/500).
+
+**Files:** `app/_components/task-canvas.tsx`.
+
+---
+
 ## 2026-08-17 — Cael can read the sketches
 
 **Ask:** *"can we give our agent cael the tool to read our /sketches as data?"*

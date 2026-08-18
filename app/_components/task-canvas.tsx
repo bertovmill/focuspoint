@@ -444,14 +444,22 @@ export function TaskCanvas({
   // (Reserving the title as a no-drag zone made cards feel undraggable, since the title
   // is the obvious thing to grab.)
   const DRAG_SLOP = 3;
+  // The live drag is written straight to the dragged card's own transform — no React
+  // state per pointermove, since that re-rendered the whole dashboard (every card, every
+  // lane) on each frame and the card visibly trailed the cursor. State catches up once,
+  // on drop.
   const dragRef = useRef<{
     id: number;
+    el: HTMLElement;
     startX: number;
     startY: number;
     originX: number;
     originY: number;
     onTitle: boolean;
     moved: boolean;
+    dx: number;
+    dy: number;
+    frame: number | null;
   } | null>(null);
 
   const handleCardPointerDown = useCallback(
@@ -460,15 +468,20 @@ export function TaskCanvas({
       if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
       if (e.button !== 0) return;
       e.stopPropagation();
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const el = e.currentTarget as HTMLElement;
+      el.setPointerCapture(e.pointerId);
       dragRef.current = {
         id: todo.id,
+        el,
         startX: e.clientX,
         startY: e.clientY,
         originX: todo.canvas_x ?? 0,
         originY: todo.canvas_y ?? 0,
         onTitle: Boolean((e.target as HTMLElement).closest("[data-card-title]")),
         moved: false,
+        dx: 0,
+        dy: 0,
+        frame: null,
       };
     },
     [],
@@ -481,11 +494,28 @@ export function TaskCanvas({
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
       if (!drag.moved && Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
-      drag.moved = true;
-      const { zoom } = viewRef.current;
-      onLocalPatch(drag.id, { canvas_x: drag.originX + dx / zoom, canvas_y: drag.originY + dy / zoom });
+      if (!drag.moved) {
+        drag.moved = true;
+        // Take the card out of the shared 500ms transition and onto its own layer for
+        // the duration of the drag, so it tracks the cursor exactly.
+        drag.el.style.transition = "none";
+        drag.el.style.willChange = "transform";
+        drag.el.style.zIndex = "2";
+      }
+      drag.dx = dx;
+      drag.dy = dy;
+      // One write per frame — pointermove fires far more often than the display refreshes.
+      if (drag.frame === null) {
+        drag.frame = requestAnimationFrame(() => {
+          const d = dragRef.current;
+          if (!d) return;
+          d.frame = null;
+          const { zoom } = viewRef.current;
+          d.el.style.transform = `translate3d(${d.dx / zoom}px, ${d.dy / zoom}px, 0)`;
+        });
+      }
     },
-    [onLocalPatch],
+    [],
   );
 
   const handleCardPointerUp = useCallback(
@@ -493,6 +523,7 @@ export function TaskCanvas({
       const drag = dragRef.current;
       if (!drag) return;
       dragRef.current = null;
+      if (drag.frame !== null) cancelAnimationFrame(drag.frame);
       if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       }
@@ -508,13 +539,20 @@ export function TaskCanvas({
       const { zoom } = viewRef.current;
       const x = drag.originX + (e.clientX - drag.startX) / zoom;
       const y = drag.originY + (e.clientY - drag.startY) / zoom;
+      // Hand the offset back to left/top in the same tick the transform is cleared, so
+      // the card stays exactly where it was let go.
+      drag.el.style.transform = "";
+      drag.el.style.transition = "";
+      drag.el.style.willChange = "";
+      drag.el.style.zIndex = "";
+      onLocalPatch(drag.id, { canvas_x: x, canvas_y: y });
       fetch(`/api/todos/${drag.id}/position`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ x, y }),
       }).catch(() => toast.error("Couldn't save card position."));
     },
-    [],
+    [onLocalPatch],
   );
 
   // ------------------------------------------------------------------- add a task
@@ -788,7 +826,9 @@ export function TaskCanvas({
           pointerEvents: drawing ? "none" : "auto",
         }}
         className={cn(
-          "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-all duration-500 active:cursor-grabbing",
+          // Deliberately not `transition-all`: left/top must never animate, or a dropped
+          // card slides in from where the drag started.
+          "group cursor-grab select-none rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur-sm transition-[opacity,transform,color,background-color,border-color,box-shadow] duration-500 active:cursor-grabbing",
           // A hand-picked colour paints the whole card (see lib/task-colors.ts). It wins
           // the border back from the live-state styles below — the ring still marks
           // "working on now", so nothing is lost by letting the colour show.

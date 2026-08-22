@@ -7,6 +7,13 @@ import { withEve } from "eve/next";
 // can run side by side (see the `dev:3001` script).
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  images: {
+    // Nutrition photography lives in Vercel Blob. The generated files are
+    // 1024px PNGs of ~1.5 MB and they render at 24–44px (thumbnails) or a card
+    // width, so they go through the image optimizer rather than down the wire
+    // whole.
+    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+  },
 };
 
 export default withEve(nextConfig);

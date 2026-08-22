@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { CheckIcon, RefreshCwIcon, SparklesIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -70,8 +71,14 @@ export function MealPlan() {
               {rec ? (
                 <>
                   {rec.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={rec.image_url} alt={rec.name} className="aspect-[4/3] w-full object-cover" />
+                    <Image
+                      src={rec.image_url}
+                      alt={rec.name}
+                      width={640}
+                      height={480}
+                      sizes="(min-width: 640px) 33vw, 100vw"
+                      className="aspect-[4/3] w-full object-cover"
+                    />
                   )}
                   <div className="flex flex-1 flex-col gap-1.5 p-2.5">
                     <p className="text-sm font-medium leading-tight">{rec.name}</p>

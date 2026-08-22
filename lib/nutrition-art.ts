@@ -1,5 +1,6 @@
 import { generateImage } from "ai";
 import { put } from "@vercel/blob";
+import sharp from "sharp";
 
 import { RULE_IMAGE_PROMPTS } from "./nutrition";
 
@@ -36,7 +37,7 @@ export async function generateStapleImage(name: string, why?: string | null) {
     size: "1024x1024",
     providerOptions: OPENAI_OPTIONS,
   });
-  return upload(`nutrition/staples/${slug(name)}`, image);
+  return upload(`nutrition/staples/${slug(name)}`, image, 512);
 }
 
 /**
@@ -52,7 +53,7 @@ export async function generateRuleImage(key: string) {
     size: "1024x1024",
     providerOptions: OPENAI_OPTIONS,
   });
-  return upload(`nutrition/rules/${key}`, image);
+  return upload(`nutrition/rules/${key}`, image, 512);
 }
 
 /** A plated dish for one of the day's three recommendations. */
@@ -63,16 +64,24 @@ export async function generateMealImage(imagePrompt: string, slot: string) {
     size: "1536x1024",
     providerOptions: OPENAI_OPTIONS,
   });
-  return upload(`nutrition/meals/${slot}-${Date.now()}`, image);
+  return upload(`nutrition/meals/${slot}-${Date.now()}`, image, 1024);
 }
 
-/** One blob write for all three generators. Overwrites, so re-running is free. */
-async function upload(key: string, image: { base64: string; mediaType?: string }) {
-  const type = image.mediaType ?? "image/webp";
-  const ext = type.includes("png") ? "png" : type.includes("jpeg") ? "jpg" : "webp";
-  const blob = await put(`${key}.${ext}`, Buffer.from(image.base64, "base64"), {
+/**
+ * One blob write for all three generators, and the only place image bytes are
+ * sized. The model returns a 1024px PNG of about 1.5 MB whatever we ask for,
+ * which is far more than a 44px thumbnail or a card needs — and big enough that
+ * Next's image optimizer times out fetching a page's worth of them. So they're
+ * re-encoded to webp on the way in. Overwrites, so re-running is free.
+ */
+async function upload(key: string, image: { base64: string; mediaType?: string }, width: number) {
+  const webp = await sharp(Buffer.from(image.base64, "base64"))
+    .resize(width, undefined, { withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+  const blob = await put(`${key}.webp`, webp, {
     access: "public",
-    contentType: type,
+    contentType: "image/webp",
     allowOverwrite: true,
   });
   return blob.url;

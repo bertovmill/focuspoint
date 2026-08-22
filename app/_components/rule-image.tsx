@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +34,13 @@ export function RuleImage({ ruleKey, className }: { ruleKey: string; className?:
 
   if (!url || failed) return <span className={cn("shrink-0 rounded bg-muted", className)} />;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    // 88px source for a 24–44px box: enough for a retina screen, a fraction of
+    // the 1024px original.
+    <Image
       src={url}
       alt=""
+      width={88}
+      height={88}
       onError={() => setFailed(true)}
       className={cn("shrink-0 rounded object-cover", className)}
     />

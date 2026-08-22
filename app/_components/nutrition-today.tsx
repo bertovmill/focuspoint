@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { AppleIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { MEAL_SLOTS, PROTOCOL_RULES, currentSlot } from "@/lib/nutrition";
@@ -67,8 +68,13 @@ export function NutritionToday() {
                   {ate && <CheckIcon className="size-2.5" />}
                 </button>
                 {rec?.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={rec.image_url} alt="" className="size-6 shrink-0 rounded object-cover" />
+                  <Image
+                    src={rec.image_url}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="size-6 shrink-0 rounded object-cover"
+                  />
                 ) : (
                   <span className="size-6 shrink-0 rounded bg-muted" />
                 )}

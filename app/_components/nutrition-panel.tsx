@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckIcon, PlusIcon, ShoppingCartIcon, TrashIcon, UtensilsCrossedIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -381,8 +382,13 @@ export function NutritionPanel() {
           {staples.map((s) => (
             <div key={s.id} className="group flex items-start gap-2 rounded-lg border border-border px-2.5 py-2">
               {s.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={s.image_url} alt="" className="size-11 shrink-0 rounded object-cover" />
+                <Image
+                  src={s.image_url}
+                  alt=""
+                  width={88}
+                  height={88}
+                  className="size-11 shrink-0 rounded object-cover"
+                />
               ) : (
                 <span className="flex size-11 shrink-0 items-center justify-center rounded bg-muted">
                   {generatingId === s.id && <Spinner className="size-3.5" />}

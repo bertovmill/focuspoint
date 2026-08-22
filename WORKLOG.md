@@ -4642,3 +4642,31 @@ a 7-column grid at 390px, so event titles clip to a few characters and the
 Saturday column is cut off — it wants a mobile agenda/day view. The Notes tag
 cloud still renders all ~60 tags as ~19 wrapped rows, pushing every note below
 the fold.
+
+### Same day — two fixes found while shipping the above
+
+**`google/imagen-4.0-generate-001` does not work through this project's AI
+Gateway.** Every call errored, which is also why `meal_recommendations` had been
+empty since the "Daily Meal Recommendation" task was created — `set_daily_meal`
+had been failing silently every morning for weeks. All food images now go through
+one generator on **`openai/gpt-image-1`** (the model `scripts/generate-site-art.mjs`
+has used since 2026-08-16), which takes `size`, not `aspectRatio`. The generation
+routes also return the real error in a `detail` field now; the bare 500 cost a
+deploy cycle to diagnose.
+
+**The generator returns a ~1.5 MB 1024px PNG no matter what `output_format` says.**
+Nineteen of those on one page made Next's image optimizer time out (7s fetch
+limit) and nearly every thumbnail came back blank. Fixed at both ends: `upload()`
+in `lib/nutrition-art.ts` re-encodes to webp on the way in (512px for thumbnails,
+1024px for meal cards), everything renders through `next/image` (with
+`images.remotePatterns` for the blob host in `next.config.ts`, and `sharp`
+promoted from a transitive dep to an explicit one), and
+`scripts/shrink-nutrition-art.mjs` re-encoded the 22 already generated —
+**32.6 MB → ~600 KB**, no model calls. The page now pulls 91 KB of image bytes
+for 22 images.
+
+Verified on production (cael.bertomill.com): 22/22 images load through the
+optimizer with no failures; ticking a rule persists and un-ticks; "Ate it?" on
+lunch logged `lunch: White Bean & Avocado Pita` and the Tasks-board strip showed
+`1/7` from that same row; undo removed it. Left at a clean slate — 0 logged meals,
+no rules ticked, today's three suggestions in place with photos.

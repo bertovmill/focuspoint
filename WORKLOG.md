@@ -4586,3 +4586,59 @@ Files: `lib/{nutrition,nutrition-art,meal-suggest,db}.ts`,
 Note for whoever is next: a parallel session's `git add -A` swept several of these
 files into commit af0ee9f ("Mobile: task list…") while they were mid-flight. No
 work was lost, but that commit's message under-sells what's in it.
+
+## 2026-08-22 — Mobile: Tasks becomes a list, and one gutter for the bottom nav
+
+The app was laid out for a desktop panel and squeezed onto a phone. Two things
+were actually broken at 390px.
+
+**Tasks was unusable.** Three surfaces stacked in one narrow column: the strategy
+board (an Excalidraw scene, 400px default) ate half the viewport, the task canvas
+below it positions cards at Excalidraw *scene* coordinates on a board several
+times wider than the screen — today's tasks sat at x≈1000, off-screen — and both
+Excalidraw toolbars overlapped the `+ Task / Find tasks` row they share the top
+strip with. The Pipelines panel covered the rest.
+
+Asked Berto between three options (mobile list / segmented Board-List-Pipelines /
+keep the canvas and fix the fit). He picked the list.
+
+- `app/_components/task-list-mobile.tsx` (new) — the same tasks as a plain
+  vertical list: sticky `+ Task` header with the day's count, one row per task
+  (checkbox, tappable title, priority dot, category badge, estimate/countdown)
+  and two controls that survive touch — work-on-now and the timer. The canvas
+  card's right-click menu has no touch equivalent and isn't what a phone is for.
+- `app/_components/pipeline-lanes.tsx` — new `inline` variant: a block in the
+  page flow rather than a panel floating over a canvas. The mobile list renders
+  the lanes underneath it.
+- `hooks/use-is-desktop.ts` (new) — the branch is a **mount**, not `lg:hidden`.
+  Measured it: with the CSS-only version a phone still booted both Excalidraw
+  scenes (4 canvases) behind `display:none`. Now mobile mounts 0 and desktop
+  mounts 2, verified in the browser both ways.
+- `lib/task-categories.ts` — `CATEGORY_BADGE_CLASS` moved out of task-canvas so
+  the list and the canvas draw the same badge.
+
+**The bottom nav reserved no space.** It's `position: fixed`, and only some
+panels remembered their own `pb-16` — sketches, measures, calendar and vision
+ran underneath it. Replaced ~15 per-panel paddings with one `--mobile-nav-h`
+applied once on the shared content panel in `app/(app)/layout.tsx`, so a new
+panel can't forget. Added `viewport-fit=cover` + `env(safe-area-inset-bottom)`
+so the bar clears the iPhone home indicator.
+
+Gotcha worth remembering: **lightningcss silently drops a custom property whose
+value is `calc()` containing a bare `env()`** — `--mobile-nav-h` compiled away
+entirely and the nav collapsed to 40px. Splitting it (`--safe-bottom: env(…)`,
+then `calc(4rem + var(--safe-bottom))`) survives the build.
+
+Verified in the running app (Playwright, dev server on :3789, 390×844): the
+composer focuses and creates a task with its estimate, work-on-now and the timer
+both persist server-side, a checked task fades and leaves the list in ~1.5s (the
+same 600ms window the canvas uses), and nothing overlaps the nav on tasks /
+sketches / measures after scrolling each to the bottom. Desktop `/tasks`
+unchanged — 21 canvas cards, 2 Excalidraw scenes, 0 list rows. Test rows deleted
+(0 leftover). `npm run typecheck` clean.
+
+**Still ugly on mobile, out of scope this pass:** the Calendar month view renders
+a 7-column grid at 390px, so event titles clip to a few characters and the
+Saturday column is cut off — it wants a mobile agenda/day view. The Notes tag
+cloud still renders all ~60 tags as ~19 wrapped rows, pushing every note below
+the fold.

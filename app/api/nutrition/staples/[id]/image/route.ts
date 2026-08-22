@@ -20,6 +20,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json(row);
   } catch (err) {
     console.error("[api/nutrition/staples/image]", err);
-    return NextResponse.json({ error: "Couldn't generate the image" }, { status: 500 });
+    return NextResponse.json({ error: "Couldn't generate the image", detail: String(err) }, { status: 500 });
   }
 }

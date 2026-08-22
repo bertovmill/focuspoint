@@ -40,6 +40,6 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[api/nutrition/plan]", err);
-    return NextResponse.json({ error: "Couldn't suggest a meal" }, { status: 500 });
+    return NextResponse.json({ error: "Couldn't suggest a meal", detail: String(err) }, { status: 500 });
   }
 }

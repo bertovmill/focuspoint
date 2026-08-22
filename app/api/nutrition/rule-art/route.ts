@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const have = new Set(existing.map((r) => String(r.rule_key)));
     const targets = (only ?? PROTOCOL_RULE_KEYS).filter((k) => force || !have.has(k));
     const done: string[] = [];
-    const failed: string[] = [];
+    const failed: { key: string; detail: string }[] = [];
     for (const key of targets) {
       try {
         const url = await generateRuleImage(key);
@@ -44,11 +44,11 @@ export async function POST(req: Request) {
         done.push(key);
       } catch (err) {
         console.error(`[rule-art] ${key}`, err);
-        failed.push(key);
+        failed.push({ key, detail: String(err) });
       }
     }
     return NextResponse.json({ generated: done, failed, skipped: [...have].filter((k) => !targets.includes(k)) });
-  } catch {
-    return NextResponse.json({ error: "Couldn't generate rule art" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: "Couldn't generate rule art", detail: String(err) }, { status: 500 });
   }
 }

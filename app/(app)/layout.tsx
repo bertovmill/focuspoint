@@ -427,7 +427,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       {/* Mobile bottom navigation bar */}
       {/* The bar keeps its 4rem of tappable height and pads *below* it for the home
           indicator, so the icons don't creep down into the gesture area. */}
-      <nav className="fixed bottom-0 inset-x-0 h-[var(--mobile-nav-h)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden flex items-stretch border-t border-border bg-background/95 backdrop-blur-sm z-50">
+      <nav className="fixed bottom-0 inset-x-0 h-[var(--mobile-nav-h)] pb-[var(--safe-bottom)] lg:hidden flex items-stretch border-t border-border bg-background/95 backdrop-blur-sm z-50">
         <NavButton
           label="Home"
           icon={<HomeIcon className="size-5" />}

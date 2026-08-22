@@ -17,7 +17,10 @@ async function api(path, init) {
     ...init,
     headers: { cookie, "content-type": "application/json", ...(init?.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status} ${body.slice(0, 400)}`);
+  }
   return res.json();
 }
 
@@ -26,7 +29,8 @@ console.log(`→ ${BASE}`);
 process.stdout.write("rule art … ");
 try {
   const out = await api("/api/nutrition/rule-art", { method: "POST", body: "{}" });
-  console.log(`generated ${out.generated.join(", ") || "nothing"}${out.failed.length ? ` (failed: ${out.failed.join(", ")})` : ""}`);
+  console.log(`generated ${out.generated.join(", ") || "nothing"}`);
+  for (const f of out.failed ?? []) console.log(`  ${f.key} FAILED — ${f.detail}`);
 } catch (err) {
   console.log(`FAILED — ${err.message}`);
 }

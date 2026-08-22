@@ -3,10 +3,19 @@ import { put } from "@vercel/blob";
 
 import { RULE_IMAGE_PROMPTS } from "./nutrition";
 
-// Same model and photographic language as the daily meal photos
-// (agent/tools/set_daily_meal.ts), so the whole Nutrition section reads as one
-// set of pictures rather than three different styles.
-export const FOOD_IMAGE_MODEL = "google/imagen-4.0-generate-001";
+// One model and one photographic language for every picture in the Nutrition
+// section, so it reads as one set rather than three.
+//
+// gpt-image-1 through the AI Gateway is the path known to work on this project
+// (scripts/generate-site-art.mjs has been using it since 2026-08-16). The
+// earlier `google/imagen-4.0-generate-001` in set_daily_meal errored on every
+// call, which is why meal_recommendations sat empty for weeks — don't go back to
+// it without checking a real response first. It takes `size`, not `aspectRatio`.
+export const FOOD_IMAGE_MODEL = "openai/gpt-image-1";
+
+// These render at 44px on the page and 24px in the Tasks strip, so medium quality
+// is already more than anyone sees.
+const OPENAI_OPTIONS = { openai: { quality: "medium", output_format: "webp" } } as const;
 
 const PHOTO_STYLE =
   "Professional food photography, natural window light, shallow depth of field, " +
@@ -24,13 +33,10 @@ export async function generateStapleImage(name: string, why?: string | null) {
     prompt:
       `${PHOTO_STYLE}. A close-up hero shot of ${name} as a raw whole-food ingredient, ` +
       `beautifully arranged, appetising and fresh.${why ? ` Mood: ${why}` : ""}`,
-    aspectRatio: "1:1",
+    size: "1024x1024",
+    providerOptions: OPENAI_OPTIONS,
   });
-  const blob = await put(`nutrition/staples/${slug(name)}-${Date.now()}.png`, Buffer.from(image.base64, "base64"), {
-    access: "public",
-    contentType: image.mediaType ?? "image/png",
-  });
-  return blob.url;
+  return upload(`nutrition/staples/${slug(name)}`, image);
 }
 
 /**
@@ -43,14 +49,10 @@ export async function generateRuleImage(key: string) {
   const { image } = await generateImage({
     model: FOOD_IMAGE_MODEL,
     prompt: `${PHOTO_STYLE}. ${prompt}`,
-    aspectRatio: "1:1",
+    size: "1024x1024",
+    providerOptions: OPENAI_OPTIONS,
   });
-  const blob = await put(`nutrition/rules/${key}.png`, Buffer.from(image.base64, "base64"), {
-    access: "public",
-    contentType: image.mediaType ?? "image/png",
-    allowOverwrite: true,
-  });
-  return blob.url;
+  return upload(`nutrition/rules/${key}`, image);
 }
 
 /** A plated dish for one of the day's three recommendations. */
@@ -58,11 +60,20 @@ export async function generateMealImage(imagePrompt: string, slot: string) {
   const { image } = await generateImage({
     model: FOOD_IMAGE_MODEL,
     prompt: `${PHOTO_STYLE}. Overhead or 45-degree shot of a plated ${slot}: ${imagePrompt}`,
-    aspectRatio: "4:3",
+    size: "1536x1024",
+    providerOptions: OPENAI_OPTIONS,
   });
-  const blob = await put(`nutrition/meals/${slot}-${Date.now()}.png`, Buffer.from(image.base64, "base64"), {
+  return upload(`nutrition/meals/${slot}-${Date.now()}`, image);
+}
+
+/** One blob write for all three generators. Overwrites, so re-running is free. */
+async function upload(key: string, image: { base64: string; mediaType?: string }) {
+  const type = image.mediaType ?? "image/webp";
+  const ext = type.includes("png") ? "png" : type.includes("jpeg") ? "jpg" : "webp";
+  const blob = await put(`${key}.${ext}`, Buffer.from(image.base64, "base64"), {
     access: "public",
-    contentType: image.mediaType ?? "image/png",
+    contentType: type,
+    allowOverwrite: true,
   });
   return blob.url;
 }

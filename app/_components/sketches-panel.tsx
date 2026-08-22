@@ -277,7 +277,7 @@ export function SketchesPanel() {
 
       {/* Excalidraw owns its own toolbar, shortcuts, zoom and infinite canvas. Full-bleed:
           negative margins cancel the panel padding so it runs edge-to-edge. */}
-      <div className="-mx-4 h-[calc(100%-5rem)] min-h-[24rem] w-[calc(100%+2rem)] shrink-0 overflow-hidden">
+      <div className="-mx-4 mb-2 h-[calc(100%-5rem)] min-h-[24rem] w-[calc(100%+2rem)] shrink-0 overflow-hidden lg:mb-0">
         <Excalidraw
           excalidrawAPI={setApi}
           onChange={handleChange}

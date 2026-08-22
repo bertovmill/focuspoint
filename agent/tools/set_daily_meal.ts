@@ -1,11 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { generateImage } from "ai";
-import { put } from "@vercel/blob";
 import { getDb } from "../../lib/db.js";
-
-// Photorealistic food-photography image model via the AI Gateway.
-const IMAGE_MODEL = "google/imagen-4.0-generate-001";
+import { generateMealImage } from "../../lib/nutrition-art.js";
 
 export default defineTool({
   description:
@@ -28,21 +24,12 @@ export default defineTool({
       ),
   }),
   async execute({ slot, name, description, cuisine, image_prompt }) {
-    const { image } = await generateImage({
-      model: IMAGE_MODEL,
-      prompt: `Professional food photography, overhead or 45-degree angle shot, natural light, appetizing plating of a ${slot}: ${image_prompt}`,
-      aspectRatio: "4:3",
-    });
-
-    const blob = await put(`meals/${Date.now()}.png`, Buffer.from(image.base64, "base64"), {
-      access: "public",
-      contentType: image.mediaType ?? "image/png",
-    });
+    const image_url = await generateMealImage(image_prompt, slot);
 
     const sql = getDb();
     const [row] = await sql`
       INSERT INTO meal_recommendations (slot, name, description, cuisine, image_url)
-      VALUES (${slot}, ${name}, ${description}, ${cuisine}, ${blob.url})
+      VALUES (${slot}, ${name}, ${description}, ${cuisine}, ${image_url})
       ON CONFLICT (meal_date, slot) DO UPDATE SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,

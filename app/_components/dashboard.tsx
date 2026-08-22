@@ -5,6 +5,7 @@ import { PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XI
 import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
+import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -187,6 +188,9 @@ interface UploadedImage {
 type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual" | "nutrition";
 
 export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabChange, focusNewTaskSignal }: { activeTab?: DashboardTab; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; focusNewTaskSignal?: number }) {
+  // Gates the Tasks screen between the canvas and the mobile list — see the
+  // `activeTab === "todos"` branch below for why it's a mount, not a `lg:hidden`.
+  const isDesktop = useIsDesktop();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [measures, setMeasures] = useState<Measure[]>([]);
@@ -694,13 +698,14 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Tasks */}
         {activeTab === "todos" && (
-          <>
-          {/* On a phone the same tasks are a plain vertical list. The canvas puts its
-              cards at scene coordinates on a board several times wider than a 390px
-              screen, and Excalidraw's own toolbars want the top strip our controls
-              need — neither survives the narrow view, so below `lg` it isn't mounted
-              at all. See <TaskListMobile>. */}
-          <div className="h-full lg:hidden">
+          // On a phone the same tasks are a plain vertical list. The canvas puts its
+          // cards at scene coordinates on a board several times wider than a 390px
+          // screen, and Excalidraw's own toolbars want the top strip our controls
+          // need — neither survives the narrow view. This is a real branch rather than
+          // `lg:hidden` because the desktop side boots two Excalidraw scenes, and a
+          // hidden one still mounts. See <TaskListMobile> and useIsDesktop().
+          !isDesktop ? (
+          <div className="h-full">
             <TaskListMobile
               todos={visibleTodos}
               loading={loading}
@@ -715,11 +720,12 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
               onCreated={handleTodoCreated}
             />
           </div>
-          {/* The Tasks screen is an infinite Excalidraw notebook: today's tasks ride on
-              it as real checkbox cards (positioned by canvas_x/canvas_y), and everything
-              around them — arrows, headings, scribbles — is freeform drawing. h-full so
-              the canvas claims the whole panel instead of a fixed box. */}
-          <div className="hidden h-full flex-col lg:flex">
+          ) : (
+          // The Tasks screen is an infinite Excalidraw notebook: today's tasks ride on
+          // it as real checkbox cards (positioned by canvas_x/canvas_y), and everything
+          // around them — arrows, headings, scribbles — is freeform drawing. h-full so
+          // the canvas claims the whole panel instead of a fixed box.
+          <div className="flex h-full flex-col">
             {/* The strategy sits above everything else: every task should ladder up
                 to it. Its own Excalidraw scene, separate from the notebook below. */}
             <StrategyBoard />
@@ -741,7 +747,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
               />
             </div>
           </div>
-          </>
+          )
         )}
 
         {/* Notes */}

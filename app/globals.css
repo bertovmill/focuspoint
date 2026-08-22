@@ -47,7 +47,11 @@
    * One variable is the single source of truth: the bar's own 4rem plus whatever
    * the iPhone home indicator claims. `lg:` layouts zero their padding instead.
    */
-  --mobile-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+  /* Two steps on purpose: lightningcss tries to fold `calc()` at build time and
+     silently drops the whole declaration when it meets a bare `env()` inside one.
+     Behind a `var()` it leaves the calc alone. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-nav-h: calc(4rem + var(--safe-bottom));
   /* ElevenLabs-inspired: near-white page, white cards, neutral grays, vibrant orange accent. */
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.09 0 0);

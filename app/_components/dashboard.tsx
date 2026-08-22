@@ -7,6 +7,7 @@ import { TaskCanvas } from "@/app/_components/task-canvas";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
+import { NutritionPanel } from "@/app/_components/nutrition-panel";
 import { ManualPanel } from "@/app/_components/manual-panel";
 import { MeasuresOverview } from "@/app/_components/measures-overview";
 import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel";
@@ -182,7 +183,7 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual";
+type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual" | "nutrition";
 
 export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabChange, focusNewTaskSignal }: { activeTab?: DashboardTab; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; focusNewTaskSignal?: number }) {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -1185,6 +1186,13 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
         {activeTab === "family" && (
           <div className="px-5 py-4 pb-16 lg:pb-0">
             <FamilyPanel />
+          </div>
+        )}
+
+        {/* Nutrition */}
+        {activeTab === "nutrition" && (
+          <div className="px-5 py-4 pb-16 lg:pb-0">
+            <NutritionPanel />
           </div>
         )}
 

@@ -4461,3 +4461,58 @@ done" toggle at the bottom when it has hidden items, so the record — and unche
 and the lane header count now shows only live pieces.
 
 Files: `app/_components/pipeline-lanes.tsx`.
+
+## 2026-08-22 — Nutrition section
+
+New `/nutrition` section (nav rail + mobile More menu, `AppleIcon`). Four parts,
+all decided with Berto up front:
+
+1. **Days on protocol** — the headline metric and its line chart
+   (`app/_components/protocol-chart.tsx`). The four rules live in
+   `lib/nutrition.ts` and come straight out of his own thoughts: whole food only
+   (no dairy/sugar), fasted until afternoon, snacked light + real dinner,
+   protein + fat + fibre. A day counts only when **all four** held. The line is a
+   **7-day rolling percentage** so one bad day dents it instead of zeroing it,
+   and it only starts at the first logged day — days he was never asked about
+   don't drag the average down. Under three logged days the plot is replaced by
+   the number plus a line of copy; an empty 400px chart is not information.
+2. **Today** — the four rules as checkboxes, optimistic, `PUT`ing the whole rule
+   array (no partial merge).
+3. **Meals that felt good** — a log, quick-add first. The one-tap buttons are
+   *derived*: the eight most-logged meal names, so the shortcuts build themselves
+   out of what actually gets eaten instead of needing a favourites table.
+4. **Energy staples** + **Food principles** — the shelf of foods that work
+   (seeded with his own reasons from thoughts 128/77/136/133/125/147/122), each
+   with a cart button that pushes the name into the existing **Groceries** list
+   in Lists. Principles are read live from `thoughts` by tag
+   (`nutrition/food/grocery/energy/meal-preference/fasting/cooking`) — nothing is
+   copied into a nutrition table, so anything Cael captures later just shows up.
+
+Files: `lib/nutrition.ts`, `lib/db.ts` (3 tables), `app/api/nutrition/{meals,staples,days,principles}`,
+`app/_components/{nutrition-panel,protocol-chart}.tsx`, `app/(app)/nutrition/page.tsx`,
+nav in `app/(app)/layout.tsx` + `dashboard.tsx`, agent tools `log_meal`,
+`log_nutrition_day`, `list_nutrition`, and `scripts/nutrition-migrate.mjs`
+(idempotent; already run against the live Neon DB — 15 staples seeded).
+
+Decisions worth remembering:
+
+- **Separate from `meal_recommendations`.** That table is Cael *suggesting*
+  tomorrow's meal (with a photo, thumbs up/down) and is still empty. The new
+  `nutrition_meals` is Berto *recording* what he actually ate and want to repeat.
+  Different direction, so a different table.
+- **The staples shelf does not replace the Groceries list.** The shelf is the
+  standing record of foods that work; Lists → Groceries stays the real shopping
+  list. The cart button is the one-way bridge between them.
+- Delete buttons are always visible, not `group-hover` — a hover-only control is
+  unreachable on mobile (and the first Playwright pass caught exactly that).
+
+Verified in the running app (Playwright against the dev server on :3789, both
+1280×1000 and 390×844): rules toggled and persisted (`["whole_food","fasted"]`
+server-side), a meal logged from the input then re-logged from its own quick-add
+button, "Ginger" landed in the Groceries list (7 → 8 items), a staple added and
+removed, principles rendered from the real thoughts with "Show all". Every test
+row deleted afterwards — `nutrition_days` and `nutrition_meals` are back to 0,
+staples 15, no TEST rows in `list_items`. `npm run typecheck` clean.
+
+Next steps if it gets used: `felt_good` is stored per meal but nothing in the UI
+sets it to false yet, and the meal-history view caps at 14 days.

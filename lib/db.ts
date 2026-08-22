@@ -377,4 +377,39 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // ── Nutrition ────────────────────────────────────────────────────────────
+  // Meals worth repeating: the ones that left Berto with good energy. Logged by
+  // one tap on the Nutrition screen (or by Cael), never scored on macros.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_meals (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      notes TEXT,
+      felt_good BOOLEAN NOT NULL DEFAULT TRUE,
+      eaten_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS nutrition_meals_date_idx ON nutrition_meals (eaten_date DESC)`;
+  // The standing shelf of energy-boosting staples — foods that reliably work,
+  // each with the reason. `why` is usually lifted from the thought that named it.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_staples (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      why TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // One row per day recording which of the protocol rules were kept (rule keys
+  // live in lib/nutrition.ts). A day is "on protocol" only when all of them are.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_days (
+      logged_date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+      rules TEXT[] NOT NULL DEFAULT '{}',
+      note TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }

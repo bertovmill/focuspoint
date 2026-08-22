@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
+import { CATEGORY_BADGE_CLASS, TASK_CATEGORIES, TASK_CATEGORY_LABELS, type TaskCategory } from "@/lib/task-categories";
 import {
   CARD_COLORS,
   CARD_COLOR_CLASSES,
@@ -108,16 +108,6 @@ const CARD_LAYER_Z = 3;
 const LANE_COLLAPSED_KEY = "focuspoint.content-lane.collapsed";
 const LANE_OPEN_OFFSET = "16.5rem";
 const LANE_CLOSED_OFFSET = "2.75rem";
-
-const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
-  events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
-  calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
-  ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
-  content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
-  code: "border-indigo-500/40 text-indigo-600 dark:text-indigo-400",
-  community: "border-rose-500/40 text-rose-600 dark:text-rose-400",
-  sales: "border-green-600/40 text-green-700 dark:text-green-400",
-};
 
 const PRIORITY_DOT: Record<Todo["priority"], string> = {
   urgent: "bg-priority-urgent",

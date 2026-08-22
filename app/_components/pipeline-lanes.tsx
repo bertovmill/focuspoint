@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { NutritionToday } from "@/app/_components/nutrition-today";
 import { Input } from "@/components/ui/input";
 import { LANE_CATEGORIES, TASK_CATEGORY_LABELS, type LaneCategory } from "@/lib/task-categories";
 import { isDoneToday, isLanePiece, type Todo } from "@/lib/todo";
@@ -63,6 +64,12 @@ export interface PipelineLanesProps {
   /** Owned by the canvas, which also shifts its own toolbar out of the panel's way. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /**
+   * Render as a plain block in the page flow instead of a panel floating over the
+   * canvas. The mobile Tasks list has no canvas to float over — the lanes are just
+   * the next section down the page, and the page itself does the scrolling.
+   */
+  inline?: boolean;
   completingIds: Set<number>;
   onComplete: (id: number) => void;
   onUncomplete: (id: number) => void;
@@ -76,6 +83,7 @@ export function PipelineLanes({
   todos,
   collapsed,
   onToggleCollapsed,
+  inline = false,
   completingIds,
   onComplete,
   onUncomplete,
@@ -228,7 +236,7 @@ export function PipelineLanes({
       </span>
     );
 
-  if (collapsed) {
+  if (collapsed && !inline) {
     return (
       <button
         type="button"
@@ -244,24 +252,40 @@ export function PipelineLanes({
   }
 
   return (
-    // Pinned, not drawn on the canvas: it keeps its place while the notebook pans and
-    // zooms underneath. Sits below the canvas toolbar and above Excalidraw's zoom
-    // controls so neither is covered.
-    <div className="pointer-events-auto absolute bottom-14 left-3 top-12 z-[6] flex w-[248px] flex-col overflow-hidden rounded-xl border bg-card/95 shadow-lg backdrop-blur-sm">
+    // Two shapes, one panel. Floating: pinned over the canvas, so it keeps its place
+    // while the notebook pans and zooms underneath, clear of the canvas toolbar above
+    // and Excalidraw's zoom controls below. Inline: a plain section in the page flow,
+    // scrolled by the page rather than scrolling itself.
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border bg-card/95 backdrop-blur-sm",
+        inline
+          ? "shadow-none"
+          : "pointer-events-auto absolute bottom-14 left-3 top-12 z-[6] w-[248px] shadow-lg",
+      )}
+    >
       <div className="flex items-center gap-1.5 border-b px-2.5 py-1.5">
         <LayersIcon className="size-3.5 text-muted-foreground" />
         <span className="text-[11px] font-semibold uppercase tracking-wide">Pipelines</span>
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-label="Hide the pipelines"
-          className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <XIcon className="size-3.5" />
-        </button>
+        {!inline && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label="Hide the pipelines"
+            className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={cn(inline ? "" : "min-h-0 flex-1 overflow-y-auto")}>
+        {/* Today's food sits above the work: the three sittings and the four
+            protocol rules, tickable without leaving the board. These aren't tasks
+            — they're the nutrition tables, and the Nutrition screen shows the
+            same rows. */}
+        <NutritionToday />
+
         {LANE_CATEGORIES.map((lane) => {
           const meta = LANE_META[lane];
           const LaneIcon = meta.icon;

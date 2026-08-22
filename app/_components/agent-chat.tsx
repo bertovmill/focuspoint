@@ -76,7 +76,7 @@ export function AgentChat({
     <main
       className={cn(
         "relative flex h-dvh flex-col overflow-hidden bg-background text-foreground",
-        hasMobileNav && "pb-16 lg:pb-0",
+        hasMobileNav && "pb-[var(--mobile-nav-h)] lg:pb-0",
       )}
     >
       <header className="flex h-14 shrink-0 items-center justify-between pl-2 pr-3 border-b border-border">

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
+import { TaskListMobile } from "@/app/_components/task-list-mobile";
 import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
@@ -693,11 +694,32 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Tasks */}
         {activeTab === "todos" && (
-          // The Tasks screen is an infinite Excalidraw notebook: today's tasks ride on
-          // it as real checkbox cards (positioned by canvas_x/canvas_y), and everything
-          // around them — arrows, headings, scribbles — is freeform drawing. h-full so
-          // the canvas claims the whole panel instead of a fixed box.
-          <div className="flex h-full flex-col pb-16 lg:pb-0">
+          <>
+          {/* On a phone the same tasks are a plain vertical list. The canvas puts its
+              cards at scene coordinates on a board several times wider than a 390px
+              screen, and Excalidraw's own toolbars want the top strip our controls
+              need — neither survives the narrow view, so below `lg` it isn't mounted
+              at all. See <TaskListMobile>. */}
+          <div className="h-full lg:hidden">
+            <TaskListMobile
+              todos={visibleTodos}
+              loading={loading}
+              nowTick={nowTick}
+              completingIds={completingIds}
+              onComplete={handleComplete}
+              onUncomplete={handleUncomplete}
+              onToggleTimer={handleToggleTimer}
+              onToggleInProgress={handleToggleInProgress}
+              onDelete={handleDeleteTodo}
+              onUpdate={handleUpdateTodo}
+              onCreated={handleTodoCreated}
+            />
+          </div>
+          {/* The Tasks screen is an infinite Excalidraw notebook: today's tasks ride on
+              it as real checkbox cards (positioned by canvas_x/canvas_y), and everything
+              around them — arrows, headings, scribbles — is freeform drawing. h-full so
+              the canvas claims the whole panel instead of a fixed box. */}
+          <div className="hidden h-full flex-col lg:flex">
             {/* The strategy sits above everything else: every task should ladder up
                 to it. Its own Excalidraw scene, separate from the notebook below. */}
             <StrategyBoard />
@@ -719,11 +741,12 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
               />
             </div>
           </div>
+          </>
         )}
 
         {/* Notes */}
         {activeTab === "notes" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0 overflow-x-hidden">
+          <div className="px-5 py-4 overflow-x-hidden">
             {!loading && thoughts.length > 0 && (
               <InputGroup className="mb-3">
                 {searching ? (
@@ -916,7 +939,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Calendar */}
         {activeTab === "calendar" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <CalendarPanel />
           </div>
         )}
@@ -924,21 +947,21 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
         {/* Sketches */}
         {activeTab === "sketches" && (
           // h-full so the canvas can claim the full panel height instead of a fixed aspect box.
-          <div className="h-full pb-16 lg:pb-0">
+          <div className="h-full">
             <SketchesPanel />
           </div>
         )}
 
         {/* Lists */}
         {activeTab === "lists" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <ListsPanel />
           </div>
         )}
 
         {/* Dreams */}
         {activeTab === "dreams" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             {loading || dream === undefined ? (
               <div className="space-y-3">
                 <Skeleton className="h-20 rounded-xl" />
@@ -1032,14 +1055,14 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Journal Templates */}
         {activeTab === "journal-templates" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <JournalTemplatesPanel />
           </div>
         )}
 
         {/* Scheduled Tasks */}
         {activeTab === "schedule" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0 space-y-6">
+          <div className="px-5 py-4 space-y-6">
 
             {/* Scheduled tasks — all editable at runtime, including the built-in ones */}
             <div>
@@ -1098,7 +1121,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Media */}
         {activeTab === "media" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <input
               ref={fileInputRef}
               type="file"
@@ -1177,35 +1200,35 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
         {/* Vision */}
         {activeTab === "vision" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <VisionPanel />
           </div>
         )}
 
         {/* Family */}
         {activeTab === "family" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <FamilyPanel />
           </div>
         )}
 
         {/* Nutrition */}
         {activeTab === "nutrition" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <NutritionPanel />
           </div>
         )}
 
         {/* Manual */}
         {activeTab === "manual" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <ManualPanel />
           </div>
         )}
 
         {/* Measures */}
         {activeTab === "measures" && (
-          <div className="px-5 py-4 pb-16 lg:pb-0">
+          <div className="px-5 py-4">
             <MeasuresOverview measures={measures} />
 
             <div className="flex flex-wrap gap-1.5 mb-4">

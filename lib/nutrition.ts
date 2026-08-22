@@ -26,6 +26,24 @@ export const PROTOCOL_RULES = [
   },
 ] as const;
 
+// Photoreal art for the four rules, generated once by
+// scripts/generate-nutrition-art.mjs and committed to public/nutrition/ — the
+// rules never change, so there's no reason to pay for a lookup or a model call.
+export const RULE_IMAGE_PROMPTS: Record<string, string> = {
+  whole_food:
+    "a generous wooden board of raw whole foods — leafy greens, broccoli, sweet potato, lentils, avocado, brown rice in a small bowl — no dairy, no packaging, no sweets",
+  fasted:
+    "an empty clean ceramic plate with a single glass of water beside it on a bare table, early morning light raking across the surface, nothing else",
+  snack_light:
+    "a small plate holding half an avocado, three squares of very dark chocolate and a scattering of almonds, mid-afternoon light",
+  pff:
+    "a shallow bowl showing three clear components side by side — a portion of plant protein, sliced avocado for fat, and leafy greens with lentils for fibre",
+};
+
+export function ruleImage(key: string) {
+  return `/nutrition/${key}.webp`;
+}
+
 export type ProtocolRuleKey = (typeof PROTOCOL_RULES)[number]["key"];
 
 export const PROTOCOL_RULE_KEYS = PROTOCOL_RULES.map((r) => r.key) as readonly string[];
@@ -38,6 +56,33 @@ export function normalizeRules(input: unknown): string[] {
 
 export function isOnProtocol(rules: readonly string[] | null | undefined) {
   return PROTOCOL_RULE_KEYS.every((k) => rules?.includes(k));
+}
+
+// The three sittings Berto eats: one lunch, one snack, one dinner. Cael fills all
+// three in each morning (see lib/meal-suggest.ts).
+export const MEAL_SLOTS = [
+  { key: "lunch", label: "Lunch", guidance: "Light and whole-food — this is the day-time sitting, so it must not sit heavy or spike blood sugar." },
+  { key: "snack", label: "Snack", guidance: "A small afternoon snack for mental performance — think avocado, dark chocolate, almonds. Not a meal." },
+  { key: "dinner", label: "Dinner", guidance: "The real meal of the day, eaten in the evening. Protein + fat + fibre, substantial and satisfying." },
+] as const;
+
+export type MealSlot = (typeof MEAL_SLOTS)[number]["key"];
+
+export const MEAL_SLOT_KEYS = MEAL_SLOTS.map((s) => s.key) as readonly string[];
+
+export function slotLabel(slot: string | null | undefined) {
+  return MEAL_SLOTS.find((s) => s.key === slot)?.label ?? null;
+}
+
+/**
+ * Which sitting is the live one right now: lunch through the afternoon, the snack
+ * in the 3–6pm dip he's written about, dinner in the evening.
+ */
+export function currentSlot(now: Date = new Date()): MealSlot {
+  const h = now.getHours();
+  if (h < 15) return "lunch";
+  if (h < 18) return "snack";
+  return "dinner";
 }
 
 /** Tags that mark a thought as belonging to the food/energy body of notes. */

@@ -4,6 +4,7 @@ import twilio from "../channels/twilio.js";
 import { getDb } from "../../lib/db.js";
 import { cronMatchesDate } from "../../lib/cron.js";
 import { syncLuma } from "../../lib/luma-sync.js";
+import { ensureTodaysMeals } from "../../lib/meal-suggest.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Vercel Hobby plans cap ALL cron jobs at once per day, so this wakes once daily
@@ -22,6 +23,21 @@ export default defineSchedule({
       console.log(`[dispatcher] Luma: ${luma.events} events, ${luma.guests} guests, ${luma.people} people.`);
     } catch (err) {
       console.warn("[dispatcher] Luma sync failed:", err);
+    }
+
+    // Today's three meal recommendations (lunch, snack, dinner) with their photos.
+    // Same reasoning as the Luma sync above: this daily tick is the only scheduled
+    // slot the project gets, so the meal plan has to ride on it — and it sits above
+    // the phone-number guard because the plan is for the app, not the text message.
+    try {
+      const meals = await ensureTodaysMeals();
+      console.log(
+        `[dispatcher] meals: filled ${meals.filled.join(", ") || "none"}` +
+          (meals.failed.length ? `, failed ${meals.failed.join(", ")}` : "") +
+          (meals.already.length ? `, already had ${meals.already.join(", ")}` : ""),
+      );
+    } catch (err) {
+      console.warn("[dispatcher] meal plan failed:", err);
     }
 
     const phoneNumber = process.env.MY_PHONE_NUMBER;

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
@@ -35,6 +35,16 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     apple: "/icon.svg",
   },
+};
+
+// viewport-fit=cover is what makes env(safe-area-inset-*) report real numbers on
+// an iPhone — without it the bottom nav sits under the home indicator. The page
+// itself never zooms or scrolls as a whole (the shell is h-dvh), so pinch-zoom is
+// left enabled deliberately: it's the only way to zoom a sketch on a phone.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { readonly children: ReactNode }) {

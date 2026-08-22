@@ -41,6 +41,13 @@
 
 :root {
   color-scheme: light;
+  /*
+   * The mobile bottom nav is `position: fixed`, so it doesn't reserve any space —
+   * every scroll container has to end above it or its last row hides underneath.
+   * One variable is the single source of truth: the bar's own 4rem plus whatever
+   * the iPhone home indicator claims. `lg:` layouts zero their padding instead.
+   */
+  --mobile-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px));
   /* ElevenLabs-inspired: near-white page, white cards, neutral grays, vibrant orange accent. */
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.09 0 0);

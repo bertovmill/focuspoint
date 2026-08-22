@@ -34,6 +34,12 @@ await sql`
   )
 `;
 
+await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS slot TEXT`;
+await sql`ALTER TABLE nutrition_staples ADD COLUMN IF NOT EXISTS image_url TEXT`;
+await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS slot TEXT NOT NULL DEFAULT 'dinner'`;
+await sql`ALTER TABLE meal_recommendations DROP CONSTRAINT IF EXISTS meal_recommendations_meal_date_key`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS meal_recommendations_date_slot_key ON meal_recommendations (meal_date, slot)`;
+
 // Seeded from thoughts 128, 77, 136, 133, 125, 147, 122 — every "why" is his own.
 const STAPLES = [
   ["Dark chocolate", "Afternoon superpower. Calms the nerves, flavonoids + a little caffeine, no blood-sugar spike."],

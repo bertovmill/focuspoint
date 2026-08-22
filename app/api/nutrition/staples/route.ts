@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const sql = getDb();
     const rows = await sql`
-      SELECT id, name, why, sort_order, created_at
+      SELECT id, name, why, image_url, sort_order, created_at
       FROM nutrition_staples
       ORDER BY sort_order ASC, created_at ASC
     `;
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       INSERT INTO nutrition_staples (name, why)
       VALUES (${name.trim()}, ${why?.trim() || null})
       ON CONFLICT (name) DO UPDATE SET why = COALESCE(EXCLUDED.why, nutrition_staples.why)
-      RETURNING id, name, why, sort_order, created_at
+      RETURNING id, name, why, image_url, sort_order, created_at
     `;
     return NextResponse.json(row);
   } catch {

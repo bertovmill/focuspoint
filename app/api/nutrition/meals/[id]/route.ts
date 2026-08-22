@@ -13,7 +13,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         notes = CASE WHEN ${"notes" in body} THEN ${body.notes?.trim() || null} ELSE notes END,
         felt_good = COALESCE(${typeof body.felt_good === "boolean" ? body.felt_good : null}, felt_good)
       WHERE id = ${id}
-      RETURNING id, name, notes, felt_good, eaten_date, created_at
+      RETURNING id, name, notes, felt_good, slot, eaten_date, created_at
     `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

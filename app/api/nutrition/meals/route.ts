@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit") ?? 120), 500);
     const sql = getDb();
     const rows = await sql`
-      SELECT id, name, notes, felt_good, eaten_date, created_at
+      SELECT id, name, notes, felt_good, slot, eaten_date, created_at
       FROM nutrition_meals
       ORDER BY eaten_date DESC, created_at DESC
       LIMIT ${limit}
@@ -20,18 +20,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { name, notes, felt_good, eaten_date } = await req.json();
+    const { name, notes, felt_good, slot, eaten_date } = await req.json();
     if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO nutrition_meals (name, notes, felt_good, eaten_date)
+      INSERT INTO nutrition_meals (name, notes, felt_good, slot, eaten_date)
       VALUES (
         ${name.trim()},
         ${notes?.trim() || null},
         ${felt_good === false ? false : true},
+        ${slot?.trim() || null},
         ${eaten_date?.trim() || new Date().toISOString().slice(0, 10)}
       )
-      RETURNING id, name, notes, felt_good, eaten_date, created_at
+      RETURNING id, name, notes, felt_good, slot, eaten_date, created_at
     `;
     return NextResponse.json(row);
   } catch {

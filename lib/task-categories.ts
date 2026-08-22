@@ -23,6 +23,19 @@ export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
   sales: "Sales",
 };
 
+// The badge a category wears on a task card, wherever that card is drawn — the
+// canvas on desktop, the list on mobile. Spelled out per category because Tailwind
+// can't see class names it has to interpolate.
+export const CATEGORY_BADGE_CLASS: Record<TaskCategory, string> = {
+  events: "border-violet-500/40 text-violet-600 dark:text-violet-400",
+  calls: "border-sky-500/40 text-sky-600 dark:text-sky-400",
+  ai_agents: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  content: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  code: "border-indigo-500/40 text-indigo-600 dark:text-indigo-400",
+  community: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+  sales: "border-green-600/40 text-green-700 dark:text-green-400",
+};
+
 // The categories that get their own pipeline lane on the Tasks canvas, in the order
 // they stack down the panel. A task in one of these is a *piece* — a thing to ship,
 // with its own checklist hanging off it (see lib/todo.ts). Everything else is a

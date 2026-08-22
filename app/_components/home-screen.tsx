@@ -42,6 +42,7 @@ import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { Sparkline } from "@/app/_components/sparkline";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
+import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -75,6 +76,7 @@ interface ReadingLog {
 interface Meal {
   id: number;
   meal_date: string;
+  slot: string | null;
   name: string;
   description: string | null;
   cuisine: string | null;
@@ -404,7 +406,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/vision?kind=routine"),
             fetch("/api/vision?kind=goal"),
             fetch("/api/measures?category=savings_snapshot&limit=400"),
-            fetch("/api/meals?limit=1"),
+            fetch("/api/meals?limit=3"),
             fetch("/api/workouts"),
             fetch("/api/reading"),
             fetch("/api/thoughts?limit=1000"),
@@ -463,7 +465,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         }
         if (mealsRes.ok) {
           const meals: Meal[] = await mealsRes.json();
-          setTodayMeal(meals[0] && isToday(meals[0].meal_date) ? meals[0] : null);
+          // Three recommendations a day now — show whichever sitting is live.
+          const todays = meals.filter((m) => isToday(m.meal_date));
+          const slot = currentSlot();
+          setTodayMeal(todays.find((m) => m.slot === slot) ?? todays[0] ?? null);
         } else {
           setTodayMeal(null);
         }
@@ -642,7 +647,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           onClose={() => setCelebrationQueue((prev) => prev.slice(1))}
         />
       )}
-    <div className="flex-1 overflow-y-auto min-h-0">
+    <div className="flex-1 overflow-y-auto min-h-0 pb-[var(--mobile-nav-h)] lg:pb-0">
       {/* Daily artwork — full-bleed hero with the header overlaid */}
       {!artFailed && (
         <div className="relative">
@@ -686,7 +691,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {todayMeal && (
           <div className="mb-6">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
-              Today's meal
+              {todayMeal.slot ? `Today's ${todayMeal.slot}` : "Today's meal"}
             </p>
             <Card className="overflow-hidden py-0 gap-0 rounded-xl shadow-none">
               {todayMeal.image_url && (

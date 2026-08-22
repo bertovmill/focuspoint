@@ -313,6 +313,11 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Three recommendations a day, one per sitting, instead of the original single
+  // daily dish. The old UNIQUE(meal_date) has to go for that.
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS slot TEXT NOT NULL DEFAULT 'dinner'`;
+  await sql`ALTER TABLE meal_recommendations DROP CONSTRAINT IF EXISTS meal_recommendations_meal_date_key`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS meal_recommendations_date_slot_key ON meal_recommendations (meal_date, slot)`;
   // Workout log: one row per exercise per day. `value` is lbs for the lifts
   // (squat/deadlift/bench/chinups) and minutes for the 10k run.
   await sql`
@@ -391,6 +396,9 @@ export async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS nutrition_meals_date_idx ON nutrition_meals (eaten_date DESC)`;
+  // Which sitting the meal was — 'lunch' | 'snack' | 'dinner', matching the three
+  // slots Berto eats. NULL for a meal logged outside the three (or by Cael from chat).
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS slot TEXT`;
   // The standing shelf of energy-boosting staples — foods that reliably work,
   // each with the reason. `why` is usually lifted from the thought that named it.
   await sql`
@@ -402,6 +410,8 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // AI-generated photo of the ingredient (see lib/nutrition-art.ts). NULL until generated.
+  await sql`ALTER TABLE nutrition_staples ADD COLUMN IF NOT EXISTS image_url TEXT`;
   // One row per day recording which of the protocol rules were kept (rule keys
   // live in lib/nutrition.ts). A day is "on protocol" only when all of them are.
   await sql`

@@ -8,20 +8,25 @@ export default defineTool({
   inputSchema: z.object({
     name: z.string().min(1).describe("Short name of the meal, e.g. 'Beans, brown rice and avocado'"),
     notes: z.string().optional().describe("How it made them feel, or anything worth remembering about it"),
+    slot: z
+      .enum(["lunch", "snack", "dinner"])
+      .optional()
+      .describe("Which sitting it was. Set this when it's clear — it's how the Nutrition screen knows a sitting was eaten."),
     felt_good: z.boolean().optional().describe("Defaults to true"),
     date: z.string().optional().describe("ISO date string, e.g. '2026-08-22'. Defaults to today."),
   }),
-  async execute({ name, notes, felt_good, date }) {
+  async execute({ name, notes, slot, felt_good, date }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO nutrition_meals (name, notes, felt_good, eaten_date)
+      INSERT INTO nutrition_meals (name, notes, slot, felt_good, eaten_date)
       VALUES (
         ${name},
         ${notes ?? null},
+        ${slot ?? null},
         ${felt_good ?? true},
         ${date ?? new Date().toISOString().slice(0, 10)}
       )
-      RETURNING id, name, felt_good, eaten_date
+      RETURNING id, name, slot, felt_good, eaten_date
     `;
     return row;
   },

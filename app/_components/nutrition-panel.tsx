@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { ProtocolChart, type NutritionDay } from "@/app/_components/protocol-chart";
+import { MealPlan } from "@/app/_components/meal-plan";
+import { RuleImage } from "@/app/_components/rule-image";
 import { PROTOCOL_RULES, dateKey, isOnProtocol, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +27,7 @@ interface Staple {
   id: number;
   name: string;
   why: string | null;
+  image_url: string | null;
 }
 
 interface Principle {
@@ -62,6 +66,7 @@ export function NutritionPanel() {
   const [newMeal, setNewMeal] = useState("");
   const [newStaple, setNewStaple] = useState("");
   const [showAllPrinciples, setShowAllPrinciples] = useState(false);
+  const [generatingId, setGeneratingId] = useState<number | null>(null);
 
   const today = todayISO();
 
@@ -162,8 +167,26 @@ export function NutritionPanel() {
       const row: Staple = await res.json();
       setStaples((ss) => (ss.some((s) => s.id === row.id) ? ss : [...ss, row]));
       setNewStaple("");
+      generateStapleImage(row.id);
     } catch {
       toast.error("Couldn't add that staple.");
+    }
+  };
+
+  // A staple without a photo gets one made for it. Fire-and-forget: the shelf is
+  // usable without the picture, so a failed generation is a missing image, not an
+  // error the user has to deal with.
+  const generateStapleImage = async (id: number) => {
+    setGeneratingId(id);
+    try {
+      const res = await fetch(`/api/nutrition/staples/${id}/image`, { method: "POST" });
+      if (!res.ok) return;
+      const row: Staple = await res.json();
+      setStaples((ss) => ss.map((s) => (s.id === row.id ? { ...s, image_url: row.image_url } : s)));
+    } catch {
+      // no image, no problem
+    } finally {
+      setGeneratingId((cur) => (cur === id ? null : cur));
     }
   };
 
@@ -238,6 +261,8 @@ export function NutritionPanel() {
     <div className="space-y-6">
       <ProtocolChart days={days} />
 
+      <MealPlan />
+
       {/* Today's protocol */}
       <section>
         <h2 className="text-sm font-semibold mb-2">Today</h2>
@@ -262,6 +287,7 @@ export function NutritionPanel() {
                 >
                   {on && <CheckIcon className="size-3" />}
                 </span>
+                <RuleImage ruleKey={rule.key} className="size-11" />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium leading-tight">{rule.label}</span>
                   <span className="block text-xs text-muted-foreground leading-snug mt-0.5">{rule.detail}</span>
@@ -354,6 +380,14 @@ export function NutritionPanel() {
         <div className="grid gap-1.5 sm:grid-cols-2">
           {staples.map((s) => (
             <div key={s.id} className="group flex items-start gap-2 rounded-lg border border-border px-2.5 py-2">
+              {s.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.image_url} alt="" className="size-11 shrink-0 rounded object-cover" />
+              ) : (
+                <span className="flex size-11 shrink-0 items-center justify-center rounded bg-muted">
+                  {generatingId === s.id && <Spinner className="size-3.5" />}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium leading-tight">{s.name}</p>
                 {s.why && <p className="text-xs text-muted-foreground leading-snug mt-0.5">{s.why}</p>}

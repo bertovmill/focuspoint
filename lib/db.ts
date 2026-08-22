@@ -412,6 +412,16 @@ export async function ensureSchema() {
   `;
   // AI-generated photo of the ingredient (see lib/nutrition-art.ts). NULL until generated.
   await sql`ALTER TABLE nutrition_staples ADD COLUMN IF NOT EXISTS image_url TEXT`;
+  // Art for the four protocol rules. Only four rows, ever — but the pictures live
+  // here rather than in the repo because generating them needs AI Gateway creds,
+  // which only exist on the deployed app.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_rule_art (
+      rule_key TEXT PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   // One row per day recording which of the protocol rules were kept (rule keys
   // live in lib/nutrition.ts). A day is "on protocol" only when all of them are.
   await sql`

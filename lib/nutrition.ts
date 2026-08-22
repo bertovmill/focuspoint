@@ -26,9 +26,8 @@ export const PROTOCOL_RULES = [
   },
 ] as const;
 
-// Photoreal art for the four rules, generated once by
-// scripts/generate-nutrition-art.mjs and committed to public/nutrition/ — the
-// rules never change, so there's no reason to pay for a lookup or a model call.
+// Photoreal art for the four rules, generated once into Vercel Blob and cached
+// by rule_key in nutrition_rule_art (the rules themselves never change).
 export const RULE_IMAGE_PROMPTS: Record<string, string> = {
   whole_food:
     "a generous wooden board of raw whole foods — leafy greens, broccoli, sweet potato, lentils, avocado, brown rice in a small bowl — no dairy, no packaging, no sweets",
@@ -39,10 +38,6 @@ export const RULE_IMAGE_PROMPTS: Record<string, string> = {
   pff:
     "a shallow bowl showing three clear components side by side — a portion of plant protein, sliced avocado for fat, and leafy greens with lentils for fibre",
 };
-
-export function ruleImage(key: string) {
-  return `/nutrition/${key}.webp`;
-}
 
 export type ProtocolRuleKey = (typeof PROTOCOL_RULES)[number]["key"];
 

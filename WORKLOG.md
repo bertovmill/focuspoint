@@ -4516,3 +4516,73 @@ staples 15, no TEST rows in `list_items`. `npm run typecheck` clean.
 
 Next steps if it gets used: `felt_good` is stored per meal but nothing in the UI
 sets it to false yet, and the meal-history view caps at 14 days.
+
+## 2026-08-22 — Nutrition, part 2: photos, three meals a day, and a strip on the Tasks board
+
+Follow-up to the section above. Berto asked for (1) an AI-generated image on every
+staple and every protocol rule, and (2) the day's nutrition to show up on the Tasks
+page alongside recommended meals for his three sittings — lunch, snack, dinner.
+
+**Three meals a day.** `meal_recommendations` was one row per day (UNIQUE on
+`meal_date`); it now carries a `slot` and is UNIQUE on `(meal_date, slot)`.
+`lib/meal-suggest.ts` is the single brain: it gathers his staples, his food
+principles, the last ten days of logged meals and any past thumbs up/down, asks
+the model for one dish per sitting (`generateObject`), generates the photo, and
+upserts it. Three callers share it — the morning tick, the buttons on the page,
+and Cael:
+
+- `agent/schedules/dispatcher.ts` calls `ensureTodaysMeals()` on the daily tick,
+  right beside the Luma sync and for the same reason: Vercel Hobby allows exactly
+  one cron a day for the whole project, so everything scheduled has to ride on it.
+  It only fills *missing* slots and never throws, so a model hiccup on lunch can't
+  cost him dinner or stop the scheduled tasks behind it.
+- `POST /api/nutrition/plan` with no body fills the gaps; with `{slot}` it re-rolls
+  that one sitting (the ↻ on each card).
+- `set_daily_meal` now takes a `slot` — kept for "make tonight something else",
+  not for the daily job.
+
+**Disabled scheduled task #8, "Daily Meal Recommendation."** It asked Cael to pick
+one Mediterranean/Italian dish each morning — now duplicated work, and its cuisine
+steer fights the whole-food-vegetarian protocol the new suggester follows. The row
+is disabled, not deleted, so it's one flag to bring back.
+
+**Images.** `lib/nutrition-art.ts` holds all three generators (staple, rule, meal)
+behind one photographic style string, so the section reads as one set of pictures.
+Staples get `image_url` on the row; adding a staple in the UI fires
+`POST /api/nutrition/staples/:id/image` and the card fills in behind a spinner.
+
+The four rule images went to a `nutrition_rule_art` table rather than committed
+files in `public/`, which is the more interesting decision: **image generation
+needs AI Gateway credentials that only exist on the deployed app.** The local
+`VERCEL_OIDC_TOKEN` is expired and this CLI can't reach the `cael-agent` project
+to refresh it (see the prod-domain notes), so a `scripts/`-based generator would
+be dead on arrival here. `scripts/backfill-nutrition-art.mjs` instead drives the
+**live** API routes one at a time, and because the blob URLs land on rows the dev
+app also reads, one run covers both environments. `RuleImage` fetches the map once
+per session (module-level promise, shared by every instance) and renders a plain
+muted square if the art is missing — the rules stay usable with no pictures at all.
+
+**On the Tasks board.** `NutritionToday` is a compact section at the top of the
+pipelines panel: the three sittings (thumbnail, dish, checkbox) and the four rules,
+with a `done/7` counter in its header. Not tasks — no `todos` rows are created;
+it reads and writes the nutrition tables directly, so the Tasks board and the
+Nutrition screen are two windows onto the same rows. Ticking a sitting logs that
+dish into the meal log with its slot; unticking deletes that row again. Both views
+share `use-nutrition-today.ts`. It landed inside `PipelineLanes`, which a parallel
+session had just made reusable with an `inline` prop, so it shows up in the new
+mobile task list too.
+
+Knock-on: the Home screen's "Today's meal" card would have picked an arbitrary one
+of the three, so it now shows whichever sitting is live (`currentSlot()` — lunch
+until 3pm, snack until 6pm, then dinner) and titles itself accordingly.
+
+Files: `lib/{nutrition,nutrition-art,meal-suggest,db}.ts`,
+`app/api/nutrition/{plan,rule-art,staples/[id]/image}`, `app/api/meals/route.ts`,
+`app/_components/{meal-plan,nutrition-today,rule-image,use-nutrition-today,nutrition-panel,home-screen,pipeline-lanes}`,
+`agent/schedules/dispatcher.ts`, `agent/instructions.md`, agent tools
+`set_daily_meal` / `list_meal_history` / `log_meal` / `list_nutrition`,
+`scripts/{nutrition-migrate,backfill-nutrition-art}.mjs`.
+
+Note for whoever is next: a parallel session's `git add -A` swept several of these
+files into commit af0ee9f ("Mobile: task list…") while they were mid-flight. No
+work was lost, but that commit's message under-sells what's in it.

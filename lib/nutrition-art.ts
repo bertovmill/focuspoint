@@ -1,6 +1,8 @@
 import { generateImage } from "ai";
 import { put } from "@vercel/blob";
 
+import { RULE_IMAGE_PROMPTS } from "./nutrition";
+
 // Same model and photographic language as the daily meal photos
 // (agent/tools/set_daily_meal.ts), so the whole Nutrition section reads as one
 // set of pictures rather than three different styles.
@@ -27,6 +29,26 @@ export async function generateStapleImage(name: string, why?: string | null) {
   const blob = await put(`nutrition/staples/${slug(name)}-${Date.now()}.png`, Buffer.from(image.base64, "base64"), {
     access: "public",
     contentType: image.mediaType ?? "image/png",
+  });
+  return blob.url;
+}
+
+/**
+ * Art for one protocol rule, saved under a stable key so it's generated once and
+ * then just read. Overwrites in place on a re-run.
+ */
+export async function generateRuleImage(key: string) {
+  const prompt = RULE_IMAGE_PROMPTS[key];
+  if (!prompt) throw new Error(`No image prompt for rule: ${key}`);
+  const { image } = await generateImage({
+    model: FOOD_IMAGE_MODEL,
+    prompt: `${PHOTO_STYLE}. ${prompt}`,
+    aspectRatio: "1:1",
+  });
+  const blob = await put(`nutrition/rules/${key}.png`, Buffer.from(image.base64, "base64"), {
+    access: "public",
+    contentType: image.mediaType ?? "image/png",
+    allowOverwrite: true,
   });
   return blob.url;
 }

@@ -25,10 +25,14 @@ export default defineTool({
       ORDER BY logged_date DESC
     `;
     const staples = await sql`SELECT name, why FROM nutrition_staples ORDER BY sort_order ASC, created_at ASC`;
+    const plan = await sql`
+      SELECT slot, name, feedback FROM meal_recommendations WHERE meal_date = CURRENT_DATE
+    `;
     const onProtocol = dayRows.filter((d) => isOnProtocol(d.rules as string[])).length;
     return {
       window,
       meals: meals.map((m) => ({ ...m, eaten_date: String(m.eaten_date).slice(0, 10) })),
+      plan,
       days_logged: dayRows.length,
       days_on_protocol: onProtocol,
       staples,
@@ -37,7 +41,12 @@ export default defineTool({
   toModelOutput(output) {
     const meals = output.meals as { name: string; eaten_date: string; felt_good: boolean }[];
     const staples = output.staples as { name: string; why: string | null }[];
+    const plan = output.plan as { slot: string; name: string; feedback: string | null }[];
     const lines = [
+      plan.length
+        ? `Today's plan: ${plan.map((p) => `${p.slot} — ${p.name}${p.feedback ? ` (${p.feedback})` : ""}`).join("; ")}`
+        : "No meal plan for today yet.",
+      "",
       `Last ${output.window} days: ${output.days_on_protocol}/${output.days_logged} logged days fully on protocol.`,
       "",
       meals.length ? `Meals (${meals.length}):` : "No meals logged.",

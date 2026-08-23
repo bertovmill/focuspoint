@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{LogicalPosition, LogicalSize, WebviewUrl, WebviewWindowBuilder};
+use tauri::{LogicalSize, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
 
 const APP_URL: &str = "https://cael-agent.vercel.app";
 
@@ -18,7 +18,33 @@ const INIT_SCRIPT: &str = r#"
   }, true);
 "#;
 
-// Pin mode: park the window in the top-left corner, always on top and slightly
+// Gap from a monitor's edges when parked. The larger top inset keeps the title
+// bar clear of the macOS menu bar.
+const CORNER_MARGIN: f64 = 12.0;
+const CORNER_TOP_INSET: f64 = 40.0;
+
+// Every top corner the pinned window can sit in: top-left and top-right of each
+// connected monitor, ordered monitor by monitor. Physical pixels, since that's
+// what monitor geometry and window positions are given in.
+fn top_corners(window: &tauri::WebviewWindow) -> Vec<PhysicalPosition<i32>> {
+    let win_width = window.outer_size().map(|s| s.width as f64).unwrap_or(360.0);
+    let mut corners = Vec::new();
+    for m in window.available_monitors().unwrap_or_default() {
+        let scale = m.scale_factor();
+        let pos = m.position();
+        let size = m.size();
+        let margin = CORNER_MARGIN * scale;
+        let top = (pos.y as f64 + CORNER_TOP_INSET * scale).round() as i32;
+        corners.push(PhysicalPosition::new((pos.x as f64 + margin).round() as i32, top));
+        corners.push(PhysicalPosition::new(
+            (pos.x as f64 + size.width as f64 - win_width - margin).round() as i32,
+            top,
+        ));
+    }
+    corners
+}
+
+// Pin mode: park the window in a top corner, always on top and slightly
 // translucent, sized for the compact top-3 view. Unpinning restores the normal window.
 #[tauri::command]
 fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
@@ -26,8 +52,10 @@ fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
     if pinned {
         let _ = window.set_min_size(Some(LogicalSize::new(300.0, 360.0)));
         let _ = window.set_size(LogicalSize::new(360.0, 480.0));
-        // y=40 keeps the title bar clear of the macOS menu bar.
-        let _ = window.set_position(LogicalPosition::new(12.0, 40.0));
+        // Size first, then park — the corner math needs the pinned width.
+        if let Some(corner) = top_corners(&window).into_iter().next() {
+            let _ = window.set_position(corner);
+        }
         set_window_alpha(&window, 0.92);
     } else {
         let _ = window.set_min_size(Some(LogicalSize::new(400.0, 500.0)));
@@ -35,6 +63,30 @@ fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
         let _ = window.center();
         set_window_alpha(&window, 1.0);
     }
+}
+
+// Hop the pinned window to the next top corner — the other side of this monitor,
+// then around the other monitors. Wraps back to the first corner at the end.
+#[tauri::command]
+fn cycle_pin_corner(window: tauri::WebviewWindow) {
+    let corners = top_corners(&window);
+    if corners.is_empty() {
+        return;
+    }
+    let current = window.outer_position().unwrap_or(PhysicalPosition::new(0, 0));
+    // Nearest corner to where the window sits now is treated as the current one,
+    // so dragging the window by hand doesn't break the cycle.
+    let nearest = corners
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, c)| {
+            let dx = (c.x - current.x) as i64;
+            let dy = (c.y - current.y) as i64;
+            dx * dx + dy * dy
+        })
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    let _ = window.set_position(corners[(nearest + 1) % corners.len()]);
 }
 
 // Bring the app window to the front (e.g. when a task timer finishes).
@@ -67,7 +119,7 @@ fn main() {
     let app_host = APP_URL.parse::<tauri::Url>().unwrap().host_str().unwrap().to_string();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_pin_mode, focus_window])
+        .invoke_handler(tauri::generate_handler![set_pin_mode, cycle_pin_corner, focus_window])
         .setup(move |app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(APP_URL.parse().unwrap()))
                 .title("Cael")

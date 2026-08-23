@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckIcon, PinOffIcon, PlayIcon, SquareIcon } from "lucide-react";
+import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
 
 interface Todo {
   id: number;
@@ -63,6 +64,9 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  // Only the desktop shell can move the window, and it isn't known during SSR.
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => setDesktop(isDesktopApp()), []);
 
   const fetchTodos = useCallback(async () => {
     try {
@@ -196,6 +200,16 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
             >
               {allRunning ? <SquareIcon className="size-2.5" /> : <PlayIcon className="size-2.5" />}
               {allRunning ? "Stop all" : "Start all"}
+            </button>
+          )}
+          {desktop && (
+            <button
+              onClick={() => cyclePinCorner()}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Move to the next top corner"
+              title="Move to the next top corner"
+            >
+              <CornerUpRightIcon className="size-3.5" />
             </button>
           )}
           <button

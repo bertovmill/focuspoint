@@ -4,6 +4,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-23 — The pinned window can hop between top corners
+
+**Ask:** *"simple, small, top left corner pin, and we need the ability to move it
+to another top corner if we have multiple monitors"*
+
+Pin mode parked the window at a hardcoded logical (12, 40) — always the primary
+monitor's top-left, with no way to move it. Now the shell knows every top corner
+it can sit in, and a small button in the pin header hops to the next one.
+
+**Shell (`desktop/src-tauri/src/main.rs`):** `top_corners()` builds the candidate
+list from `available_monitors()` — top-left and top-right of each monitor, in
+physical pixels, offset by the window's own width and each monitor's scale factor
+(`CORNER_MARGIN` 12, `CORNER_TOP_INSET` 40 so the title bar clears the macOS menu
+bar). `set_pin_mode` parks at the first corner (sizing first, since the corner
+math needs the pinned width); the new `cycle_pin_corner` command finds the corner
+*nearest the window's current position* and moves to the next one, wrapping at the
+end. Using nearest-not-remembered means dragging the window by hand doesn't
+desync the cycle.
+
+**Web (`lib/desktop.ts`, `app/_components/pin-view.tsx`):** `cyclePinCorner()`
+invokes the command; the header shows a corner-arrow button for it, only when
+`isDesktopApp()` (checked in an effect — the Tauri global isn't there during SSR).
+
+**Verified:** `cargo check` clean, and with a stubbed `window.__TAURI__` in
+Playwright the button appears in pin mode and invokes `cycle_pin_corner`. The
+native window movement itself needs the rebuilt shell — `npm run tauri build` in
+`desktop/`, then replace `/Applications/Cael.app`.
+
+**Files:** `desktop/src-tauri/src/main.rs`, `lib/desktop.ts`,
+`app/_components/pin-view.tsx`.
+
+---
+
 ## 2026-08-23 — All three timers run at once
 
 **Ask:** *"is it possible we start all three tasks at once? i want to be able to

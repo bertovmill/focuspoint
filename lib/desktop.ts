@@ -17,6 +17,16 @@ export async function setNativePinMode(pinned: boolean): Promise<void> {
   }
 }
 
+/** Hop the pinned window to the next top corner (other side, then other monitors). */
+export async function cyclePinCorner(): Promise<void> {
+  const tauri = (window as unknown as { __TAURI__?: TauriGlobal }).__TAURI__;
+  try {
+    await tauri?.core?.invoke("cycle_pin_corner");
+  } catch {
+    // Older installed shell without the command — nothing to move.
+  }
+}
+
 /** Bring the app window to the front (desktop shell) and best-effort focus the tab (browser). */
 export function focusAppWindow(): void {
   const tauri = (window as unknown as { __TAURI__?: TauriGlobal }).__TAURI__;

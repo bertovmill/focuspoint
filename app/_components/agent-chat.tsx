@@ -17,7 +17,7 @@ import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
 
-type AgentStatus = ReturnType<typeof useEveAgent>["status"];
+export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
 export function AgentChat({
   hasMobileNav,

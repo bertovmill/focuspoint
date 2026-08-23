@@ -194,10 +194,13 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   // C starts a new chat.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (pinned || modalThreadId) return;
+      if (pinned) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      // The floating chat is non-modal, so these still work with it open — unless
+      // the keypress came from inside the window itself.
+      if (target?.closest('[role="dialog"]')) return;
       const key = e.key.toLowerCase();
       if (key === "t") {
         e.preventDefault();

@@ -20,7 +20,7 @@ Start focuspoint on its own port instead (background):
 PORT=3789 npm run dev
 ```
 
-Ready when `curl -s -o /dev/null -w "%{http_code}" http://localhost:3789/login` returns 200 (~1–15s).
+Ready when `curl -s -o /dev/null -w "%{http_code}" http://localhost:3789/sign-in` returns 200 (~1–15s).
 
 **Next 16 allows only one dev server per project dir.** If the launch dies with
 "Another next dev server is already running" (it prints the PID/port/dir), and
@@ -31,12 +31,14 @@ in his UI — clean it up promptly.
 
 ## Auth
 
-The whole app sits behind cookie auth (`middleware.ts`). The cookie is just the
-raw password:
+Clerk is the front door now (`middleware.ts`), but the password cookie still
+works and is the only practical way in from a script — an unauthenticated page
+load redirects to `/sign-in`, not `/login`.
 
-- Password: `BASIC_AUTH_PASSWORD` in `.env.local`
+- Password: `BASIC_AUTH_PASSWORD` in `.env.local` — **the value is quoted**, so
+  strip the quotes (`tr -d '"'`) or the cookie silently fails the check.
 - Cookie: `cael_session=<password>` (works for pages and `/api/*` alike)
-- Or POST `{"password": "..."}` to `/api/auth/login`
+- Or POST `{"password": "..."}` to `/api/auth/login` (401 = you sent the quotes)
 
 ## Drive (Playwright)
 

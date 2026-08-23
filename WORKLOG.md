@@ -4821,3 +4821,46 @@ Verified in the running app (Playwright, dev server on :3789, pin mode via the
 `cael:pin` event): all three live tasks rendered rings at 43–49%, matching their
 estimates; `data-current-value` confirmed the numbers server-side.
 `npm run typecheck` clean. No test rows created.
+
+## 2026-08-23 — The chat is a floating window now, not a modal
+
+Cael's quick chat was a **modal**: a dimmed backdrop over the whole app, so
+talking to it meant stopping whatever you were doing. On desktop it's now a
+**non-modal floating window** — no backdrop, every click outside it lands on the
+app underneath, so you can ask Cael something while editing a sketch, ticking
+tasks, or reading notes.
+
+- `app/_components/chat-modal.tsx` — split into `ChatModal` (owns the agent,
+  the thread and the Escape/unread bookkeeping) and `FloatingChatWindow` (the
+  desktop shell). One `Geometry` state `{x,y,w,h}`:
+  - **Drag** anywhere on the header. **Resize** from either bottom corner —
+    the bottom-left handle moves `x` as it grows `w`, so the opposite corner
+    stays put. Both run through one pointer-capture loop.
+  - `clampGeometry()` keeps it inside the viewport (min 320×320, at least 120px
+    of it on screen) and re-runs on window resize, so a shrinking window can't
+    strand it off-screen.
+  - Geometry is mirrored to `localStorage` (`focuspoint:chat-window`) on gesture
+    end — it reopens where it was left. Defaults to 460×620, bottom-right.
+  - **Collapse** (new `−` button) shrinks it to a 56px Cael bubble at the
+    window's corner, badged with the number of replies that landed while it was
+    down. Clicking it restores position and size.
+- **Escape** is now scoped to the panel: with the app usable behind the window,
+  an Escape aimed at whatever you're actually working in shouldn't close the
+  chat. Same reasoning in `app/(app)/layout.tsx` — the `t`/`n`/`c` shortcuts no
+  longer switch off while the chat is open, they just ignore keys that came from
+  inside it (`target.closest('[role="dialog"]')`).
+- Phones keep the old centered sheet with its backdrop: there's no app to
+  operate alongside it, and a draggable window on a 390px viewport is all cost
+  and no benefit. `useIsDesktop()` picks the branch; `AgentStatus` is now
+  exported from `agent-chat.tsx` for the shared header.
+
+Verified in the running app (Playwright, dev server on :3789, 1440×900): opened
+at 460×620 bottom-right, clicked the Notes nav *behind* the window and the app
+navigated with the chat still open, dragged to (544, 40), resized to 613×703,
+`localStorage` held the same numbers, collapsed to the bubble and restored, and
+a reload reopened it at 613×703. `npm run typecheck` clean. Both empty test
+threads deleted.
+
+`.claude/skills/verify` was stale and cost two cycles: Clerk is the front door
+now (`/login` → `/sign-in`) and `BASIC_AUTH_PASSWORD` is quoted in `.env.local`,
+so the cookie 401s unless you strip the quotes. Both noted in the skill.

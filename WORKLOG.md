@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-23 — Pinned timers count down, not up
+
+**Ask:** *"love it and can we show the count down not the count up?"*
+
+The pinned rows showed elapsed time climbing from zero. Now each row shows the
+time *left* against the task's estimate, the same reference the Tasks canvas
+badge uses — `remainingSeconds()` + `formatCountdown()` from `lib/todo.ts`, no new
+formatting code. Past zero it keeps going as a negative (`-02:14`) in the urgent
+colour instead of clamping, so an overrun is visible. Paused-with-progress reads
+`12:30 left` in muted grey; a task with no estimate keeps the old count-up.
+
+Also dropped `pin-view.tsx`'s private `Todo` interface (and its local
+`formatElapsed`) in favour of the shared `Todo` type — the local copy didn't have
+`estimated_minutes`, which is what the countdown needs.
+
+**Verified** with Playwright in pin mode: three running tasks showed 27:36 /
+46:31 / 27:27 and ticked *down* to 27:33 / 46:28 / 27:24 three seconds later.
+
+**Also this session:** the rebuilt desktop shell is installed at
+`/Applications/Cael.app` (previous build kept as `Cael.app.bak`, from Jul 16 —
+it predated several shell commands). Confirmed pinned geometry via System Events:
+position 12,40 size 360×480.
+
+**Files:** `app/_components/pin-view.tsx`.
+
+---
+
 ## 2026-08-23 — The pinned window can hop between top corners
 
 **Ask:** *"simple, small, top left corner pin, and we need the ability to move it

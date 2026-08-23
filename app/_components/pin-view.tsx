@@ -4,20 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
-
-interface Todo {
-  id: number;
-  title: string;
-  completed: boolean;
-  in_progress: boolean;
-  priority: "low" | "normal" | "high" | "urgent";
-  due_date: string | null;
-  recurrence: "none" | "daily" | "weekly" | "monthly";
-  created_at: string;
-  completed_at?: string | null;
-  timer_started_at?: string | null;
-  time_spent_seconds?: number;
-}
+import { formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
 
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
@@ -39,15 +26,6 @@ function isOpen(t: Todo) {
   // Recurring tasks completed today keep completed=false but get completed_at set —
   // treat those as done for the day so the next thing takes their slot.
   return !t.completed && !isToday(t.completed_at ?? null);
-}
-
-function formatElapsed(totalSeconds: number) {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
 function formatTracked(totalSeconds: number) {
@@ -230,9 +208,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
         {top3.map((todo) => {
           const running = Boolean(todo.timer_started_at);
           const banked = todo.time_spent_seconds ?? 0;
-          const elapsed = running
-            ? banked + Math.max(0, (now - new Date(todo.timer_started_at as string).getTime()) / 1000)
-            : banked;
+          // Estimated tasks count down to zero, then keep counting past it as a
+          // negative — the estimate is the point of reference, not the time burned.
+          const remaining = remainingSeconds(todo, now);
+          const overdue = remaining !== null && remaining < 0;
           return (
             <div
               key={todo.id}
@@ -264,8 +243,21 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                   {running ? <SquareIcon className="size-2.5" /> : <PlayIcon className="size-2.5" />}
                   {running ? "Stop" : "Start"}
                 </button>
-                {running ? (
-                  <span className="font-mono text-[11px] tabular-nums text-primary">{formatElapsed(elapsed)}</span>
+                {remaining !== null ? (
+                  <span
+                    className={cn(
+                      "font-mono text-[11px] tabular-nums",
+                      overdue ? "text-priority-urgent" : running ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    {overdue ? "-" : ""}
+                    {formatCountdown(Math.abs(remaining))}
+                    {running ? "" : " left"}
+                  </span>
+                ) : running ? (
+                  <span className="font-mono text-[11px] tabular-nums text-primary">
+                    {formatCountdown(banked + Math.max(0, (now - new Date(todo.timer_started_at as string).getTime()) / 1000))}
+                  </span>
                 ) : banked > 0 ? (
                   <span className="text-[11px] text-muted-foreground">{formatTracked(banked)} tracked</span>
                 ) : null}

@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-23 — All three timers run at once
+
+**Ask:** *"is it possible we start all three tasks at once? i want to be able to
+run all in the pinned, they should be all the ones in progress. and more compact
+and simple top left"*
+
+**Timers are no longer exclusive.** `app/api/todos/[id]/timer/route.ts` used to
+stop and bank every other running timer before starting a new one. That block is
+gone, so the three things you're working on can all be tracked simultaneously.
+The three-in-progress cap (`hasWorkingSlot`) is still the real limit — starting a
+timer still marks the task in progress, so you can never have more than three
+running. The optimistic client updates that mirrored the old rule are gone too
+(`dashboard.tsx`, `pin-view.tsx`) — a toggle now only touches the task toggled.
+
+**Pinned window:** a **Start all / Stop all** control in the header starts (or
+stops) every task in the list in one click, in parallel. The list itself already
+sorted running → in-progress → priority, so it's the in-progress tasks first with
+next-up filling any spare slot.
+
+**Header is simpler:** the native window title bar already says "Cael", so the
+duplicate `<h1>` is gone. Top-left is just the date; padding tightened to
+`px-2.5 py-1.5`.
+
+**Verified** with Playwright against a local dev server on 3789: Start all put
+all three tasks into a running state, and `/api/todos` confirmed three rows with
+a non-null `timer_started_at` at once (previously impossible). The two test
+timers were stopped afterward — both banked under a minute, below the
+calendar-logging threshold, so no junk events.
+
+**Files:** `app/api/todos/[id]/timer/route.ts`, `app/_components/pin-view.tsx`,
+`app/_components/dashboard.tsx`.
+
+---
+
 ## 2026-08-18 — Task cards drag without lag
 
 **Ask:** *"our cards on our tasks canvas are not dragging very responsively, there is a lag"*

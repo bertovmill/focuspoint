@@ -57,7 +57,8 @@ function formatTracked(totalSeconds: number) {
   return `${h}h ${m % 60}m`;
 }
 
-/** Compact always-on-top view for pin mode: today's top 3 tasks with one-at-a-time timers. */
+/** Compact always-on-top view for pin mode: the (up to three) tasks you're working
+ *  on now, each with its own timer — all three can run at once. */
 export function PinView({ onUnpin }: { onUnpin: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -111,16 +112,16 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       .slice(0, 3);
   }, [todos]);
 
+  const allRunning = top3.length > 0 && top3.every((t) => t.timer_started_at);
+
   const handleToggleTimer = async (todo: Todo) => {
     const action = todo.timer_started_at ? "stop" : "start";
-    // Optimistic: one timer at a time.
+    // Timers run concurrently, so only the toggled task changes.
     setTodos((ts) =>
       ts.map((t) =>
         t.id === todo.id
           ? { ...t, timer_started_at: action === "start" ? new Date().toISOString() : null, in_progress: action === "start" ? true : t.in_progress }
-          : action === "start"
-            ? { ...t, timer_started_at: null }
-            : t,
+          : t,
       ),
     );
     try {
@@ -136,6 +137,37 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     fetchTodos();
   };
 
+  // Run (or stop) every task in the list at once — the whole point of the pinned
+  // window is tracking the three things you're working on together.
+  const handleToggleAll = async () => {
+    const action = allRunning ? "stop" : "start";
+    const targets = top3.filter((t) => Boolean(t.timer_started_at) === allRunning);
+    if (targets.length === 0) return;
+    const startedAt = new Date().toISOString();
+    const ids = new Set(targets.map((t) => t.id));
+    setTodos((ts) =>
+      ts.map((t) =>
+        ids.has(t.id)
+          ? {
+              ...t,
+              timer_started_at: action === "start" ? startedAt : null,
+              in_progress: action === "start" ? true : t.in_progress,
+            }
+          : t,
+      ),
+    );
+    await Promise.all(
+      targets.map((t) =>
+        fetch(`/api/todos/${t.id}/timer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        }).catch(() => undefined),
+      ),
+    );
+    fetchTodos();
+  };
+
   const handleComplete = async (todo: Todo) => {
     setTodos((ts) => ts.map((t) => (t.id === todo.id ? { ...t, completed: true, completed_at: new Date().toISOString() } : t)));
     try {
@@ -146,23 +178,35 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     fetchTodos();
   };
 
+  // The window's own title bar already says "Cael", so the header just carries the
+  // date and the run-everything control.
   const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex items-center justify-between border-b border-border px-3 py-2 shrink-0">
-        <div className="flex items-baseline gap-2 min-w-0">
-          <h1 className="text-sm font-semibold tracking-tight">Cael</h1>
-          <span className="text-[11px] text-muted-foreground truncate">{today}</span>
+      <header className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5 shrink-0">
+        <span className="text-[11px] text-muted-foreground truncate">{today}</span>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {top3.length > 0 && (
+            <button
+              onClick={handleToggleAll}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={allRunning ? "Stop all timers" : "Start all timers"}
+              title={allRunning ? "Stop all" : "Start all"}
+            >
+              {allRunning ? <SquareIcon className="size-2.5" /> : <PlayIcon className="size-2.5" />}
+              {allRunning ? "Stop all" : "Start all"}
+            </button>
+          )}
+          <button
+            onClick={onUnpin}
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Unpin window"
+            title="Unpin"
+          >
+            <PinOffIcon className="size-3.5" />
+          </button>
         </div>
-        <button
-          onClick={onUnpin}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          aria-label="Unpin window"
-          title="Unpin"
-        >
-          <PinOffIcon className="size-3.5" />
-        </button>
       </header>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1.5">

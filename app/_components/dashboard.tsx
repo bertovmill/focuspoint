@@ -528,14 +528,12 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       return;
     }
     const prev = todos;
-    // One timer at a time: starting clears any other running timer locally too.
+    // Timers run concurrently — only the toggled task changes.
     setTodos((ts) =>
       ts.map((t) =>
         t.id === todo.id
           ? { ...t, timer_started_at: action === "start" ? new Date().toISOString() : null, in_progress: action === "start" ? true : t.in_progress }
-          : action === "start"
-            ? { ...t, timer_started_at: null }
-            : t,
+          : t,
       ),
     );
     try {

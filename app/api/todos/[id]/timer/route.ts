@@ -24,8 +24,9 @@ async function logTimeToCalendar(title: string, start: Date, end: Date) {
   }
 }
 
-// One timer at a time: starting a task stops (and banks) any other running timer.
-// Starting also marks the task in progress; stopping leaves in_progress alone.
+// Timers run concurrently — up to the three-in-progress limit, so all the tasks
+// you're working on can be tracked at once. Starting also marks the task in
+// progress; stopping leaves in_progress alone.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -39,17 +40,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       // Starting marks the task in progress, so it has to respect the limit of three.
       if (!(await hasWorkingSlot(sql, id))) {
         return NextResponse.json({ error: WORKING_LIMIT_MESSAGE }, { status: 409 });
-      }
-      const bumped = await sql`
-        UPDATE todos
-        SET time_spent_seconds = time_spent_seconds + GREATEST(0, EXTRACT(EPOCH FROM (NOW() - timer_started_at)))::int,
-            timer_started_at = NULL
-        WHERE timer_started_at IS NOT NULL AND id <> ${id}
-        RETURNING title, timer_started_at AS started_at
-      `;
-      const now = new Date();
-      for (const t of bumped) {
-        await logTimeToCalendar(t.title, new Date(t.started_at), now);
       }
       const [row] = await sql`
         UPDATE todos

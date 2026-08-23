@@ -50,8 +50,9 @@ fn top_corners(window: &tauri::WebviewWindow) -> Vec<PhysicalPosition<i32>> {
 fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
     let _ = window.set_always_on_top(pinned);
     if pinned {
-        let _ = window.set_min_size(Some(LogicalSize::new(300.0, 360.0)));
-        let _ = window.set_size(LogicalSize::new(360.0, 480.0));
+        // Three one-line rows plus the header — barely taller than a toolbar.
+        let _ = window.set_min_size(Some(LogicalSize::new(280.0, 120.0)));
+        let _ = window.set_size(LogicalSize::new(340.0, 172.0));
         // Size first, then park — the corner math needs the pinned width.
         if let Some(corner) = top_corners(&window).into_iter().next() {
             let _ = window.set_position(corner);

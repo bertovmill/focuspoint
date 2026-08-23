@@ -166,17 +166,17 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5 shrink-0">
-        <span className="text-[11px] text-muted-foreground truncate">{today}</span>
+      <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-1 shrink-0">
+        <span className="text-xs text-muted-foreground truncate">{today}</span>
         <div className="flex items-center gap-0.5 shrink-0">
           {top3.length > 0 && (
             <button
               onClick={handleToggleAll}
-              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label={allRunning ? "Stop all timers" : "Start all timers"}
               title={allRunning ? "Stop all" : "Start all"}
             >
-              {allRunning ? <SquareIcon className="size-2.5" /> : <PlayIcon className="size-2.5" />}
+              {allRunning ? <SquareIcon className="size-3" /> : <PlayIcon className="size-3" />}
               {allRunning ? "Stop all" : "Start all"}
             </button>
           )}
@@ -201,9 +201,9 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-1.5 py-1.5 space-y-1">
         {loaded && top3.length === 0 && (
-          <p className="px-2 py-6 text-center text-xs text-muted-foreground">All clear — nothing to focus on.</p>
+          <p className="px-2 py-6 text-center text-sm text-muted-foreground">All clear — nothing to focus on.</p>
         )}
         {top3.map((todo) => {
           const running = Boolean(todo.timer_started_at);
@@ -212,56 +212,55 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
           // negative — the estimate is the point of reference, not the time burned.
           const remaining = remainingSeconds(todo, now);
           const overdue = remaining !== null && remaining < 0;
+          const clock =
+            remaining !== null
+              ? `${overdue ? "-" : ""}${formatCountdown(Math.abs(remaining))}`
+              : running
+                ? formatCountdown(banked + Math.max(0, (now - new Date(todo.timer_started_at as string).getTime()) / 1000))
+                : banked > 0
+                  ? formatTracked(banked)
+                  : null;
           return (
+            // One line per task: done, title, clock, run/stop. Nothing wraps to a
+            // second row, so three tasks fit in a window barely taller than a toolbar.
             <div
               key={todo.id}
               className={cn(
-                "rounded-lg border border-border px-2.5 py-2",
+                "flex items-center gap-2 rounded-lg border border-border px-2 py-1.5",
                 running && "border-l-2 border-l-primary bg-primary/5",
               )}
             >
-              <div className="flex items-start gap-2">
-                <button
-                  onClick={() => handleComplete(todo)}
-                  className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-border text-transparent transition-colors hover:border-primary hover:text-primary"
-                  aria-label={`Complete ${todo.title}`}
-                >
-                  <CheckIcon className="size-3" />
-                </button>
-                <p className={cn("min-w-0 flex-1 text-[13px] leading-snug", priorityColor(todo.priority))}>{todo.title}</p>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2 pl-6">
-                <button
-                  onClick={() => handleToggleTimer(todo)}
+              <button
+                onClick={() => handleComplete(todo)}
+                className="flex size-4 shrink-0 items-center justify-center rounded-full border border-border text-transparent transition-colors hover:border-primary hover:text-primary"
+                aria-label={`Complete ${todo.title}`}
+              >
+                <CheckIcon className="size-3" />
+              </button>
+              <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>{todo.title}</p>
+              {clock && (
+                <span
                   className={cn(
-                    "flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
-                    running
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
+                    "shrink-0 font-mono text-sm tabular-nums",
+                    overdue ? "text-priority-urgent" : running ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  {running ? <SquareIcon className="size-2.5" /> : <PlayIcon className="size-2.5" />}
-                  {running ? "Stop" : "Start"}
-                </button>
-                {remaining !== null ? (
-                  <span
-                    className={cn(
-                      "font-mono text-[11px] tabular-nums",
-                      overdue ? "text-priority-urgent" : running ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    {overdue ? "-" : ""}
-                    {formatCountdown(Math.abs(remaining))}
-                    {running ? "" : " left"}
-                  </span>
-                ) : running ? (
-                  <span className="font-mono text-[11px] tabular-nums text-primary">
-                    {formatCountdown(banked + Math.max(0, (now - new Date(todo.timer_started_at as string).getTime()) / 1000))}
-                  </span>
-                ) : banked > 0 ? (
-                  <span className="text-[11px] text-muted-foreground">{formatTracked(banked)} tracked</span>
-                ) : null}
-              </div>
+                  {clock}
+                </span>
+              )}
+              <button
+                onClick={() => handleToggleTimer(todo)}
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+                  running
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
+                )}
+                aria-label={running ? `Stop the timer on ${todo.title}` : `Start the timer on ${todo.title}`}
+                title={running ? "Stop" : "Start"}
+              >
+                {running ? <SquareIcon className="size-3" /> : <PlayIcon className="size-3" />}
+              </button>
             </div>
           );
         })}

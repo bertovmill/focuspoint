@@ -4,6 +4,35 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-23 — Pinned rows collapse to one line, bigger type
+
+**Ask:** *"really happy with it, now if we could go even more compact, better —
+bigger font"*
+
+Each task took two rows (title, then a Start/Stop button + clock underneath), so
+three tasks needed a 480pt-tall window while the type stayed at 11–13px. Now a
+task is **one line**: done-circle, title (`text-sm`, truncating), countdown
+(`font-mono text-sm`), and an icon-only run/stop square. Everything the second row
+carried is still there, just inline — and the font went *up* while the window went
+*down*.
+
+- `app/_components/pin-view.tsx` — single-line rows; the elapsed/countdown/tracked
+  branches collapse into one `clock` string chosen before render, so there's one
+  span instead of three. Tighter padding (`px-1.5 py-1.5`, rows `py-1.5`), header
+  `px-2 py-1`, date and Start-all at `text-xs`. Run/stop is icon-only with an
+  `aria-label`/`title` — the countdown's colour already says whether it's running.
+- `desktop/src-tauri/src/main.rs` — pinned window is now **340×172** (min
+  280×120), down from 360×480. Measured, not guessed: the pin view's
+  `document.body.scrollHeight` is exactly 172 with three tasks.
+
+**Verified** with Playwright at 340×172 (2× DPI): all three rows and the header
+fit with no scroll. (The dark "N" bubble in dev screenshots is Next's dev-tools
+indicator, not app UI — it isn't in production.)
+
+**Files:** `app/_components/pin-view.tsx`, `desktop/src-tauri/src/main.rs`.
+
+---
+
 ## 2026-08-23 — Pinned timers count down, not up
 
 **Ask:** *"love it and can we show the count down not the count up?"*

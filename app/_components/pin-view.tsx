@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, SquareIcon } from "lucide-react";
+import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
-import { formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
+import { estimateProgress, formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
 
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
@@ -212,6 +213,7 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
           // negative — the estimate is the point of reference, not the time burned.
           const remaining = remainingSeconds(todo, now);
           const overdue = remaining !== null && remaining < 0;
+          const progress = estimateProgress(todo, now);
           const clock =
             remaining !== null
               ? `${overdue ? "-" : ""}${formatCountdown(Math.abs(remaining))}`
@@ -232,10 +234,28 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
             >
               <button
                 onClick={() => handleComplete(todo)}
-                className="flex size-4 shrink-0 items-center justify-center rounded-full border border-border text-transparent transition-colors hover:border-primary hover:text-primary"
+                className={cn(
+                  "relative flex size-6 shrink-0 items-center justify-center rounded-full text-transparent transition-colors hover:text-primary",
+                  // Without an estimate there's nothing to fill, so keep the plain circle.
+                  progress === null && "border border-border hover:border-primary",
+                )}
                 aria-label={`Complete ${todo.title}`}
+                title={progress === null ? "Complete" : `Complete — ${Math.round(progress * 100)}% of the estimate used`}
               >
-                <CheckIcon className="size-3" />
+                {progress === null ? (
+                  <CheckIcon className="size-3" />
+                ) : (
+                  // Magic UI's gauge: the animated arc with its little end gap. It
+                  // eases to each new value, so a 1s tick reads as motion, not a jump.
+                  <AnimatedCircularProgressBar
+                    className="size-6 text-xs"
+                    value={Math.round(progress * 100)}
+                    gaugePrimaryColor={overdue ? "var(--priority-urgent)" : "var(--primary)"}
+                    gaugeSecondaryColor="var(--border)"
+                  >
+                    <CheckIcon className="size-2.5" />
+                  </AnimatedCircularProgressBar>
+                )}
               </button>
               <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>{todo.title}</p>
               {clock && (

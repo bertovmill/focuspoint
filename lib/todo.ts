@@ -88,3 +88,12 @@ export function remainingSeconds(t: Todo, nowMs: number) {
   const live = t.timer_started_at ? (nowMs - new Date(t.timer_started_at).getTime()) / 1000 : 0;
   return t.estimated_minutes * 60 - (spent + live);
 }
+
+// How far a task has burned through its estimate, 0..1 (clamped), or null when
+// there's no estimate to measure against. Drives the fill ring in the pinned view.
+export function estimateProgress(t: Todo, nowMs: number) {
+  if (!t.estimated_minutes) return null;
+  const spent = t.time_spent_seconds ?? 0;
+  const live = t.timer_started_at ? (nowMs - new Date(t.timer_started_at).getTime()) / 1000 : 0;
+  return Math.min(1, Math.max(0, (spent + live) / (t.estimated_minutes * 60)));
+}

@@ -4793,3 +4793,31 @@ optimizer with no failures; ticking a rule persists and un-ticks; "Ate it?" on
 lunch logged `lunch: White Bean & Avocado Pita` and the Tasks-board strip showed
 `1/7` from that same row; undo removed it. Left at a clean slate — 0 logged meals,
 no rules ticked, today's three suggestions in place with photos.
+
+## 2026-08-23 — A fill ring on each pinned task
+
+Each row in the pinned window now carries a **progress ring** on its complete
+circle: the stroke fills clockwise as the task burns through its
+`estimated_minutes`, so a glance across the three tells you which one is closest
+to done — the countdown number alone didn't answer that (34:05 left could be
+half of an hour or a quarter of two).
+
+- `lib/todo.ts` — new `estimateProgress(t, nowMs)`: `(banked + live) / estimate`
+  clamped to 0..1, or `null` when the task has no estimate. Same shape as the
+  existing `remainingSeconds`, driven off the parent's one clock.
+- `app/_components/pin-view.tsx` — the complete button (now `size-6`) renders
+  **Magic UI's `AnimatedCircularProgressBar`**, which was already installed in
+  `components/ui/` and unused until now. It eases `stroke-dasharray` over 1s, so
+  the per-second tick reads as motion rather than a jump, and its small end gap
+  is what keeps a 24px ring legible. Ring goes `--priority-urgent` once the
+  estimate is blown (progress pins at 100%). No estimate → the plain bordered
+  circle as before, no ring to fill.
+
+The check icon rides inside the ring as the component's `children` (the local
+copy was already patched to accept them), so the same 24px is both the status
+indicator and the click target — the row didn't get any wider.
+
+Verified in the running app (Playwright, dev server on :3789, pin mode via the
+`cael:pin` event): all three live tasks rendered rings at 43–49%, matching their
+estimates; `data-current-value` confirmed the numbers server-side.
+`npm run typecheck` clean. No test rows created.

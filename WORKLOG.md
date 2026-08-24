@@ -104,13 +104,30 @@ view. `npm run typecheck` and `npm run build` clean.
   now reads `1,152 PRs / 2,500 PRs` with the dashed target line, matching the other
   seven. At the recent 400–700/month pace that lands around Q1 2027. Money is now
   the only form still without a goal row.
-- **`GITHUB_TOKEN` is not set in production**, so the nightly sync is a no-op there
-  until it is. The local CLI is logged into an account whose teams (`aucctus`,
-  `aucctus-9e16163a`) do not include the one owning `cael-agent`
-  (`team_SpPDmDlZRKzj75PnxwZcz90b`) — `vercel login` first, then
-  `vercel env add GITHUB_TOKEN production`.
-- Local `.env.local` uses `gh auth token`, which is a `gho_` OAuth token that gh
-  can rotate. A fine-grained PAT with `repo` read is the durable choice.
+- **The production token is nearly blind, and this is the one open item.** Berto
+  added it as `github_personal_access_token` (Vercel env names are case-sensitive
+  and `process.env` does no folding, so `lib/github.ts` now checks three spellings).
+  It authenticates fine — a prod sync of the trailing two months returned
+  `ok: true` — but fetched **3 of 1,104** PRs, from `bertovmill/content-pipeline`
+  and `bertovmill/focuspoint`. Both are *public*, i.e. repos any authenticated token
+  can see: the token has effectively **zero private-repo access**. That is a silent
+  failure mode by nature — a wrongly-scoped token returns a successful, nearly-empty
+  search — which is why `syncGithubPrs()` now returns a per-repo breakdown of what
+  it could see rather than just a count.
+  **The fix is a classic PAT generated while signed in as `rmillaucctus`, scope
+  `repo`** — not a fine-grained one from `bertovmill`. Empirically that account's
+  token sees all 1,152 (it covers the `Aucctus` org's `venice`, its own `helios`,
+  *and* `bertovmill`'s private repos). A fine-grained token can't get there: it
+  would need `Aucctus` as resource owner plus org approval, and still couldn't
+  cross to a second account's repos.
+- **Nothing was lost when the blind sync ran**, because the mirror is an upsert and
+  never a wipe-and-reload — the 1,152 rows and the Craft chart are untouched. Worth
+  noting as the moment that design choice earned itself.
+- Local `.env.local` uses `gh auth token`, a `gho_` OAuth token gh can rotate. The
+  classic PAT above should replace it in both places.
+- No CLI path to production: the local Vercel login only sees the `aucctus` /
+  `aucctus-9e16163a` teams, not the one owning `cael-agent`. `git push origin main`
+  auto-deploys (~2 min), which is how all four commits here shipped.
 
 ---
 

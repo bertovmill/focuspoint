@@ -104,7 +104,25 @@ view. `npm run typecheck` and `npm run build` clean.
   now reads `1,152 PRs / 2,500 PRs` with the dashed target line, matching the other
   seven. At the recent 400–700/month pace that lands around Q1 2027. Money is now
   the only form still without a goal row.
-- **The production token is nearly blind, and this is the one open item.** Berto
+- **The code and the token are both proven correct; only the production env var is
+  wrong.** Running the same sync from a *local* dev server — same code, same live
+  Neon DB — fetched **1,108** across `Aucctus/venice` (1,007), `rmillaucctus/helios`
+  (80) and the rest, reporting `login: rmillaucctus, scopes: repo`. Production, on
+  the identical build, reports `login: bertovmill, scopes: null` and fetches 3.
+  Same code, same database, different credential.
+  The sync now also reports the deployment that answered, which ruled out the two
+  remaining explanations: `env: production`, `commit: 56a36ea` (newest), and
+  `url: cael-agent-…-bertmill19s-projects.vercel.app` — right project, right
+  environment, freshest build. So the edits are landing somewhere else, most likely
+  the decoy `aucctus/focuspoint` project. Correct page:
+  `https://vercel.com/bertmill19s-projects/cael-agent/settings/environment-variables`.
+- **Useful escape hatch, exercised here:** `.env.local`'s `DATABASE_URL` *is* the
+  live Neon branch, so a sync run from a local dev server writes straight to
+  production data without touching production's env at all — the live DB is at
+  **1,156 rows** as of 2026-08-24 16:57 because of exactly that. It keeps the chart
+  honest while the token is unresolved, but it is manual; the nightly dispatcher
+  still needs the prod var to be right.
+- **The original diagnosis of the production token, still accurate:** Berto
   added it as `github_personal_access_token` (Vercel env names are case-sensitive
   and `process.env` does no folding, so `lib/github.ts` now checks three spellings).
   It authenticates fine — a prod sync of the trailing two months returned

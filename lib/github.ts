@@ -23,10 +23,23 @@ export interface GithubPr {
   mergedAt: string;
 }
 
+/**
+ * Env var names the token may live under, in priority order. Vercel env names are
+ * case-sensitive and `process.env` does no folding, so the production var — added
+ * by hand as `github_personal_access_token` — has to be named exactly, not guessed.
+ */
+const TOKEN_VARS = [
+  "GITHUB_TOKEN",
+  "GITHUB_PERSONAL_ACCESS_TOKEN",
+  "github_personal_access_token",
+] as const;
+
 function token(): string {
-  const t = process.env.GITHUB_TOKEN;
-  if (!t) throw new Error("GITHUB_TOKEN environment variable is not set");
-  return t;
+  for (const name of TOKEN_VARS) {
+    const t = process.env[name];
+    if (t) return t;
+  }
+  throw new Error(`No GitHub token set — expected one of: ${TOKEN_VARS.join(", ")}`);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

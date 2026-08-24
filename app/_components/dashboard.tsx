@@ -38,7 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
 import { playCelebrationSound } from "@/lib/celebration-sound";
 import { focusAppWindow } from "@/lib/desktop";
-// Human limit: at most three things can genuinely be worked on at once. Tasks in
+// Human limit: only a handful of things can genuinely be worked on at once (WORKING_LIMIT). Tasks in
 // the "Working on now" section are the live ones; everything else stays dimmed.
 import { WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 import type { Todo } from "@/lib/todo";

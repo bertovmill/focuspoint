@@ -4,6 +4,37 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-24 — Pinned view tracks five parallel tasks
+
+**Ask:** *"for the pinned version of the app, can we enable up to 5 parallel tasks?"*
+
+The pinned window showed the top 3 open tasks, and starting a timer was gated by
+`WORKING_LIMIT = 3` — so even if the list showed more rows, the 4th and 5th
+Start buttons would 409. Berto chose (when asked) to **raise the cap to 5
+everywhere** rather than split it between pin mode and the dashboard.
+
+- `app/_components/pin-view.tsx` — new `MAX_PINNED = 5` constant replaces the
+  hardcoded `.slice(0, 3)`; `top3` renamed to `topTasks`. "Start all"/"Stop all"
+  already operated over the whole list, so they cover five now.
+- `lib/working-now.ts` — `WORKING_LIMIT` 3 → 5. This is the server-side gate
+  shared by the timer route, the todos PATCH/POST routes and the agent's
+  `update_todo` tool, so all of them allow five in-progress tasks now. The
+  dashboard's "Working on now" section follows the same constant.
+- `desktop/src-tauri/src/main.rs` — pin-mode window height 172 → 268pt so five
+  one-line rows fit without scrolling (width and min-size unchanged).
+- Comments referring to "three things at once" updated in `dashboard.tsx` and
+  `update_todo.ts`.
+
+**Verified** on a local dev server (port 3789, Playwright at 340x268): five rows
+render in the pinned window and five timers run concurrently — three seeded test
+tasks started alongside two tasks that were already running. Seeds deleted after.
+
+**Note:** the window-height change lives in the Tauri shell, so the installed
+desktop app needs a rebuild (`cd desktop && npm run build`) to pick it
+up. The web-side 5-task behaviour ships with the normal deploy.
+
+---
+
 ## 2026-08-23 — Pinned rows collapse to one line, bigger type
 
 **Ask:** *"really happy with it, now if we could go even more compact, better —

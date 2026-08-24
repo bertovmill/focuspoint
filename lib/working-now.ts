@@ -1,7 +1,7 @@
-// Human limit: at most three tasks can be "working on now" at once. Enforced
+// Human limit: at most five tasks can be "working on now" at once. Enforced
 // server-side so the agent and the API can't quietly push past what the UI allows.
 // No db import here — the client dashboard imports these constants too.
-export const WORKING_LIMIT = 3;
+export const WORKING_LIMIT = 5;
 
 export const WORKING_LIMIT_MESSAGE = `You can only work on ${WORKING_LIMIT} things at once — finish or drop one first.`;
 

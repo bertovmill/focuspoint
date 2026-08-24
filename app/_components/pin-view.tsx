@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
 import { estimateProgress, formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
 
+/** How many tasks the pinned window tracks at once — each gets its own timer. */
+const MAX_PINNED = 5;
+
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
 function priorityColor(p: string) {
@@ -37,8 +40,8 @@ function formatTracked(totalSeconds: number) {
   return `${h}h ${m % 60}m`;
 }
 
-/** Compact always-on-top view for pin mode: the (up to three) tasks you're working
- *  on now, each with its own timer — all three can run at once. */
+/** Compact always-on-top view for pin mode: the (up to five) tasks you're working
+ *  on now, each with its own timer — all of them can run at once. */
 export function PinView({ onUnpin }: { onUnpin: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -75,7 +78,7 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     return () => clearInterval(tick);
   }, [anyRunning]);
 
-  const top3 = useMemo(() => {
+  const topTasks = useMemo(() => {
     return todos
       .filter(isOpen)
       .sort((a, b) => {
@@ -92,10 +95,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
         }
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       })
-      .slice(0, 3);
+      .slice(0, MAX_PINNED);
   }, [todos]);
 
-  const allRunning = top3.length > 0 && top3.every((t) => t.timer_started_at);
+  const allRunning = topTasks.length > 0 && topTasks.every((t) => t.timer_started_at);
 
   const handleToggleTimer = async (todo: Todo) => {
     const action = todo.timer_started_at ? "stop" : "start";
@@ -121,10 +124,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
   };
 
   // Run (or stop) every task in the list at once — the whole point of the pinned
-  // window is tracking the three things you're working on together.
+  // window is tracking the handful of things you're working on together.
   const handleToggleAll = async () => {
     const action = allRunning ? "stop" : "start";
-    const targets = top3.filter((t) => Boolean(t.timer_started_at) === allRunning);
+    const targets = topTasks.filter((t) => Boolean(t.timer_started_at) === allRunning);
     if (targets.length === 0) return;
     const startedAt = new Date().toISOString();
     const ids = new Set(targets.map((t) => t.id));
@@ -170,7 +173,7 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-1 shrink-0">
         <span className="text-xs text-muted-foreground truncate">{today}</span>
         <div className="flex items-center gap-0.5 shrink-0">
-          {top3.length > 0 && (
+          {topTasks.length > 0 && (
             <button
               onClick={handleToggleAll}
               className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -203,10 +206,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       </header>
 
       <div className="flex-1 overflow-y-auto px-1.5 py-1.5 space-y-1">
-        {loaded && top3.length === 0 && (
+        {loaded && topTasks.length === 0 && (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">All clear — nothing to focus on.</p>
         )}
-        {top3.map((todo) => {
+        {topTasks.map((todo) => {
           const running = Boolean(todo.timer_started_at);
           const banked = todo.time_spent_seconds ?? 0;
           // Estimated tasks count down to zero, then keep counting past it as a
@@ -224,7 +227,7 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                   : null;
           return (
             // One line per task: done, title, clock, run/stop. Nothing wraps to a
-            // second row, so three tasks fit in a window barely taller than a toolbar.
+            // second row, so the whole list fits in a window barely taller than a toolbar.
             <div
               key={todo.id}
               className={cn(

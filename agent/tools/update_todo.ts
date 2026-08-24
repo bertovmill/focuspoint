@@ -35,7 +35,7 @@ export default defineTool({
     // in_progress and waiting are mutually exclusive: setting one clears the other.
     if (patch.in_progress === true) patch.waiting = false;
     else if (patch.waiting === true) patch.in_progress = false;
-    // Only three things can be "working on now" at a time.
+    // Only WORKING_LIMIT things can be "working on now" at a time.
     if (patch.in_progress === true && !(await hasWorkingSlot(getDb(), id))) {
       return { success: false as const, message: WORKING_LIMIT_MESSAGE };
     }

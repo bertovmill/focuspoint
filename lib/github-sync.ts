@@ -20,6 +20,7 @@ import {
 export async function syncGithubPrs({ full = false }: { full?: boolean } = {}): Promise<{
   fetched: number;
   months: number;
+  byRepo: { repo: string; count: number }[];
 }> {
   const sql = getDb();
   const now = new Date();
@@ -27,10 +28,15 @@ export async function syncGithubPrs({ full = false }: { full?: boolean } = {}): 
   const months = full ? allMonths : allMonths.slice(-2);
 
   let fetched = 0;
+  // What the *token* could actually see, per repo. A token scoped to the wrong
+  // resource owner returns a perfectly successful search with almost nothing in
+  // it, so a bare count can't tell "nothing new" apart from "can't see the org".
+  const seen = new Map<string, number>();
   for (const account of GITHUB_ACCOUNTS) {
     for (const month of months) {
       const prs = await fetchMergedPrs(account, month);
       fetched += prs.length;
+      for (const pr of prs) seen.set(pr.repo, (seen.get(pr.repo) ?? 0) + 1);
       if (prs.length === 0) continue;
       // One UNNEST insert per month rather than a round trip per PR — the backfill
       // is ~1,200 rows and serial inserts spent longer talking to Postgres than to
@@ -51,5 +57,8 @@ export async function syncGithubPrs({ full = false }: { full?: boolean } = {}): 
       `;
     }
   }
-  return { fetched, months: months.length };
+  const byRepo = [...seen.entries()]
+    .map(([repo, count]) => ({ repo, count }))
+    .sort((a, b) => b.count - a.count);
+  return { fetched, months: months.length, byRepo };
 }

@@ -330,6 +330,27 @@ export async function ensureSchema() {
       UNIQUE(exercise, logged_date)
     )
   `;
+  // Merged pull requests authored on GitHub, mirrored from the Search API by
+  // lib/github-sync.ts. This is the real Craft metric on the home screen — it
+  // replaced a count of thoughts tagged "craft", which was only ever a proxy.
+  //
+  // Keyed on GitHub's own PR node id so a re-sync upserts instead of duplicating,
+  // and `merged_at` (never `created_at`) is the date a PR counts on: shipping is
+  // the signal, and a PR opened in March and merged in May belongs to May.
+  await sql`
+    CREATE TABLE IF NOT EXISTS github_prs (
+      id BIGINT PRIMARY KEY,
+      account TEXT NOT NULL,
+      repo TEXT NOT NULL,
+      number INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      merged_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS github_prs_merged_at_idx ON github_prs (merged_at)`;
+
   // Reading log: one row per finished book (append-only, like thoughts). `is_estimate`
   // flags the 15 pre-tracking books seeded as a rough average so the year's pace/projection
   // isn't starting from zero.

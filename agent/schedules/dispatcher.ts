@@ -5,6 +5,7 @@ import { getDb } from "../../lib/db.js";
 import { cronMatchesDate } from "../../lib/cron.js";
 import { syncLuma } from "../../lib/luma-sync.js";
 import { ensureTodaysMeals } from "../../lib/meal-suggest.js";
+import { syncGithubPrs } from "../../lib/github-sync.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Vercel Hobby plans cap ALL cron jobs at once per day, so this wakes once daily
@@ -38,6 +39,18 @@ export default defineSchedule({
       );
     } catch (err) {
       console.warn("[dispatcher] meal plan failed:", err);
+    }
+
+    // Merged pull requests, which are what the Craft form of wealth is measured in.
+    // Same rationale as the two syncs above — this daily tick is the only scheduled
+    // slot on Hobby, so the mirror rides along, and a GitHub outage must not stop
+    // scheduled tasks from dispatching. Trailing two months only; the full backfill
+    // is a manual POST to /api/github/sync?full=1.
+    try {
+      const prs = await syncGithubPrs();
+      console.log(`[dispatcher] GitHub: ${prs.fetched} merged PRs across ${prs.months} months.`);
+    } catch (err) {
+      console.warn("[dispatcher] GitHub PR sync failed:", err);
     }
 
     const phoneNumber = process.env.MY_PHONE_NUMBER;

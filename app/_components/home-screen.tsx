@@ -73,6 +73,12 @@ interface ReadingLog {
   is_estimate: boolean;
 }
 
+interface GithubPr {
+  id: number;
+  repo: string;
+  merged_at: string;
+}
+
 interface Meal {
   id: number;
   meal_date: string;
@@ -263,8 +269,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
+  const [githubPrs, setGithubPrs] = useState<GithubPr[]>([]);
   const [savingsHistory, setSavingsHistory] = useState<MeasureRow[]>([]);
-  const [thoughts, setThoughts] = useState<{ tags: string[] | null; created_at: string }[]>([]);
   const [memories, setMemories] = useState<{ created_at: string }[]>([]);
   const [communityContacts, setCommunityContacts] = useState<{ created_at: string }[]>([]);
   const [trips, setTrips] = useState<MeasureRow[]>([]);
@@ -399,7 +405,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, thoughtsRes, memoriesRes, communityRes, tripsRes, thanksRes] =
+        const [visionRes, methodRes, routineRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, memoriesRes, communityRes, tripsRes, thanksRes, githubRes] =
           await Promise.all([
             fetch("/api/vision?kind=statement"),
             fetch("/api/vision?kind=method"),
@@ -409,11 +415,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/meals?limit=3"),
             fetch("/api/workouts"),
             fetch("/api/reading"),
-            fetch("/api/thoughts?limit=1000"),
             fetch("/api/memories?limit=500"),
             fetch("/api/community"),
             fetch("/api/measures?category=trips&limit=500"),
             fetch("/api/thanks?limit=500"),
+            fetch("/api/github"),
           ]);
         // Rows are newest-first; keep the first (most recent) item per form.
         const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
@@ -474,7 +480,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         }
         if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
         if (readingRes.ok) setReadingLogs(await readingRes.json());
-        if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
+        if (githubRes.ok) setGithubPrs(await githubRes.json());
         if (memoriesRes.ok) setMemories(await memoriesRes.json());
         if (communityRes.ok) setCommunityContacts(await communityRes.json());
         if (tripsRes.ok) setTrips(await tripsRes.json());
@@ -505,14 +511,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
   // One sparkline per form of wealth, all sharing the Month/Year/Decade toggle above the grid.
   // Growth/Wellness/Money/Family/Community/Adventure/Service reuse data already tracked elsewhere
-  // (books, workouts, savings, memories, Luma subscribers, trips, thank-yous); Craft still uses a
-  // count of thoughts tagged "craft" as a proxy signal until it gets dedicated tracking.
+  // (books, workouts, savings, memories, merged PRs, Luma subscribers, trips, thank-yous).
   const wealthSeries = useMemo(() => {
-    const taggedCount = (tag: string) =>
-      thoughts
-        .filter((t) => t.tags?.some((x) => x.toLowerCase() === tag))
-        .map((t) => ({ t: new Date(t.created_at).getTime(), value: 1 }));
-
     const series: Record<string, { points: { t: number; value: number }[]; mode: "sum" | "last"; unit: string }> = {
       growth: {
         // Books finished, not pages — one point per reading_logs row. Page counts are
@@ -540,7 +540,14 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         mode: "sum",
         unit: "memories",
       },
-      craft: { points: taggedCount("craft"), mode: "sum", unit: "notes" },
+      craft: {
+        // Merged pull requests, mirrored from GitHub by lib/github-sync.ts. Dated by
+        // merge, not open: shipping is the signal. This replaced a count of thoughts
+        // tagged "craft", which was only ever standing in until real tracking existed.
+        points: githubPrs.map((p) => ({ t: new Date(p.merged_at).getTime(), value: 1 })),
+        mode: "sum",
+        unit: "PRs",
+      },
       community: {
         points: communityContacts.map((c) => ({ t: new Date(c.created_at).getTime(), value: 1 })),
         mode: "sum",
@@ -558,7 +565,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       },
     };
     return series;
-  }, [readingLogs, workoutLogs, savingsHistory, thoughts, memories, communityContacts, trips, thankYous]);
+  }, [readingLogs, workoutLogs, savingsHistory, githubPrs, memories, communityContacts, trips, thankYous]);
 
   const wealthSparklines = useMemo(() => {
     const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};

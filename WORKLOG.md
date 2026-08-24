@@ -4,6 +4,73 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-24 — Craft is measured in merged pull requests
+
+**Ask:** *"id like to be able to track how many pr's i'm making on github as a sign
+of success for focuspoint - can we do that?"*
+
+Craft was the one form of wealth without real tracking. Its line chart counted
+*thoughts tagged `craft`* — a placeholder the code itself admitted to
+("until it gets dedicated tracking", `home-screen.tsx:508`). Merged PRs are the
+thing it was waiting for, so this replaced the proxy rather than adding a ninth card.
+
+**Merged, not opened.** 1,152 PRs merged vs 1,168 opened — nearly the same number,
+which is exactly why merged is the better metric: it costs almost nothing in volume
+and it means *shipped*. Each PR is dated by `merged_at`, never `created_at` — one
+opened in March and merged in May belongs to May.
+
+**Both accounts count** (`rmillaucctus` 1,092, `bertovmill` 60). Work split across
+two GitHub identities is still one person's craft.
+
+**The Search API's 1000-result cap forces month-sized queries.** The obvious shape
+is one query per year — and it silently loses data here: 2026 alone is 1,090 merged
+PRs, so a year window would have returned 1000 and dropped ninety without an error.
+`fetchMergedPrs()` takes a `YYYY-MM` and the sync walks months.
+
+**Two rate limits, not one.** The first backfill 403'd on the *secondary* limit even
+though the primary 30/min budget was untouched — bursting is itself the offence.
+`lib/github.ts` now paces every search 2.5s apart via a module-level `nextAllowedAt`
+and honours `Retry-After` on 403/429, retrying five times before it gives up. Full
+backfill: 20 months × 2 accounts in 2.6 min.
+
+Inserts went from one round trip per PR to one `UNNEST` insert per month — at ~1,200
+rows the serial version spent longer talking to Postgres than to GitHub.
+
+**Sync rides the daily dispatcher tick**, next to the Luma and meal syncs, for the
+same reason they do: Hobby allows exactly one cron a day across the project, so
+that tick is the only scheduled slot there is. It refreshes the trailing **two**
+months, not one — a PR opened in the old month and merged on the 1st lands in a
+window the previous run had already finished with. Wrapped in try/catch above the
+phone-number guard: GitHub being down must not stop tasks from dispatching.
+
+Dropping the `craft` tag count also made the home screen's 1,000-row
+`/api/thoughts` fetch dead — nothing else read it, so it's gone.
+
+**Files:** `lib/github.ts` (new), `lib/github-sync.ts` (new),
+`app/api/github/route.ts` + `app/api/github/sync/route.ts` (new),
+`agent/tools/list_github_prs.ts` (new — lets Cael answer "how much have I shipped?"
+with per-month and per-repo breakdowns), `lib/db.ts` (`github_prs` table),
+`agent/schedules/dispatcher.ts`, `app/_components/home-screen.tsx`.
+
+Verified in the running app on :3877 — Craft renders a real curve reading
+**1,152 PRs** at Year/Decade granularity and 1,149 on the trailing-12-month Month
+view. `npm run typecheck` and `npm run build` clean.
+
+**Next steps / open:**
+- **No goal set for Craft yet** — there's no `vision_items` goal row for it (Money
+  has none either), so the card shows the line and total with no dashed target and
+  no celebration. Berto to pick the number; add it *after* this deploys, per the
+  ordering rule in the reading-goal episode.
+- **`GITHUB_TOKEN` is not set in production**, so the nightly sync is a no-op there
+  until it is. The local CLI is logged into an account whose teams (`aucctus`,
+  `aucctus-9e16163a`) do not include the one owning `cael-agent`
+  (`team_SpPDmDlZRKzj75PnxwZcz90b`) — `vercel login` first, then
+  `vercel env add GITHUB_TOKEN production`.
+- Local `.env.local` uses `gh auth token`, which is a `gho_` OAuth token that gh
+  can rotate. A fine-grained PAT with `repo` read is the durable choice.
+
+---
+
 ## 2026-08-24 — Pinned view tracks five parallel tasks
 
 **Ask:** *"for the pinned version of the app, can we enable up to 5 parallel tasks?"*

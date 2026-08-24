@@ -307,7 +307,7 @@ export function JournalTemplatesPanel() {
                   </div>
                   <button
                     onClick={() => handleDeleteEntry(entry.id)}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="tap-target absolute top-3 right-3 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     aria-label="Delete entry"
                   >
                     <TrashIcon className="size-3.5" />
@@ -414,7 +414,7 @@ export function JournalTemplatesPanel() {
           {templates.map((template) => (
             <Card
               key={template.id}
-              className="p-3.5 flex items-center gap-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+              className="p-3.5 flex flex-row items-center gap-3 cursor-pointer hover:bg-muted/40 transition-colors group"
               onClick={() => openTemplate(template)}
             >
               <div className="flex-1 min-w-0">
@@ -427,7 +427,7 @@ export function JournalTemplatesPanel() {
                 <AlertDialogTrigger asChild>
                   <button
                     onClick={(e) => e.stopPropagation()}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     aria-label="Delete template"
                   >
                     <TrashIcon className="size-4" />

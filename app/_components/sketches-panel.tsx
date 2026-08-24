@@ -321,8 +321,8 @@ export function SketchesPanel() {
                       {new Date(sketch.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </p>
                   </div>
-                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDownload(sketch)} aria-label="Download PNG">
+                  <div className="flex items-center touch:gap-1.5 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="sm" className="tap-target h-7 w-7 p-0" onClick={() => handleDownload(sketch)} aria-label="Download PNG">
                       <DownloadIcon className="size-3.5" />
                     </Button>
                     <AlertDialog>

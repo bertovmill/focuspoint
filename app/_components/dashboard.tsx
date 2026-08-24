@@ -675,9 +675,24 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // honest about what's actually in progress.
   // Which categories are worth offering as filters: the ones actually in use.
 
-  const allTags = Array.from(
-    new Set(thoughts.flatMap((t) => t.tags ?? [])),
-  ).sort();
+  // Most-used tags first, alphabetical to break ties. Sixty tags don't fit on a
+  // phone at once, so on mobile this strip becomes one sideways-scrolling line —
+  // and in a line, order decides what you can reach without swiping. Frequency
+  // puts the handful of tags actually worth filtering by up front; strict
+  // alphabetical buried "work" past forty others.
+  const tagCounts = new Map<string, number>();
+  for (const t of thoughts) {
+    for (const tag of t.tags ?? []) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+  const allTags = Array.from(tagCounts.keys()).sort((a, b) => {
+    const byCount = (tagCounts.get(b) ?? 0) - (tagCounts.get(a) ?? 0);
+    return byCount !== 0 ? byCount : a.localeCompare(b);
+  });
+  // Whichever tag is filtering leads the strip, so it stays on screen as the
+  // thing you can tap to undo rather than scrolling away with the rest.
+  const orderedTags = tagFilter
+    ? [tagFilter, ...allTags.filter((t) => t !== tagFilter)]
+    : allTags;
   const searchActive = query.trim().length > 0;
   const displayedThoughts = searchActive
     ? semanticResults ?? []
@@ -782,20 +797,23 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
             )}
 
             {!loading && allTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              // One line that scrolls sideways on a phone, the full wrapped cloud
+              // from `lg` up. Sixty tags wrapped to nineteen rows at 390px and
+              // pushed every note below the fold; as a single row it costs one.
+              <div className="scroll-row-x -mx-5 mb-4 flex gap-1.5 overflow-x-auto px-5 lg:mx-0 lg:flex-wrap lg:overflow-x-visible lg:px-0">
                 <Badge
                   asChild
                   variant={tagFilter === null ? "default" : "outline"}
-                  className="cursor-pointer"
+                  className="tap-target shrink-0 cursor-pointer"
                 >
                   <button onClick={() => setTagFilter(null)}>All</button>
                 </Badge>
-                {allTags.map((tag) => (
+                {orderedTags.map((tag) => (
                   <Badge
                     key={tag}
                     asChild
                     variant={tagFilter === tag ? "default" : "outline"}
-                    className="cursor-pointer"
+                    className="tap-target shrink-0 cursor-pointer"
                   >
                     <button onClick={() => setTagFilter(tag)}>{tag}</button>
                   </Badge>
@@ -891,7 +909,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                               <button onClick={() => setTagFilter(tag)}>{tag}</button>
                             </Badge>
                           ))}
-                          <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="ml-auto flex gap-0.5 touch:gap-2 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="icon-xs"
@@ -1169,7 +1187,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
               <div className="mt-5 flex flex-col gap-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Uploaded this session</p>
                 {uploadedImages.map((img) => (
-                  <Card key={img.url} className="flex items-center gap-3 p-3">
+                  <Card key={img.url} className="flex flex-row items-center gap-3 p-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.url} alt={img.name} className="size-12 shrink-0 rounded-md object-cover" />
                     <div className="min-w-0 flex-1">
@@ -1241,7 +1259,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                   key={key}
                   asChild
                   variant={measureCategory === key ? "default" : "outline"}
-                  className="cursor-pointer gap-1"
+                  className="tap-target cursor-pointer gap-1"
                 >
                   <button type="button" onClick={() => { setMeasureCategory(key); setMeasureForm({}); }}>
                     <Icon className="size-3" />
@@ -1319,7 +1337,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                         </span>
                         <button
                           onClick={() => handleDeleteMeasure(m.id)}
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                           aria-label="Delete entry"
                         >
                           <TrashIcon className="size-3.5" />

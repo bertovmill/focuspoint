@@ -4864,3 +4864,88 @@ threads deleted.
 `.claude/skills/verify` was stale and cost two cycles: Clerk is the front door
 now (`/login` → `/sign-in`) and `BASIC_AUTH_PASSWORD` is quoted in `.env.local`,
 so the cookie 401s unless you strip the quotes. Both noted in the skill.
+
+## 2026-08-23 — Mobile: the controls a thumb couldn't reach
+
+Audited all 17 sections at 390×844 (Playwright, real touch emulation) rather than
+guessing. The good news first: **zero horizontal overflow anywhere** — the August 22
+pass fixed that and it stayed fixed. What was left wasn't layout, it was
+*reachability*, and it was systemic rather than per-panel.
+
+**19 row controls were literally unreachable on a phone.** Ten panels build their
+edit / delete / rename affordances as `opacity-0 group-hover:opacity-100`, a pattern
+with no touch equivalent: on a phone they were invisible *and* still tappable if you
+happened to guess where they were. On Lists that meant editing or deleting an item
+was flat-out impossible from a phone. Fixed with one new variant in `app/globals.css`:
+
+```css
+@custom-variant touch (@media (hover: none));
+```
+
+paired onto every one of the 19 sites as `touch:opacity-100`. Keyed on the
+*capability*, not the width, deliberately — a narrow window on the Mac still has a
+pointer and keeps the clean reveal-on-hover, while an iPad in landscape is 1024px
+wide and has no hover at all. Verified both directions: the probe reports
+`hiddenControls=0` on every mobile route and still 3 on desktop `/lists` and
+`/tasks`, which is the behaviour desktop should keep.
+
+**Tap targets were far under any minimum** — a 10×10px priority dot ("tap to
+change"), a 16×16 delete list, 22×22 vision buttons, 31px calendar buttons. New
+`.tap-target` utility: a centred pseudo-element grows the *touch region* without
+moving a pixel of the art, so the dense rows stay as scannable as they are.
+
+The two axes get different budgets, and that asymmetry is the whole trick — I got it
+wrong first. A uniform 44px box looked right until I worked out the geometry of an
+edit/delete pair: they sit ~22px centre to centre, so two 44px boxes each cover the
+*other* icon, and since the later one paints on top, **aiming at Edit would have hit
+Delete**. Destructive, and worse than the bug it replaced. So height goes to the full
+44px (a row's padding is dead space, nothing to collide with) and width only to 24px
+— WCAG 2.5.8's AA minimum, five pixels a side on a 14px icon, less than the gap it
+sits in. Applied at the `icon` / `icon-sm` / `icon-xs` Button variants (which covers
+most of the app in one place) plus the hand-rolled controls and the filter chips.
+Reveal clusters also get `touch:gap-2`, since 2px of gap is fine for a cursor and not
+for two thumbs.
+
+**Notes: ~60 tags wrapped to 19 rows and pushed every note below the fold.** Now one
+sideways-scrolling line on a phone (`scroll-row-x`), the full wrapped cloud from `lg`
+up — one element, responsive, no duplicated markup. Ordering changed from alphabetical
+to **most-used first**: in a scrolling line, order decides what you can reach without
+swiping, and strict alphabetical buried "work" past forty others. Whichever tag is
+filtering leads the strip so it stays on screen as the thing you tap to undo.
+
+**Calendar: the month grid is unreadable at 390px** (55px columns clip titles to a
+few characters, Saturday falls off). Phones now get `listWeek` — installed
+`@fullcalendar/list` — one chronological column of full titles and times. Desktop
+keeps the month grid untouched. Two things worth remembering:
+
+- `initialView` is read once per mount and there is no prop to change it after.
+  Driving it from an effect with `changeView` **looks** right and doesn't hold —
+  FullCalendar re-applies its own view on the prop updates landing in the same
+  commit, and the desktop kept rendering the agenda. The breakpoint now *keys* the
+  component so crossing `lg` remounts it on the right view. Caught this only because
+  I screenshotted the desktop side too.
+- Drag-to-select was the only way to create an event, and it's disabled on touch
+  (there the same drag scrolls the agenda) — so mobile would have had **no** way to
+  add one. Added an explicit "New event" button, pre-filled to the next whole hour.
+
+**Found while fixing the above:** four `<Card>`s that mean to be horizontal rows
+(`lists` ×2, `journal` templates, `media` images) never actually were. shadcn's Card
+is `flex flex-col` at the base, and a className of `flex items-center` re-states the
+display it already has without touching the direction — so they've been stacking and
+centre-aligning all along, **on the Mac too**. Invisible until the row's trash icon
+stopped being invisible. One `flex-row` each; fixes both platforms.
+
+Files: `app/globals.css` (the `touch` variant, `.tap-target`, `.scroll-row-x`,
+FullCalendar list theming + touch button sizing), `components/ui/button.tsx`,
+`app/_components/{calendar-panel,dashboard,lists-panel,vision-panel,journal-templates-panel,manual-panel,family-panel,sketches-panel,chat-sidebar,pipeline-lanes,task-list-mobile,meal-plan,home-screen}.tsx`.
+
+Verified in the running app at 390×844 and 1440×900 (dev server on :3789):
+`hiddenControls` 0 on every mobile route and unchanged on desktop; calendar reports
+`fc-listWeek-view` + 44px toolbar buttons on mobile and `fc-dayGridMonth-view` + 42
+month cells on desktop; no horizontal overflow on any route at either size.
+`npm run typecheck` and `npm run build` clean. No test data created.
+
+**Still ugly on mobile, out of scope this pass:** Excalidraw's own toolbar on
+/sketches draws 13×13 buttons that `.tap-target` can't reach (it's their DOM);
+several wide-but-short text buttons remain 20–28px tall (`+ Add` on home, "Suggest
+one" on nutrition, the measures slider labels).

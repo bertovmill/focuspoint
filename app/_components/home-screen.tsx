@@ -767,7 +767,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                   onClick={() => setWealthGranularity(g)}
                   aria-pressed={wealthGranularity === g}
                   className={cn(
-                    "px-2 py-1 rounded-md text-[10px] font-medium capitalize whitespace-nowrap transition-colors",
+                    "tap-target px-2 py-1 rounded-md text-[10px] font-medium capitalize whitespace-nowrap transition-colors",
                     wealthGranularity === g
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -802,7 +802,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
                     }}
                     aria-label={isExpanded ? `Collapse ${label}` : `View ${label} vision`}
                     aria-expanded={isExpanded}
-                    className="absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    className="tap-target absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                   >
                     <EyeIcon size={14} />
                   </button>

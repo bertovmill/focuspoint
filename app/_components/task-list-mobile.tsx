@@ -227,7 +227,7 @@ export function TaskListMobile({
                     <div className="flex items-start gap-3">
                       {/* A generous tap target around a small box: the checkbox is the
                           one control you reach for most on a phone. */}
-                      <label className="-m-1.5 shrink-0 cursor-pointer p-1.5 pt-2">
+                      <label className="tap-target -m-1.5 shrink-0 cursor-pointer p-1.5 pt-2">
                         <Checkbox
                           checked={done}
                           className="size-5"
@@ -282,7 +282,7 @@ export function TaskListMobile({
                                   PRIORITIES[(PRIORITIES.indexOf(todo.priority) + 1) % PRIORITIES.length],
                               })
                             }
-                            className={cn("size-2.5 rounded-full", PRIORITY_DOT[todo.priority])}
+                            className={cn("tap-target size-2.5 rounded-full", PRIORITY_DOT[todo.priority])}
                           />
                           {todo.recurrence && todo.recurrence !== "none" && (
                             <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">

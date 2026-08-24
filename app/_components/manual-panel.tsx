@@ -237,7 +237,7 @@ export function ManualPanel() {
                         </ReactMarkdown>
                       </div>
                     )}
-                    <div className="flex justify-end gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-0.5 touch:gap-2 mt-1 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon-xs"

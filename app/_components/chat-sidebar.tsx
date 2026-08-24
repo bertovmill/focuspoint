@@ -141,7 +141,7 @@ const ChatSidebarItem: FC<{
       >
         <span className="min-w-0 flex-1 truncate">{label}</span>
       </button>
-      <div className="absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+      <div className="absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 touch:gap-2 opacity-0 group-hover:opacity-100 touch:opacity-100">
         <button
           aria-label="Rename chat"
           onClick={() => {

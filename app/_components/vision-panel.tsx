@@ -226,7 +226,7 @@ export function VisionPanel() {
             key={key}
             asChild
             variant={section === key ? "default" : "outline"}
-            className="cursor-pointer gap-1"
+            className="tap-target cursor-pointer gap-1"
           >
             <button type="button" onClick={() => setSection(key)}>
               <Icon className="size-3" />
@@ -307,7 +307,7 @@ export function VisionPanel() {
                             <p className="text-xs font-medium text-primary uppercase tracking-wider mb-1">{s.title}</p>
                           )}
                           <p className="text-sm leading-relaxed break-words">{s.content}</p>
-                          <div className="flex justify-end gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex justify-end gap-0.5 touch:gap-2 mt-1 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="icon-xs"
@@ -439,7 +439,7 @@ export function VisionPanel() {
                                   {g.achieved ? (
                                     <CheckIcon className="size-2.5 text-primary-foreground" />
                                   ) : (
-                                    <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+                                    <CircleIcon className="size-2.5 text-primary opacity-0 group-hover:opacity-40 touch:opacity-40 transition-opacity" />
                                   )}
                                 </button>
                                 <div className="flex-1 min-w-0">
@@ -452,14 +452,14 @@ export function VisionPanel() {
                                 </div>
                                 <button
                                   onClick={() => startEdit(g)}
-                                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                  className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                                   aria-label="Edit goal"
                                 >
                                   <PencilIcon className="size-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleDelete(g.id)}
-                                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                  className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                                   aria-label="Delete goal"
                                 >
                                   <TrashIcon className="size-3.5" />
@@ -550,7 +550,7 @@ export function VisionPanel() {
                       )}
                       <button
                         onClick={() => handleDelete(img.id)}
-                        className="absolute top-1.5 right-1.5 rounded-md bg-black/50 p-1.5 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        className="tap-target absolute top-1.5 right-1.5 rounded-md bg-black/50 p-1.5 text-white opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity hover:bg-black/70"
                         aria-label="Remove image"
                       >
                         <TrashIcon className="size-3.5" />

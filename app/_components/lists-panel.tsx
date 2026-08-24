@@ -293,7 +293,7 @@ export function ListsPanel() {
                       <Button size="xs" variant="outline" onClick={cancelEditItem}>Cancel</Button>
                     </div>
                   ) : (
-                    <Card key={item.id} className="p-3 flex items-center gap-3 group">
+                    <Card key={item.id} className="p-3 flex flex-row items-center gap-3 group">
                       <button
                         onClick={() => handleToggleItem(item)}
                         className={cn(
@@ -314,14 +314,14 @@ export function ListsPanel() {
                       </span>
                       <button
                         onClick={() => startEditItem(item)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                         aria-label="Edit item"
                       >
                         <PencilIcon className="size-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item)}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                         aria-label="Delete item"
                       >
                         <TrashIcon className="size-3.5" />
@@ -391,7 +391,7 @@ export function ListsPanel() {
           {lists.map((list) => (
             <Card
               key={list.id}
-              className="p-3.5 flex items-center gap-3 cursor-pointer hover:bg-muted/40 transition-colors group"
+              className="p-3.5 flex flex-row items-center gap-3 cursor-pointer hover:bg-muted/40 transition-colors group"
               onClick={() => openList(list.id)}
             >
               <div className="flex-1 min-w-0">
@@ -404,7 +404,7 @@ export function ListsPanel() {
                 <AlertDialogTrigger asChild>
                   <button
                     onClick={(e) => e.stopPropagation()}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="tap-target shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     aria-label="Delete list"
                   >
                     <TrashIcon className="size-4" />

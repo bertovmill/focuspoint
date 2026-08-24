@@ -10,6 +10,18 @@
  */
 @custom-variant short (@media (min-width: 1024px) and (max-height: 880px));
 
+/*
+ * A device that can't hover. Row controls all over this app are `opacity-0
+ * group-hover:opacity-100` — a pattern with no touch equivalent, so on a phone
+ * they were invisible *and* still tappable-if-you-guessed. Pair every one of
+ * them with `touch:opacity-100`.
+ *
+ * Keyed on the capability, not the width, on purpose: a narrow window on the Mac
+ * still has a pointer and should keep the clean reveal-on-hover behaviour, while
+ * an iPad in landscape is 1024px wide and still has no hover at all.
+ */
+@custom-variant touch (@media (hover: none));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -155,6 +167,59 @@
     font: inherit;
   }
 }
+
+/*
+ * A thumb-sized hit area on a pixel-sized control (app-wide).
+ *
+ * These rows are dense on purpose — a 10px priority dot and a 14px trash icon
+ * read correctly next to 15px text, and growing them to Apple's 44pt minimum
+ * would wreck the layout that makes the list scannable. So the *target* grows
+ * and the *art* doesn't: a centred pseudo-element stretches the touch region,
+ * out of flow, painting nothing.
+ *
+ * The two axes get different budgets, and that asymmetry is the whole trick.
+ * Vertically there is nothing to collide with — a row's own padding is dead space —
+ * so height goes to the full 44px. Horizontally these controls sit shoulder to
+ * shoulder: an edit/delete pair is about 22px centre to centre, so two 44px boxes
+ * would each cover the *other* icon, and since the later one paints on top, aiming
+ * at Edit would have hit Delete. Width therefore grows only to 24px — WCAG 2.5.8's
+ * AA minimum — which for a 14px icon is five pixels a side, less than the gap it
+ * sits in. Wider than its neighbour is close is not a bigger target, it's a wrong one.
+ *
+ * Touch only. A mouse is already precise enough to hit the art itself.
+ */
+@media (hover: none) {
+  .tap-target {
+    position: relative;
+  }
+
+  .tap-target::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 24px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    /* Above the row's own click handler, below anything it opens. */
+    z-index: 1;
+  }
+}
+
+/*
+ * A row that scrolls sideways without advertising it. Used by filter strips that
+ * are one tall wrapped block on desktop and a single swipeable line on a phone —
+ * a visible scrollbar there costs real height and iOS hides its own anyway.
+ */
+.scroll-row-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-row-x::-webkit-scrollbar {
+  display: none;
+}
+
 /* Floating new-chat modal (app/_components/chat-modal.tsx) */
 @keyframes chat-modal-panel-in {
   from {
@@ -241,6 +306,57 @@
 .fc .fc-timegrid-axis-cushion {
   color: var(--muted-foreground);
   font-size: 0.7rem;
+}
+
+/* The agenda view a phone gets instead of the month grid (see calendar-panel). */
+.fc .fc-list {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.fc .fc-list-day-cushion {
+  background: var(--muted);
+  font-size: 0.75rem;
+}
+
+.fc .fc-list-event-title,
+.fc .fc-list-event-time {
+  font-size: 0.8125rem;
+}
+
+.fc .fc-list-empty {
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/*
+ * FullCalendar draws its own toolbar, so the `.tap-target` utility can't reach it.
+ * On touch its buttons and event rows get sized up directly instead — 31px-tall
+ * prev/next/today buttons are a miss waiting to happen, and an agenda row is the
+ * one thing on the screen you're aiming for.
+ */
+@media (hover: none) {
+  .fc .fc-button {
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .fc .fc-toolbar {
+    gap: 0.5rem;
+  }
+
+  /* Wraps rather than squeezing the title to nothing on a narrow phone. */
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+
+  .fc .fc-list-event th,
+  .fc .fc-list-event td {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
 }
 
 /* The strategy board draws on a transparent canvas so the amber → violet →

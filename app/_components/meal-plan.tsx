@@ -59,7 +59,7 @@ export function MealPlan() {
                     type="button"
                     onClick={() => suggest(slotMeta.key)}
                     disabled={busy}
-                    className="ml-auto text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    className="tap-target ml-auto text-muted-foreground hover:text-foreground disabled:opacity-50"
                     aria-label={`Suggest a different ${slotMeta.label.toLowerCase()}`}
                     title="Suggest something else"
                   >
@@ -99,7 +99,7 @@ export function MealPlan() {
                         type="button"
                         onClick={() => setFeedback(rec, "up")}
                         className={cn(
-                          "rounded-md border p-1.5",
+                          "tap-target rounded-md border p-1.5",
                           rec.feedback === "up" ? "border-emerald-500 text-emerald-600" : "text-muted-foreground",
                         )}
                         aria-label="Liked it"
@@ -110,7 +110,7 @@ export function MealPlan() {
                         type="button"
                         onClick={() => setFeedback(rec, "down")}
                         className={cn(
-                          "rounded-md border p-1.5",
+                          "tap-target rounded-md border p-1.5",
                           rec.feedback === "down" ? "border-destructive text-destructive" : "text-muted-foreground",
                         )}
                         aria-label="Not for me"

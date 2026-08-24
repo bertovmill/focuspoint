@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DateSelectArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import type { EventResizeDoneArg } from "@fullcalendar/interaction";
-import { CalendarIcon, TrashIcon, UnplugIcon } from "lucide-react";
+import { CalendarIcon, PlusIcon, TrashIcon, UnplugIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsDesktop } from "@/hooks/use-is-desktop";
 
 type Status =
   | { state: "loading" }
@@ -72,6 +74,7 @@ export function CalendarPanel() {
   const [draft, setDraft] = useState<EventDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     // Surface the OAuth redirect result once, then clean the URL.
@@ -107,6 +110,27 @@ export function CalendarPanel() {
       end: sel.allDay ? addDays(toLocalDate(sel.end), -1) : toLocalInput(sel.end),
     });
     sel.view.calendar.unselect();
+  }, []);
+
+  /*
+   * Drag-to-select is the only way to create an event on the desktop grid, and it
+   * isn't available on a phone — there the same drag scrolls the agenda. So touch
+   * gets an explicit button, opening the same draft dialog pre-filled with the next
+   * whole hour.
+   */
+  const handleNewEvent = useCallback(() => {
+    const start = new Date();
+    start.setMinutes(0, 0, 0);
+    start.setHours(start.getHours() + 1);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setDraft({
+      id: null,
+      title: "",
+      description: "",
+      allDay: false,
+      start: toLocalInput(start),
+      end: toLocalInput(end),
+    });
   }, []);
 
   const handleEventClick = useCallback((arg: EventClickArg) => {
@@ -228,32 +252,67 @@ export function CalendarPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{status.email ?? "Google Calendar"}</span>
-        <button
-          onClick={handleDisconnect}
-          className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-muted transition-colors hover:text-foreground"
-          title="Disconnect Google Calendar"
-        >
-          <UnplugIcon className="size-3.5" />
-          Disconnect
-        </button>
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate">{status.email ?? "Google Calendar"}</span>
+        <div className="flex shrink-0 items-center gap-1">
+          {!isDesktop && (
+            <Button size="sm" onClick={handleNewEvent}>
+              <PlusIcon className="size-4" />
+              New event
+            </Button>
+          )}
+          <button
+            onClick={handleDisconnect}
+            className="tap-target flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-muted hover:text-foreground"
+            title="Disconnect Google Calendar"
+          >
+            <UnplugIcon className="size-3.5" />
+            <span className="lg:inline">Disconnect</span>
+          </button>
+        </div>
       </div>
 
       <FullCalendar
         ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay",
-        }}
+        /*
+         * A month grid needs seven columns. At 390px each is 55px wide, which clips
+         * every event title to a few characters and pushes Saturday off screen — the
+         * view is legible as a shape and useless as information. So a phone gets the
+         * agenda instead: `listWeek`, one chronological column of full titles and
+         * times, which is what you want to know from a phone anyway.
+         *
+         * `initialView` is read once per mount and there is no prop to change it
+         * after, so the breakpoint keys the component and a change remounts it on
+         * the right view. Calling `changeView` from an effect looks tidier and
+         * doesn't hold — FullCalendar re-applies its own view on the prop updates
+         * that land in the same commit, and the desktop kept rendering the agenda.
+         * Crossing `lg` is rare enough that a remount costs nothing.
+         */
+        key={isDesktop ? "desktop" : "mobile"}
+        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+        initialView={isDesktop ? "dayGridMonth" : "listWeek"}
+        /*
+         * Three toolbar groups don't fit on one 390px line — the view buttons
+         * collided with the title. On a phone the navigation keeps the header and
+         * the view switcher drops to its own centred row, which also gives every
+         * button room to be a real 44px target.
+         */
+        headerToolbar={
+          isDesktop
+            ? { left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }
+            : { left: "prev,next", center: "title", right: "today" }
+        }
+        footerToolbar={isDesktop ? false : { center: "listWeek,dayGridMonth,timeGridDay" }}
+        // The agenda has no natural "empty day" row, so say so rather than
+        // rendering a blank panel.
+        noEventsText="Nothing scheduled this week"
         height="auto"
         nowIndicator
-        selectable
-        selectMirror
-        editable
+        // Dragging to create an event needs a pointer to be worth offering; on a
+        // phone the same drag is how you scroll the agenda.
+        selectable={isDesktop}
+        selectMirror={isDesktop}
+        editable={isDesktop}
         dayMaxEventRows={4}
         events={(info, success, failure) => {
           const params = new URLSearchParams({

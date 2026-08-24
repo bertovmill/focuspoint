@@ -391,7 +391,7 @@ export function PipelineLanes({
                             onClick={() => onDelete(piece.id)}
                             aria-label={`Delete ${piece.title} and its tasks`}
                             title="Delete this piece and everything under it"
-                            className="mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100"
+                            className="tap-target mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100"
                           >
                             <TrashIcon className="size-3" />
                           </button>
@@ -428,7 +428,7 @@ export function PipelineLanes({
                                     }
                                     title="Working on now"
                                     className={cn(
-                                      "mt-px shrink-0 rounded p-0.5 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100",
+                                      "mt-px shrink-0 rounded p-0.5 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100",
                                       kid.in_progress
                                         ? "text-primary opacity-100"
                                         : "text-muted-foreground opacity-0 hover:text-foreground",
@@ -440,7 +440,7 @@ export function PipelineLanes({
                                     type="button"
                                     onClick={() => onDelete(kid.id)}
                                     aria-label={`Delete ${kid.title}`}
-                                    className="mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100"
+                                    className="tap-target mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100"
                                   >
                                     <TrashIcon className="size-3" />
                                   </button>

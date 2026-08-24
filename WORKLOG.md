@@ -52,7 +52,9 @@ Dropping the `craft` tag count also made the home screen's 1,000-row
 with per-month and per-repo breakdowns), `lib/db.ts` (`github_prs` table),
 `agent/schedules/dispatcher.ts`, `app/_components/home-screen.tsx`.
 
-Verified in the running app on :3877 — Craft renders a real curve reading
+**Shipped and verified in production:** commit `d3cd781` auto-deployed via
+`git push origin main` (~90s), and `GET /api/github` on https://cael.bertomill.com
+returns all 1,152 rows. Verified in the running app on :3877 first — Craft renders a real curve reading
 **1,152 PRs** at Year/Decade granularity and 1,149 on the trailing-12-month Month
 view. `npm run typecheck` and `npm run build` clean.
 

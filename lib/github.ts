@@ -28,11 +28,12 @@ export interface GithubPr {
  * are case-sensitive and `process.env` does no folding, so the production var —
  * added by hand as `github_personal_access_token` — has to be named exactly.
  *
- * Order matters and cost two debugging rounds to get right: production turned out
- * to hold a stale `GITHUB_TOKEN` as well, and with the generic name first it won
- * silently, so swapping the hand-added token changed nothing twice over. The
- * deliberately-named var now wins, and `whoAmI()` reports every name that is set
- * so a shadowing var can never be invisible again.
+ * Several spellings are accepted because the production var and the local one were
+ * named differently by hand. Most-specific-first is the safe order if more than one
+ * is ever set at once, and `whoAmI()` reports both the name that won and every other
+ * name that is set — an env var edited in the wrong environment looks exactly like a
+ * badly-scoped token from the outside, and only the reported identity tells them
+ * apart.
  */
 const TOKEN_VARS = [
   "github_personal_access_token",

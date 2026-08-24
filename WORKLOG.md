@@ -114,8 +114,19 @@ view. `npm run typecheck` and `npm run build` clean.
   failure mode by nature — a wrongly-scoped token returns a successful, nearly-empty
   search — which is why `syncGithubPrs()` now returns a per-repo breakdown of what
   it could see rather than just a count.
+  **The env var in production is named `GITHUB_TOKEN`, not
+  `github_personal_access_token`** — the sync now reports `alsoSet: []`, so the
+  hand-named var is not present in the Production environment at all (likely added
+  to Preview/Development instead). Its value is still a `bertovmill` fine-grained
+  token (`login: bertovmill`, `scopes: null` — classic tokens report scopes,
+  fine-grained ones send nothing), so neither token swap ever landed on the var
+  being read. Worth keeping: **an env var edited in the wrong environment is
+  indistinguishable from a badly-scoped token** from the outside, which is why the
+  sync reports the winning var name, the other names that are set, and the
+  authenticated login on every run.
   **The fix is a classic PAT generated while signed in as `rmillaucctus`, scope
-  `repo`** — not a fine-grained one from `bertovmill`. Empirically that account's
+  `repo`, pasted into `GITHUB_TOKEN` / Production** — not a fine-grained one from
+  `bertovmill`. Empirically that account's
   token sees all 1,152 (it covers the `Aucctus` org's `venice`, its own `helios`,
   *and* `bertovmill`'s private repos). A fine-grained token can't get there: it
   would need `Aucctus` as resource owner plus org approval, and still couldn't

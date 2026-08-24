@@ -21,7 +21,17 @@ export async function POST(req: Request) {
     // so the identity is the only thing that tells a quiet sync from a broken one.
     const identity = await whoAmI();
     const result = await syncGithubPrs({ full });
-    return NextResponse.json({ ok: true, ...result, token: identity });
+    // Which build answered. An env var edited on the wrong Vercel project looks
+    // exactly like one that was never saved, and there are two candidate projects
+    // (`cael-agent` is the live one; an older `focuspoint` still exists and is not).
+    // The deployment URL names the project, so it settles that without guessing.
+    const deployment = {
+      env: process.env.VERCEL_ENV ?? null,
+      url: process.env.VERCEL_URL ?? null,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      repo: process.env.VERCEL_GIT_REPO_SLUG ?? null,
+    };
+    return NextResponse.json({ ok: true, ...result, token: identity, deployment });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : String(err) },

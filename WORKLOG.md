@@ -59,10 +59,12 @@ returns all 1,152 rows. Verified in the running app on :3877 first — Craft ren
 view. `npm run typecheck` and `npm run build` clean.
 
 **Next steps / open:**
-- **No goal set for Craft yet** — there's no `vision_items` goal row for it (Money
-  has none either), so the card shows the line and total with no dashed target and
-  no celebration. Berto to pick the number; add it *after* this deploys, per the
-  ordering rule in the reading-goal episode.
+- **Craft goal set to 2,500 merged PRs** (`vision_items` id 38), written to the DB
+  *after* the code deployed, per the ordering rule from the reading-goal episode —
+  writing it first would have measured 2,500 against the old "notes" metric. Card
+  now reads `1,152 PRs / 2,500 PRs` with the dashed target line, matching the other
+  seven. At the recent 400–700/month pace that lands around Q1 2027. Money is now
+  the only form still without a goal row.
 - **`GITHUB_TOKEN` is not set in production**, so the nightly sync is a no-op there
   until it is. The local CLI is logged into an account whose teams (`aucctus`,
   `aucctus-9e16163a`) do not include the one owning `cael-agent`

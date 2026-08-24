@@ -34,12 +34,49 @@ const TOKEN_VARS = [
   "github_personal_access_token",
 ] as const;
 
-function token(): string {
+/** The token, plus which env var supplied it — several may be set at once. */
+function resolveToken(): { value: string; source: string } {
   for (const name of TOKEN_VARS) {
     const t = process.env[name];
-    if (t) return t;
+    if (t) return { value: t, source: name };
   }
   throw new Error(`No GitHub token set — expected one of: ${TOKEN_VARS.join(", ")}`);
+}
+
+function token(): string {
+  return resolveToken().value;
+}
+
+/**
+ * Who GitHub thinks the token is, and where the token came from.
+ *
+ * The failure this exists for: several `GITHUB_TOKEN`-ish vars can be set at once
+ * and the first match silently wins, so swapping the value of one of them can
+ * change nothing at all. `login` settles it — a search returning too little is
+ * either the wrong identity or the wrong scopes, and this says which.
+ */
+export async function whoAmI(): Promise<{
+  source: string;
+  login: string | null;
+  scopes: string | null;
+}> {
+  const { source } = resolveToken();
+  const res = await fetch(`${API}/user`, {
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      Accept: "application/vnd.github+json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) return { source, login: null, scopes: null };
+  const body = (await res.json()) as { login?: string };
+  return {
+    source,
+    login: body.login ?? null,
+    // Classic tokens report their scopes here; fine-grained tokens send nothing,
+    // which is itself the tell.
+    scopes: res.headers.get("x-oauth-scopes"),
+  };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -24,14 +24,20 @@ export interface GithubPr {
 }
 
 /**
- * Env var names the token may live under, in priority order. Vercel env names are
- * case-sensitive and `process.env` does no folding, so the production var — added
- * by hand as `github_personal_access_token` — has to be named exactly, not guessed.
+ * Env var names the token may live under, **most specific first**. Vercel env names
+ * are case-sensitive and `process.env` does no folding, so the production var —
+ * added by hand as `github_personal_access_token` — has to be named exactly.
+ *
+ * Order matters and cost two debugging rounds to get right: production turned out
+ * to hold a stale `GITHUB_TOKEN` as well, and with the generic name first it won
+ * silently, so swapping the hand-added token changed nothing twice over. The
+ * deliberately-named var now wins, and `whoAmI()` reports every name that is set
+ * so a shadowing var can never be invisible again.
  */
 const TOKEN_VARS = [
-  "GITHUB_TOKEN",
-  "GITHUB_PERSONAL_ACCESS_TOKEN",
   "github_personal_access_token",
+  "GITHUB_PERSONAL_ACCESS_TOKEN",
+  "GITHUB_TOKEN",
 ] as const;
 
 /** The token, plus which env var supplied it — several may be set at once. */
@@ -57,10 +63,12 @@ function token(): string {
  */
 export async function whoAmI(): Promise<{
   source: string;
+  alsoSet: string[];
   login: string | null;
   scopes: string | null;
 }> {
   const { source } = resolveToken();
+  const alsoSet = TOKEN_VARS.filter((n) => n !== source && process.env[n]);
   const res = await fetch(`${API}/user`, {
     headers: {
       Authorization: `Bearer ${token()}`,
@@ -68,10 +76,11 @@ export async function whoAmI(): Promise<{
     },
     cache: "no-store",
   });
-  if (!res.ok) return { source, login: null, scopes: null };
+  if (!res.ok) return { source, alsoSet, login: null, scopes: null };
   const body = (await res.json()) as { login?: string };
   return {
     source,
+    alsoSet,
     login: body.login ?? null,
     // Classic tokens report their scopes here; fine-grained tokens send nothing,
     // which is itself the tell.

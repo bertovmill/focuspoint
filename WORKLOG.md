@@ -5118,3 +5118,36 @@ month cells on desktop; no horizontal overflow on any route at either size.
 /sketches draws 13×13 buttons that `.tap-target` can't reach (it's their DOM);
 several wide-but-short text buttons remain 20–28px tall (`+ Add` on home, "Suggest
 one" on nutrition, the measures slider labels).
+
+## 2026-08-24 — The good GitHub token is in `.env.local`; the live PR mirror is now complete
+
+Berto generated the classic PAT the last entry asked for — signed in as
+`rmillaucctus`, scope `repo` — and put it in `.env.local` as `GITHUB_TOKEN`.
+Verified through the real code path, not just `api.github.com/user`: a local
+`POST /api/github/sync` reports `{source: "GITHUB_TOKEN", login: "rmillaucctus",
+scopes: "repo"}` and sees **all seven** repos the blind token couldn't, including
+the private `Aucctus/venice` (1,007) and `rmillaucctus/helios` (80).
+
+**Ran the full backfill against the production database from local.** This works
+because `.env.local`'s `DATABASE_URL` *is* the live Neon branch (`ep-shiny-mouse`)
+— the same one production reads — so the sync did not need the production token to
+fix production data. Result: **1,156 PRs across 16 repos, 20 months**, and
+`https://cael.bertomill.com/api/github` now returns 1,156 (`rmillaucctus` 1,096 +
+`bertovmill` 60) with the newest merged today. The Craft card is current against
+its 2,500 goal.
+
+**Still open, and it needs the Vercel dashboard.** Production's `GITHUB_TOKEN` is
+*unchanged* — a prod sync still reports `login: bertovmill`, `scopes: null`,
+`fetched: 3`. So the nightly tick keeps re-fetching only the two public repos.
+Nothing is lost when it runs (the mirror is an upsert, never a wipe), but new
+private-repo PRs won't appear on their own until the var is replaced.
+
+Confirmed again that there is **no programmatic path** to that env var from this
+machine, so nobody should burn time retrying it: `vercel env ls` fails under every
+scope the CLI can see, and the Vercel REST API answers `forbidden` for
+`prj_RTIFlE60WgJ8xOWV9pq6lZf5ATou` with the CLI's own stored token — the project
+lives in a scope this login isn't a member of. The one manual step is pasting
+`.env.local`'s `GITHUB_TOKEN` value into the **Production** environment of the
+`cael-agent` project, on the var named exactly `GITHUB_TOKEN`, then redeploying.
+The check afterwards is a single `POST /api/github/sync` on the live domain: it
+should say `login: rmillaucctus` and `fetched` in the thousands, not 3.

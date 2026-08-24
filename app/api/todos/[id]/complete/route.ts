@@ -3,6 +3,13 @@ import { getDb } from "@/lib/db";
 import { logCompletedTaskToCalendar } from "@/lib/task-calendar";
 import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
 
+// Local date, not UTC — toISOString() would roll the day over in the evening here.
+function tomorrow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function nextDueDate(recurrence: string): string {
   const today = new Date();
   if (recurrence === "daily") today.setDate(today.getDate() + 1);
@@ -11,10 +18,14 @@ function nextDueDate(recurrence: string): string {
   return today.toISOString().split("T")[0];
 }
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const sql = getDb();
+    // "Done & repeat" — cross the task off *and* line the same work up for tomorrow.
+    // The plain check-off sends no body at all, so an unparseable body just means "no".
+    const body = await req.json().catch(() => ({}));
+    const repeatTomorrow = Boolean(body?.repeat);
 
     const [todo] = await sql`SELECT recurrence FROM todos WHERE id = ${id}`;
     if (!todo) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,7 +46,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const recurring = Boolean(todo.recurrence && todo.recurrence !== "none");
     let next_due: string | null = null;
     if (recurring) {
-      next_due = nextDueDate(todo.recurrence);
+      // A recurring task already comes back on its own — "repeat tomorrow" just pulls
+      // that next occurrence forward instead of spawning a duplicate row.
+      next_due = repeatTomorrow ? tomorrow() : nextDueDate(todo.recurrence);
       await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
     } else {
       // A finished task gives up its queue slot.
@@ -55,9 +68,28 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       await sql`UPDATE todos SET calendar_event_id = ${eventId} WHERE id = ${id}`;
     }
 
+    // A one-off task asked to repeat gets a fresh copy of itself dated tomorrow:
+    // same title, priority, estimate, category, lane and card colour, but a clean
+    // timer and no queue slot. The original stays completed so today's record —
+    // and its calendar block — survives.
+    let repeated = null;
+    if (repeatTomorrow && !recurring) {
+      const [source] = await sql`
+        SELECT title, priority, estimated_minutes, category, parent_id, canvas_x, canvas_y, color
+        FROM todos WHERE id = ${id}
+      `;
+      if (source) {
+        [repeated] = await sql`
+          INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, category, parent_id, canvas_x, canvas_y, color)
+          VALUES (${source.title}, ${source.priority}, ${tomorrow()}, 'none', ${source.estimated_minutes}, ${source.category}, ${source.parent_id}, ${source.canvas_x}, ${source.canvas_y}, ${source.color})
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
+        `;
+      }
+    }
+
     return recurring
       ? NextResponse.json({ success: true, recurring: true, next_due, calendar_event_id: eventId })
-      : NextResponse.json({ success: true, recurring: false, calendar_event_id: eventId });
+      : NextResponse.json({ success: true, recurring: false, repeated, calendar_event_id: eventId });
   } catch {
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }

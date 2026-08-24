@@ -564,7 +564,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     }
   };
 
-  const handleComplete = async (id: number) => {
+  // repeat = cross it off *and* stand the same task back up, dated tomorrow. The
+  // API returns the fresh copy so it can slot straight into the list.
+  const handleComplete = async (id: number, repeat = false) => {
     const todo = todos.find((t) => t.id === id);
     if (todo?.completed_at && isToday(todo.completed_at)) {
       return; // already crossed off today
@@ -581,12 +583,21 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     );
     setCompletingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/todos/${id}/complete`, { method: "POST" });
+      const res = await fetch(`/api/todos/${id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repeat }),
+      });
       if (!res.ok) throw new Error();
       const data = await res.json();
+      if (repeat) toast.success("Done — back on the list tomorrow.");
       setTimeout(() => {
         if (data.recurring && data.next_due) {
           setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, due_date: data.next_due } : t)));
+        }
+        // The repeat lands as its own row, so it survives the completed one fading out.
+        if (data.repeated) {
+          setTodos((prev) => (prev.some((t) => t.id === data.repeated.id) ? prev : [...prev, data.repeated]));
         }
         setCompletingIds((prev) => {
           const next = new Set(prev);

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, SquareIcon } from "lucide-react";
+import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, RepeatIcon, SquareIcon } from "lucide-react";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
 import { estimateProgress, formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
@@ -154,10 +155,15 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     fetchTodos();
   };
 
-  const handleComplete = async (todo: Todo) => {
+  // repeat = cross it off *and* put the same task back on tomorrow's list.
+  const handleComplete = async (todo: Todo, repeat = false) => {
     setTodos((ts) => ts.map((t) => (t.id === todo.id ? { ...t, completed: true, completed_at: new Date().toISOString() } : t)));
     try {
-      await fetch(`/api/todos/${todo.id}/complete`, { method: "POST" });
+      await fetch(`/api/todos/${todo.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repeat }),
+      });
     } catch {
       // fall through to refetch
     }
@@ -235,31 +241,52 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                 running && "border-l-2 border-l-primary bg-primary/5",
               )}
             >
-              <button
-                onClick={() => handleComplete(todo)}
-                className={cn(
-                  "relative flex size-6 shrink-0 items-center justify-center rounded-full text-transparent transition-colors hover:text-primary",
-                  // Without an estimate there's nothing to fill, so keep the plain circle.
-                  progress === null && "border border-border hover:border-primary",
-                )}
-                aria-label={`Complete ${todo.title}`}
-                title={progress === null ? "Complete" : `Complete — ${Math.round(progress * 100)}% of the estimate used`}
-              >
-                {progress === null ? (
-                  <CheckIcon className="size-3" />
-                ) : (
-                  // Magic UI's gauge: the animated arc with its little end gap. It
-                  // eases to each new value, so a 1s tick reads as motion, not a jump.
-                  <AnimatedCircularProgressBar
-                    className="size-6 text-xs"
-                    value={Math.round(progress * 100)}
-                    gaugePrimaryColor={overdue ? "var(--priority-urgent)" : "var(--primary)"}
-                    gaugeSecondaryColor="var(--border)"
+              {/* Left-click crosses the task off. Right-click (long-press on touch)
+                  offers the second ending: done, but line it up again for tomorrow.
+                  A menu keeps the row one line wide — no second button to fit in. */}
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <button
+                    onClick={() => handleComplete(todo)}
+                    className={cn(
+                      "relative flex size-6 shrink-0 items-center justify-center rounded-full text-transparent transition-colors hover:text-primary",
+                      // Without an estimate there's nothing to fill, so keep the plain circle.
+                      progress === null && "border border-border hover:border-primary",
+                    )}
+                    aria-label={`Complete ${todo.title}`}
+                    title={
+                      progress === null
+                        ? "Complete — right-click for more"
+                        : `Complete — ${Math.round(progress * 100)}% of the estimate used. Right-click for more`
+                    }
                   >
-                    <CheckIcon className="size-2.5" />
-                  </AnimatedCircularProgressBar>
-                )}
-              </button>
+                    {progress === null ? (
+                      <CheckIcon className="size-3" />
+                    ) : (
+                      // Magic UI's gauge: the animated arc with its little end gap. It
+                      // eases to each new value, so a 1s tick reads as motion, not a jump.
+                      <AnimatedCircularProgressBar
+                        className="size-6 text-xs"
+                        value={Math.round(progress * 100)}
+                        gaugePrimaryColor={overdue ? "var(--priority-urgent)" : "var(--primary)"}
+                        gaugeSecondaryColor="var(--border)"
+                      >
+                        <CheckIcon className="size-2.5" />
+                      </AnimatedCircularProgressBar>
+                    )}
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-52">
+                  <ContextMenuItem onSelect={() => handleComplete(todo)}>
+                    <CheckIcon className="size-3.5" />
+                    Complete
+                  </ContextMenuItem>
+                  <ContextMenuItem onSelect={() => handleComplete(todo, true)}>
+                    <RepeatIcon className="size-3.5" />
+                    Done &amp; repeat tomorrow
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
               <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>{todo.title}</p>
               {clock && (
                 <span

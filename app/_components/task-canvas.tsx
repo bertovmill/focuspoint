@@ -139,7 +139,7 @@ export interface TaskCanvasProps {
   /** Ticks once a second in the parent so every countdown runs off one clock. */
   nowTick: number;
   completingIds: Set<number>;
-  onComplete: (id: number) => void;
+  onComplete: (id: number, repeat?: boolean) => void;
   onUncomplete: (id: number) => void;
   onToggleTimer: (todo: Todo) => void;
   /** "Working on now" — capped at WORKING_LIMIT by the parent. */
@@ -983,7 +983,14 @@ export function TaskCanvas({
         </div>
       </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-44">
+        <ContextMenuContent className="w-52">
+          {/* The second way to finish a task: crossed off today, standing again
+              tomorrow. Sits above everything else because it *ends* the card. */}
+          <ContextMenuItem onSelect={() => onComplete(todo.id, true)}>
+            <RepeatIcon className="size-3.5" />
+            Done &amp; repeat tomorrow
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           {/* Colour first: it's the one thing here that's purely about how the board
               *looks*, and it's the most-reached-for item. Yellow = pending, green =
               in progress by convention — the code doesn't enforce it. */}

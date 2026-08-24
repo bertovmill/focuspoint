@@ -4,6 +4,45 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-24 — Done, and again tomorrow
+
+**Ask:** *"there one option that is called complete, its the check-off, but lets add
+another one called done and repeat and it recreates the same task but for tomorrow"*
+
+The check-off had one ending: gone. Some work isn't like that — you finish today's
+pass and the same task stands back up tomorrow. That's now the second ending.
+
+**A menu, not a second button.** The pinned window's row is one line — circle, title,
+clock, play — and a third control would eat the title. So the check circle carries
+both endings: left-click still completes (nothing changed), right-click (long-press
+on touch) opens a two-item menu. Berto picked this over an always-visible ↻ button.
+
+**Repeat ≠ recurrence.** A recurring task reuses its own row and just moves its due
+date, which means today's completion leaves no record. "Done & repeat" instead
+*completes* the original — so it keeps its `completed_at`, its banked timer, and its
+Google Calendar block — and inserts a **fresh copy** dated tomorrow: same title,
+priority, estimate, category, lane and card colour, but a clean timer and no queue
+slot. A task that already recurs skips the copy and simply has its next occurrence
+pulled forward to tomorrow, so nothing gets duplicated.
+
+**Files:**
+- `app/api/todos/[id]/complete/route.ts` — optional `{ repeat: true }` body. A plain
+  check-off still sends no body at all (unparseable body = no repeat), and the route
+  returns the new row as `repeated` so the UI can slot it in without a refetch.
+- `app/_components/pin-view.tsx` — ContextMenu on the check circle.
+- `app/_components/task-canvas.tsx` — "Done & repeat tomorrow" at the top of the
+  card's existing right-click menu, above the colour swatches.
+- `app/_components/task-list-mobile.tsx` — long-press the checkbox for the same pair.
+- `app/_components/dashboard.tsx` — `handleComplete(id, repeat)` threads it through
+  and drops the returned copy into state.
+
+**Verified** against the real DB on a local server: repeat created a copy due
+Aug 25 with a zeroed timer, a bodyless complete still logged to Calendar and created
+nothing, and a Playwright run drove the pin window's right-click menu end to end.
+Test rows deleted.
+
+---
+
 ## 2026-08-24 — Craft is measured in merged pull requests
 
 **Ask:** *"id like to be able to track how many pr's i'm making on github as a sign

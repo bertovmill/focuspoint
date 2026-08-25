@@ -11,6 +11,7 @@ import {
   CopyIcon,
   CrosshairIcon,
   HourglassIcon,
+  MessageSquarePlusIcon,
   PauseIcon,
   PlayIcon,
   PlusIcon,
@@ -61,6 +62,7 @@ import {
   remainingSeconds,
   type Todo,
 } from "@/lib/todo";
+import { TaskLatestUpdate, TaskUpdateComposer } from "@/app/_components/task-update-line";
 import { cn } from "@/lib/utils";
 
 import "@excalidraw/excalidraw/index.css";
@@ -98,10 +100,11 @@ const INBOX_COL_MAX = 8;
 
 // Cards are auto-height (the title wraps), and auto-placement runs before they've
 // rendered, so estimate: a one-line card is ~62px and each extra wrapped line adds
-// ~17px. Roughly 27 characters fit on a line at CARD_W.
-function estimateCardHeight(title: string) {
-  const lines = Math.max(1, Math.ceil(title.length / 27));
-  return 62 + (lines - 1) * 17;
+// ~17px. Roughly 27 characters fit on a line at CARD_W. A latest-update line adds a
+// clamped two-line block underneath.
+function estimateCardHeight(t: Pick<Todo, "title" | "last_update">) {
+  const lines = Math.max(1, Math.ceil(t.title.length / 27));
+  return 62 + (lines - 1) * 17 + (t.last_update ? 40 : 0);
 }
 
 // Excalidraw layers its own canvases at z-index 1–2 and its toolbar UI at 4. Slotting
@@ -195,6 +198,10 @@ export function TaskCanvas({
   const [boardMenu, setBoardMenu] = useState<Spawn | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // The card whose "post update" box is open, if any. Only one at a time.
+
+  const [composingId, setComposingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
   // Marquee selection. Dragging a box across empty canvas selects every card it touches,
@@ -538,7 +545,7 @@ export function TaskCanvas({
       const offset = (t.canvas_x ?? 0) - INBOX_X;
       if (offset < 0 || offset % INBOX_COL_W !== 0) continue;
       const col = offset / INBOX_COL_W;
-      colBottom.set(col, Math.max(colBottom.get(col) ?? INBOX_Y, (t.canvas_y ?? 0) + estimateCardHeight(t.title) + CARD_GAP));
+      colBottom.set(col, Math.max(colBottom.get(col) ?? INBOX_Y, (t.canvas_y ?? 0) + estimateCardHeight(t) + CARD_GAP));
       colCount.set(col, (colCount.get(col) ?? 0) + 1);
     }
     // Start filling at the first column with room left.
@@ -550,7 +557,7 @@ export function TaskCanvas({
       if ((colCount.get(col) ?? 0) >= INBOX_COL_MAX) col += 1;
       const x = INBOX_X + col * INBOX_COL_W;
       const y = colBottom.get(col) ?? INBOX_Y;
-      colBottom.set(col, y + estimateCardHeight(t.title) + CARD_GAP);
+      colBottom.set(col, y + estimateCardHeight(t) + CARD_GAP);
       colCount.set(col, (colCount.get(col) ?? 0) + 1);
       onLocalPatch(t.id, { canvas_x: x, canvas_y: y });
       fetch(`/api/todos/${t.id}/position`, {
@@ -885,7 +892,7 @@ export function TaskCanvas({
     const minX = Math.min(...placed.map((t) => t.canvas_x!));
     const maxX = Math.max(...placed.map((t) => t.canvas_x! + CARD_W));
     const minY = Math.min(...placed.map((t) => t.canvas_y!));
-    const maxY = Math.max(...placed.map((t) => t.canvas_y! + estimateCardHeight(t.title)));
+    const maxY = Math.max(...placed.map((t) => t.canvas_y! + estimateCardHeight(t)));
     // Extra headroom up top so recentring doesn't tuck the first row under our
     // toolbar or Excalidraw's.
     const pad = 60;
@@ -1090,6 +1097,23 @@ export function TaskCanvas({
                 </span>
               ) : null}
             </div>
+            {/* The newest note on this task — an agent's hand-off, or Berto's own.
+                Sits under the chips because it's prose and needs the full width. */}
+            <TaskLatestUpdate todo={todo} className="mt-1.5" />
+            {composingId === todo.id && (
+              <TaskUpdateComposer
+                taskId={todo.id}
+                className="mt-1.5"
+                onClose={() => setComposingId(null)}
+                onPosted={(u) =>
+                  onLocalPatch(todo.id, {
+                    last_update: u.body,
+                    last_update_by: u.author,
+                    last_update_at: u.created_at,
+                  })
+                }
+              />
+            )}
           </div>
           {/* Actions stay hidden until hover so the card reads as a note, not a widget —
               unless the task is live (working / waiting / timing), in which case the
@@ -1245,6 +1269,11 @@ export function TaskCanvas({
             ))}
           </ContextMenuRadioGroup>
           <ContextMenuSeparator />
+          {/* Berto's side of the update thread — agents post theirs over MCP. */}
+          <ContextMenuItem className="text-xs" onSelect={() => setComposingId(todo.id)}>
+            <MessageSquarePlusIcon className="size-3" />
+            {todo.last_update ? "Post an update" : "Add an update"}
+          </ContextMenuItem>
           <ContextMenuItem className="text-xs" onClick={() => duplicateTask(todo)}>
             <CopyIcon className="size-3" />
             Duplicate

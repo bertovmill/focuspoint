@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClockIcon, CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { BotIcon, CalendarClockIcon, CheckIcon, CornerUpRightIcon, MessageSquareIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import {
@@ -334,6 +334,27 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                   <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>
                     {todo.title}
                   </p>
+                  {/* Rows here are one line and stay one line, so an update can't get
+                      its own. A mark next to the title says there's a note waiting —
+                      an agent's hand-off gets the bot mark and the primary tint — and
+                      hovering reads it out. The full line shows on the board. */}
+                  {todo.last_update && (
+                    <span
+                      title={`${todo.last_update_by === "agent" ? "Update from an agent" : "Your update"}: ${todo.last_update}`}
+                      className={cn(
+                        "flex size-5 shrink-0 items-center justify-center rounded-md",
+                        todo.last_update_by === "agent"
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {todo.last_update_by === "agent" ? (
+                        <BotIcon className="size-3" />
+                      ) : (
+                        <MessageSquareIcon className="size-3" />
+                      )}
+                    </span>
+                  )}
                   {clock && (
                     <span
                       className={cn(

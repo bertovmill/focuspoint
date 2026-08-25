@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { hasWorkingSlot } from "@/lib/working-now";
 import { isLaneCategory, normalizeCategory } from "@/lib/task-categories";
 import { normalizeCardColor } from "@/lib/task-colors";
+import { LATEST_UPDATE_COLUMNS, LATEST_UPDATE_JOIN } from "@/lib/task-updates";
 
 export async function GET(req: Request) {
   try {
@@ -13,22 +14,22 @@ export async function GET(req: Request) {
     const rows =
       includeCompleted === "true"
         ? await sql`
-            SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
-            FROM todos
+            SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, ${sql.unsafe(LATEST_UPDATE_COLUMNS)}
+            FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)}
             ORDER BY completed ASC, in_progress DESC, waiting DESC, priority DESC, created_at DESC
             LIMIT ${limit}
           `
         : includeCompleted === "today"
           ? await sql`
-              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
-              FROM todos
+              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, ${sql.unsafe(LATEST_UPDATE_COLUMNS)}
+              FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)}
               WHERE completed = FALSE OR completed_at::date = CURRENT_DATE
               ORDER BY completed ASC, in_progress DESC, waiting DESC, priority DESC, created_at DESC
               LIMIT ${limit}
             `
           : await sql`
-              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
-              FROM todos
+              SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, ${sql.unsafe(LATEST_UPDATE_COLUMNS)}
+              FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)}
               WHERE completed = FALSE
               ORDER BY in_progress DESC, waiting DESC, priority DESC, created_at DESC
               LIMIT ${limit}

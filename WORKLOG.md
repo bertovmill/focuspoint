@@ -5528,3 +5528,47 @@ task was deliberately left out. He asked for it, so it's in.
   allowed on request, **delete is still Berto's alone**.
 
 Still no delete tool, on purpose.
+
+## 2026-08-25 (later still, again) — Tasks carry an update thread, and agents post to it
+
+Berto's agents can move his board over MCP, but they had no way to *say* anything on
+it: when a Claude session finished an intermediary step and needed him for the next
+one, that fact lived in a transcript he wasn't reading. Tasks now carry progress
+notes, and every note says whether it came from him or from an agent.
+
+**Data.** New `task_updates(id, task_id → todos ON DELETE CASCADE, body, author, created_at)`
+in `lib/db.ts`, with `lib/task-updates.ts` owning the reads/writes. The whole thread
+is kept — his call — but only the newest line is ever shown, so every place that
+lists tasks joins it with one `LEFT JOIN LATERAL` (`LATEST_UPDATE_JOIN` /
+`LATEST_UPDATE_COLUMNS`, exported so `lib/tasks.ts` and `/api/todos` can't drift).
+The lateral aliases its columns inside the subquery, or `created_at` would be
+ambiguous against `todos.created_at` in every select list. Mutations still hand back
+plain `TASK_COLUMNS` — a `RETURNING` clause can't join — so the update fields on
+`TaskRow` are optional, not nullable-required.
+
+**Agents.** MCP gains `post_task_update` (server 1.3.0), and Cael gains the matching
+eve tool `agent/tools/post_task_update.ts`. Both write `author='agent'`. `list_tasks`
+now prints the newest note under each task line and carries `last_update` /
+`last_update_by` / `last_update_at` in `structuredContent`, so an agent picking work
+up can see where it was left. Deliberately: posting an update does **not** move the
+task between lanes (Berto's call — he didn't want a note to park work in `waiting`);
+lane changes stay with start/stop/complete.
+
+**Berto's side.** `POST /api/todos/:id/updates` writes one as `me`, `GET` reads the
+thread. On the canvas, right-click → "Post an update" opens a one-line box on the
+card.
+
+**UI.** `app/_components/task-update-line.tsx` renders the one line every view shares:
+who + how long ago on a small header row, the note clamped to two lines under it.
+An agent note is tinted `primary` with the bot mark so it reads as a nudge; his own
+notes stay quiet. Shown on the canvas cards, the mobile list and the pipeline lanes.
+The pinned window is one line per task and stays that way, so it gets a bot/message
+badge next to the title with the note in its tooltip instead.
+
+Verified end to end on a scratch task against the real DB: REST post/read, the MCP
+tool (bearer against `/api/mcp`), `list_tasks` showing the note, and Playwright
+driving right-click → Post an update → typed → persisted as `author: "me"` with the
+thread intact. Scratch task deleted afterwards.
+
+Global `~/.claude/CLAUDE.md` now tells every session to post an update when it
+finishes a step or needs him — that's the half that makes this actually fire.

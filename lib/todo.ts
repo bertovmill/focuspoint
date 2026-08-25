@@ -2,6 +2,7 @@
 // columns the /api/todos routes select — keep the two in step.
 import { isLaneCategory, type TaskCategory } from "@/lib/task-categories";
 import type { CardColor } from "@/lib/task-colors";
+import type { UpdateAuthor } from "@/lib/task-updates";
 
 export interface Todo {
   id: number;
@@ -29,6 +30,12 @@ export interface Todo {
   // Set when this task belongs to a content piece (see the Content lane). The piece
   // itself is a category='content' row with parent_id null.
   parent_id?: number | null;
+  // Newest line from the task's update thread (lib/task-updates.ts) — Berto's own
+  // note, or an agent's hand-off when it finished a step and needs him. The whole
+  // thread is kept server-side; a card only ever shows this one.
+  last_update?: string | null;
+  last_update_by?: UpdateAuthor | null;
+  last_update_at?: string | null;
 }
 
 // A piece is a top-level task in one of the pipeline categories (Content, Code,

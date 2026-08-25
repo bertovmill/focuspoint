@@ -32,6 +32,7 @@ import {
   remainingSeconds,
   type Todo,
 } from "@/lib/todo";
+import { TaskLatestUpdate } from "@/app/_components/task-update-line";
 import { cn } from "@/lib/utils";
 
 /**
@@ -357,6 +358,10 @@ export function TaskListMobile({
                             </span>
                           ) : null}
                         </div>
+
+                        {/* The newest note on this task — an agent's hand-off over MCP,
+                            or one Berto posted from the board. */}
+                        <TaskLatestUpdate todo={todo} className="mt-1.5 text-[11px]" />
                       </div>
 
                       {/* Two controls only. The canvas card's right-click menu (colour,

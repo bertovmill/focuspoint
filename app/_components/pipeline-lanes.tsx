@@ -22,6 +22,7 @@ import { NutritionToday } from "@/app/_components/nutrition-today";
 import { Input } from "@/components/ui/input";
 import { LANE_CATEGORIES, TASK_CATEGORY_LABELS, type LaneCategory } from "@/lib/task-categories";
 import { isDoneToday, isLanePiece, type Todo } from "@/lib/todo";
+import { TaskLatestUpdate } from "@/app/_components/task-update-line";
 import { cn } from "@/lib/utils";
 
 // Child tasks are created from a one-line composer, so there's nowhere to pick an
@@ -380,6 +381,7 @@ export function PipelineLanes({
                                 pieceDone && "text-muted-foreground line-through",
                               ),
                             )}
+                            <TaskLatestUpdate todo={piece} className="mt-1" />
                           </div>
                           {kids.length > 0 && (
                             <span className="mt-px shrink-0 text-[10px] tabular-nums text-muted-foreground">
@@ -419,6 +421,7 @@ export function PipelineLanes({
                                         done && "text-muted-foreground line-through",
                                       ),
                                     )}
+                                    <TaskLatestUpdate todo={kid} className="mt-1" />
                                   </div>
                                   <button
                                     type="button"

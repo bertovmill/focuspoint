@@ -12,6 +12,7 @@ import {
   type TaskRow,
 } from "@/lib/tasks";
 import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
+import { addTaskUpdate } from "@/lib/task-updates";
 import { WORKING_LIMIT } from "@/lib/working-now";
 
 // An MCP server over the task list, so Claude — in Claude Code, on claude.ai, in
@@ -57,7 +58,12 @@ function formatTask(t: TaskRow): string {
   if (spent > 0) bits.push(`spent ${formatDuration(spent)}${t.timer_started_at ? ", timer running" : ""}`);
   if (t.parent_id) bits.push(`part of #${t.parent_id}`);
   const suffix = bits.length ? ` (${bits.join(", ")})` : "";
-  return `#${t.id} [${STATUS_LABELS[taskStatus(t)]}] ${t.title}${suffix}`;
+  // The newest progress note, on its own indented line — it's prose, and cramming
+  // it into the parenthesised chips would make every task line unreadable.
+  const update = t.last_update
+    ? `\n    last update (${t.last_update_by === "agent" ? "agent" : "Berto"}): ${t.last_update}`
+    : "";
+  return `#${t.id} [${STATUS_LABELS[taskStatus(t)]}] ${t.title}${suffix}${update}`;
 }
 
 /** The shape handed back as structuredContent, trimmed to what a caller needs. */
@@ -73,6 +79,9 @@ function taskJson(t: TaskRow) {
     due_date: t.due_date ? String(t.due_date).slice(0, 10) : null,
     category: normalizeCategory(t.category),
     parent_id: t.parent_id,
+    last_update: t.last_update ?? null,
+    last_update_by: t.last_update_by ?? null,
+    last_update_at: t.last_update_at ? new Date(t.last_update_at).toISOString() : null,
   };
 }
 
@@ -97,8 +106,10 @@ const handler = createMcpHandler(
           "the per-session task scratchpad Claude Code keeps; prefer this one for Berto's own " +
           "work. Every task sits in one of three lanes: " +
           `'working_now' (in progress right now, capped at ${WORKING_LIMIT}), 'waiting' (blocked on ` +
-          "someone else), and 'up_next' (everything else that isn't finished). Call this " +
-          "before starting work so you know what's already in flight.",
+          "someone else), and 'up_next' (everything else that isn't finished). Each task also " +
+          "carries its latest progress note (last_update) and who wrote it — 'me' is Berto, " +
+          "'agent' is an agent like you. Call this before starting work so you know what's " +
+          "already in flight and where it was left.",
         inputSchema: z.object({
           status: z
             .enum(["working_now", "waiting", "up_next", "open", "done", "all"])
@@ -157,6 +168,43 @@ const handler = createMcpHandler(
         });
         if (!result.ok) return fail(result.error);
         return ok(`Added #${result.task.id} — ${result.task.title}. It's in up next.`, taskJson(result.task));
+      },
+    );
+
+    server.registerTool(
+      "post_task_update",
+      {
+        title: "Post an update on a task",
+        description:
+          "Leave a short progress note on a task on Berto's real board in Cael. This is how " +
+          "you tell him where the work stands without him having to read a session " +
+          "transcript: post one when you finish an intermediary step, when you hit " +
+          "something you need him to decide or do, or when you hand the work back. The note " +
+          "shows on the task's card, tagged as coming from an agent, and the whole thread is " +
+          "kept. It does NOT move the task between lanes — use start_task/stop_task/" +
+          "complete_task for that. Write it as one or two plain sentences: what's done, and " +
+          "what's needed next.",
+        inputSchema: z.object({
+          id: z.number().int().describe("Task id, as shown by list_tasks."),
+          update: z
+            .string()
+            .min(1)
+            .describe(
+              "The note, in plain language — e.g. 'Draft's written and pushed to the branch; " +
+                "needs your read before I open the PR.'",
+            ),
+        }),
+      },
+      async ({ id, update }) => {
+        const result = await addTaskUpdate(id, update, "agent");
+        if (!result.ok) return fail(result.error);
+        return ok(`Posted an update on #${id}: ${result.update.body}`, {
+          id,
+          update_id: result.update.id,
+          update: result.update.body,
+          author: result.update.author,
+          posted_at: new Date(result.update.created_at).toISOString(),
+        });
       },
     );
 
@@ -249,14 +297,15 @@ const handler = createMcpHandler(
     );
   },
   {
-    serverInfo: { name: "cael", version: "1.2.0" },
+    serverInfo: { name: "cael", version: "1.3.0" },
     instructions:
       "Cael — Berto's life agent. These tools read and move his REAL task board, the one he " +
       "works from every day; they are not Claude Code's per-session task scratchpad, and when " +
       "he asks what he is working on, this is the list he means. Call list_tasks to see what's " +
       "in flight before starting work, create_task to add something he asks you to remember, " +
-      "start_task when he begins something, stop_task to pause or hand it off, and " +
-      "complete_task only when the work is genuinely done.",
+      "start_task when he begins something, stop_task to pause or hand it off, " +
+      "post_task_update to leave a progress note on a task when you finish a step or need " +
+      "him to take the next one, and complete_task only when the work is genuinely done.",
   },
 );
 

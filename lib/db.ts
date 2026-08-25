@@ -70,6 +70,20 @@ export async function ensureSchema() {
   // Cosmetic card colour picked from the canvas right-click menu (see lib/task-colors.ts).
   // NULL = a plain card. Deliberately not tied to in_progress/waiting.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS color TEXT`;
+  // Progress notes on a task, newest last. Written by Berto from the board and by
+  // Claude over MCP (see app/api/mcp/route.ts) when an agent finishes an intermediary
+  // step and needs him to pick it up — `author` says which. The whole thread is kept;
+  // the cards only ever show the latest line.
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_updates (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      author TEXT NOT NULL DEFAULT 'me',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS task_updates_task_idx ON task_updates (task_id, created_at DESC, id DESC)`;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

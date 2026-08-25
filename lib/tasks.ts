@@ -2,6 +2,12 @@ import { getDb } from "@/lib/db";
 import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
 import { logCompletedTaskToCalendar } from "@/lib/task-calendar";
 import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
+import {
+  LATEST_UPDATE_COLUMNS,
+  LATEST_UPDATE_JOIN,
+  type LatestUpdate,
+  type UpdateAuthor,
+} from "@/lib/task-updates";
 
 // The task-status operations, in one place, so the REST routes and the MCP
 // server (app/api/mcp/route.ts) can't drift apart on what "start", "stop" and
@@ -11,6 +17,11 @@ import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
 const TASK_COLUMNS = `id, title, completed, in_progress, waiting, priority, due_date, recurrence,
   created_at, completed_at, timer_started_at, time_spent_seconds, task_number,
   estimated_minutes, category, parent_id`;
+
+// The same columns, plus each task's newest progress note (see lib/task-updates.ts).
+// Reads use this; RETURNING clauses can't join, so mutations still hand back the
+// plain columns and leave the update fields undefined.
+const TASK_READ_COLUMNS = `${TASK_COLUMNS}, ${LATEST_UPDATE_COLUMNS}`;
 
 export type TaskRow = {
   id: number;
@@ -29,6 +40,11 @@ export type TaskRow = {
   estimated_minutes: number | null;
   category: string | null;
   parent_id: number | null;
+  // Newest line from the task's update thread — undefined when the row came back
+  // from a mutation rather than a read.
+  last_update?: string | null;
+  last_update_by?: UpdateAuthor | null;
+  last_update_at?: string | null;
 };
 
 /**
@@ -59,29 +75,29 @@ export async function listTasks(filter: TaskFilter = "open", limit = 100): Promi
   // parameterises values, so a WHERE clause can't be built from a string.
   const rows =
     filter === "working_now"
-      ? await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos WHERE completed = FALSE AND in_progress = TRUE
+      ? await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)} WHERE completed = FALSE AND in_progress = TRUE
           ORDER BY timer_started_at DESC NULLS LAST, priority DESC, created_at DESC LIMIT ${capped}`
       : filter === "waiting"
-        ? await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos WHERE completed = FALSE AND waiting = TRUE
+        ? await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)} WHERE completed = FALSE AND waiting = TRUE
             ORDER BY priority DESC, created_at DESC LIMIT ${capped}`
         : filter === "up_next"
-          ? await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos
+          ? await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)}
               WHERE completed = FALSE AND in_progress = FALSE AND waiting = FALSE
               ORDER BY task_number ASC NULLS LAST, priority DESC, created_at DESC LIMIT ${capped}`
           : filter === "done"
-            ? await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos WHERE completed_at::date = CURRENT_DATE
+            ? await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)} WHERE completed_at::date = CURRENT_DATE
                 ORDER BY completed_at DESC LIMIT ${capped}`
             : filter === "all"
-              ? await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos
+              ? await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)}
                   ORDER BY completed ASC, in_progress DESC, waiting DESC, priority DESC, created_at DESC LIMIT ${capped}`
-              : await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos WHERE completed = FALSE
+              : await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)} WHERE completed = FALSE
                   ORDER BY in_progress DESC, waiting DESC, priority DESC, created_at DESC LIMIT ${capped}`;
   return rows as TaskRow[];
 }
 
 export async function getTask(id: number | string): Promise<TaskRow | null> {
   const sql = getDb();
-  const [row] = await sql`SELECT ${sql.unsafe(TASK_COLUMNS)} FROM todos WHERE id = ${id}`;
+  const [row] = await sql`SELECT ${sql.unsafe(TASK_READ_COLUMNS)} FROM todos ${sql.unsafe(LATEST_UPDATE_JOIN)} WHERE id = ${id}`;
   return (row as TaskRow) ?? null;
 }
 

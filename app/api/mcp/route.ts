@@ -2,6 +2,7 @@ import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { z } from "zod";
 import {
   completeTask,
+  createTask,
   elapsedSeconds,
   listTasks,
   startTask,
@@ -10,13 +11,13 @@ import {
   type TaskFilter,
   type TaskRow,
 } from "@/lib/tasks";
-import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
+import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
 import { WORKING_LIMIT } from "@/lib/working-now";
 
 // An MCP server over the task list, so Claude — in Claude Code, on claude.ai, in
 // the desktop app — can see what Berto is actually working on and keep the board
-// honest while it works. Read plus status changes only: no creating or deleting
-// tasks from here, that stays a decision Berto makes in the app.
+// honest while it works. Read, add and status changes — deleting a task is not
+// here, that stays a decision Berto makes in the app.
 //
 // Registered as "cael", because that is what Berto calls this agent — the tools
 // end up as mcp__cael__list_tasks and so on. Every description below says both
@@ -118,6 +119,48 @@ const handler = createMcpHandler(
     );
 
     server.registerTool(
+      "create_task",
+      {
+        title: "Add a task",
+        description:
+          "Put a new task on Berto's real board in Cael — the list he actually works from, not " +
+          "Claude Code's per-session scratchpad. Use this when he says to add, capture or " +
+          "remember a piece of work. It lands in 'up_next'; use start_task to begin it.",
+        inputSchema: z.object({
+          title: z.string().min(1).describe("What needs to be done, in Berto's own words."),
+          priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+          due_date: z.string().optional().describe("ISO date, e.g. '2026-08-30'. Omit if there's no deadline."),
+          estimated_minutes: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Rough time it'll take, in minutes. Omit rather than guessing wildly."),
+          recurrence: z
+            .enum(["none", "daily", "weekly", "monthly"])
+            .default("none")
+            .describe("How often it repeats. 'none' means one-time."),
+          category: z
+            .enum(TASK_CATEGORIES)
+            .optional()
+            .describe("Kind of work, if it's clearly one of these. Most tasks are none of them — leave it off."),
+        }),
+      },
+      async ({ title, priority, due_date, estimated_minutes, recurrence, category }) => {
+        const result = await createTask({
+          title,
+          priority,
+          due_date,
+          recurrence,
+          estimated_minutes,
+          category,
+        });
+        if (!result.ok) return fail(result.error);
+        return ok(`Added #${result.task.id} — ${result.task.title}. It's in up next.`, taskJson(result.task));
+      },
+    );
+
+    server.registerTool(
       "start_task",
       {
         title: "Start working on a task",
@@ -206,13 +249,14 @@ const handler = createMcpHandler(
     );
   },
   {
-    serverInfo: { name: "cael", version: "1.1.0" },
+    serverInfo: { name: "cael", version: "1.2.0" },
     instructions:
       "Cael — Berto's life agent. These tools read and move his REAL task board, the one he " +
       "works from every day; they are not Claude Code's per-session task scratchpad, and when " +
       "he asks what he is working on, this is the list he means. Call list_tasks to see what's " +
-      "in flight before starting work, start_task when he begins something, stop_task to pause " +
-      "or hand it off, and complete_task only when the work is genuinely done.",
+      "in flight before starting work, create_task to add something he asks you to remember, " +
+      "start_task when he begins something, stop_task to pause or hand it off, and " +
+      "complete_task only when the work is genuinely done.",
   },
 );
 

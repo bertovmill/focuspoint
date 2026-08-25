@@ -243,3 +243,36 @@ export async function completeTask(
 
   return { ok: true, recurring, next_due, repeated, calendar_event_id: eventId };
 }
+
+/** What a caller can set when putting a new task on the board. */
+export type NewTask = {
+  title: string;
+  priority?: string | null;
+  due_date?: string | null;
+  recurrence?: string | null;
+  estimated_minutes?: number | null;
+  category?: string | null;
+};
+
+/**
+ * Puts a new task in the queue ('up_next'). Deliberately narrow: no canvas
+ * position (the board auto-places anything created off-canvas), no parent, and
+ * never straight into 'working now' — starting work is start_task's job.
+ */
+export async function createTask(input: NewTask): Promise<TaskMutation> {
+  const title = input.title?.trim();
+  if (!title) return { ok: false, error: "A task needs a title." };
+
+  const sql = getDb();
+  const estimate =
+    input.estimated_minutes === null || input.estimated_minutes === undefined
+      ? null
+      : Math.max(1, Math.trunc(input.estimated_minutes));
+  const [row] = await sql`
+    INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, category)
+    VALUES (${title}, ${input.priority ?? "normal"}, ${input.due_date ?? null},
+            ${input.recurrence ?? "none"}, ${estimate}, ${normalizeCategory(input.category) ?? null})
+    RETURNING ${sql.unsafe(TASK_COLUMNS)}
+  `;
+  return { ok: true, task: row as TaskRow };
+}

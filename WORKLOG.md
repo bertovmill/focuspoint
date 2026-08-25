@@ -5509,3 +5509,22 @@ Verified after deploy (`4b9a891`): `initialize` on the live URL reports
 their custom-connector UI expects OAuth and can't send a bearer header. Adding
 an OAuth flow to `/api/mcp` is contained work if Berto ever wants the board on
 his phone. Claude Desktop *can* take it as-is and hasn't been set up.
+
+## 2026-08-25 (later) — The MCP server can add tasks now
+
+Berto asked Claude to add "reply to Jorie" to the board from a session outside the
+app and it couldn't: `/api/mcp` exposed read + three status moves, and creating a
+task was deliberately left out. He asked for it, so it's in.
+
+- `lib/tasks.ts` gains `createTask()` — the same narrow insert the REST route does,
+  minus the canvas bits. New tasks land in **up next**; nothing can be created
+  straight into "working now" (starting work stays `start_task`'s job, so the
+  WORKING_LIMIT cap can't be sidestepped by creating a task in progress).
+- `app/api/mcp/route.ts` registers **`create_task`** (title, priority, due_date,
+  estimated_minutes, recurrence, category). `estimated_minutes` is optional here,
+  unlike the agent's `add_todo` — a model guessing a number is worse than a null.
+  Server version bumped to 1.2.0 and the server `instructions` mention it.
+- Global `~/.claude/CLAUDE.md` said "never create or delete tasks". Now: create is
+  allowed on request, **delete is still Berto's alone**.
+
+Still no delete tool, on purpose.

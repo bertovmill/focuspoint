@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import {
+  CalendarClockIcon,
   CheckIcon,
   ClockIcon,
   CopyIcon,
@@ -32,6 +33,9 @@ import {
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
@@ -47,6 +51,7 @@ import {
 import { PipelineLanes } from "@/app/_components/pipeline-lanes";
 import {
   ESTIMATE_OPTIONS,
+  FOLLOW_UP_OPTIONS,
   formatCountdown,
   formatEstimateLabel,
   isDoneToday,
@@ -139,7 +144,7 @@ export interface TaskCanvasProps {
   /** Ticks once a second in the parent so every countdown runs off one clock. */
   nowTick: number;
   completingIds: Set<number>;
-  onComplete: (id: number, repeat?: boolean) => void;
+  onComplete: (id: number, opts?: { repeat?: boolean; followUpDays?: number }) => void;
   onUncomplete: (id: number) => void;
   onToggleTimer: (todo: Todo) => void;
   /** "Working on now" — capped at WORKING_LIMIT by the parent. */
@@ -986,10 +991,25 @@ export function TaskCanvas({
         <ContextMenuContent className="w-52">
           {/* The second way to finish a task: crossed off today, standing again
               tomorrow. Sits above everything else because it *ends* the card. */}
-          <ContextMenuItem onSelect={() => onComplete(todo.id, true)}>
+          <ContextMenuItem onSelect={() => onComplete(todo.id, { repeat: true })}>
             <RepeatIcon className="size-3.5" />
             Done &amp; repeat tomorrow
           </ContextMenuItem>
+          {/* Done for now, but it needs a second pass: cross it off and queue an
+              identical task for the day the follow-up is due. */}
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <CalendarClockIcon className="size-3.5" />
+              Complete &amp; follow up
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              {FOLLOW_UP_OPTIONS.map((o) => (
+                <ContextMenuItem key={o.days} onSelect={() => onComplete(todo.id, { followUpDays: o.days })}>
+                  {o.label}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
           <ContextMenuSeparator />
           {/* Colour first: it's the one thing here that's purely about how the board
               *looks*, and it's the most-reached-for item. Yellow = pending, green =

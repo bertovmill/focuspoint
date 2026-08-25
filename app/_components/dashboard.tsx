@@ -41,7 +41,7 @@ import { focusAppWindow } from "@/lib/desktop";
 // Human limit: only a handful of things can genuinely be worked on at once (WORKING_LIMIT). Tasks in
 // the "Working on now" section are the live ones; everything else stays dimmed.
 import { WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
-import type { Todo } from "@/lib/todo";
+import { FOLLOW_UP_OPTIONS, type Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -566,7 +566,11 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
   // repeat = cross it off *and* stand the same task back up, dated tomorrow. The
   // API returns the fresh copy so it can slot straight into the list.
-  const handleComplete = async (id: number, repeat = false) => {
+  // opts.repeat = cross it off and put the same task back on tomorrow's list;
+  // opts.followUpDays does the same thing further out (done for now, needs a second pass).
+  const handleComplete = async (id: number, opts: { repeat?: boolean; followUpDays?: number } = {}) => {
+    const repeat = Boolean(opts.repeat);
+    const followUpDays = opts.followUpDays ?? null;
     const todo = todos.find((t) => t.id === id);
     if (todo?.completed_at && isToday(todo.completed_at)) {
       return; // already crossed off today
@@ -586,11 +590,16 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       const res = await fetch(`/api/todos/${id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repeat }),
+        body: JSON.stringify({ repeat, follow_up_days: followUpDays }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (repeat) toast.success("Done — back on the list tomorrow.");
+      if (followUpDays) {
+        const label = FOLLOW_UP_OPTIONS.find((o) => o.days === followUpDays)?.label.toLowerCase() ?? `in ${followUpDays} days`;
+        toast.success(`Done — back on the list ${label}.`);
+      } else if (repeat) {
+        toast.success("Done — back on the list tomorrow.");
+      }
       setTimeout(() => {
         if (data.recurring && data.next_due) {
           setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, due_date: data.next_due } : t)));

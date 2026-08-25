@@ -176,15 +176,24 @@ const handler = createMcpHandler(
             .boolean()
             .default(false)
             .describe("Also line the same work up again for tomorrow."),
+          follow_up_days: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe(
+              "Done for now, but it needs a second pass: queue the same task again this many " +
+                "days out (1, 3, 7, 14). Overrides `repeat`.",
+            ),
         }),
         annotations: { destructiveHint: true },
       },
-      async ({ id, repeat }) => {
-        const result = await completeTask(id, { repeat });
+      async ({ id, repeat, follow_up_days }) => {
+        const result = await completeTask(id, { repeat, followUpDays: follow_up_days ?? null });
         if (!result.ok) return fail(result.error);
         const notes = [
           result.recurring ? `It recurs — next due ${result.next_due}.` : null,
-          result.repeated ? `Queued again for tomorrow as #${result.repeated.id}.` : null,
+          result.repeated ? `Queued again for ${result.repeated.due_date} as #${result.repeated.id}.` : null,
           result.calendar_event_id ? "Logged to Google Calendar." : null,
         ].filter(Boolean);
         return ok([`Completed #${id}.`, ...notes].join(" "), {

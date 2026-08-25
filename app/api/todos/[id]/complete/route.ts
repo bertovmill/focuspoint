@@ -5,9 +5,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params;
     // "Done & repeat" — cross the task off *and* line the same work up for tomorrow.
+    // `follow_up_days` is the same idea further out (3 days, a week, two weeks).
     // The plain check-off sends no body at all, so an unparseable body just means "no".
     const body = await req.json().catch(() => ({}));
-    const result = await completeTask(id, { repeat: Boolean(body?.repeat) });
+    const days = Number(body?.follow_up_days);
+    const result = await completeTask(id, {
+      repeat: Boolean(body?.repeat),
+      followUpDays: Number.isFinite(days) && days > 0 ? days : null,
+    });
     if (!result.ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return result.recurring
       ? NextResponse.json({

@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { CheckIcon, ClockIcon, PauseIcon, PlayIcon, PlusIcon, RepeatIcon, TargetIcon, XIcon } from "lucide-react";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { CalendarClockIcon, CheckIcon, ClockIcon, PauseIcon, PlayIcon, PlusIcon, RepeatIcon, TargetIcon, XIcon } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { toast } from "sonner";
 
 import { PipelineLanes } from "@/app/_components/pipeline-lanes";
@@ -15,6 +23,7 @@ import { CATEGORY_BADGE_CLASS, TASK_CATEGORY_LABELS } from "@/lib/task-categorie
 import { CARD_COLOR_CLASSES } from "@/lib/task-colors";
 import {
   ESTIMATE_OPTIONS,
+  FOLLOW_UP_OPTIONS,
   PRIORITIES,
   formatCountdown,
   formatEstimateLabel,
@@ -55,7 +64,7 @@ export interface TaskListMobileProps {
   /** Ticks once a second so running countdowns re-render. */
   nowTick: number;
   completingIds: Set<number>;
-  onComplete: (id: number, repeat?: boolean) => void;
+  onComplete: (id: number, opts?: { repeat?: boolean; followUpDays?: number }) => void;
   onUncomplete: (id: number) => void;
   onToggleTimer: (todo: Todo) => void;
   onToggleInProgress: (id: number, in_progress: boolean) => void;
@@ -248,10 +257,25 @@ export function TaskListMobile({
                             <CheckIcon className="size-3.5" />
                             Complete
                           </ContextMenuItem>
-                          <ContextMenuItem onSelect={() => onComplete(todo.id, true)} disabled={done}>
+                          <ContextMenuItem onSelect={() => onComplete(todo.id, { repeat: true })} disabled={done}>
                             <RepeatIcon className="size-3.5" />
                             Done &amp; repeat tomorrow
                           </ContextMenuItem>
+                          {/* Done for now, but it needs a second pass: cross it off and queue an
+                              identical task for the day the follow-up is due. */}
+                          <ContextMenuSub>
+                            <ContextMenuSubTrigger disabled={done}>
+                              <CalendarClockIcon className="size-3.5" />
+                              Complete &amp; follow up
+                            </ContextMenuSubTrigger>
+                            <ContextMenuSubContent>
+                              {FOLLOW_UP_OPTIONS.map((o) => (
+                                <ContextMenuItem key={o.days} onSelect={() => onComplete(todo.id, { followUpDays: o.days })} disabled={done}>
+                                  {o.label}
+                                </ContextMenuItem>
+                              ))}
+                            </ContextMenuSubContent>
+                          </ContextMenuSub>
                         </ContextMenuContent>
                       </ContextMenu>
 

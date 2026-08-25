@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { CalendarClockIcon, CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, RepeatIcon, SquareIcon } from "lucide-react";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
-import { estimateProgress, formatCountdown, remainingSeconds, type Todo } from "@/lib/todo";
+import { estimateProgress, formatCountdown, FOLLOW_UP_OPTIONS, isFutureDated, remainingSeconds, type Todo } from "@/lib/todo";
 
 /** How many tasks the pinned window tracks at once — each gets its own timer. */
 const MAX_PINNED = 5;
@@ -29,8 +37,9 @@ function isToday(iso: string | null | undefined) {
 
 function isOpen(t: Todo) {
   // Recurring tasks completed today keep completed=false but get completed_at set —
-  // treat those as done for the day so the next thing takes their slot.
-  return !t.completed && !isToday(t.completed_at ?? null);
+  // treat those as done for the day so the next thing takes their slot. A task dated
+  // for a later day (a follow-up, most often) stays out of the window until its day.
+  return !t.completed && !isToday(t.completed_at ?? null) && !isFutureDated(t);
 }
 
 function formatTracked(totalSeconds: number) {
@@ -156,13 +165,14 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
   };
 
   // repeat = cross it off *and* put the same task back on tomorrow's list.
-  const handleComplete = async (todo: Todo, repeat = false) => {
+  // followUpDays does the same thing further out — done for now, needs a second pass.
+  const handleComplete = async (todo: Todo, opts: { repeat?: boolean; followUpDays?: number } = {}) => {
     setTodos((ts) => ts.map((t) => (t.id === todo.id ? { ...t, completed: true, completed_at: new Date().toISOString() } : t)));
     try {
       await fetch(`/api/todos/${todo.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repeat }),
+        body: JSON.stringify({ repeat: Boolean(opts.repeat), follow_up_days: opts.followUpDays ?? null }),
       });
     } catch {
       // fall through to refetch
@@ -234,18 +244,17 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
           return (
             // One line per task: done, title, clock, run/stop. Nothing wraps to a
             // second row, so the whole list fits in a window barely taller than a toolbar.
-            <div
-              key={todo.id}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border border-border px-2 py-1.5",
-                running && "border-l-2 border-l-primary bg-primary/5",
-              )}
-            >
-              {/* Left-click crosses the task off. Right-click (long-press on touch)
-                  offers the second ending: done, but line it up again for tomorrow.
-                  A menu keeps the row one line wide — no second button to fit in. */}
-              <ContextMenu>
-                <ContextMenuTrigger asChild>
+            // Right-clicking anywhere on the row (long-press on touch) offers the other
+            // endings: done but repeat tomorrow, or done now with a follow-up queued for
+            // a later day. A menu keeps the row one line wide — no extra buttons to fit in.
+            <ContextMenu key={todo.id}>
+              <ContextMenuTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border border-border px-2 py-1.5",
+                    running && "border-l-2 border-l-primary bg-primary/5",
+                  )}
+                >
                   <button
                     onClick={() => handleComplete(todo)}
                     className={cn(
@@ -275,43 +284,60 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                       </AnimatedCircularProgressBar>
                     )}
                   </button>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="w-52">
-                  <ContextMenuItem onSelect={() => handleComplete(todo)}>
-                    <CheckIcon className="size-3.5" />
-                    Complete
-                  </ContextMenuItem>
-                  <ContextMenuItem onSelect={() => handleComplete(todo, true)}>
-                    <RepeatIcon className="size-3.5" />
-                    Done &amp; repeat tomorrow
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-              <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>{todo.title}</p>
-              {clock && (
-                <span
-                  className={cn(
-                    "shrink-0 font-mono text-sm tabular-nums",
-                    overdue ? "text-priority-urgent" : running ? "text-primary" : "text-muted-foreground",
+                  <p className={cn("min-w-0 flex-1 truncate text-sm leading-tight", priorityColor(todo.priority))}>
+                    {todo.title}
+                  </p>
+                  {clock && (
+                    <span
+                      className={cn(
+                        "shrink-0 font-mono text-sm tabular-nums",
+                        overdue ? "text-priority-urgent" : running ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      {clock}
+                    </span>
                   )}
-                >
-                  {clock}
-                </span>
-              )}
-              <button
-                onClick={() => handleToggleTimer(todo)}
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
-                  running
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
-                )}
-                aria-label={running ? `Stop the timer on ${todo.title}` : `Start the timer on ${todo.title}`}
-                title={running ? "Stop" : "Start"}
-              >
-                {running ? <SquareIcon className="size-3" /> : <PlayIcon className="size-3" />}
-              </button>
-            </div>
+                  <button
+                    onClick={() => handleToggleTimer(todo)}
+                    className={cn(
+                      "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+                      running
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "border border-border text-muted-foreground hover:border-primary hover:text-primary",
+                    )}
+                    aria-label={running ? `Stop the timer on ${todo.title}` : `Start the timer on ${todo.title}`}
+                    title={running ? "Stop" : "Start"}
+                  >
+                    {running ? <SquareIcon className="size-3" /> : <PlayIcon className="size-3" />}
+                  </button>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-56">
+                <ContextMenuItem onSelect={() => handleComplete(todo)}>
+                  <CheckIcon className="size-3.5" />
+                  Complete
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => handleComplete(todo, { repeat: true })}>
+                  <RepeatIcon className="size-3.5" />
+                  Done &amp; repeat tomorrow
+                </ContextMenuItem>
+                {/* Done for now, but it needs a second pass: cross this one off and
+                    queue an identical task for the day the follow-up is due. */}
+                <ContextMenuSub>
+                  <ContextMenuSubTrigger>
+                    <CalendarClockIcon className="size-3.5" />
+                    Complete &amp; follow up
+                  </ContextMenuSubTrigger>
+                  <ContextMenuSubContent>
+                    {FOLLOW_UP_OPTIONS.map((o) => (
+                      <ContextMenuItem key={o.days} onSelect={() => handleComplete(todo, { followUpDays: o.days })}>
+                        {o.label}
+                      </ContextMenuItem>
+                    ))}
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
       </div>

@@ -143,9 +143,9 @@ export async function stopTask(
 }
 
 /** Local date, not UTC — toISOString() would roll the day over in the evening here. */
-function tomorrow(): string {
+function daysFromNow(days: number): string {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
+  d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -169,13 +169,16 @@ export type CompleteResult =
 
 /**
  * Cross a task off. Banks any running timer, plots a done-block onto Google
- * Calendar, and — with `repeat` — lines the same work up again for tomorrow.
- * A recurring task rolls its due date forward instead of being marked done.
+ * Calendar, and — with `repeat` (tomorrow) or `followUpDays` (any number of days
+ * out) — lines the same work up again for later. A recurring task rolls its due
+ * date forward instead of being marked done.
  */
 export async function completeTask(
   id: number | string,
-  { repeat = false }: { repeat?: boolean } = {},
+  { repeat = false, followUpDays }: { repeat?: boolean; followUpDays?: number | null } = {},
 ): Promise<CompleteResult> {
+  // "Done & repeat tomorrow" is just the one-day case of a follow-up.
+  const followUp = followUpDays != null && followUpDays > 0 ? Math.round(followUpDays) : repeat ? 1 : null;
   const sql = getDb();
   const [todo] = await sql`SELECT recurrence FROM todos WHERE id = ${id}`;
   if (!todo) return { ok: false, error: "No task with that id." };
@@ -196,9 +199,9 @@ export async function completeTask(
   const recurring = Boolean(todo.recurrence && todo.recurrence !== "none");
   let next_due: string | null = null;
   if (recurring) {
-    // A recurring task already comes back on its own — "repeat tomorrow" just pulls
-    // that next occurrence forward instead of spawning a duplicate row.
-    next_due = repeat ? tomorrow() : nextDueDate(todo.recurrence as string);
+    // A recurring task already comes back on its own — a follow-up just pulls that
+    // next occurrence forward (or pushes it out) instead of spawning a duplicate row.
+    next_due = followUp !== null ? daysFromNow(followUp) : nextDueDate(todo.recurrence as string);
     await sql`UPDATE todos SET due_date = ${next_due}, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
   } else {
     // A finished task gives up its queue slot.
@@ -218,12 +221,12 @@ export async function completeTask(
     await sql`UPDATE todos SET calendar_event_id = ${eventId} WHERE id = ${id}`;
   }
 
-  // A one-off task asked to repeat gets a fresh copy of itself dated tomorrow:
+  // A one-off task asked to repeat gets a fresh copy of itself dated N days out:
   // same title, priority, estimate, category, lane and card colour, but a clean
   // timer and no queue slot. The original stays completed so today's record —
   // and its calendar block — survives.
   let repeated: TaskRow | null = null;
-  if (repeat && !recurring) {
+  if (followUp !== null && !recurring) {
     const [source] = await sql`
       SELECT title, priority, estimated_minutes, category, parent_id, canvas_x, canvas_y, color
       FROM todos WHERE id = ${id}
@@ -231,7 +234,7 @@ export async function completeTask(
     if (source) {
       const [row] = await sql`
         INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, category, parent_id, canvas_x, canvas_y, color)
-        VALUES (${source.title}, ${source.priority}, ${tomorrow()}, 'none', ${source.estimated_minutes}, ${source.category}, ${source.parent_id}, ${source.canvas_x}, ${source.canvas_y}, ${source.color})
+        VALUES (${source.title}, ${source.priority}, ${daysFromNow(followUp)}, 'none', ${source.estimated_minutes}, ${source.category}, ${source.parent_id}, ${source.canvas_x}, ${source.canvas_y}, ${source.color})
         RETURNING ${sql.unsafe(TASK_COLUMNS)}
       `;
       repeated = (row as TaskRow) ?? null;

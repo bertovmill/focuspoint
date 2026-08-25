@@ -44,6 +44,22 @@ export function isInLane(t: Todo) {
 
 export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
+// "Complete now, follow up later": crossing a task off can queue an identical copy
+// of it this many days out. Presets only — same pattern as the priority/estimate chips.
+export const FOLLOW_UP_OPTIONS = [
+  { days: 1, label: "Tomorrow" },
+  { days: 3, label: "In 3 days" },
+  { days: 7, label: "In a week" },
+  { days: 14, label: "In 2 weeks" },
+] as const;
+
+/** True while a task is dated for a day that hasn't arrived yet. */
+export function isFutureDated(t: Todo, now = new Date()) {
+  if (!t.due_date) return false;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return t.due_date.slice(0, 10) > today;
+}
+
 // 0 = no estimate. Presets only — matches the priority/recurrence chip pattern.
 export const ESTIMATE_OPTIONS = [15, 30, 60, 120] as const;
 

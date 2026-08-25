@@ -4,6 +4,56 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-25 — Complete now, follow up later
+
+**Ask:** *"lots of times i complete a task but there needs to be a follow up in a day
+or two, can we right click tasks and say something like 'complete now' create task for
+later (and we can select 1 day from now, 3 days from now, 7 days from now, 2 weeks)"*
+
+"Done & repeat tomorrow" already did exactly this for the one-day case. So rather than
+a new mechanism, this generalises it: the same clone-the-task-forward machinery now
+takes a number of days. Right-click a task → **Complete & follow up** → Tomorrow / In
+3 days / In a week / In 2 weeks. The original is crossed off now (keeping its
+`completed_at`, banked timer and Google Calendar block) and an identical task —
+**same title**, priority, estimate, category, lane, card colour — lands on the day you
+picked.
+
+**The pinned window now hides future-dated tasks.** Nothing filtered by due date
+before, so a follow-up three days out would have popped straight back into the pinned
+list the moment you queued it — defeating the whole point. `isOpen()` in the pinned
+view now also requires the task not be dated for a later day. Overdue and undated
+tasks are unaffected; this applies to *any* future-dated task, not just follow-ups.
+Only the pinned window filters — the dashboard, canvas and mobile list still show
+everything open.
+
+**Right-click moved from the circle to the whole row** in the pinned window. Berto
+asked to "right click tasks", and with three endings the target shouldn't be a 24px
+circle. Left-click on the circle still completes, unchanged.
+
+**Files:**
+- `lib/tasks.ts` — `completeTask(id, { repeat, followUpDays })`. `repeat: true` is now
+  just `followUpDays: 1`; `tomorrow()` became `daysFromNow(n)`. A recurring task still
+  skips the copy and has its next occurrence moved to that day instead.
+- `app/api/todos/[id]/complete/route.ts` — accepts `follow_up_days` alongside `repeat`.
+- `app/api/mcp/route.ts` — `complete_task` gained a `follow_up_days` argument, so Cael
+  can queue a follow-up when it finishes something over MCP.
+- `lib/todo.ts` — `FOLLOW_UP_OPTIONS` (the four presets) and `isFutureDated()`.
+- `components/ui/context-menu.tsx` — added the missing `ContextMenuSub`/`SubTrigger`/
+  `SubContent` (shadcn's own implementation; the file was installed without them).
+- `app/_components/pin-view.tsx` — row-wide context menu + the follow-up submenu, and
+  future-dated tasks filtered out.
+- `app/_components/task-list-mobile.tsx`, `app/_components/task-canvas.tsx` — same
+  submenu in their existing right-click menus.
+- `app/_components/dashboard.tsx` — `handleComplete(id, opts)` carries the days through
+  and toasts "back on the list in 3 days".
+
+**Verified** end-to-end in the real app (dev server on :3789, Playwright): seeded a
+task, right-clicked the pinned row, picked a follow-up — the original completed, the
+copy landed with the right future due date, and it stayed out of the pinned window.
+Test rows and the calendar block it wrote were deleted afterwards.
+
+---
+
 ## 2026-08-24 — Done, and again tomorrow
 
 **Ask:** *"there one option that is called complete, its the check-off, but lets add

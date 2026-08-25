@@ -4,6 +4,37 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-25 — Adding a task without unpinning
+
+**Ask:** *"from this pinned view, can we also add tasks, they dont need to be
+prioritized tasks, but i dont like unpinning the app in order to add a new task"*
+
+The pinned window exists so you don't have to break focus — and unpinning to jot
+something down does exactly that. It now has its own composer: a slim always-visible
+`+ Add a task…` row under the list. Type, Enter, keep working; the input clears and
+holds focus for the next one.
+
+**Title only.** No priority, no due date, no estimate picker — the point is that it
+costs nothing to capture. Priority stays `normal` and the estimate defaults to 30
+minutes (`QUICK_ADD_ESTIMATE`), which the API requires and the countdown needs; it can
+be re-estimated on the canvas later. The task has no `canvas_x`/`canvas_y`, so the
+board drops it into its inbox column next time it's opened.
+
+**When it doesn't appear.** The window only ever shows five tasks, so a fresh normal
+task can land behind today's urgent ones. Rather than look broken, the window says so
+for four seconds: *"Added — it's waiting behind today's five."*
+
+**Files:**
+- `app/_components/pin-view.tsx` — the composer form, `handleAdd`, and the
+  behind-today's-five notice. Everything else in the window is untouched.
+
+**Verified** in the real app (dev server on :3789, Playwright): typed into the pinned
+composer, pressed Enter, and confirmed server-side that the task landed with a 30m
+estimate and normal priority, appeared in the window, and cleared the input. Test row
+deleted afterwards.
+
+---
+
 ## 2026-08-25 — Complete now, follow up later
 
 **Ask:** *"lots of times i complete a task but there needs to be a follow up in a day

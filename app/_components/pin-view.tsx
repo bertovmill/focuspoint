@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClockIcon, CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarClockIcon, CheckIcon, CornerUpRightIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { toast } from "sonner";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import {
   ContextMenu,
@@ -18,6 +19,10 @@ import { estimateProgress, formatCountdown, FOLLOW_UP_OPTIONS, isFutureDated, re
 
 /** How many tasks the pinned window tracks at once — each gets its own timer. */
 const MAX_PINNED = 5;
+
+/** Quick adds from the pinned window skip the estimate picker — every task needs one,
+ *  so they get the default half-hour and can be re-estimated on the canvas later. */
+const QUICK_ADD_ESTIMATE = 30;
 
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 0, high: 1, normal: 2, low: 3 };
 
@@ -55,6 +60,12 @@ function formatTracked(totalSeconds: number) {
 export function PinView({ onUnpin }: { onUnpin: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+  // The last task added from here, kept for a few seconds so the window can say
+  // something if it didn't make today's five — otherwise it looks like nothing happened.
+  const [lastAddedId, setLastAddedId] = useState<number | null>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(() => Date.now());
   // Only the desktop shell can move the window, and it isn't known during SSR.
   const [desktop, setDesktop] = useState(false);
@@ -110,6 +121,14 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
 
   const allRunning = topTasks.length > 0 && topTasks.every((t) => t.timer_started_at);
 
+  // The window only ever shows five, so a fresh task can land behind today's work.
+  const addedOffscreen = lastAddedId !== null && !topTasks.some((t) => t.id === lastAddedId);
+  useEffect(() => {
+    if (lastAddedId === null) return;
+    const t = setTimeout(() => setLastAddedId(null), 4000);
+    return () => clearTimeout(t);
+  }, [lastAddedId]);
+
   const handleToggleTimer = async (todo: Todo) => {
     const action = todo.timer_started_at ? "stop" : "start";
     // Timers run concurrently, so only the toggled task changes.
@@ -162,6 +181,34 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       ),
     );
     fetchTodos();
+  };
+
+  // Adding a task without leaving the pinned window — the whole point of the window is
+  // that you don't have to break focus, and unpinning to jot something down does.
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title || creating) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // No canvas_x/canvas_y: it's never been placed, so the canvas will drop it into
+        // its inbox column the next time the board is opened.
+        body: JSON.stringify({ title, estimated_minutes: QUICK_ADD_ESTIMATE }),
+      });
+      if (!res.ok) throw new Error();
+      const created: Todo = await res.json();
+      setTodos((ts) => (ts.some((t) => t.id === created.id) ? ts : [...ts, created]));
+      setLastAddedId(created.id);
+      setNewTitle("");
+      composerRef.current?.focus();
+    } catch {
+      toast.error("Couldn't add task.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   // repeat = cross it off *and* put the same task back on tomorrow's list.
@@ -341,6 +388,27 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
           );
         })}
       </div>
+
+      {/* Jotting something down shouldn't cost you the pinned window. Title only —
+          the estimate defaults, priority stays normal, and everything else can be
+          sorted out on the board later. */}
+      <form onSubmit={handleAdd} className="flex items-center gap-1.5 border-t border-border px-2 py-1.5 shrink-0">
+        <PlusIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <input
+          ref={composerRef}
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Add a task…"
+          disabled={creating}
+          aria-label="Add a task"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+        />
+      </form>
+      {addedOffscreen && (
+        <p className="border-t border-border px-2 py-1 text-xs text-muted-foreground shrink-0">
+          Added — it&apos;s waiting behind today&apos;s five.
+        </p>
+      )}
     </div>
   );
 }

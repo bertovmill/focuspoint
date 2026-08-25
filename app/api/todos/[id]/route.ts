@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
+import { hasWorkingSlot, workingLimitMessage } from "@/lib/working-now";
 import { normalizeCategory } from "@/lib/task-categories";
 import { normalizeCardColor } from "@/lib/task-colors";
 import { removeCompletedTaskFromCalendar } from "@/lib/task-calendar";
@@ -30,8 +30,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (in_progress === true) waiting = false;
     else if (waiting === true) in_progress = false;
     // Only three things can be "working on now" at a time.
-    if (in_progress === true && !(await hasWorkingSlot(getDb(), id))) {
-      return NextResponse.json({ error: WORKING_LIMIT_MESSAGE }, { status: 409 });
+    const slot = in_progress === true ? await hasWorkingSlot(getDb(), id) : null;
+    if (slot && !slot.allowed) {
+      return NextResponse.json({ error: workingLimitMessage(slot.limit) }, { status: 409 });
     }
     const hasDueDate = Object.prototype.hasOwnProperty.call(body, "due_date");
     const due_date = hasDueDate ? body.due_date : undefined;

@@ -38,9 +38,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
 import { playCelebrationSound } from "@/lib/celebration-sound";
 import { focusAppWindow } from "@/lib/desktop";
-// Human limit: only a handful of things can genuinely be worked on at once (WORKING_LIMIT). Tasks in
-// the "Working on now" section are the live ones; everything else stays dimmed.
-import { WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
+// Human limit: only a handful of things can genuinely be worked on at once, and how
+// many is Berto's to set from the pinned window (1–5, see lib/working-now.ts). Tasks
+// in the "Working on now" section are the live ones; everything else stays dimmed.
+import { WORKING_LIMIT_MAX, workingLimitMessage } from "@/lib/working-now";
 import { FOLLOW_UP_OPTIONS, type Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
 import {
@@ -192,6 +193,10 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // `activeTab === "todos"` branch below for why it's a mount, not a `lg:hidden`.
   const isDesktop = useIsDesktop();
   const [todos, setTodos] = useState<Todo[]>([]);
+  // How many tasks can be in flight at once. Berto sets it from the pinned window;
+  // the board just follows, and the server enforces it either way. Starts at the
+  // ceiling so nothing is wrongly blocked before the setting has loaded.
+  const [workingLimit, setWorkingLimit] = useState(WORKING_LIMIT_MAX);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [measureCategory, setMeasureCategory] = useState<Measure["category"]>("daily_checkin");
@@ -269,6 +274,24 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       if (!liveIds.has(id)) prevRemaining.delete(id);
     }
   }, [nowTick, todos]);
+
+  // The focus limit is set in the pinned window (a separate window in the desktop
+  // app), so re-read it whenever this one comes back to the front.
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/settings/working-limit");
+        if (!res.ok) return;
+        const { limit } = await res.json();
+        if (typeof limit === "number") setWorkingLimit(limit);
+      } catch {
+        // keep whatever we have
+      }
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
 
   // "N" shortcut: focus the new-task input once the Tasks tab is showing.
   useEffect(() => {
@@ -492,7 +515,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const handleToggleInProgress = async (id: number, in_progress: boolean) => {
     const prev = todos;
     if (in_progress && !isRoomToWorkOn(id)) {
-      toast.error(WORKING_LIMIT_MESSAGE);
+      toast.error(workingLimitMessage(workingLimit));
       return;
     }
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, in_progress, waiting: in_progress ? false : t.waiting } : t)));
@@ -529,7 +552,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     const action = todo.timer_started_at ? "stop" : "start";
     // Starting a timer also marks the task in progress, so it has to respect the limit.
     if (action === "start" && !isRoomToWorkOn(todo.id)) {
-      toast.error(WORKING_LIMIT_MESSAGE);
+      toast.error(workingLimitMessage(workingLimit));
       return;
     }
     const prev = todos;
@@ -693,7 +716,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const workingNowIds = new Set(workingNowTodos.map((t) => t.id));
   // A task already in the section can always be re-toggled; new ones need a free slot.
   function isRoomToWorkOn(id: number) {
-    return workingNowIds.has(id) || workingNowTodos.length < WORKING_LIMIT;
+    return workingNowIds.has(id) || workingNowTodos.length < workingLimit;
   }
 
   // The category filter only hides rows — the working-now slot count above stays

@@ -5572,3 +5572,38 @@ thread intact. Scratch task deleted afterwards.
 
 Global `~/.claude/CLAUDE.md` now tells every session to post an update when it
 finishes a step or needs him — that's the half that makes this actually fire.
+
+## 2026-08-25 (last) — The five working-now slots became a focus dial (1–5)
+
+Five things in flight is the ceiling, not the target. Berto asked to be able to
+hold **one** when one thing actually matters, so the cap is now a setting.
+
+- **Where.** A small dial in the pinned window's header (crosshair + the number),
+  next to Start all: 1 — just this … 5 — full plate. That's the window you're
+  looking at when you decide to narrow, so that's where it lives.
+- **What it changes.** The same number does two jobs: how many rows the pinned
+  window holds, and the server-side cap on "working on now". Narrowing the window
+  narrows the board.
+- **Lowering it never yanks anything.** Set it to 1 with five running and the five
+  keep running — only *new* starts are refused until he's back under. That meant
+  `hasWorkingSlot` had to stop being "count − 1 < limit": a task already in
+  progress now always passes, or pausing and resuming one of those five would have
+  been refused. It returns `{ allowed, limit }` now so every refusal message can
+  say the real number ("You're focused on one thing at a time right now…").
+- **Storage.** New generic `app_settings(key, value, updated_at)` table; the limit
+  is `working_limit`, clamped 1–5, default 5. `GET`/`PUT /api/settings/working-limit`.
+  `lib/working-now.ts` owns `getWorkingLimit` / `setWorkingLimit` / `clampWorkingLimit`
+  and everything (board, REST, MCP `start_task`, the `update_todo` agent tool)
+  reads the same number.
+- **Desktop.** The pinned window was a fixed 340×268 sized for five rows, so a
+  focused day left four rows of dead space. New Tauri command `set_pin_rows`
+  (`pin_height(rows) = 48 + rows*44`), called from the web side via
+  `setPinWindowRows` whenever the limit changes. Old installed shells no-op, as
+  with every other command in that bridge — **needs a `npm run build` in `desktop/`
+  to take effect on Berto's machine.**
+
+Verified against the real board: set to 1, `start_task` on a queued task refused
+with the focused-day message, pausing and resuming one of the five already running
+still worked, out-of-range values (0, 9) clamped, and Playwright driving the pinned
+window showed one row at 1 and five at 5 with the change persisted server-side.
+`cargo check` clean on the Tauri change.

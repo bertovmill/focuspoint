@@ -105,7 +105,8 @@ const handler = createMcpHandler(
           "'what does Cael say I'm doing', in any repo and any session. It is NOT the same as " +
           "the per-session task scratchpad Claude Code keeps; prefer this one for Berto's own " +
           "work. Every task sits in one of three lanes: " +
-          `'working_now' (in progress right now, capped at ${WORKING_LIMIT}), 'waiting' (blocked on ` +
+          `'working_now' (in progress right now, capped at a limit Berto sets between 1 and ${WORKING_LIMIT} — ` +
+          "1 on a day where one thing matters), 'waiting' (blocked on " +
           "someone else), and 'up_next' (everything else that isn't finished). Each task also " +
           "carries its latest progress note (last_update) and who wrote it — 'me' is Berto, " +
           "'agent' is an agent like you. Call this before starting work so you know what's " +
@@ -214,8 +215,10 @@ const handler = createMcpHandler(
         title: "Start working on a task",
         description:
           "Move a task on Berto's real board in Cael into 'working now' and start its timer. " +
-          `Use this when he starts the work, so the board and the time log stay true. Only ${WORKING_LIMIT} ` +
-          "tasks can be in progress at once — starting a sixth is refused.",
+          "Use this when he starts the work, so the board and the time log stay true. Only so many " +
+          `tasks can be in progress at once (at most ${WORKING_LIMIT}, and he can set it as low as 1 ` +
+          "when he's focusing) — starting one past the limit is refused, and the error says what the " +
+          "limit is.",
         inputSchema: z.object({ id: z.number().int().describe("Task id, as shown by list_tasks.") }),
       },
       async ({ id }) => {

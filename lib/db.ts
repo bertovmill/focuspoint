@@ -84,6 +84,16 @@ export async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS task_updates_task_idx ON task_updates (task_id, created_at DESC, id DESC)`;
+  // Small key/value store for app-wide settings that aren't worth a table of their
+  // own — currently just `working_limit`, how many things Berto lets himself work
+  // on at once (see lib/working-now.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,

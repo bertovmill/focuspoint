@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
-import { hasWorkingSlot, WORKING_LIMIT, WORKING_LIMIT_MESSAGE } from "../../lib/working-now.js";
+import { hasWorkingSlot, WORKING_LIMIT, workingLimitMessage } from "../../lib/working-now.js";
 import { TASK_CATEGORIES } from "../../lib/task-categories.js";
 
 export default defineTool({
@@ -17,7 +17,7 @@ export default defineTool({
       .boolean()
       .optional()
       .describe(
-        `True when the user is actively working on this task now (moves it into the "Working on now" section at the top of the UI); false to clear. At most ${WORKING_LIMIT} tasks can be working-on-now at once — clear one first if it's full.`,
+        `True when the user is actively working on this task now (moves it into the "Working on now" section at the top of the UI); false to clear. At most ${WORKING_LIMIT} tasks can be working-on-now at once, and the user can set that cap lower (as low as 1) when they want to focus — clear one first if it's full.`,
       ),
     waiting: z
       .boolean()
@@ -35,9 +35,11 @@ export default defineTool({
     // in_progress and waiting are mutually exclusive: setting one clears the other.
     if (patch.in_progress === true) patch.waiting = false;
     else if (patch.waiting === true) patch.in_progress = false;
-    // Only WORKING_LIMIT things can be "working on now" at a time.
-    if (patch.in_progress === true && !(await hasWorkingSlot(getDb(), id))) {
-      return { success: false as const, message: WORKING_LIMIT_MESSAGE };
+    // Only so many things can be "working on now" at a time — the cap is Berto's
+    // to set from the pinned window, so ask rather than assuming five.
+    const slot = patch.in_progress === true ? await hasWorkingSlot(getDb(), id) : null;
+    if (slot && !slot.allowed) {
+      return { success: false as const, message: workingLimitMessage(slot.limit) };
     }
     // category is explicitly clearable (null), so presence of the key — not
     // truthiness — decides whether we touch the column.

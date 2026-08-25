@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     }
     const estimate = hasEstimate ? Math.trunc(parsedEstimate) : null;
     // A new task can only land in "working on now" if there's a free slot.
-    const startWorking = Boolean(in_progress) && (await hasWorkingSlot(getDb()));
+    const startWorking = Boolean(in_progress) && (await hasWorkingSlot(getDb())).allowed;
     // A task created straight onto the canvas (right-click / "N") already knows where it
     // belongs, so it skips the inbox auto-placement and lands under the cursor.
     const x = Number(canvas_x);

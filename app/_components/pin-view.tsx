@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BotIcon, CalendarClockIcon, CheckIcon, CornerUpRightIcon, MessageSquareIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { BotIcon, CalendarClockIcon, CheckIcon, CornerUpRightIcon, CrosshairIcon, MessageSquareIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,11 +22,15 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
-import { cyclePinCorner, isDesktopApp } from "@/lib/desktop";
+import { cyclePinCorner, isDesktopApp, setPinWindowRows } from "@/lib/desktop";
+import { WORKING_LIMIT_MAX } from "@/lib/working-now";
 import { estimateProgress, formatCountdown, FOLLOW_UP_OPTIONS, isFutureDated, remainingSeconds, type Todo } from "@/lib/todo";
 
-/** How many tasks the pinned window tracks at once — each gets its own timer. */
-const MAX_PINNED = 5;
+/** How many tasks the pinned window tracks at once — each gets its own timer. This
+ *  is Berto's focus dial: five on a normal day, 1 when one thing matters and
+ *  everything else can wait. It's the same number the whole app caps "working on
+ *  now" with (lib/working-now.ts), so narrowing the window narrows the board. */
+const PINNED_LIMITS = [1, 2, 3, 4, 5] as const;
 
 /** Quick adds from the pinned window skip the estimate picker — every task needs one,
  *  so they get the default half-hour and can be re-estimated on the canvas later. */
@@ -55,18 +67,21 @@ function formatTracked(totalSeconds: number) {
   return `${h}h ${m % 60}m`;
 }
 
-/** Compact always-on-top view for pin mode: the (up to five) tasks you're working
- *  on now, each with its own timer — all of them can run at once. */
+/** Compact always-on-top view for pin mode: the tasks you're working on now (up to
+ *  the focus limit, 1–5), each with its own timer — all of them can run at once. */
 export function PinView({ onUnpin }: { onUnpin: () => void }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
   // The last task added from here, kept for a few seconds so the window can say
-  // something if it didn't make today's five — otherwise it looks like nothing happened.
+  // something if it didn't make the cut — otherwise it looks like nothing happened.
   const [lastAddedId, setLastAddedId] = useState<number | null>(null);
   const composerRef = useRef<HTMLInputElement>(null);
   const [now, setNow] = useState(() => Date.now());
+  // How many tasks to hold at once. Starts at the ceiling so the window renders a
+  // full list on first paint, then settles to whatever's saved.
+  const [limit, setLimit] = useState<number>(WORKING_LIMIT_MAX);
   // Only the desktop shell can move the window, and it isn't known during SSR.
   const [desktop, setDesktop] = useState(false);
   useEffect(() => setDesktop(isDesktopApp()), []);
@@ -82,15 +97,48 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     }
   }, []);
 
+  const fetchLimit = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings/working-limit");
+      if (!res.ok) return;
+      const { limit: saved } = await res.json();
+      if (typeof saved === "number") setLimit(saved);
+    } catch {
+      // keep the ceiling
+    }
+  }, []);
+
+  // Changing the limit is a one-liner, but it has to stick server-side: the board,
+  // the API and the agent all read the same number, so a local-only change would
+  // let something else start a sixth task behind Berto's back.
+  const saveLimit = async (next: number) => {
+    const previous = limit;
+    setLimit(next);
+    try {
+      const res = await fetch("/api/settings/working-limit", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: next }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const { limit: saved } = await res.json();
+      if (typeof saved === "number") setLimit(saved);
+    } catch {
+      setLimit(previous);
+      toast.error("Couldn't save that limit.");
+    }
+  };
+
   useEffect(() => {
     fetchTodos();
+    fetchLimit();
     const poll = setInterval(fetchTodos, 60_000);
     window.addEventListener("focus", fetchTodos);
     return () => {
       clearInterval(poll);
       window.removeEventListener("focus", fetchTodos);
     };
-  }, [fetchTodos]);
+  }, [fetchTodos, fetchLimit]);
 
   const anyRunning = todos.some((t) => t.timer_started_at);
   useEffect(() => {
@@ -116,12 +164,20 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
         }
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       })
-      .slice(0, MAX_PINNED);
-  }, [todos]);
+      .slice(0, limit);
+  }, [todos, limit]);
 
   const allRunning = topTasks.length > 0 && topTasks.every((t) => t.timer_started_at);
 
-  // The window only ever shows five, so a fresh task can land behind today's work.
+  // Keep the native window the height of what it's actually showing: dropping the
+  // limit to 1 shrinks the strip rather than leaving four empty rows below.
+  useEffect(() => {
+    if (!desktop) return;
+    setPinWindowRows(limit);
+  }, [desktop, limit]);
+
+  // The window only shows as many as the limit allows, so a fresh task can land
+  // behind today's work.
   const addedOffscreen = lastAddedId !== null && !topTasks.some((t) => t.id === lastAddedId);
   useEffect(() => {
     if (lastAddedId === null) return;
@@ -236,6 +292,32 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-1 shrink-0">
         <span className="text-xs text-muted-foreground truncate">{today}</span>
         <div className="flex items-center gap-0.5 shrink-0">
+          {/* The focus dial. Most days it sits at 5; on a day where one thing
+              matters, drop it to 1 and the window — and the whole board — holds
+              exactly that one task. Lowering it never stops what's already
+              running; it just refuses anything new until you're back under. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label={`Working on ${limit} at a time — change`}
+                title="How many things to work on at once"
+              >
+                <CrosshairIcon className="size-3" />
+                {limit}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuLabel className="text-xs">Work on at once</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={String(limit)} onValueChange={(v) => saveLimit(Number(v))}>
+                {PINNED_LIMITS.map((n) => (
+                  <DropdownMenuRadioItem key={n} value={String(n)} className="text-xs">
+                    {n === 1 ? "1 — just this" : n === WORKING_LIMIT_MAX ? `${n} — full plate` : n}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {topTasks.length > 0 && (
             <button
               onClick={handleToggleAll}
@@ -427,7 +509,7 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       </form>
       {addedOffscreen && (
         <p className="border-t border-border px-2 py-1 text-xs text-muted-foreground shrink-0">
-          Added — it&apos;s waiting behind today&apos;s five.
+          Added — it&apos;s waiting behind {limit === 1 ? "today\u2019s one thing" : `today\u2019s ${limit}`}.
         </p>
       )}
     </div>

@@ -39,3 +39,18 @@ export function focusAppWindow(): void {
     // Browsers may silently ignore this outside a user gesture — fine, best-effort.
   }
 }
+
+/**
+ * Re-fit the pinned window to however many task rows it's holding (1–5). The
+ * focus limit decides that number, so dropping to one thing shrinks the window
+ * to one line instead of leaving four rows of dead space. A no-op in the browser
+ * and on older installed shells that don't have the command yet.
+ */
+export async function setPinWindowRows(rows: number): Promise<void> {
+  const tauri = (window as unknown as { __TAURI__?: TauriGlobal }).__TAURI__;
+  try {
+    await tauri?.core?.invoke("set_pin_rows", { rows: Math.max(1, Math.min(5, Math.round(rows))) });
+  } catch {
+    // Older installed shell without the command — the window just keeps its size.
+  }
+}

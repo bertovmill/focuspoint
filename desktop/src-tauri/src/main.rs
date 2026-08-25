@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{LogicalSize, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
+use tauri::{LogicalSize, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
 
 const APP_URL: &str = "https://cael-agent.vercel.app";
 
@@ -44,15 +44,24 @@ fn top_corners(window: &tauri::WebviewWindow) -> Vec<PhysicalPosition<i32>> {
     corners
 }
 
+/// Height of the pinned window for a given number of task rows: the header and
+/// the quick-add composer are fixed, each row is one line. Five rows is the old
+/// fixed 268px, and a focused day at one row is a strip barely taller than the
+/// title bar.
+fn pin_height(rows: u32) -> f64 {
+    48.0 + f64::from(rows.clamp(1, 5)) * 44.0
+}
+
 // Pin mode: park the window in a top corner, always on top and slightly
-// translucent, sized for the compact top-5 view. Unpinning restores the normal window.
+// translucent, sized for however many rows the pinned view is holding.
+// Unpinning restores the normal window.
 #[tauri::command]
 fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
     let _ = window.set_always_on_top(pinned);
     if pinned {
-        // Five one-line rows plus the header — still barely taller than a toolbar.
-        let _ = window.set_min_size(Some(LogicalSize::new(280.0, 120.0)));
-        let _ = window.set_size(LogicalSize::new(340.0, 268.0));
+        // Rows plus the header — still barely taller than a toolbar.
+        let _ = window.set_min_size(Some(LogicalSize::new(280.0, 92.0)));
+        let _ = window.set_size(LogicalSize::new(340.0, pin_height(5)));
         // Size first, then park — the corner math needs the pinned width.
         if let Some(corner) = top_corners(&window).into_iter().next() {
             let _ = window.set_position(corner);
@@ -64,6 +73,17 @@ fn set_pin_mode(window: tauri::WebviewWindow, pinned: bool) {
         let _ = window.center();
         set_window_alpha(&window, 1.0);
     }
+}
+
+// Re-fit the pinned window to the number of rows it's showing. Called when Berto
+// changes the focus limit (1–5) — the window shrinks to just the work in front of
+// him instead of leaving dead space where the other four rows used to be.
+#[tauri::command]
+fn set_pin_rows(window: tauri::WebviewWindow, rows: u32) {
+    let size = window.outer_size().unwrap_or(PhysicalSize::new(340, 268));
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let width = f64::from(size.width) / scale;
+    let _ = window.set_size(LogicalSize::new(width, pin_height(rows)));
 }
 
 // Hop the pinned window to the next top corner — the other side of this monitor,
@@ -120,7 +140,7 @@ fn main() {
     let app_host = APP_URL.parse::<tauri::Url>().unwrap().host_str().unwrap().to_string();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_pin_mode, cycle_pin_corner, focus_window])
+        .invoke_handler(tauri::generate_handler![set_pin_mode, set_pin_rows, cycle_pin_corner, focus_window])
         .setup(move |app| {
             WebviewWindowBuilder::new(app, "main", WebviewUrl::External(APP_URL.parse().unwrap()))
                 .title("Cael")

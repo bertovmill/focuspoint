@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db";
-import { hasWorkingSlot, WORKING_LIMIT_MESSAGE } from "@/lib/working-now";
+import { hasWorkingSlot, workingLimitMessage } from "@/lib/working-now";
 import { logCompletedTaskToCalendar } from "@/lib/task-calendar";
 import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
 import {
@@ -120,7 +120,8 @@ export async function startTask(id: number | string): Promise<TaskMutation> {
   const existing = await getTask(id);
   if (!existing) return { ok: false, error: "No task with that id." };
   if (existing.completed) return { ok: false, error: "That task is already completed." };
-  if (!(await hasWorkingSlot(sql, id))) return { ok: false, error: WORKING_LIMIT_MESSAGE };
+  const slot = await hasWorkingSlot(sql, id);
+  if (!slot.allowed) return { ok: false, error: workingLimitMessage(slot.limit) };
   const [row] = await sql`
     UPDATE todos
     SET in_progress = TRUE, waiting = FALSE, timer_started_at = COALESCE(timer_started_at, NOW())

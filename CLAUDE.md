@@ -65,6 +65,10 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
 - Eve-specific vars are pulled via `vercel env pull` or set in `.env.local`.
 - `BASIC_AUTH_PASSWORD` — protects the app (cookie-based login page at `/login`). Set in `.env.local` and Vercel production.
 - `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice.
+- `MCP_TOKEN` — shared secret for the MCP server at `/api/mcp`, which exposes the task
+  list to Claude (Claude Code, claude.ai, desktop). Clients send it as
+  `Authorization: Bearer <token>`. Must be set in `.env.local` **and** in Vercel
+  production, or the endpoint 401s.
 
 ## Content / podcast workflow
 

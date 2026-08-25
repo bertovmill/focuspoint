@@ -5169,3 +5169,57 @@ lives in a scope this login isn't a member of. The one manual step is pasting
 `cael-agent` project, on the var named exactly `GITHUB_TOKEN`, then redeploying.
 The check afterwards is a single `POST /api/github/sync` on the live domain: it
 should say `login: rmillaucctus` and `fetched` in the thousands, not 3.
+
+## 2026-08-25 — The task list is exposed to Claude over MCP
+
+Berto wanted Claude to know which tasks are actually in progress, so it can see
+what's in flight instead of asking. Built it as an **MCP server at `/api/mcp`**
+rather than a local skill: one implementation reachable from Claude Code in any
+repo, from claude.ai, and from the desktop app. Uses `mcp-handler`@2 +
+`@modelcontextprotocol/server`@2 (Streamable HTTP, stateless — no Redis).
+
+**Four tools, read plus status changes only.** Creating and deleting tasks stays
+Berto's call in the app; Claude can only move what's already there.
+
+- `list_tasks` — reads any lane: `working_now`, `waiting`, `up_next`, `open`
+  (the default, everything unfinished), `done` (completed *today*), `all`. Each
+  task comes back as a line a model can read without unpacking JSON, plus
+  `structuredContent` for a caller that wants fields.
+- `start_task` — into "working on now" and starts the timer. Refuses past the
+  five-slot `WORKING_LIMIT`, same as the UI.
+- `stop_task` — banks the timer. `move_to` optionally takes it out to `up_next`
+  or `waiting`; omitting it is just a pause.
+- `complete_task` — crosses it off, with the Google Calendar done-block and the
+  repeat-tomorrow copy intact.
+
+**`lib/tasks.ts` is new.** The status operations moved out of the route handlers
+so the MCP tools and the REST API can't drift on what "complete" means — banking
+the running timer, plotting the done-block, rolling a recurring task's due date,
+cloning a one-off for tomorrow. `/api/todos/[id]/complete` now delegates to it
+and behaves identically (checked both paths against the live DB).
+
+**Auth is a shared secret, and it has to be checked twice.** `MCP_TOKEN`, verified
+in constant time by the route via `withMcpAuth`, *and* allow-listed in
+`middleware.ts` on the same header — the session gate 401s every `/api/*` request
+before the route sees it, exactly like `CRON_SECRET` already had to be. The public
+host still 404s `/api/*`, so this only exists on cael.bertomill.com.
+
+Verified on :3789 against the live database: unauthenticated and wrong-token
+requests 401; `tools/list` returns all four; `list_tasks` read the real lanes
+(4 in working now, real up-next queue); a throwaway task went start → pause →
+waiting → complete with the row and the calendar event correct at every step;
+both complete paths exercised; seeds deleted afterwards (0 left). `npm run
+typecheck` clean.
+
+Registered on this machine at user scope:
+`claude mcp add --transport http --scope user focuspoint https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"`
+
+**One manual step left, and it's the same wall as the GitHub token.** Production
+has no `MCP_TOKEN`, so `https://cael.bertomill.com/api/mcp` answers 401 — confirmed
+after the deploy. `vercel env add` fails the same way it did last time ("Could not
+retrieve Project Settings" under every scope, including `aucctus`): this CLI login
+isn't a member of the scope that owns `prj_RTIFlE60WgJ8xOWV9pq6lZf5ATou`. Nobody
+should retry it. Paste `.env.local`'s `MCP_TOKEN` into the **Production**
+environment of the `cael-agent` project and redeploy. The check afterwards is one
+line — `tools/list` against the live URL with that bearer token should return the
+four tools instead of `{"ok":false,"error":"Unauthorized"}`.

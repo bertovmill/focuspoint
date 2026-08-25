@@ -18,9 +18,15 @@ import { WORKING_LIMIT } from "@/lib/working-now";
 // honest while it works. Read plus status changes only: no creating or deleting
 // tasks from here, that stays a decision Berto makes in the app.
 //
+// Registered as "cael", because that is what Berto calls this agent — the tools
+// end up as mcp__cael__list_tasks and so on. Every description below says both
+// "Cael" and "real"/"actual", on purpose: Claude Code ships its own per-session
+// task scratchpad (TaskList/TaskCreate), and a session asked "what are my tasks"
+// will otherwise answer from that empty list instead of from this board.
+//
 // Connect with:
-//   claude mcp add --transport http --scope user focuspoint \
-//     https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $FOCUSPOINT_MCP_TOKEN"
+//   claude mcp add --transport http --scope user cael \
+//     https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"
 
 export const maxDuration = 60;
 
@@ -84,7 +90,11 @@ const handler = createMcpHandler(
       {
         title: "List tasks",
         description:
-          "Berto's task list from focuspoint. Every task sits in one of three lanes: " +
+          "Berto's REAL task list — the live board in Cael (focuspoint), the one he actually " +
+          "works from. This is the answer to 'what am I working on', 'what's on my plate' or " +
+          "'what does Cael say I'm doing', in any repo and any session. It is NOT the same as " +
+          "the per-session task scratchpad Claude Code keeps; prefer this one for Berto's own " +
+          "work. Every task sits in one of three lanes: " +
           `'working_now' (in progress right now, capped at ${WORKING_LIMIT}), 'waiting' (blocked on ` +
           "someone else), and 'up_next' (everything else that isn't finished). Call this " +
           "before starting work so you know what's already in flight.",
@@ -112,9 +122,9 @@ const handler = createMcpHandler(
       {
         title: "Start working on a task",
         description:
-          "Move a task into 'working now' and start its timer. Use this when Berto starts " +
-          `the work, so the board and the time log stay true. Only ${WORKING_LIMIT} tasks can be ` +
-          "in progress at once — starting a sixth is refused.",
+          "Move a task on Berto's real board in Cael into 'working now' and start its timer. " +
+          `Use this when he starts the work, so the board and the time log stay true. Only ${WORKING_LIMIT} ` +
+          "tasks can be in progress at once — starting a sixth is refused.",
         inputSchema: z.object({ id: z.number().int().describe("Task id, as shown by list_tasks.") }),
       },
       async ({ id }) => {
@@ -129,9 +139,9 @@ const handler = createMcpHandler(
       {
         title: "Stop a task's timer",
         description:
-          "Stop the timer on a task and bank the time spent. By default the task stays in " +
-          "'working now' (a pause). Pass move_to to also take it out: 'up_next' to put it back " +
-          "in the queue, or 'waiting' when it's blocked on someone else.",
+          "Stop the timer on a task on Berto's real board in Cael and bank the time spent. By " +
+          "default the task stays in 'working now' (a pause). Pass move_to to also take it out: " +
+          "'up_next' to put it back in the queue, or 'waiting' when it's blocked on someone else.",
         inputSchema: z.object({
           id: z.number().int().describe("Task id, as shown by list_tasks."),
           move_to: z
@@ -157,9 +167,9 @@ const handler = createMcpHandler(
       {
         title: "Complete a task",
         description:
-          "Cross a task off. Banks any running timer and writes a done-block onto Berto's " +
-          "Google Calendar so the week can be audited. Only call this once the work is " +
-          "actually finished and verified — never to tidy the list up.",
+          "Cross a task off Berto's real board in Cael. Banks any running timer and writes a " +
+          "done-block onto his Google Calendar so the week can be audited. Only call this once " +
+          "the work is actually finished and verified — never to tidy the list up.",
         inputSchema: z.object({
           id: z.number().int().describe("Task id, as shown by list_tasks."),
           repeat: z
@@ -187,11 +197,13 @@ const handler = createMcpHandler(
     );
   },
   {
-    serverInfo: { name: "focuspoint-tasks", version: "1.0.0" },
+    serverInfo: { name: "cael", version: "1.1.0" },
     instructions:
-      "Berto's task list. Call list_tasks to see what's in flight before starting work, " +
-      "start_task when he begins something, stop_task to pause or hand it off, and " +
-      "complete_task only when the work is genuinely done.",
+      "Cael — Berto's life agent. These tools read and move his REAL task board, the one he " +
+      "works from every day; they are not Claude Code's per-session task scratchpad, and when " +
+      "he asks what he is working on, this is the list he means. Call list_tasks to see what's " +
+      "in flight before starting work, start_task when he begins something, stop_task to pause " +
+      "or hand it off, and complete_task only when the work is genuinely done.",
   },
 );
 

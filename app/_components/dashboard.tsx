@@ -237,7 +237,12 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // Only run the clock while something is actually timing — no point ticking otherwise.
   useEffect(() => {
     if (!todos.some((t) => t.timer_started_at)) return;
-    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    const id = setInterval(() => {
+      // A card mid-drag sets this. Re-rendering every card and lane under the cursor
+      // costs a frame, and a countdown that resumes a second late costs nothing.
+      if (document.body.dataset.draggingCard) return;
+      setNowTick(Date.now());
+    }, 1000);
     return () => clearInterval(id);
   }, [todos]);
 

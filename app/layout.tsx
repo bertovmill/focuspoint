@@ -33,7 +33,9 @@ export const metadata: Metadata = {
   description: "Your personal guide — boundless perspective, clarity on what matters, and a clear path toward your dreams.",
   icons: {
     icon: "/icon.svg",
-    apple: "/icon.svg",
+    // Safari ignores SVG for apple-touch-icon, so the home-screen icon is a real
+    // 180px PNG rendered from the same source.
+    apple: "/apple-icon.png",
   },
 };
 

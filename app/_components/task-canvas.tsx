@@ -17,6 +17,7 @@ import {
   RepeatIcon,
   TargetIcon,
   TrashIcon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ExcalidrawImperativeAPI, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -195,6 +196,17 @@ export function TaskCanvas({
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+
+  // Marquee selection. Dragging a box across empty canvas selects every card it touches,
+  // and the selection is then something you act on as one thing: drag it, colour it,
+  // finish it, bin it. Mirrored into a ref so the pointer handlers (bound once) can read
+  // it without being rebuilt on every selection change.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const selectedRef = useRef<ReadonlySet<number>>(selectedIds);
+  const setSelection = useCallback((next: ReadonlySet<number>) => {
+    selectedRef.current = next;
+    setSelectedIds(next);
+  }, []);
 
   // Lane open/closed lives here, not in the lane, because the canvas toolbar has to
   // shift out of its way. Starts closed and is corrected from localStorage on mount,
@@ -388,6 +400,126 @@ export function TaskCanvas({
     return () => layer.removeEventListener("wheel", onWheel);
   }, [cardHost]);
 
+  // ------------------------------------------------------------------ selection
+
+  // Every card's rectangle in scene units. The layer lays cards out at raw scene
+  // coordinates and only the *layer* is scaled, so offsetLeft/Top/Height are already in
+  // the same frame as Excalidraw's selection box — no conversion needed, and the height
+  // is the real wrapped height rather than an estimate.
+  const cardSceneRects = useCallback(() => {
+    const layer = layerRef.current;
+    if (!layer) return [];
+    return Array.from(layer.querySelectorAll<HTMLElement>("[data-task-card]")).map((el) => ({
+      id: Number(el.dataset.taskCard),
+      x: el.offsetLeft,
+      y: el.offsetTop,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+    }));
+  }, []);
+
+  // We don't draw our own rubber band: Excalidraw is already drawing one for its own
+  // shapes, and it publishes the in-progress box as appState.selectionElement. Reading
+  // that means one drag selects drawings and cards together, and it also tells us when a
+  // drag *isn't* a box-select (dragging a shape, panning) — selectionElement is null.
+  useEffect(() => {
+    const host = cardHost;
+    if (!host || !api) return;
+    let base: ReadonlySet<number> | null = null;
+    let frame: number | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      // Only presses that land on the bare canvas start a marquee — cards, the toolbar
+      // and our own popovers keep their clicks.
+      if ((e.target as HTMLElement).tagName !== "CANVAS") return;
+      base = e.shiftKey ? selectedRef.current : new Set<number>();
+      // A plain click on empty canvas is also how you let go of a selection.
+      if (!e.shiftKey && selectedRef.current.size > 0) setSelection(new Set());
+    };
+
+    const onPointerMove = () => {
+      if (base === null || frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        if (base === null) return;
+        const box = api.getAppState().selectionElement;
+        if (!box) return;
+        const x1 = Math.min(box.x, box.x + box.width);
+        const x2 = Math.max(box.x, box.x + box.width);
+        const y1 = Math.min(box.y, box.y + box.height);
+        const y2 = Math.max(box.y, box.y + box.height);
+        // Touched, not enclosed — same rule Excalidraw uses for its own shapes.
+        const next = new Set(base);
+        for (const r of cardSceneRects()) {
+          if (r.x < x2 && r.x + r.w > x1 && r.y < y2 && r.y + r.h > y1) next.add(r.id);
+        }
+        if (next.size !== selectedRef.current.size || [...next].some((id) => !selectedRef.current.has(id))) {
+          setSelection(next);
+        }
+      });
+    };
+
+    const onPointerUp = () => {
+      base = null;
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null;
+    };
+
+    host.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      host.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [api, cardHost, cardSceneRects, setSelection]);
+
+  // Escape drops the selection, the same key that closes everything else on the board.
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelection(new Set());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIds, setSelection]);
+
+  // Cards that have left the board (checked off, deleted, dragged into a lane) shouldn't
+  // linger in the selection and keep the action bar claiming a bigger count than you see.
+  useEffect(() => {
+    const live = new Set(canvasTodos.map((t) => t.id));
+    const stale = [...selectedRef.current].some((id) => !live.has(id));
+    if (stale) setSelection(new Set([...selectedRef.current].filter((id) => live.has(id))));
+  }, [canvasTodos, setSelection]);
+
+  // Everything the action bar does, it does to the whole selection and then lets go of
+  // it — the selection has served its purpose once you've acted on it.
+  const bulkUpdate = useCallback(
+    (patch: Partial<Todo>) => {
+      for (const id of selectedRef.current) onUpdate(id, patch);
+    },
+    [onUpdate],
+  );
+
+  const bulkComplete = useCallback(() => {
+    for (const id of selectedRef.current) onComplete(id);
+    setSelection(new Set());
+  }, [onComplete, setSelection]);
+
+  const bulkDelete = useCallback(() => {
+    const ids = [...selectedRef.current];
+    // Deleting a boardful of cards in one click is the one thing here that can't be
+    // undone, so it asks first.
+    if (!window.confirm(`Delete ${ids.length} tasks?`)) return;
+    for (const id of ids) onDelete(id);
+    setSelection(new Set());
+  }, [onDelete, setSelection]);
+
   // --------------------------------------------------------------- card placement
 
   // Tasks that have never been placed get dropped down the inbox column, below
@@ -443,18 +575,18 @@ export function TaskCanvas({
   // state per pointermove, since that re-rendered the whole dashboard (every card, every
   // lane) on each frame and the card visibly trailed the cursor. State catches up once,
   // on drop.
+  // `group` is every card the drag is carrying: just the grabbed one normally, or the
+  // whole marquee selection when you grab a card that belongs to it.
   const dragRef = useRef<{
     id: number;
     el: HTMLElement;
+    group: { id: number; el: HTMLElement; originX: number; originY: number }[];
     startX: number;
     startY: number;
     originX: number;
     originY: number;
     onTitle: boolean;
     moved: boolean;
-    dx: number;
-    dy: number;
-    frame: number | null;
   } | null>(null);
 
   const handleCardPointerDown = useCallback(
@@ -465,50 +597,66 @@ export function TaskCanvas({
       e.stopPropagation();
       const el = e.currentTarget as HTMLElement;
       el.setPointerCapture(e.pointerId);
+      // Grabbing a card from outside the selection means you've moved on from it.
+      const selected = selectedRef.current;
+      if (!selected.has(todo.id) && selected.size > 0) setSelection(new Set());
+      const layer = layerRef.current;
       dragRef.current = {
         id: todo.id,
         el,
+        group:
+          selected.has(todo.id) && selected.size > 1 && layer
+            ? [...selected].flatMap((id) => {
+                const node = layer.querySelector<HTMLElement>(`[data-task-card="${id}"]`);
+                const t = todosRef.current.find((x) => x.id === id);
+                return node && t ? [{ id, el: node, originX: t.canvas_x ?? 0, originY: t.canvas_y ?? 0 }] : [];
+              })
+            : [{ id: todo.id, el, originX: todo.canvas_x ?? 0, originY: todo.canvas_y ?? 0 }],
         startX: e.clientX,
         startY: e.clientY,
         originX: todo.canvas_x ?? 0,
         originY: todo.canvas_y ?? 0,
         onTitle: Boolean((e.target as HTMLElement).closest("[data-card-title]")),
         moved: false,
-        dx: 0,
-        dy: 0,
-        frame: null,
       };
     },
-    [],
+    [setSelection],
   );
 
   const handleCardPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current;
       if (!drag) return;
+      // Excalidraw sits underneath and does its own hover hit-testing on every
+      // pointermove it sees. While a card is in hand, that work is pure jank — keep the
+      // move to ourselves.
+      e.stopPropagation();
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
       if (!drag.moved && Math.abs(dx) < DRAG_SLOP && Math.abs(dy) < DRAG_SLOP) return;
       if (!drag.moved) {
         drag.moved = true;
-        // Take the card out of the shared 500ms transition and onto its own layer for
-        // the duration of the drag, so it tracks the cursor exactly.
-        drag.el.style.transition = "none";
-        drag.el.style.willChange = "transform";
-        drag.el.style.zIndex = "2";
+        // Take the cards out of the shared 500ms transition and onto their own compositor
+        // layer for the duration of the drag, so they track the cursor exactly.
+        for (const g of drag.group) {
+          g.el.style.transition = "none";
+          g.el.style.willChange = "transform";
+          g.el.style.zIndex = "2";
+          // backdrop-blur re-reads and re-blurs whatever is behind the card at every new
+          // position — the single most expensive thing about moving this element. The card
+          // is bg-card/95 anyway, so dropping it mid-drag is invisible and buys the frames.
+          g.el.style.backdropFilter = "none";
+        }
+        // Pause the dashboard's 1s clock tick: a re-render of every card and lane lands
+        // as a dropped frame right under the cursor.
+        document.body.dataset.draggingCard = "1";
       }
-      drag.dx = dx;
-      drag.dy = dy;
-      // One write per frame — pointermove fires far more often than the display refreshes.
-      if (drag.frame === null) {
-        drag.frame = requestAnimationFrame(() => {
-          const d = dragRef.current;
-          if (!d) return;
-          d.frame = null;
-          const { zoom } = viewRef.current;
-          d.el.style.transform = `translate3d(${d.dx / zoom}px, ${d.dy / zoom}px, 0)`;
-        });
-      }
+      // Written straight through rather than batched into a rAF: pointermove is already
+      // delivered once per frame, and deferring it put the card a frame behind the
+      // cursor. `transform` alone doesn't invalidate layout, so extra writes are cheap.
+      const { zoom } = viewRef.current;
+      const transform = `translate3d(${dx / zoom}px, ${dy / zoom}px, 0)`;
+      for (const g of drag.group) g.el.style.transform = transform;
     },
     [],
   );
@@ -518,7 +666,7 @@ export function TaskCanvas({
       const drag = dragRef.current;
       if (!drag) return;
       dragRef.current = null;
-      if (drag.frame !== null) cancelAnimationFrame(drag.frame);
+      delete document.body.dataset.draggingCard;
       if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       }
@@ -532,20 +680,30 @@ export function TaskCanvas({
         return;
       }
       const { zoom } = viewRef.current;
-      const x = drag.originX + (e.clientX - drag.startX) / zoom;
-      const y = drag.originY + (e.clientY - drag.startY) / zoom;
-      // Hand the offset back to left/top in the same tick the transform is cleared, so
-      // the card stays exactly where it was let go.
-      drag.el.style.transform = "";
-      drag.el.style.transition = "";
-      drag.el.style.willChange = "";
-      drag.el.style.zIndex = "";
-      onLocalPatch(drag.id, { canvas_x: x, canvas_y: y });
-      fetch(`/api/todos/${drag.id}/position`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x, y }),
-      }).catch(() => toast.error("Couldn't save card position."));
+      const dropX = (e.clientX - drag.startX) / zoom;
+      const dropY = (e.clientY - drag.startY) / zoom;
+      // One toast for the drop, however many cards it carried.
+      let failed = false;
+      for (const g of drag.group) {
+        const x = g.originX + dropX;
+        const y = g.originY + dropY;
+        // Hand the offset back to left/top in the same tick the transform is cleared, so
+        // each card stays exactly where it was let go.
+        g.el.style.transform = "";
+        g.el.style.transition = "";
+        g.el.style.willChange = "";
+        g.el.style.zIndex = "";
+        g.el.style.backdropFilter = "";
+        onLocalPatch(g.id, { canvas_x: x, canvas_y: y });
+        fetch(`/api/todos/${g.id}/position`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ x, y }),
+        }).catch(() => {
+          if (!failed) toast.error("Couldn't save card position.");
+          failed = true;
+        });
+      }
     },
     [onLocalPatch],
   );
@@ -799,6 +957,7 @@ export function TaskCanvas({
 
   const cards = canvasTodos.map((todo) => {
     const done = isDoneToday(todo) || completingIds.has(todo.id);
+    const selected = selectedIds.has(todo.id);
     const running = Boolean(todo.timer_started_at);
     const remaining = remainingSeconds(todo, nowTick);
     const overdue = remaining !== null && remaining < 0;
@@ -819,6 +978,9 @@ export function TaskCanvas({
           top: todo.canvas_y ?? 0,
           width: CARD_W,
           pointerEvents: drawing ? "none" : "auto",
+          // Without this the browser claims a touch drag as a pan/scroll gesture and
+          // fires pointercancel a few pixels in, so cards feel like they slip.
+          touchAction: "none",
         }}
         className={cn(
           // Deliberately not `transition-all`: left/top must never animate, or a dropped
@@ -831,6 +993,9 @@ export function TaskCanvas({
           todo.in_progress && !done && "ring-1 ring-primary/25",
           todo.in_progress && !done && !todo.color && "border-primary/60",
           todo.waiting && !todo.in_progress && !done && !todo.color && "border-slate-400/70 dark:border-slate-400/50",
+          // Marquee selection. A solid ring beats a tint here: it reads the same on every
+          // card colour, and it stacks with the softer "working on now" ring above.
+          selected && !done && "ring-2 ring-primary ring-offset-1 ring-offset-background",
           // Checked off: fade and shrink away over the window the parent holds the card
           // open for, so it visibly leaves rather than blinking out.
           done && "scale-95 opacity-0",
@@ -1209,6 +1374,67 @@ export function TaskCanvas({
             <PlusIcon className="size-3.5" />
             New task here
             <kbd className="ml-auto rounded border px-1 text-[10px] text-muted-foreground">N</kbd>
+          </button>
+        </div>
+      )}
+
+      {/* What a multi-selection is *for*: the handful of edits worth making to a stack of
+          cards at once. Anything more particular stays on the single-card right-click
+          menu. Sits bottom-centre, clear of Excalidraw's zoom controls (bottom left). */}
+      {selectedIds.size > 1 && (
+        <div className="absolute bottom-4 left-1/2 z-[7] flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-popover/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm">
+          <span className="px-1 text-xs font-medium tabular-nums">{selectedIds.size} selected</span>
+          <span className="h-4 w-px bg-border" />
+          {CARD_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              title={CARD_COLOR_LABELS[c]}
+              aria-label={`Colour ${selectedIds.size} tasks ${CARD_COLOR_LABELS[c]}`}
+              onClick={() => bulkUpdate({ color: c as CardColor })}
+              className={cn("size-4 shrink-0 rounded-full border border-black/10", CARD_COLOR_SWATCH_CLASSES[c])}
+            />
+          ))}
+          <button
+            type="button"
+            title="No colour"
+            aria-label={`Clear the colour on ${selectedIds.size} tasks`}
+            onClick={() => bulkUpdate({ color: null })}
+            className="size-4 shrink-0 rounded-full border border-border bg-card"
+          />
+          <span className="h-4 w-px bg-border" />
+          {PRIORITIES.map((pr) => (
+            <button
+              key={pr}
+              type="button"
+              title={`Priority: ${pr}`}
+              aria-label={`Set ${selectedIds.size} tasks to ${pr} priority`}
+              onClick={() => bulkUpdate({ priority: pr })}
+              className={cn("size-2.5 shrink-0 rounded-full ring-offset-1 hover:ring-1 hover:ring-ring", PRIORITY_DOT[pr])}
+            />
+          ))}
+          <span className="h-4 w-px bg-border" />
+          <Button size="sm" variant="secondary" className="h-6 gap-1 px-2 text-[11px]" onClick={bulkComplete}>
+            <CheckIcon className="size-3" />
+            Complete
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 px-2 text-[11px] text-priority-urgent hover:text-priority-urgent"
+            onClick={bulkDelete}
+          >
+            <TrashIcon className="size-3" />
+            Delete
+          </Button>
+          <button
+            type="button"
+            aria-label="Clear selection"
+            title="Clear selection (Esc)"
+            onClick={() => setSelection(new Set())}
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <XIcon className="size-3.5" />
           </button>
         </div>
       )}

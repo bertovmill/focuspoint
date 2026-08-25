@@ -4,6 +4,48 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-25 — Making the card drag pixel-exact
+
+**Ask:** *"the dragging of the cards on my todo board is not pixel perfect or smooth.
+can we make it so?"*
+
+The drag was already imperative (transform written straight to the card's style, no
+React state per move), but four things were still costing frames and precision:
+
+1. **A frame of lag from the rAF batch.** Each `pointermove` scheduled a
+   `requestAnimationFrame` to write the transform, which put the card one frame behind
+   the cursor. Browsers already coalesce `pointermove` to roughly one per frame, and a
+   `transform`-only write doesn't invalidate layout, so the write now happens straight
+   through in the handler. The card sits exactly under the grab point.
+2. **Excalidraw doing hover hit-testing under the card.** `pointermove` bubbled from the
+   card into the canvas host, so every move ran Excalidraw's own pointer work as well.
+   The move is now `stopPropagation()`-ed while a drag is live.
+3. **`backdrop-blur` re-blurring the backdrop every frame.** The card is `bg-card/95`,
+   so the blur is barely visible — but at each new position the compositor re-read and
+   re-blurred what was behind it. `backdropFilter: none` for the duration of the drag,
+   restored on drop.
+4. **The dashboard's 1s clock re-rendering every card mid-drag.** The countdown tick
+   fired a full dashboard re-render once a second, landing as a dropped frame right
+   under the cursor. The drag now sets `document.body.dataset.draggingCard` and the
+   interval skips its `setNowTick` while that's set; the countdown resumes a second
+   later, which costs nothing.
+
+Also added `touchAction: "none"` to the card — without it a touch drag gets claimed by
+the browser as a pan gesture and fires `pointercancel` a few pixels in, so cards felt
+like they slipped out of your finger.
+
+**Files:** `app/_components/task-canvas.tsx` (drag handlers + card style),
+`app/_components/dashboard.tsx` (clock tick).
+
+**Verified** in Playwright against a local dev server: over a 40-step drag the card's
+box tracked the pointer with **zero pixel offset** at every sample, the inline
+`transform`/`transition`/`willChange`/`zIndex`/`backdropFilter` were all cleared on
+drop, `left`/`top` landed on the exact drop point, and the position persisted to the
+API. Click-to-edit on the title (a press that never moved) still opens the editor.
+Test cards were deleted afterwards.
+
+---
+
 ## 2026-08-25 — Adding a task without unpinning
 
 **Ask:** *"from this pinned view, can we also add tasks, they dont need to be

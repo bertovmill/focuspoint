@@ -4,6 +4,52 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-25 — A new app icon: Cael's orb, on palette
+
+**Ask:** *"can we change the icon of this app and favicon to something better than
+the thing we have now? lets align to the color coating we have now"*
+
+The old `public/icon.svg` was an abstract "focus point" mark — four corner brackets,
+a crosshair and a centre dot, all `#f2f2f5` on a near-black tile. Two problems: it
+said nothing about Cael, and it used no colour from the app at all.
+
+The new mark is Cael as a character — a terracotta orb with two eyes and a smile on a
+near-black rounded tile:
+
+- **Orb** — a radial gradient `#e8926f → #db7a58 → #a94e31`, i.e. the `--primary`
+  terracotta lit from the top left. `--primary` is `oklch(0.68 0.13 40)` in dark mode
+  and `oklch(0.55 0.13 38)` in light; the gradient spans roughly that range.
+- **Tile** — `#14100f → #080807`, a hair warm rather than pure black, with `rx=108`
+  (the standard iOS squircle ratio at 512).
+- **Halo** — one feathered radial at 16%→0% opacity. The first pass stacked two flat
+  discs at 7% and 9%; even that faint, the step between them was visible on a 512px
+  render. A single gradient is the fix.
+- **Face** — eyes and smile in `#fff5f0`, proportions taken from the orb character in
+  `public/cael-avatar.json`.
+
+Checked at 180 / 64 / 32 / 16 px on grey, black and near-white grounds. At 16px the
+brackets-and-crosshair mark used to dissolve into grey mush; the orb still reads as a
+warm dot with a face.
+
+**Apple touch icon.** `metadata.icons.apple` pointed at `/icon.svg`, which Safari
+ignores — apple-touch-icon has never supported SVG, so the home-screen icon was
+falling back to a screenshot of the page. Added `public/apple-icon.png`, a 180×180
+render of the same SVG, and pointed `apple` at it. No passthrough change was needed:
+`isPublicAsset()` in `lib/public-site.ts` already matches top-level `.png`.
+
+**Left alone:** `public/cael-avatar.json` is dead. `app/_components/cael-avatar.tsx`
+was rewritten at some point into a pixel-art purple wizard and no longer loads the
+Lottie file, so the orb character now lives only in the icon. Worth knowing that the
+in-app avatar (purple `#7C3AED`) and the icon (terracotta) don't match each other —
+that's a pre-existing split, not something this change introduced.
+
+**Files changed:** `public/icon.svg`, `public/apple-icon.png` (new), `app/layout.tsx`
+
+**Next steps:** if the purple wizard should come onto the palette too, that's a
+separate pass over `cael-avatar.tsx`.
+
+---
+
 ## 2026-08-25 — Making the card drag pixel-exact
 
 **Ask:** *"the dragging of the cards on my todo board is not pixel perfect or smooth.

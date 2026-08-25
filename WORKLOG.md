@@ -5223,3 +5223,43 @@ should retry it. Paste `.env.local`'s `MCP_TOKEN` into the **Production**
 environment of the `cael-agent` project and redeploy. The check afterwards is one
 line — `tools/list` against the live URL with that bearer token should return the
 four tools instead of `{"ok":false,"error":"Unauthorized"}`.
+
+## 2026-08-25 (later) — Production `MCP_TOKEN` is set; the "no programmatic path" wall was a team-membership problem
+
+The last entry said nobody should retry `vercel env add` because the CLI login
+isn't in the scope that owns `cael-agent`. That was true but incomplete, and the
+fix was one click. Berto added **rmill@aucctus.com** to **bertmill19s-projects**
+and the whole thing opened up.
+
+What the CLI errors actually meant, so no future session re-derives this:
+
+- `vercel whoami` → "Not authorized" is a **scope** mismatch, not an expired
+  token. `auth.json`'s `expiresAt` was 8 hours out. `config.json`'s `currentTeam`
+  pointed at a team the API rejects for that call.
+- `--scope` wants the team **slug** (`bertmill19s-projects`). The `team_…` id is
+  refused as "The specified scope does not exist" — which reads like the team
+  doesn't exist rather than like a bad argument format.
+- Membership alone wasn't enough: as **DEVELOPER** the API answered "Additional
+  permissions are required to create production environment variables" — read
+  everything, write preview, refused production. Berto made the account OWNER.
+
+`MCP_TOKEN` is now set on **production only**, type `sensitive`
+(`id=kw307P8Q7hj7yma8`), and production was redeployed to pick it up
+(`dpl_GZoKE3XvGzKdSXTuo4wQoSJvqcQ5`, READY). Confirmed live:
+`tools/list` against `https://cael.bertomill.com/api/mcp` returns all four tools,
+a wrong token 401s, `https://bertomill.com/api/mcp` 404s, and `list_tasks` read
+the real board (3 working now, the real up-next queue). `claude mcp list` shows
+`focuspoint … ✔ Connected`.
+
+**Also settled while in there — `cael-agent` really is the live project.** It owns
+cael.bertomill.com, bertomill.com and www.bertomill.com, and commits `a37eec0` /
+`1d3b4af` had already deployed to production on their own, so the git integration
+is working.
+
+**And a correction to the GITHUB_TOKEN entry above.** Production doesn't hold a
+*badly scoped* `GITHUB_TOKEN` — it holds **none at all**. The var exists only on
+**preview**, and there are no team-level shared env vars supplying it. Same shape
+for `BASIC_AUTH_PASSWORD` and `ELEVEN_LABS_API_KEY`: preview/development only,
+nothing on production. Whatever the nightly sync authenticates as, it isn't coming
+from a production project env var. Not fixed here — Berto hasn't asked for it —
+but it's now a one-command fix rather than a dashboard errand.

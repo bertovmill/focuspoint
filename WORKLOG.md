@@ -4,6 +4,50 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-25 — Marquee-select cards on the task board
+
+**Ask:** *"on my task board, when i click and drag over multiple cards, can we have
+them all selected please?"*
+
+Dragging a box across empty canvas now selects every task card it touches, and the
+selection is something you act on as one thing.
+
+**How the marquee works.** We don't draw our own rubber band. Excalidraw is already
+drawing one for its own shapes and publishes the in-progress box as
+`appState.selectionElement`, so `task-canvas.tsx` reads that on each pointermove
+(throttled to a rAF) and hit-tests the cards against it. Two things fall out for free:
+one drag selects drawings *and* cards together, and a null `selectionElement` tells us
+the drag isn't a box-select at all (dragging a shape, panning) so we stay out of it.
+Card rectangles come straight from the DOM (`offsetLeft/Top/Width/Height` on
+`[data-task-card]`) — the layer lays cards out at raw scene coordinates and only the
+*layer* is scaled, so those numbers are already in Excalidraw's frame, and the height
+is the real wrapped height rather than the placement estimate. Touched, not enclosed —
+the same rule Excalidraw uses. Shift keeps the existing selection; a plain click on
+empty canvas, or Escape, drops it.
+
+**Group drag.** `dragRef` grew a `group`: the grabbed card normally, the whole
+selection when the grabbed card belongs to it. Every card in the group gets the same
+`translate3d` per pointermove and its own position POST on drop (one error toast for
+the drop, however many cards it carried). Grabbing a card from *outside* the selection
+clears it.
+
+**Action bar.** With more than one card selected, a pill appears bottom-centre (clear
+of Excalidraw's zoom controls): *N selected* · the four card colours + "no colour" ·
+the four priority dots · Complete · Delete · ✕. Colour and priority apply and leave the
+selection standing; Complete and Delete consume it. Delete asks first — it's the one
+thing here that can't be undone. Anything more particular stays on the single-card
+right-click menu.
+
+**Files:** `app/_components/task-canvas.tsx`.
+
+**Verified** in the running app with Playwright: a marquee over three seeded cards rang
+all three and showed "3 selected"; dragging one moved all three by the same delta and
+all three positions persisted server-side, with no other card touched; the bar's colour
+swatch and priority dot wrote to all selected cards, and Complete took them off the
+board. Seeded tasks deleted afterwards.
+
+---
+
 ## 2026-08-25 — A new app icon: Cael's orb, on palette
 
 **Ask:** *"can we change the icon of this app and favicon to something better than

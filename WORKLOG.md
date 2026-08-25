@@ -5263,3 +5263,36 @@ for `BASIC_AUTH_PASSWORD` and `ELEVEN_LABS_API_KEY`: preview/development only,
 nothing on production. Whatever the nightly sync authenticates as, it isn't coming
 from a production project env var. Not fixed here — Berto hasn't asked for it —
 but it's now a one-command fix rather than a dashboard errand.
+
+## 2026-08-25 (later still) — The MCP server is called `cael`, and sessions are told which task list is the real one
+
+Berto asked the right question: would a fresh session in some other repo actually
+know to use this? No — two gaps, both now closed.
+
+**The word "Cael" appeared nowhere in it.** The server was registered as
+`focuspoint`, the tools were `list_tasks`/`start_task`, and no description
+mentioned Cael. Asking "what does Cael say I'm working on" had nothing to match
+on. Re-registered at user scope as **`cael`** (tools now read
+`mcp__cael__list_tasks`), `serverInfo.name` is `cael`, and every tool description
+names Cael.
+
+**Worse, there was a silent collision.** Claude Code ships its own per-session
+task scratchpad (`TaskList`/`TaskCreate`). A session asked "what are my tasks"
+could answer from *that*, find it empty, and report an empty board — which looks
+like Berto has nothing on, not like the wrong list was read. Every tool
+description and the server `instructions` now say explicitly that this is the
+real board and is *not* that scratchpad.
+
+Added to the **global** `~/.claude/CLAUDE.md` (not the project one — this has to
+apply in every repo): read the task list from the `cael` MCP server, never from
+the built-in task tools, and the write tools may keep the board honest but must
+never create or delete a task.
+
+Verified after deploy (`4b9a891`): `initialize` on the live URL reports
+`serverInfo {"name":"cael","version":"1.1.0"}` with the new instructions, and
+`claude mcp list` shows `cael … ✔ Connected` from outside the repo.
+
+**Not done, deliberately.** claude.ai and the mobile app can't use this yet:
+their custom-connector UI expects OAuth and can't send a bearer header. Adding
+an OAuth flow to `/api/mcp` is contained work if Berto ever wants the board on
+his phone. Claude Desktop *can* take it as-is and hasn't been set up.

@@ -92,6 +92,18 @@ async function handle(request: NextRequest, auth: AuthResolver | null): Promise<
     return NextResponse.next();
   }
 
+  // The MCP server, which Claude reaches with a bearer token instead of a session
+  // cookie. Let the route through on a matching header and let it do the real
+  // verification — this gate only decides whether the request is worth routing.
+  const mcpToken = process.env.MCP_TOKEN;
+  if (
+    pathname.startsWith("/api/mcp") &&
+    mcpToken &&
+    request.headers.get("authorization") === `Bearer ${mcpToken}`
+  ) {
+    return NextResponse.next();
+  }
+
   // 1. A Clerk session. Signing in is open to anyone, but only the owner gets in:
   //    everyone else holds an account and is shown the door, politely.
   if (auth) {

@@ -286,10 +286,15 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     fetchTodos();
   };
 
-  // "Remove from pinned": the task stops being featured here and the next one moves
-  // up. Nothing else about it changes — same lane, same priority, still on the board —
-  // beyond giving up its working-now slot and stopping its timer, which are the two
-  // things this window is for. Starting it again brings it back.
+  // "Remove from pinned": the task stops being featured here, and the window holds
+  // one *fewer* thing rather than pulling the next task up — taking something off
+  // the list is a decision to carry less, not a request for a replacement. So the
+  // focus dial comes down by one with it (never below 1, the window's floor), which
+  // also shrinks the native window. Bump the dial back up to take on another.
+  //
+  // Nothing else about the task changes — same lane, same priority, still on the
+  // board — beyond giving up its working-now slot and stopping its timer, which are
+  // the two things this window is for. Starting it again brings it back.
   const handleRemoveFromPinned = async (todo: Todo) => {
     const prev = todos;
     setTodos((ts) =>
@@ -306,6 +311,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
         body: JSON.stringify({ pinned: false }),
       });
       if (!res.ok) throw new Error("failed");
+      // One fewer row, so one fewer thing in flight. At 1 there's nothing to give
+      // up — the window always holds at least one task.
+      const narrowed = Math.max(1, limit - 1);
+      if (narrowed !== limit) await saveLimit(narrowed);
       toast.success(`"${todo.title}" is off the pinned window.`, {
         action: {
           label: "Undo",
@@ -315,6 +324,8 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ pinned: true }),
             }).catch(() => {});
+            // Undo puts the row back, so the slot it took comes back too.
+            if (narrowed !== limit) await saveLimit(limit);
             fetchTodos();
           },
         },

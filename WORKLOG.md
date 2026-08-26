@@ -5628,8 +5628,12 @@ view."
   `start_task`, the timer route and the working-now toggle all clear the flag,
   because working on something is the clearest possible statement that it belongs
   up there.
-- The pinned window's list filters on it, so removing a row pulls the next task up
-  into the freed slot immediately.
+- **No backfill.** Removing a row does *not* pull the next task up — taking
+  something off the list is a decision to carry less, not a request for a
+  replacement. The focus dial comes down by one with it (5 → 4), so the window
+  genuinely holds one fewer thing and the native window shrinks to match. Undo puts
+  both the row and the slot back. Floor of 1: at one row there's no slot to give up,
+  so removing that task does show the next one. Bump the dial to take on another.
 
 Verified end to end: removing banked a running timer (5s) and dropped
 `in_progress`; putting back and re-starting both cleared the flag; Playwright

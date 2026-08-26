@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BotIcon, CalendarClockIcon, CheckIcon, CornerUpRightIcon, CrosshairIcon, MessageSquareIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
+import { BotIcon, CalendarClockIcon, CheckIcon, CornerUpRightIcon, CrosshairIcon, EyeOffIcon, MessageSquareIcon, PinOffIcon, PlayIcon, PlusIcon, RepeatIcon, SquareIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import {
@@ -16,6 +16,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
@@ -149,7 +150,9 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
 
   const topTasks = useMemo(() => {
     return todos
-      .filter(isOpen)
+      // Tasks Berto has taken off the window stay ordinary tasks on the board —
+      // they just don't get featured here until he puts one back or starts it.
+      .filter((t) => isOpen(t) && !t.pinned_hidden_at)
       .sort((a, b) => {
         const running = Number(Boolean(b.timer_started_at)) - Number(Boolean(a.timer_started_at));
         if (running) return running;
@@ -279,6 +282,46 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
       });
     } catch {
       // fall through to refetch
+    }
+    fetchTodos();
+  };
+
+  // "Remove from pinned": the task stops being featured here and the next one moves
+  // up. Nothing else about it changes — same lane, same priority, still on the board —
+  // beyond giving up its working-now slot and stopping its timer, which are the two
+  // things this window is for. Starting it again brings it back.
+  const handleRemoveFromPinned = async (todo: Todo) => {
+    const prev = todos;
+    setTodos((ts) =>
+      ts.map((t) =>
+        t.id === todo.id
+          ? { ...t, pinned_hidden_at: new Date().toISOString(), in_progress: false, timer_started_at: null }
+          : t,
+      ),
+    );
+    try {
+      const res = await fetch(`/api/todos/${todo.id}/pinned`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned: false }),
+      });
+      if (!res.ok) throw new Error("failed");
+      toast.success(`"${todo.title}" is off the pinned window.`, {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            await fetch(`/api/todos/${todo.id}/pinned`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pinned: true }),
+            }).catch(() => {});
+            fetchTodos();
+          },
+        },
+      });
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't remove it from the pinned window.");
     }
     fetchTodos();
   };
@@ -486,6 +529,13 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
                     ))}
                   </ContextMenuSubContent>
                 </ContextMenuSub>
+                <ContextMenuSeparator />
+                {/* Not finished, just not one of today's featured few. It stays on
+                    the board exactly as it is; the next task moves up here. */}
+                <ContextMenuItem onSelect={() => handleRemoveFromPinned(todo)}>
+                  <EyeOffIcon className="size-3.5" />
+                  Remove from pinned
+                </ContextMenuItem>
               </ContextMenuContent>
             </ContextMenu>
           );

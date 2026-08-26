@@ -16,7 +16,7 @@ import {
 /** Every column a caller outside the canvas needs to reason about a task. */
 const TASK_COLUMNS = `id, title, completed, in_progress, waiting, priority, due_date, recurrence,
   created_at, completed_at, timer_started_at, time_spent_seconds, task_number,
-  estimated_minutes, category, parent_id`;
+  estimated_minutes, category, parent_id, pinned_hidden_at`;
 
 // The same columns, plus each task's newest progress note (see lib/task-updates.ts).
 // Reads use this; RETURNING clauses can't join, so mutations still hand back the
@@ -40,6 +40,8 @@ export type TaskRow = {
   estimated_minutes: number | null;
   category: string | null;
   parent_id: number | null;
+  // When set, the task is kept out of the pinned window (see /api/todos/:id/pinned).
+  pinned_hidden_at: string | null;
   // Newest line from the task's update thread — undefined when the row came back
   // from a mutation rather than a read.
   last_update?: string | null;
@@ -124,7 +126,8 @@ export async function startTask(id: number | string): Promise<TaskMutation> {
   if (!slot.allowed) return { ok: false, error: workingLimitMessage(slot.limit) };
   const [row] = await sql`
     UPDATE todos
-    SET in_progress = TRUE, waiting = FALSE, timer_started_at = COALESCE(timer_started_at, NOW())
+    SET in_progress = TRUE, waiting = FALSE, timer_started_at = COALESCE(timer_started_at, NOW()),
+        pinned_hidden_at = NULL
     WHERE id = ${id}
     RETURNING ${sql.unsafe(TASK_COLUMNS)}
   `;

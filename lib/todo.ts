@@ -30,6 +30,9 @@ export interface Todo {
   // Set when this task belongs to a content piece (see the Content lane). The piece
   // itself is a category='content' row with parent_id null.
   parent_id?: number | null;
+  // Set when the task was removed from the pinned window. It stays a normal task
+  // on the board; it just isn't featured up there until it's put back or started.
+  pinned_hidden_at?: string | null;
   // Newest line from the task's update thread (lib/task-updates.ts) — Berto's own
   // note, or an agent's hand-off when it finished a step and needs him. The whole
   // thread is kept server-side; a card only ever shows this one.

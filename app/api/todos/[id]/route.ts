@@ -81,9 +81,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
             category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
-            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END
+            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END,
+            -- Working on it again is the clearest statement that it belongs in the
+            -- pinned window, so starting a task un-hides it.
+            pinned_hidden_at = CASE WHEN ${in_progress === true}::boolean THEN NULL ELSE pinned_hidden_at END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at
         `
       : await sql`
           UPDATE todos
@@ -96,9 +99,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             task_number = CASE WHEN ${hasTaskNumber}::boolean THEN ${task_number}::int ELSE task_number END,
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
             category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
-            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END
+            color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END,
+            -- Working on it again is the clearest statement that it belongs in the
+            -- pinned window, so starting a task un-hides it.
+            pinned_hidden_at = CASE WHEN ${in_progress === true}::boolean THEN NULL ELSE pinned_hidden_at END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

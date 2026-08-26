@@ -13,6 +13,7 @@ import {
   HourglassIcon,
   MessageSquarePlusIcon,
   PauseIcon,
+  PinIcon,
   PlayIcon,
   PlusIcon,
   RepeatIcon,
@@ -161,6 +162,8 @@ export interface TaskCanvasProps {
   onCreated: (todo: Todo) => void;
   /** State-only patch — the canvas has already persisted it (or is mid-drag). */
   onLocalPatch: (id: number, patch: Partial<Todo>) => void;
+  /** Put a task back in the pinned window after it was removed from there. */
+  onSetPinned: (id: number, pinned: boolean) => void;
 }
 
 export function TaskCanvas({
@@ -177,6 +180,7 @@ export function TaskCanvas({
   onUpdate,
   onCreated,
   onLocalPatch,
+  onSetPinned,
 }: TaskCanvasProps) {
   const { resolvedTheme } = useTheme();
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
@@ -1269,6 +1273,14 @@ export function TaskCanvas({
             ))}
           </ContextMenuRadioGroup>
           <ContextMenuSeparator />
+          {/* Only offered once it's been taken off the pinned window — putting it
+              back is the way home from "Remove from pinned" there. */}
+          {todo.pinned_hidden_at && (
+            <ContextMenuItem className="text-xs" onSelect={() => onSetPinned(todo.id, true)}>
+              <PinIcon className="size-3" />
+              Show in pinned window
+            </ContextMenuItem>
+          )}
           {/* Berto's side of the update thread — agents post theirs over MCP. */}
           <ContextMenuItem className="text-xs" onSelect={() => setComposingId(todo.id)}>
             <MessageSquarePlusIcon className="size-3" />

@@ -70,6 +70,11 @@ export async function ensureSchema() {
   // Cosmetic card colour picked from the canvas right-click menu (see lib/task-colors.ts).
   // NULL = a plain card. Deliberately not tied to in_progress/waiting.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS color TEXT`;
+  // Set when a task was taken out of the pinned window ("remove from pinned"). It
+  // stays an ordinary task on the board — it just stops being featured up there
+  // until it's put back, or until it's started again. NULL = eligible for the
+  // pinned window, which is nearly every task.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS pinned_hidden_at TIMESTAMPTZ`;
   // Progress notes on a task, newest last. Written by Berto from the board and by
   // Claude over MCP (see app/api/mcp/route.ts) when an agent finishes an intermediary
   // step and needs him to pick it up — `author` says which. The whole thread is kept;

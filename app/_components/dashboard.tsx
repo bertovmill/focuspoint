@@ -532,6 +532,26 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     }
   };
 
+  // Putting a task back in the pinned window after it was removed there. Its own
+  // endpoint rather than a PATCH: removing also banks the timer and gives up the
+  // working-now slot, so the two directions aren't a plain column write.
+  const handleSetPinned = async (id: number, pinned: boolean) => {
+    const prev = todos;
+    setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, pinned_hidden_at: pinned ? null : new Date().toISOString() } : t)));
+    try {
+      const res = await fetch(`/api/todos/${id}/pinned`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(pinned ? "Back in the pinned window." : "Off the pinned window.");
+    } catch {
+      setTodos(prev);
+      toast.error("Couldn't update the pinned window.");
+    }
+  };
+
   const handleToggleWaiting = async (id: number, waiting: boolean) => {
     const prev = todos;
     setTodos((ts) => ts.map((t) => (t.id === id ? { ...t, waiting, in_progress: waiting ? false : t.in_progress } : t)));
@@ -805,6 +825,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                 onUpdate={handleUpdateTodo}
                 onCreated={handleTodoCreated}
                 onLocalPatch={handleLocalTodoPatch}
+                onSetPinned={handleSetPinned}
               />
             </div>
           </div>

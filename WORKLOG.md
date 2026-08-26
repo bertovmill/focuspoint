@@ -5607,3 +5607,32 @@ with the focused-day message, pausing and resuming one of the five already runni
 still worked, out-of-range values (0, 9) clamped, and Playwright driving the pinned
 window showed one row at 1 and five at 5 with the change persisted server-side.
 `cargo check` clean on the Tauri change.
+
+## 2026-08-26 — Right-click a pinned row to take it off the window
+
+The focus dial decides *how many* rows the pinned window holds; this decides
+*which*. Berto asked to be able to right-click a row and remove it — his words:
+"it just becomes a regular task again, but doesn't get featured in the pinned
+view."
+
+- **New column** `todos.pinned_hidden_at`. Set = not featured in the pinned
+  window. Nothing else about the task changes: same lane, same priority, still on
+  the board, still in every list and every MCP read.
+- **`PUT /api/todos/:id/pinned` `{ pinned: false | true }`.** Removing also banks
+  any running timer and clears `in_progress` — a task that's off the window
+  shouldn't be holding a working-now slot or running a clock, which are the two
+  things that window is for. Putting it back just clears the flag.
+- **Three ways home**, so nothing can get stranded: the toast's Undo right after
+  removing, "Show in pinned window" on the board card's right-click menu (only
+  shown when the task is actually hidden), and *starting the task again* —
+  `start_task`, the timer route and the working-now toggle all clear the flag,
+  because working on something is the clearest possible statement that it belongs
+  up there.
+- The pinned window's list filters on it, so removing a row pulls the next task up
+  into the freed slot immediately.
+
+Verified end to end: removing banked a running timer (5s) and dropped
+`in_progress`; putting back and re-starting both cleared the flag; Playwright
+drove right-click → Remove from pinned in the pinned window (row gone, next task
+moved up, task still open on the board) and right-click → Show in pinned window on
+the canvas card (flag cleared). Scratch task deleted.

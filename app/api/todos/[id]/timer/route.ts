@@ -44,7 +44,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
       const [row] = await sql`
         UPDATE todos
-        SET timer_started_at = COALESCE(timer_started_at, NOW()), in_progress = TRUE
+        SET timer_started_at = COALESCE(timer_started_at, NOW()), in_progress = TRUE,
+            pinned_hidden_at = NULL
         WHERE id = ${id}
         RETURNING id, title, completed, in_progress, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes
       `;

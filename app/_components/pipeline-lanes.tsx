@@ -59,6 +59,21 @@ const LANE_META: Record<LaneCategory, { icon: LucideIcon; accent: string; rule: 
   },
 };
 
+// The floating panel's width. Berto drags the right edge to widen it — a lane full
+// of "Post the talk to linkedin and add your comments - link to the talk" is
+// unreadable at 248px, and how much room that needs changes with what's in it.
+// The canvas owns the number (it has to slide its own toolbar clear of the panel)
+// and hands it back down here.
+export const LANE_MIN_WIDTH = 200;
+export const LANE_MAX_WIDTH = 720;
+export const LANE_DEFAULT_WIDTH = 248;
+
+export function clampLaneWidth(width: number, viewportWidth?: number) {
+  // Never let the panel eat more than half the window, however wide the screen is.
+  const ceiling = Math.min(LANE_MAX_WIDTH, Math.max(LANE_MIN_WIDTH, (viewportWidth ?? Infinity) * 0.5));
+  return Math.round(Math.min(ceiling, Math.max(LANE_MIN_WIDTH, width)));
+}
+
 export interface PipelineLanesProps {
   /** Every visible task — the panel picks out its own pieces and their children. */
   todos: Todo[];
@@ -71,6 +86,10 @@ export interface PipelineLanesProps {
    * the next section down the page, and the page itself does the scrolling.
    */
   inline?: boolean;
+  /** Panel width in px when floating. Ignored inline, where the page sets the width. */
+  width?: number;
+  /** Called while the right edge is dragged. Omit to make the panel a fixed width. */
+  onResizeWidth?: (width: number) => void;
   completingIds: Set<number>;
   onComplete: (id: number) => void;
   onUncomplete: (id: number) => void;
@@ -85,6 +104,8 @@ export function PipelineLanes({
   collapsed,
   onToggleCollapsed,
   inline = false,
+  width = LANE_DEFAULT_WIDTH,
+  onResizeWidth,
   completingIds,
   onComplete,
   onUncomplete,
@@ -107,6 +128,37 @@ export function PipelineLanes({
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  // True while the right edge is being dragged, so the handle can stay lit and the
+  // panel can drop its width transition.
+  const [resizing, setResizing] = useState(false);
+
+  const resizable = !inline && Boolean(onResizeWidth);
+
+  // Pointer capture rather than window listeners: the drag keeps tracking even when
+  // the cursor crosses onto the Excalidraw canvas, which otherwise swallows it.
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onResizeWidth) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = width;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    setResizing(true);
+
+    const onMove = (ev: PointerEvent) => {
+      onResizeWidth(clampLaneWidth(startWidth + (ev.clientX - startX), window.innerWidth));
+    };
+    const onUp = () => {
+      setResizing(false);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  };
 
   const { piecesByLane, childrenOf } = useMemo(() => {
     const piecesByLane = new Map<LaneCategory, Todo[]>();
@@ -259,13 +311,33 @@ export function PipelineLanes({
     // scrolled by the page rather than scrolling itself.
     <div
       className={cn(
-        "flex flex-col overflow-hidden rounded-xl border bg-card/95 backdrop-blur-sm",
-        inline
-          ? "shadow-none"
-          : "pointer-events-auto absolute bottom-14 left-3 top-12 z-[6] w-[248px] shadow-lg",
+        "flex flex-col rounded-xl border bg-card/95 backdrop-blur-sm",
+        // `overflow-hidden` would clip the resize handle sitting on the edge, so the
+        // rounding is clipped by the scrolling body below instead.
+        inline ? "overflow-hidden shadow-none" : "pointer-events-auto absolute bottom-14 left-3 top-12 z-[6] shadow-lg",
       )}
+      style={inline ? undefined : { width }}
     >
-      <div className="flex items-center gap-1.5 border-b px-2.5 py-1.5">
+      {/* Drag the right edge to widen. Double-click snaps back to the default. */}
+      {resizable && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the pipelines panel"
+          onPointerDown={startResize}
+          onDoubleClick={() => onResizeWidth?.(LANE_DEFAULT_WIDTH)}
+          title="Drag to resize · double-click to reset"
+          className="group absolute inset-y-0 -right-1.5 z-10 flex w-3 cursor-col-resize items-center justify-center"
+        >
+          <span
+            className={cn(
+              "h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary/60",
+              resizing && "bg-primary",
+            )}
+          />
+        </div>
+      )}
+      <div className="flex items-center gap-1.5 rounded-t-xl border-b px-2.5 py-1.5">
         <LayersIcon className="size-3.5 text-muted-foreground" />
         <span className="text-[11px] font-semibold uppercase tracking-wide">Pipelines</span>
         {!inline && (
@@ -280,7 +352,7 @@ export function PipelineLanes({
         )}
       </div>
 
-      <div className={cn(inline ? "" : "min-h-0 flex-1 overflow-y-auto")}>
+      <div className={cn(inline ? "" : "min-h-0 flex-1 overflow-y-auto rounded-b-xl")}>
         {/* Today's food sits above the work: the three sittings and the four
             protocol rules, tickable without leaving the board. These aren't tasks
             — they're the nutrition tables, and the Nutrition screen shows the

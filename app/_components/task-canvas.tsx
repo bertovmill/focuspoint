@@ -51,7 +51,7 @@ import {
   CARD_COLOR_SWATCH_CLASSES,
   type CardColor,
 } from "@/lib/task-colors";
-import { PipelineLanes } from "@/app/_components/pipeline-lanes";
+import { clampLaneWidth, LANE_DEFAULT_WIDTH, PipelineLanes } from "@/app/_components/pipeline-lanes";
 import {
   ESTIMATE_OPTIONS,
   FOLLOW_UP_OPTIONS,
@@ -116,8 +116,11 @@ function estimateCardHeight(t: Pick<Todo, "title" | "last_update">) {
 const CARD_LAYER_Z = 3;
 
 // The pinned pipeline panel, and how far the canvas toolbar slides right to clear it.
+// The panel is resizable now, so the open offset is computed from its width rather
+// than hard-coded: 12px of left inset + the panel + a 4px gap.
 const LANE_COLLAPSED_KEY = "focuspoint.content-lane.collapsed";
-const LANE_OPEN_OFFSET = "16.5rem";
+const LANE_WIDTH_KEY = "focuspoint.content-lane.width";
+const LANE_GUTTER = 16;
 const LANE_CLOSED_OFFSET = "2.75rem";
 
 const PRIORITY_DOT: Record<Todo["priority"], string> = {
@@ -232,6 +235,28 @@ export function TaskCanvas({
       window.localStorage.setItem(LANE_COLLAPSED_KEY, c ? "0" : "1");
       return !c;
     });
+  }, []);
+
+  // How wide the panel is, dragged from its right edge. Kept up here because the
+  // toolbar below has to slide clear of whatever width it ends up at.
+  const [laneWidth, setLaneWidth] = useState(LANE_DEFAULT_WIDTH);
+  // Mid-drag the toolbar has to track the edge exactly; its 150ms slide is for the
+  // collapse toggle, and would smear behind the cursor here.
+  const [laneResizing, setLaneResizing] = useState(false);
+  const laneSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem(LANE_WIDTH_KEY));
+    if (Number.isFinite(saved) && saved > 0) setLaneWidth(clampLaneWidth(saved, window.innerWidth));
+  }, []);
+  const handleLaneResize = useCallback((width: number) => {
+    setLaneWidth(width);
+    setLaneResizing(true);
+    // One write and one transition re-enable per drag, not one per pointermove.
+    if (laneSettleRef.current) clearTimeout(laneSettleRef.current);
+    laneSettleRef.current = setTimeout(() => {
+      setLaneResizing(false);
+      window.localStorage.setItem(LANE_WIDTH_KEY, String(width));
+    }, 200);
   }, []);
 
   // Pipeline pieces and the tasks hanging off them live in the pinned panel, never
@@ -1355,6 +1380,8 @@ export function TaskCanvas({
         todos={todos}
         collapsed={laneCollapsed}
         onToggleCollapsed={toggleLane}
+        width={laneWidth}
+        onResizeWidth={handleLaneResize}
         completingIds={completingIds}
         onComplete={onComplete}
         onUncomplete={onUncomplete}
@@ -1367,8 +1394,11 @@ export function TaskCanvas({
       {/* Our own controls, kept clear of Excalidraw's toolbar (top centre) and zoom
           controls (bottom left). */}
       <div
-        style={{ left: laneCollapsed ? LANE_CLOSED_OFFSET : LANE_OPEN_OFFSET }}
-        className="pointer-events-none absolute top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2 transition-[left] duration-150"
+        style={{ left: laneCollapsed ? LANE_CLOSED_OFFSET : laneWidth + LANE_GUTTER }}
+        className={cn(
+          "pointer-events-none absolute top-3 z-[5] flex max-w-[min(22rem,calc(100%-6rem))] flex-col gap-2",
+          !laneResizing && "transition-[left] duration-150",
+        )}
       >
         <div className="pointer-events-auto flex items-center gap-1.5">
           <Button

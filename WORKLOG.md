@@ -5699,3 +5699,31 @@ Verified end to end against the real board on :3789 — burst read exactly `+23`
 before, not twice), the chip and `/api/streak` agreed on `streak 1 · 3/3 · 3,053`,
 and the goal dial persisted. Scratch tasks deleted and the goal restored; his numbers
 came back to exactly where they started (3,014 pts, best 5, 1 done today).
+
+## 2026-08-27 (later) — The pipelines panel drags wider
+
+248px was a guess, and it's the wrong one for a lane holding "Post the talk to
+linkedin and add your comments - link to the talk" — the title wrapped to three
+lines or truncated. The panel's right edge is now a drag handle.
+
+- **Where the number lives.** `TaskCanvas`, not `PipelineLanes` — the canvas has to
+  slide its own toolbar clear of the panel, so it owns the width and hands it down.
+  That's also why `LANE_OPEN_OFFSET` ("16.5rem") is gone: the offset is computed as
+  `laneWidth + LANE_GUTTER` (12px inset + 4px gap) instead of hard-coded.
+- **Bounds.** 200–720px, and never more than half the window however wide the screen
+  (`clampLaneWidth`, exported from pipeline-lanes.tsx so both sides agree). Saved to
+  `focuspoint.content-lane.width`; double-click the handle resets to 248.
+- **Pointer capture, not window listeners.** The drag crosses onto the Excalidraw
+  canvas, which swallows plain mousemove — capturing on the handle keeps it tracking.
+- **Two small things that would have looked broken.** The panel's `overflow-hidden`
+  clipped the handle sitting on its edge, so the rounding moved to the header
+  (`rounded-t-xl`) and the scrolling body (`rounded-b-xl`). And the toolbar's 150ms
+  `transition-[left]` — right for the collapse toggle — smeared it behind the cursor
+  mid-drag, so it's dropped while resizing and restored 200ms after the last move
+  (the same debounce that writes localStorage once per drag rather than per
+  pointermove).
+
+Verified with Playwright at 1440×950: dragged +240 → panel 488, toolbar left 504;
+survived a reload at 488; clamped at 720 dragging past the max and 200 past the min;
+double-click back to 248; collapse still parks the toolbar at 44 with no stray
+handle, and reopening restores the saved width.

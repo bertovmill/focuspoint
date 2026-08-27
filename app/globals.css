@@ -263,6 +263,50 @@
   animation-fill-mode: forwards;
 }
 
+/* Points burst + streak flame (app/_components/streak-provider.tsx, streak-chip.tsx) */
+@keyframes points-burst-rise {
+  0% {
+    transform: translateY(6px) scale(0.9);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(0) scale(1.06);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-34px) scale(1);
+    opacity: 0;
+  }
+}
+
+.points-burst {
+  animation: points-burst-rise 1400ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes streak-flame-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+}
+
+.streak-flame-pop {
+  animation: streak-flame-pulse 620ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .points-burst,
+  .streak-flame-pop {
+    animation-duration: 1ms;
+  }
+}
+
 /* FullCalendar theming (app/_components/calendar-panel.tsx) — map fc vars to the app theme */
 .fc {
   --fc-border-color: var(--border);

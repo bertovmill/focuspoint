@@ -5640,3 +5640,62 @@ Verified end to end: removing banked a running timer (5s) and dropped
 drove right-click → Remove from pinned in the pinned window (row gone, next task
 moved up, task still open on the board) and right-click → Show in pinned window on
 the canvas card (flag cleared). Scratch task deleted.
+
+## 2026-08-27 — A streak and points, so finishing tasks pays something
+
+Berto's ask, verbatim: "add a streak or points or some kind of fun gamification for
+tasks done? i want to get addicted to getting tasks done, because success is getting
+the details done productively and never stalling." He picked the shape: **streak and
+points together**, a day counts only when a **daily goal of N tasks** is met, and it
+shows up on the **Tasks toolbar**, in the **pinned window**, and as a **celebration
+on completion**.
+
+**The two numbers do different jobs.** The streak is the one that hurts to lose —
+and it only advances on a day where he finished `daily_goal` tasks (default 5).
+"Any task done" was the other option and it's the wrong one: it keeps the streak
+alive on exactly the day the number should have noticed he coasted. The points are
+the per-task hit: `10 base + priority (high 10 / medium 5) + 1 per 10 min of
+estimate, capped at 20`. A 30m high-priority task pays 23; ticking off "expense the
+mochi donuts" pays 13.
+
+**`lib/streak.ts`** owns all of it — no db import at module scope, `sql` comes from
+the caller (same shape as `lib/working-now.ts`). Days are bucketed in
+`America/Toronto`, not UTC, or an 8pm completion would land on tomorrow. Two things
+worth knowing:
+- It filters on `completed_at IS NOT NULL`, **not** `completed = TRUE`. Recurring
+  tasks never flip `completed` (see lib/tasks.ts), and a daily habit not counting
+  toward the streak would have been absurd.
+- Today not being won yet does *not* break the streak — it's in play until midnight.
+  The count starts at today when today's a hit and at yesterday otherwise, and
+  `atRisk` is what lets the UI say "2 more or it resets".
+- `taskPoints()` (TS) and `POINTS_SQL` (for the all-time sum) are the same formula
+  written twice. Both are commented as such; change one, change the other.
+
+**Storage** reuses `app_settings` — key `daily_goal`, clamped 1–20, default 5,
+alongside `working_limit`. No new table. `GET /api/streak` returns the whole
+summary (streak, best, today, points, 14-day history); `GET/PUT
+/api/settings/daily-goal` sets the bar.
+
+**`StreakProvider`** sits in `app/(app)/layout.tsx`, above both the dashboard and the
+pinned window, so a task checked off in either scores in the same place. `award()`
+is called from `handleComplete` (dashboard — covers the canvas, the pipeline lanes
+and the mobile list) and from `PinView`'s own complete, optimistically, so the "+23"
+lands on the same beat as the checkbox rather than 400ms later. It trues up against
+the server 900ms after. The goal-hit confetti fires **once per day**, tracked by day
+key — a reward you get twice is wallpaper — and a goal already met when the app
+loads is history, not news.
+
+**UI.** `streak-chip.tsx` is flame + streak, a progress bar toward today's goal, and
+lifetime points; click it for the last 14 days as a grid, the record to beat, and the
+goal dial. It replaced the plain `0/27 today` counter on the Tasks toolbar (which is
+now just "27 open" — the chip owns "today"), and rides in the pinned window header in
+`compact` form at 340px. `streak-celebration.tsx` is the timer celebration's bigger
+sibling: 90 pieces of confetti, the ta-da sound, the streak number, and a line that
+means something different at 1 day than at 40. Self-closes after 6s so it never
+blocks the next task.
+
+Verified end to end against the real board on :3789 — burst read exactly `+23` for a
+30m high-priority task, the confetti fired on the task that crossed the goal (not
+before, not twice), the chip and `/api/streak` agreed on `streak 1 · 3/3 · 3,053`,
+and the goal dial persisted. Scratch tasks deleted and the goal restored; his numbers
+came back to exactly where they started (3,014 pts, best 5, 1 done today).

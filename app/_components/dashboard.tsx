@@ -37,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
 import { playCelebrationSound } from "@/lib/celebration-sound";
+import { useStreak } from "@/app/_components/streak-provider";
 import { focusAppWindow } from "@/lib/desktop";
 // Human limit: only a handful of things can genuinely be worked on at once, and how
 // many is Berto's to set from the pinned window (1–5, see lib/working-now.ts). Tasks
@@ -192,6 +193,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // Gates the Tasks screen between the canvas and the mobile list — see the
   // `activeTab === "todos"` branch below for why it's a mount, not a `lg:hidden`.
   const isDesktop = useIsDesktop();
+  // Points + streak. `award` fires the burst and, on the task that hits the day's
+  // goal, the confetti (app/_components/streak-provider.tsx).
+  const { award } = useStreak();
   const [todos, setTodos] = useState<Todo[]>([]);
   // How many tasks can be in flight at once. Berto sets it from the pinned window;
   // the board just follows, and the server enforces it either way. Starts at the
@@ -634,6 +638,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       prev.map((t) => (t.id === id ? { ...t, completed: isRecurring ? t.completed : true, completed_at: nowIso } : t))
     );
     setCompletingIds((prev) => new Set(prev).add(id));
+    // Score it now, not after the round trip — the "+18" has to land on the same
+    // beat as the checkbox or it reads as a separate, unrelated event.
+    if (todo) award(todo);
     try {
       const res = await fetch(`/api/todos/${id}/complete`, {
         method: "POST",

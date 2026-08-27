@@ -64,6 +64,7 @@ import {
   type Todo,
 } from "@/lib/todo";
 import { TaskLatestUpdate, TaskUpdateComposer } from "@/app/_components/task-update-line";
+import { StreakChip } from "@/app/_components/streak-chip";
 import { cn } from "@/lib/utils";
 
 import "@excalidraw/excalidraw/index.css";
@@ -1389,10 +1390,14 @@ export function TaskCanvas({
             <CrosshairIcon className="size-3.5" />
             Find tasks
           </Button>
+          {/* The score. Replaced a plain "done/open today" counter: what actually
+              pulls the next task out of you is the streak and how close today is to
+              banking (app/_components/streak-chip.tsx). */}
+          {!loading && <StreakChip />}
+          {/* The chip owns "how many today"; this is just the size of the pile. */}
           {!loading && (
-            <span className="rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] text-muted-foreground backdrop-blur-sm">
-              <CheckIcon className="mr-0.5 inline size-3" />
-              {doneToday}/{todos.length} today
+            <span className="rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground backdrop-blur-sm">
+              {todos.length - doneToday} open
             </span>
           )}
         </div>

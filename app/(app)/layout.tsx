@@ -19,6 +19,9 @@ import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { PIN_EVENT } from "@/app/_components/pin-button";
 import { PinView } from "@/app/_components/pin-view";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
+// The streak + points live above both the dashboard and the pinned window, so a
+// task finished in either one scores in the same place (see lib/streak.ts).
+import { StreakProvider } from "@/app/_components/streak-provider";
 import { setNativePinMode } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
@@ -107,7 +110,9 @@ const NAV_RAIL_STORAGE_KEY = "focuspoint:nav-rail-open";
 export default function AppLayout({ children }: { readonly children: ReactNode }) {
   return (
     <ThreadsProvider>
-      <Workspace>{children}</Workspace>
+      <StreakProvider>
+        <Workspace>{children}</Workspace>
+      </StreakProvider>
     </ThreadsProvider>
   );
 }

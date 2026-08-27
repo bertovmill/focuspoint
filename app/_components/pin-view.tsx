@@ -22,6 +22,8 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { StreakChip } from "@/app/_components/streak-chip";
+import { useStreak } from "@/app/_components/streak-provider";
 import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp, setPinWindowRows } from "@/lib/desktop";
 import { WORKING_LIMIT_MAX } from "@/lib/working-now";
@@ -71,6 +73,7 @@ function formatTracked(totalSeconds: number) {
 /** Compact always-on-top view for pin mode: the tasks you're working on now (up to
  *  the focus limit, 1–5), each with its own timer — all of them can run at once. */
 export function PinView({ onUnpin }: { onUnpin: () => void }) {
+  const { award } = useStreak();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -274,6 +277,9 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
   // followUpDays does the same thing further out — done for now, needs a second pass.
   const handleComplete = async (todo: Todo, opts: { repeat?: boolean; followUpDays?: number } = {}) => {
     setTodos((ts) => ts.map((t) => (t.id === todo.id ? { ...t, completed: true, completed_at: new Date().toISOString() } : t)));
+    // Same scoring as the board — the pinned window is where most tasks actually
+    // get checked off, so it has to pay out too.
+    award(todo);
     try {
       await fetch(`/api/todos/${todo.id}/complete`, {
         method: "POST",
@@ -344,7 +350,13 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       <header className="flex items-center justify-between gap-2 border-b border-border px-2 py-1 shrink-0">
-        <span className="text-xs text-muted-foreground truncate">{today}</span>
+        {/* The streak sits in the always-on-top window on purpose: it's the one
+            number that should be in your face all day. The date gives way to it
+            when the window is narrow. */}
+        <div className="flex min-w-0 items-center gap-1">
+          <StreakChip compact />
+          <span className="truncate text-xs text-muted-foreground">{today}</span>
+        </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {/* The focus dial. Most days it sits at 5; on a day where one thing
               matters, drop it to 1 and the window — and the whole board — holds

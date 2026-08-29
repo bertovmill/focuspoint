@@ -41,6 +41,7 @@ import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { Sparkline } from "@/app/_components/sparkline";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
+import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -693,6 +694,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       <div className="mx-auto max-w-6xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
+
+        {/* The daily scorecard — "did I win today?". First thing on the page because
+            it's the one block that's actionable at 7am. */}
+        <ScorecardCard />
 
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (

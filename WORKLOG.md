@@ -4,6 +4,84 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (later) — The daily scorecard: "is today a winning day?"
+
+**Ask:** *"i actually wrote a note recently on the different metrics i want to track
+each day to ensure a winning day each day"* — the note turned out to be thought #181
+(Aug 28), and its list got revised live in the conversation.
+
+**The list he actually landed on.** The note said steps, sleep, fasting window,
+Readwise highlights, intro calls. He cut two of those on sight: highlights are *"high
+noise, less signal"*, and Venice (venice.aucctus.com) already owns the intro-calls
+number so it's not focuspoint's to duplicate — parked until that API is reachable. In
+came **GitHub PRs** and **portfolio value**. The governing rule he gave: *"everything
+needs to be highly trackable"* and *"I really want to go for high signal"*. So the
+four gating metrics are **steps · sleep · eating window · PRs merged**, and portfolio
+rides below the line.
+
+**Portfolio is tracked but not gated**, deliberately. A balance is a level, not
+something you win by trying harder today; letting it decide "did I win" would make the
+card lie on a red market day. It shows a number, nothing more.
+
+**Two things are not stored twice.**
+- **PRs** are derived live from `github_prs` — bucketed in `America/Toronto`, same as
+  lib/streak.ts, so a PR merged at 9pm counts for that day and not tomorrow.
+- **The eating window** is the existing `fasted` rule on `nutrition_days`, not a new
+  column. The Nutrition screen already owns that checkbox; two records of "did I hold
+  the window" would have drifted apart inside a week. The card is a second door onto
+  the same row, and `setFastingHeld` preserves the other three protocol rules.
+
+So `daily_metrics` holds only what has nowhere better to live: `steps`,
+`sleep_minutes`, `portfolio`. NULL means "never logged", which is deliberately not the
+same as a logged zero — an unanswered day and a bad day should not look alike.
+
+**Fitbit** (`lib/fitbit.ts`) is the automation. He wears one, and it has a real OAuth
+API for both numbers we need. One gotcha drove the design: **Fitbit refresh tokens are
+single-use** — every refresh returns a new one and kills the old — so the write-back
+is not bookkeeping, it's the difference between staying connected and re-authing by
+hand. A 400/401 on refresh drops the token deliberately, so the UI says "connect"
+instead of failing silently forever. The sync pulls **three** days, not one: the watch
+often uploads last night's sleep long after the 9am cron tick, so yesterday gets a
+second chance tomorrow. It rides on the dispatcher's single daily slot, alongside
+Luma/meals/GitHub (Hobby allows one cron a day, project-wide).
+
+**Still needs Berto:** register a *Personal* app at dev.fitbit.com/apps and set
+`FITBIT_CLIENT_ID` / `FITBIT_CLIENT_SECRET`. Until then the card works fine — steps and
+sleep are typed, or told to Cael.
+
+**Portfolio has no free automated path.** Checked both: Wealthica's investment API is
+sales-gated (only the Power-Up SDK is free) and SnapTrade doesn't publish pricing.
+Wealthsimple has no first-party API at all. Left as a typed number rather than pretending.
+
+**UI.** `scorecard-card.tsx` sits first on the home screen — it's the one block that's
+actionable at 7am. Headline `3 / 4`, a perfect-day streak (same "today is still in play
+until midnight" rule as lib/streak.ts), a row per metric, and fourteen days of history.
+Every number is click-to-edit, including the Fitbit ones: a metric you can't correct is
+a metric you stop trusting. PRs are the exception — GitHub is the record. The duration
+parser takes "7h30", "7:30", "7.5" or "450m"; amounts take "$142k" and "18,240". The
+history bars have an 8% floor so "1 of 4" is a visible sliver rather than a hairline.
+
+**Targets** live in `app_settings` under `scorecard_targets` (20k steps, 7h30m sleep,
+1 PR), tunable via `PUT /api/scorecard/targets` so raising the bar isn't a deploy.
+`clampTargets` refuses a zero — a zero target would auto-win the day.
+
+**Cael can do it by voice:** `log_metrics` (only the fields he mentions move) and
+`get_scorecard` ("how's today going?").
+
+**Files:** `lib/scorecard.ts`, `lib/fitbit.ts`, `lib/fitbit-sync.ts`,
+`app/api/scorecard/{route,targets/route}.ts`, `app/api/fitbit/{connect,callback,sync}/route.ts`,
+`app/_components/scorecard-card.tsx`, `agent/tools/{log_metrics,get_scorecard}.ts`,
+`agent/schedules/dispatcher.ts`, `lib/db.ts`, `app/_components/home-screen.tsx`, `CLAUDE.md`.
+
+**Verified** on :3789 against the real DB: PRs auto-populated from live GitHub data (20
+on Aug 16, 103 in the trailing fortnight); a partial patch writing only `steps` left
+`sleep_minutes` and `portfolio` intact; toggling the eating window off left
+`whole_food`/`snack_light`/`pff` untouched. Screenshotted empty and at 3/4. Every
+scratch row deleted afterwards — `daily_metrics` is empty and `nutrition_days` is back
+to exactly its three pre-test August rows.
+
+---
+
 ## 2026-08-29 — Mobile polish: kit drawers for More menu and chat history
 
 **Ask:** *"look through my app, and check and see how to make the mobile experience

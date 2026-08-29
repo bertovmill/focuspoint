@@ -482,4 +482,18 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+
+  // The daily scorecard (lib/scorecard.ts) — one row per day, holding only the
+  // numbers that have nowhere better to live. PRs come from github_prs and the
+  // eating window from nutrition_days.rules, so neither is duplicated here.
+  // NULL means "never logged", which is not the same as a logged zero.
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_metrics (
+      recorded_date DATE PRIMARY KEY,
+      steps INTEGER,
+      sleep_minutes INTEGER,
+      portfolio NUMERIC,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

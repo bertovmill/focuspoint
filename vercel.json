@@ -1,16 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "experimentalServices": {
+  "services": {
     "web": {
-      "entrypoint": ".",
-      "framework": "nextjs",
-      "routePrefix": "/"
+      "root": ".",
+      "framework": "nextjs"
     },
     "eve": {
-      "buildCommand": "eve build",
-      "entrypoint": ".",
+      "root": ".",
       "framework": "eve",
-      "routePrefix": "/_eve_internal/eve"
+      "buildCommand": "eve build"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/_eve_internal/eve/(.*)", "destination": { "service": "eve" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
 }

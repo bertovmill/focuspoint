@@ -4,6 +4,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 — Chat opens as a full page, not a floating widget
+
+**Ask:** *"when we open a chat can we make it a full page and not just a widget?"*
+
+Starting a chat used to spawn a draggable, resizable window over the app. Now every
+"new chat" entry point — the `C` shortcut, the sidebar button, `requestNewChat()` —
+navigates to `/chat` on a fresh thread.
+
+**What changed.**
+
+- `app/(app)/layout.tsx`: `openChatModal` became `openNewChat` — it calls
+  `newThread()` and routes to `/chat`. The `modalThreadId` state and the
+  close/expand handlers are gone; there is no second chat surface to reconcile.
+- `app/_components/chat-modal.tsx` deleted (431 lines of drag/resize/collapse
+  geometry). Its two still-used exports moved to
+  `app/_components/new-chat-event.ts` (`NEW_CHAT_EVENT`, `requestNewChat`), so the
+  sidebar and agent-chat imports just point at the smaller module. The
+  `.chat-modal-panel` / `.chat-modal-backdrop` CSS stays in `globals.css` — the
+  celebration overlays use it.
+- The dashboard panel on `/chat` now starts collapsed (`sidebarOpen` defaults to
+  `false`), so the conversation fills the page. The header toggle still opens it.
+
+**Blank threads.** The modal used to delete a thread you dismissed without sending
+anything; a page can't hook "dismissed". Instead `openNewChat` reuses the active
+thread when it is still untitled — a thread only gets a title once it has been
+talked to — so hammering `C` no longer stacks up empty "New chat" rows. Verified in
+Playwright: four new-chat presses (including one from `/tasks`) created exactly one
+thread.
+
+**Next steps.** None outstanding for this one.
+
+---
+
 ## 2026-08-25 — Marquee-select cards on the task board
 
 **Ask:** *"on my task board, when i click and drag over multiple cards, can we have

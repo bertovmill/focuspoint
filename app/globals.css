@@ -220,7 +220,7 @@
   display: none;
 }
 
-/* Floating new-chat modal (app/_components/chat-modal.tsx) */
+/* Modal/panel entrance animations (celebration overlays) */
 @keyframes chat-modal-panel-in {
   from {
     opacity: 0;

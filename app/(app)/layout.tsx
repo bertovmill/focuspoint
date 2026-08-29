@@ -11,7 +11,7 @@ import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
-import { ChatModal, NEW_CHAT_EVENT } from "@/app/_components/chat-modal";
+import { NEW_CHAT_EVENT } from "@/app/_components/new-chat-event";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { Dashboard } from "@/app/_components/dashboard";
@@ -144,41 +144,31 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       return next;
     });
   }, []);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // The chat page is a full page, not a widget: the dashboard panel starts
+  // collapsed there so the conversation fills the view. The header toggle brings
+  // it back.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const [pinned, setPinned] = useState(false);
-  const [modalThreadId, setModalThreadId] = useState<string | null>(null);
-  const { hydrated, activeId, createThread, newThread, switchTo, remove } = useThreads();
+  const { hydrated, activeId, getThread, newThread } = useThreads();
 
-  // Starting a chat opens a floating modal on a fresh thread instead of
-  // navigating to the full chat view. Fired by the C shortcut and every
-  // "new chat" button (via NEW_CHAT_EVENT).
-  const openChatModal = useCallback(() => {
-    if (modalThreadId) return;
-    setModalThreadId(createThread());
-  }, [modalThreadId, createThread]);
+  // Starting a chat opens the full chat page on a fresh thread. Fired by the C
+  // shortcut and every "new chat" button (via NEW_CHAT_EVENT).
+  const openNewChat = useCallback(() => {
+    // A thread only gets a title once it has been talked to, so an untitled
+    // active thread is a blank one — reuse it rather than stacking up empty
+    // "New chat" rows in the history rail.
+    const active = activeId ? getThread(activeId) : undefined;
+    if (!active || active.title) newThread();
+    setMobileTab("chat");
+  }, [activeId, getThread, newThread, setMobileTab]);
 
   useEffect(() => {
-    window.addEventListener(NEW_CHAT_EVENT, openChatModal);
-    return () => window.removeEventListener(NEW_CHAT_EVENT, openChatModal);
-  }, [openChatModal]);
-
-  const handleModalClose = useCallback(
-    (hasMessages: boolean) => {
-      // A chat dismissed without ever sending anything shouldn't clutter history.
-      if (!hasMessages && modalThreadId) remove(modalThreadId);
-      setModalThreadId(null);
-    },
-    [modalThreadId, remove],
-  );
-
-  const handleModalExpand = useCallback(() => {
-    if (modalThreadId) switchTo(modalThreadId);
-    setModalThreadId(null);
-    setMobileTab("chat");
-  }, [modalThreadId, switchTo]);
+    window.addEventListener(NEW_CHAT_EVENT, openNewChat);
+    return () => window.removeEventListener(NEW_CHAT_EVENT, openNewChat);
+  }, [openNewChat]);
 
   // Pin mode (desktop app): a PinButton anywhere in the UI fires PIN_EVENT.
   useEffect(() => {
@@ -216,12 +206,12 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         setFocusNewTaskSignal((n) => n + 1);
       } else if (key === "c") {
         e.preventDefault();
-        openChatModal();
+        openNewChat();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openChatModal, pinned, modalThreadId]);
+  }, [openNewChat, pinned]);
 
   const handleRunJobWithChat = useCallback((message: string) => {
     newThread();
@@ -421,16 +411,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           ) : null}
         </div>
       </div>
-
-      {/* Floating new-chat modal */}
-      {modalThreadId && hydrated ? (
-        <ChatModal
-          key={modalThreadId}
-          threadId={modalThreadId}
-          onClose={handleModalClose}
-          onExpand={handleModalExpand}
-        />
-      ) : null}
 
       {/* Mobile bottom navigation bar */}
       {/* The bar keeps its 4rem of tappable height and pads *below* it for the home

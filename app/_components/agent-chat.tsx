@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
-import { requestNewChat } from "@/app/_components/chat-modal";
+import { requestNewChat } from "@/app/_components/new-chat-event";
 import { TracePanel } from "@/app/_components/trace-panel";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";

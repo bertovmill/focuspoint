@@ -1,6 +1,6 @@
 "use client";
 
-import { requestNewChat } from "@/app/_components/chat-modal";
+import { requestNewChat } from "@/app/_components/new-chat-event";
 import { useThreads, type ThreadRecord } from "@/app/_components/threads-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

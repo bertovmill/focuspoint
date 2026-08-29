@@ -77,8 +77,9 @@ cat <<DONE
 Installed. The counter is running and will start on every login.
 
 One-time permission: macOS needs to allow it to observe key presses.
-  System Settings → Privacy & Security → Input Monitoring
-  → enable the entry for Python (it appears after the first key press).
+  System Settings → Privacy & Security → Accessibility
+  → enable the entry for Python (${PY}).
+  (Accessibility, not Input Monitoring — pynput uses a Quartz event tap.)
 Then restart it:  launchctl kickstart -k gui/\$(id -u)/${LABEL}
 
 Logs:   tail -f "$DIR/keystrokes.log"

@@ -29,9 +29,15 @@ stored, buffered, or sent. What leaves your machine is a single number per day
    It creates a Python venv, installs `pynput`, and registers a launchd agent that runs
    at login. It will ask for the `KEYSTROKE_TOKEN` you chose above.
 
-3. **Grant Input Monitoring** (one time). After the counter runs and you press a key,
-   macOS lists it under **System Settings → Privacy & Security → Input Monitoring**.
-   Enable the **Python** entry, then restart the agent:
+3. **Grant Accessibility** (one time). pynput watches keys through a Quartz event tap,
+   which macOS gates behind **Accessibility** (not Input Monitoring — the error
+   *"This process is not trusted! … accessibility clients"* is the tell). Go to
+   **System Settings → Privacy & Security → Accessibility** and enable the entry:
+   - Run by `install.sh` (launchd): enable the **Python** entry (`.venv/bin/python3`).
+   - Run by hand from a terminal: enable **Terminal** (or iTerm) — the permission
+     attaches to the app that launched Python, not Python itself.
+
+   Then restart the agent:
 
    ```bash
    launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes

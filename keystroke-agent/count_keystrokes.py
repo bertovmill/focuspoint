@@ -8,7 +8,8 @@ Privacy — read this first:
     is a pedometer for your hands, not a keylogger.
 
 What it does:
-    - Listens for key presses (needs macOS Input Monitoring permission — see README).
+    - Listens for key presses (needs macOS Accessibility permission — see README). If you
+      see "This process is not trusted! ... accessibility clients", grant it there.
     - Keeps a per-day total, bucketed in America/Toronto so a key pressed at 11pm counts
       for today and not tomorrow.
     - Every FLUSH_SECONDS, POSTs {date, count} to $FOCUSPOINT_URL/api/keystrokes with a

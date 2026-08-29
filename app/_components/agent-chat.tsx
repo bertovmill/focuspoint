@@ -4,7 +4,7 @@ import { useEveAgent, type EveMessagePart } from "eve/react";
 import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { type MutableRefObject, useEffect, useRef, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { requestNewChat } from "@/app/_components/new-chat-event";
@@ -12,6 +12,7 @@ import { TracePanel } from "@/app/_components/trace-panel";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useEveRuntime } from "@/hooks/use-eve-runtime";
+import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
 import { useThreadAgent } from "@/hooks/use-thread-agent";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
@@ -19,16 +20,7 @@ import { cn } from "@/lib/utils";
 
 export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
-export function AgentChat({
-  hasMobileNav,
-  threadId,
-  sidebarOpen,
-  onToggleSidebar,
-  chatSidebarOpen,
-  onToggleChatSidebar,
-  initialMessage,
-  onInitialMessageSent,
-}: {
+type AgentChatProps = {
   hasMobileNav?: boolean;
   threadId: string;
   sidebarOpen?: boolean;
@@ -37,11 +29,47 @@ export function AgentChat({
   onToggleChatSidebar?: () => void;
   initialMessage?: string;
   onInitialMessageSent?: () => void;
+};
+
+/**
+ * If the thread was left mid-answer, reattach to the run and collect the rest
+ * before handing it to the agent. `generation` ticks once when that lands, which
+ * remounts the session on the recovered transcript.
+ */
+export function AgentChat(props: AgentChatProps) {
+  const { busy, generation, resuming } = useResumeInterruptedTurn(props.threadId);
+  return (
+    <ChatSession
+      key={`${props.threadId}:${generation}`}
+      busyRef={busy}
+      resuming={resuming}
+      {...props}
+    />
+  );
+}
+
+function ChatSession({
+  busyRef,
+  resuming,
+  hasMobileNav,
+  threadId,
+  sidebarOpen,
+  onToggleSidebar,
+  chatSidebarOpen,
+  onToggleChatSidebar,
+  initialMessage,
+  onInitialMessageSent,
+}: AgentChatProps & {
+  busyRef: MutableRefObject<boolean>;
+  resuming: boolean;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
 
   const agent = useThreadAgent(threadId);
+
+  // A resume that lands mid-answer must not remount us out from under a live turn.
+  busyRef.current = agent.status === "submitted" || agent.status === "streaming";
 
   // Auto-send initialMessage once on mount (used by "Run now" in Scheduled Tasks).
   const hasSentInitial = useRef(false);
@@ -144,6 +172,15 @@ export function AgentChat({
           </Link>
         </span>
       </header>
+
+      {resuming ? (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">
+            <ActivityIcon className="size-4 shrink-0 animate-pulse" />
+            <p>Picking up where this chat left off…</p>
+          </div>
+        </div>
+      ) : null}
 
       {agent.error ? (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">

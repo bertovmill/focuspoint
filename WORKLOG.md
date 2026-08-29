@@ -4,6 +4,72 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 — Chats stop dropping off: checkpointing + resume
+
+**Ask:** *"now sometimes the app chat just drops off, can we prevent that?"*
+
+**Root cause.** A thread was only persisted when a turn *finished* — `onFinish` in
+`hooks/use-thread-agent.ts`. Anything that ended a turn abnormally threw away
+everything since the last completed turn: closing the tab, reloading, switching
+threads mid-answer, laptop sleep, or the stream dropping more than three times
+(eve's default `maxReconnectAttempts`). The run itself is durable and finishes on
+the server; the browser just never wrote it down.
+
+**Evidence.** Of 128 real threads, 7 had lost content. 3 had a title but zero
+events — the title is written optimistically on send, so those are messages Berto
+sent where the whole exchange vanished. 4 were truncated mid-turn. Every one of
+the truncated rows had **no** `session.sessionId`, because eve's `advanceSession`
+resets the cursor when a turn ends without a boundary event. That turned out to be
+the exact guard the resume needs (below).
+
+**Three changes.**
+
+1. `lib/eve-client.ts` (new) — one browser-side eve `Client` with
+   `maxReconnectAttempts: 30` instead of the default 3. A sleeping laptop burns
+   through three attempts instantly.
+
+2. `hooks/use-thread-agent.ts` — checkpoints every 2.5s while a turn is in flight,
+   once more when it stops being in flight (which covers unmount, so switching
+   threads mid-answer keeps what arrived), and on `visibilitychange` → hidden.
+   Skips the write when no new events arrived, so an idle stream doesn't re-upload
+   the transcript.
+
+   This is why the hook now owns the `ClientSession` rather than letting
+   `useEveAgent` build one. eve advances a session's cursor only when a turn
+   *ends*, so mid-stream `agent.session` still describes the previous turn; and
+   for a brand-new session the live session ID doesn't exist anywhere on the
+   client until the turn is over. Wrapping `session.send` captures the session ID
+   off the POST response and tracks the cursor as
+   `baseIndex + (events - baseEvents)`, mirroring eve's own `advanceSession` math.
+
+3. `hooks/use-resume-turn.ts` (new) + `app/_components/agent-chat.tsx` — on load,
+   a thread whose saved events stop mid-turn reattaches to the run via
+   `session.stream({ startIndex })` and collects the rest. `AgentChat` is now a
+   thin wrapper around `ChatSession`, keyed on a `generation` that ticks once when
+   a resume lands, so the agent remounts on the recovered transcript. A
+   "Picking up where this chat left off…" banner shows while it reconnects.
+
+**Two things worth remembering.**
+
+- *Why the session-ID guard matters:* legacy interrupted rows carry
+  `streamIndex: 0` with no session ID, so replaying them from the saved cursor
+  would duplicate the entire transcript. Requiring `session.sessionId` excludes
+  every one of them precisely, with no migration and no time window.
+- *Why the remount is guarded:* the resume writes to the DB but does **not** tick
+  `generation` if a turn is already in flight (`busyRef`), because remounting
+  would abort a live answer to recover an old one. The recovered events show up
+  next time the thread is opened.
+
+**Verified** against the real agent on a dedicated throwaway thread: a mid-stream
+partial save appeared in the DB with a valid session ID and cursor (old code saved
+nothing); forging an interruption at event 1 of 10 and reloading recovered all 10
+and rendered the complete answer. Test thread deleted afterwards.
+
+**Next steps.** Checkpointing PATCHes the whole events array each time; if threads
+get much longer than ~200 events, make the route append instead.
+
+---
+
 ## 2026-08-29 — Chat opens as a full page, not a floating widget
 
 **Ask:** *"when we open a chat can we make it a full page and not just a widget?"*

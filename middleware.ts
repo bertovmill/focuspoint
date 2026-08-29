@@ -161,11 +161,5 @@ const middleware = CLERK_SERVER_ENABLED
 export default middleware;
 
 export const config = {
-  // Node, not Edge. Vercel `services` (see vercel.json) refuse a deployment whose
-  // web service emits an Edge Function, and this gate is the only one that does.
-  // Node is also the runtime Next 16 wants for a proxy/middleware — the dev server
-  // already reports this file's time as `proxy.ts` — and it's what lets the gate
-  // call into Clerk and the DB without the Edge API restrictions.
-  runtime: "nodejs",
   matcher: ["/((?!_next/static|_next/image).*)"],
 };

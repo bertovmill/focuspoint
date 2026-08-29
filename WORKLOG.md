@@ -35,7 +35,8 @@ So `daily_metrics` holds only what has nowhere better to live: `steps`,
 `sleep_minutes`, `portfolio`. NULL means "never logged", which is deliberately not the
 same as a logged zero — an unanswered day and a bad day should not look alike.
 
-**Fitbit** (`lib/fitbit.ts`) is the automation. He wears one, and it has a real OAuth
+**Fitbit** was the original automation (superseded an hour later — see the addendum
+below). He wears one, and it has a real OAuth
 API for both numbers we need. One gotcha drove the design: **Fitbit refresh tokens are
 single-use** — every refresh returns a new one and kills the old — so the write-back
 is not bookkeeping, it's the difference between staying connected and re-authing by
@@ -79,6 +80,46 @@ on Aug 16, 103 in the trailing fortnight); a partial patch writing only `steps` 
 `whole_food`/`snack_light`/`pff` untouched. Screenshotted empty and at 3/4. Every
 scratch row deleted afterwards — `daily_metrics` is empty and `nutrition_days` is back
 to exactly its three pre-test August rows.
+
+### Same day, an hour later — Fitbit was the wrong API; rebuilt on Google Health
+
+Walking Berto through registering a Fitbit app, I checked the developer portal and
+found the notice on Fitbit's own authorization docs: **the legacy Fitbit Web API is
+turned down in September 2026** — next month. Tokens don't transfer and every user
+must re-consent. The Fitbit client written an hour earlier was deleted before he did
+any of the setup.
+
+The successor, the **Google Health API** (`health.googleapis.com/v4`), returns the same
+watch data and authenticates with **Google OAuth** — which this app already holds for
+Calendar. So the integration got *smaller*: no second provider, no second client
+secret, no second token store. Two scopes added to `lib/google.ts` SCOPES and
+`lib/google-health.ts` just spends the token `lib/google.ts` already manages.
+
+- **"Restricted scopes need a security review" doesn't bite here.** Unverified OAuth
+  clients get 100 users for testing *and* production. One person, own project, own data.
+- **Connected ≠ connected for health.** The grant already in `google_auth` predates
+  these scopes: it still works for Calendar and 403s on the watch. A card showing a Sync
+  button that fails every press is worse than one saying "Connect". So `google_auth`
+  gained a `scope` column, `hasHealthScope()` checks it, and a NULL scope counts as *not*
+  granted — one extra re-consent beats a confident lie. Verified: the API honestly
+  reports `connected: false` against his real, currently-Calendar-only token.
+- **The response shape is the unverified part.** The docs pin down the endpoint
+  (`dataPoints:dailyRollUp`, closed-open civil-date range) but not the per-type field
+  names beyond `steps.count_sum`. `extractNumber` therefore tries the documented name
+  then any `*_sum`/`*_total` sibling, and `GET /api/health/sync?debug=<date>` dumps the
+  raw rollup — because a hard-coded path that silently misses looks exactly like "no
+  data yet", which is the worst failure mode for a metric you're meant to trust. Sleep
+  totals over 1440 are treated as seconds.
+
+**Still needs Berto** (replaces the Fitbit item above): enable the Google Health API in
+the same Cloud project, add `googlehealth.activity_and_fitness.readonly` and
+`googlehealth.sleep.readonly` on the consent screen, confirm he's a test user, then hit
+Connect once. His Fitbit account must be linked to that Google account. Until then the
+card works and the two numbers are typed.
+
+**Files:** added `lib/google-health.ts`, `lib/health-sync.ts`, `app/api/health/sync/route.ts`;
+deleted `lib/fitbit.ts`, `lib/fitbit-sync.ts`, `app/api/fitbit/**`; edited `lib/google.ts`,
+`lib/scorecard.ts`, `app/_components/scorecard-card.tsx`, `agent/schedules/dispatcher.ts`.
 
 ---
 

@@ -11,7 +11,10 @@
 // of typing each night is a metric that stops getting logged in a week.
 //
 // Where the numbers come from:
-//   - steps, sleep    → Fitbit Web API (lib/fitbit.ts), cached into `daily_metrics`
+//   - steps, sleep    → the watch, via the Google Health API (lib/google-health.ts),
+//                       cached into `daily_metrics`. Not the Fitbit Web API: that is
+//                       turned down in September 2026 and its successor rides on the
+//                       Google OAuth this app already holds.
 //   - fasting         → the `fasted` rule on `nutrition_days`. Deliberately NOT a
 //                       second column: the Nutrition screen already owns that
 //                       checkbox, and two places recording "did I hold the window"
@@ -26,6 +29,7 @@
 
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
 import { normalizeRules } from "@/lib/nutrition";
+import { HEALTH_SCOPES } from "@/lib/google";
 
 export { dayKey, STREAK_TIME_ZONE };
 
@@ -41,7 +45,7 @@ const TARGETS_SETTING_KEY = "scorecard_targets";
 
 export type MetricKey = "steps" | "sleep_minutes" | "fasting_held" | "prs" | "portfolio";
 
-export type MetricSource = "fitbit" | "github" | "manual";
+export type MetricSource = "health" | "github" | "manual";
 
 export type MetricDef = {
   key: MetricKey;
@@ -64,8 +68,8 @@ export const METRICS: MetricDef[] = [
   {
     key: "steps",
     label: "Steps",
-    hint: "Fitbit · daily movement",
-    source: "fitbit",
+    hint: "Watch · daily movement",
+    source: "health",
     kind: "count",
     target: 20_000,
     gates: true,
@@ -73,8 +77,8 @@ export const METRICS: MetricDef[] = [
   {
     key: "sleep_minutes",
     label: "Sleep",
-    hint: "Fitbit · time asleep",
-    source: "fitbit",
+    hint: "Watch · time asleep",
+    source: "health",
     kind: "duration",
     target: 450, // 7h30m
     gates: true,
@@ -168,8 +172,8 @@ export type ScorecardSummary = {
   atRisk: boolean;
   /** Newest last: the last SCORECARD_DAYS days for the history strip. */
   recent: ScorecardDay[];
-  /** Whether Fitbit is connected — the card nudges to connect when it isn't. */
-  fitbitConnected: boolean;
+  /** Whether Google (and so the watch data) is connected — the card nudges when not. */
+  googleConnected: boolean;
 };
 
 /** Did this value clear its bar? A null (never logged) is never a hit. */
@@ -291,7 +295,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, prRows, fitbitRows] = await Promise.all([
+  const [targets, logged, fastRows, prRows, googleRows] = await Promise.all([
     getTargets(sql),
     sql`
       SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, portfolio
@@ -313,7 +317,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
       WHERE merged_at >= ${since}::date
       GROUP BY 1
     `,
-    sql`SELECT 1 FROM app_settings WHERE key = 'fitbit_tokens' LIMIT 1`,
+    // Not "is there a Google row" — a grant minted before the health scopes still
+    // works for Calendar but 403s on the watch. See lib/google.ts hasHealthScope.
+    sql`SELECT scope FROM google_auth WHERE id = 1`,
   ]);
 
   const values = new Map<string, Partial<Record<MetricKey, number | null>>>();
@@ -358,7 +364,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     bestStreak,
     atRisk,
     recent,
-    fitbitConnected: fitbitRows.length > 0,
+    googleConnected: HEALTH_SCOPES.every((scope) =>
+      String((googleRows[0]?.scope as string | undefined) ?? "").includes(scope),
+    ),
   };
 }
 
@@ -371,7 +379,7 @@ export type MetricPatch = {
 
 /**
  * Upsert one day's manual/synced numbers. Only the fields present in `patch` move,
- * so a Fitbit sync writing steps can't blow away a fasting tap made an hour earlier.
+ * so a health sync writing steps can't blow away a fasting tap made an hour earlier.
  */
 export async function recordMetrics(sql: Sql, date: string, patch: MetricPatch): Promise<void> {
   await sql`

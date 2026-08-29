@@ -6,7 +6,7 @@ import { cronMatchesDate } from "../../lib/cron.js";
 import { syncLuma } from "../../lib/luma-sync.js";
 import { ensureTodaysMeals } from "../../lib/meal-suggest.js";
 import { syncGithubPrs } from "../../lib/github-sync.js";
-import { syncFitbitRange } from "../../lib/fitbit-sync.js";
+import { syncHealthRange } from "../../lib/health-sync.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Vercel Hobby plans cap ALL cron jobs at once per day, so this wakes once daily
@@ -54,18 +54,18 @@ export default defineSchedule({
       console.warn("[dispatcher] GitHub PR sync failed:", err);
     }
 
-    // Steps and sleep for the daily scorecard. Three days, not one: the watch often
-    // uploads last night's sleep well after this tick, so yesterday gets a second
-    // chance tomorrow. A no-op when Fitbit isn't connected.
+    // Steps and sleep for the daily scorecard, via the Google Health API. Three days,
+    // not one: the watch often uploads last night's sleep well after this tick, so
+    // yesterday gets a second chance tomorrow. A no-op when Google isn't connected.
     try {
-      const fitbit = await syncFitbitRange(3);
+      const health = await syncHealthRange(3);
       console.log(
-        fitbit.connected
-          ? `[dispatcher] Fitbit: synced ${fitbit.synced} day(s).`
-          : "[dispatcher] Fitbit: not connected, skipped.",
+        health.connected
+          ? `[dispatcher] Google Health: synced ${health.synced} day(s).`
+          : "[dispatcher] Google Health: not connected, skipped.",
       );
     } catch (err) {
-      console.warn("[dispatcher] Fitbit sync failed:", err);
+      console.warn("[dispatcher] Google Health sync failed:", err);
     }
 
     const phoneNumber = process.env.MY_PHONE_NUMBER;

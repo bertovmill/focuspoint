@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
  * a perfect-day streak, and fourteen days of history. Portfolio rides along below
  * the line because it's a level, not something you win by trying harder today.
  *
- * Every row is editable by clicking the number — the Fitbit sync is the happy path,
+ * Every row is editable by clicking the number — the watch sync is the happy path,
  * but a metric you can't correct is a metric you stop trusting.
  */
 
@@ -202,21 +202,16 @@ export function ScorecardCard() {
     void load();
   }, [load]);
 
-  // Coming back from the Fitbit consent screen — say what happened and refresh.
+  // Coming back from the Google consent screen — say what happened and refresh.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const fitbit = params.get("fitbit");
-    if (!fitbit) return;
-    if (fitbit === "connected") {
-      toast.success("Fitbit connected — steps and sleep will sync automatically");
+    const google = params.get("google");
+    if (!google) return;
+    if (google === "connected") {
+      toast.success("Google connected — steps and sleep will sync automatically");
       void load();
     } else {
-      const reason = params.get("reason");
-      toast.error(
-        reason === "unconfigured"
-          ? "Fitbit isn't set up yet — FITBIT_CLIENT_ID / FITBIT_CLIENT_SECRET are missing"
-          : "Couldn't connect Fitbit",
-      );
+      toast.error("Couldn't connect Google");
     }
     // Strip the params so a refresh doesn't re-toast.
     window.history.replaceState({}, "", window.location.pathname);
@@ -251,17 +246,17 @@ export function ScorecardCard() {
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/fitbit/sync", {
+      const res = await fetch("/api/health/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ days: 3 }),
       });
       const result = await res.json();
-      if (!result.connected) toast.error("Fitbit isn't connected");
-      else toast.success(result.synced ? `Synced ${result.synced} day${result.synced === 1 ? "" : "s"}` : "Nothing new from Fitbit");
+      if (!result.connected) toast.error("Google isn't connected");
+      else toast.success(result.synced ? `Synced ${result.synced} day${result.synced === 1 ? "" : "s"}` : "Nothing new from the watch");
       await load();
     } catch {
-      toast.error("Fitbit sync failed");
+      toast.error("Watch sync failed");
     } finally {
       setSyncing(false);
     }
@@ -269,7 +264,7 @@ export function ScorecardCard() {
 
   if (!summary) return null;
 
-  const { today, recent, streak, bestStreak, atRisk, fitbitConnected } = summary;
+  const { today, recent, streak, bestStreak, atRisk, googleConnected } = summary;
   const total = GATING_METRICS.length;
   const gating = today.metrics.filter((m) => metricDef(m.key).gates);
   const tracked = today.metrics.filter((m) => !metricDef(m.key).gates);
@@ -280,16 +275,16 @@ export function ScorecardCard() {
         <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
           Winning day
         </p>
-        {fitbitConnected ? (
+        {googleConnected ? (
           <Button variant="ghost" size="sm" onClick={sync} disabled={syncing} className="h-7 gap-1.5 text-[11px]">
             {syncing ? <Loader2Icon className="size-3 animate-spin" /> : <RefreshCwIcon className="size-3" />}
-            Sync Fitbit
+            Sync watch
           </Button>
         ) : (
           <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-[11px]">
-            <a href="/api/fitbit/connect">
+            <a href="/api/google/connect">
               <ActivityIcon className="size-3" />
-              Connect Fitbit
+              Connect watch
             </a>
           </Button>
         )}

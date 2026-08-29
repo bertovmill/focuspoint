@@ -1,10 +1,11 @@
-// Pulling Fitbit days into `daily_metrics`.
+// Pulling Google Health days into `daily_metrics`.
 //
-// Kept separate from lib/fitbit.ts (which only knows how to talk to Fitbit) so the
-// scorecard, the callback backfill and the cron all share one idea of what a sync is.
+// Kept separate from lib/google-health.ts (which only knows how to talk to Google) so
+// the card, the connect flow and the daily cron share one idea of what a sync is.
 
 import { getDb } from "@/lib/db";
-import { fetchFitbitDay, isFitbitConnected } from "@/lib/fitbit";
+import { hasHealthScope } from "@/lib/google";
+import { fetchHealthDay } from "@/lib/google-health";
 import { dayKey, recordMetrics, shiftDay } from "@/lib/scorecard";
 
 export type SyncResult = {
@@ -21,9 +22,9 @@ export type SyncResult = {
  * than skipping. A day that returns nothing at all is left alone: writing nulls over
  * a good number would be worse than a stale one.
  */
-export async function syncFitbitRange(days = 3): Promise<SyncResult> {
+export async function syncHealthRange(days = 3): Promise<SyncResult> {
   const sql = getDb();
-  if (!(await isFitbitConnected(sql))) return { connected: false, synced: 0, days: [] };
+  if (!(await hasHealthScope())) return { connected: false, synced: 0, days: [] };
 
   const today = dayKey(new Date());
   const out: SyncResult["days"] = [];
@@ -31,7 +32,7 @@ export async function syncFitbitRange(days = 3): Promise<SyncResult> {
   for (let i = 0; i < days; i++) {
     const date = shiftDay(today, i);
     try {
-      const day = await fetchFitbitDay(sql, date);
+      const day = await fetchHealthDay(date);
       if (day.steps === null && day.sleepMinutes === null) continue;
       await recordMetrics(sql, date, {
         ...(day.steps !== null ? { steps: day.steps } : {}),
@@ -40,7 +41,7 @@ export async function syncFitbitRange(days = 3): Promise<SyncResult> {
       out.push(day);
     } catch (err) {
       // One bad day shouldn't abort the backfill behind it.
-      console.error(`Fitbit sync failed for ${date}:`, err);
+      console.error(`Google Health sync failed for ${date}:`, err);
     }
   }
 

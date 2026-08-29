@@ -5,7 +5,7 @@ import { dayKey, recordMetrics, setFastingHeld } from "../../lib/scorecard.js";
 
 export default defineTool({
   description:
-    "Record the user's daily scorecard numbers — steps, sleep, whether the 12–8pm eating window held, and his investment portfolio value. Use this whenever he mentions any of them in passing ('slept about seven and a half', 'hit 22k steps today', 'broke the window at 11'). Only pass the fields he actually mentioned; the others are left untouched. Steps and sleep normally sync from Fitbit, so use this to correct them or when Fitbit hasn't caught up. PRs are counted from GitHub and cannot be set here.",
+    "Record the user's daily scorecard numbers — steps, sleep, whether the 12–8pm eating window held, and his investment portfolio value. Use this whenever he mentions any of them in passing ('slept about seven and a half', 'hit 22k steps today', 'broke the window at 11'). Only pass the fields he actually mentioned; the others are left untouched. Steps and sleep normally sync from his watch via the Google Health API, so use this to correct them or when the sync hasn't caught up. PRs are counted from GitHub and cannot be set here.",
   inputSchema: z.object({
     steps: z.number().int().nonnegative().optional().describe("Step count for the day."),
     sleep_minutes: z

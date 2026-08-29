@@ -65,11 +65,15 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
 - Eve-specific vars are pulled via `vercel env pull` or set in `.env.local`.
 - `BASIC_AUTH_PASSWORD` — protects the app (cookie-based login page at `/login`). Set in `.env.local` and Vercel production.
 - `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice.
-- `FITBIT_CLIENT_ID` / `FITBIT_CLIENT_SECRET` — Fitbit Web API app credentials, for the
-  daily scorecard's steps and sleep. Register a **Personal** app at dev.fitbit.com/apps
-  with callback URL `https://cael.bertomill.com/api/fitbit/callback` (add the localhost
-  one for dev). Without these the scorecard still works — steps and sleep just have to
-  be typed or told to Cael.
+- The daily scorecard's steps and sleep come from the watch via the **Google Health
+  API**, on the *existing* `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — there is no
+  separate Fitbit app or secret. (The legacy Fitbit Web API is turned down in September
+  2026; its successor authenticates with Google OAuth.) It needs, one time: the Google
+  Health API enabled in the same Cloud project, the two `googlehealth.*.readonly` scopes
+  added on the OAuth consent screen, and a re-consent via `/api/google/connect` — the
+  stored refresh token only carries the scopes it was granted, which is why
+  `hasHealthScope()` gates the UI. Without it the scorecard still works; steps and sleep
+  are just typed or told to Cael.
 - `MCP_TOKEN` — shared secret for the MCP server at `/api/mcp`, which exposes the task
   list to Claude (Claude Code, claude.ai, desktop). Clients send it as
   `Authorization: Bearer <token>`. Must be set in `.env.local` **and** in Vercel

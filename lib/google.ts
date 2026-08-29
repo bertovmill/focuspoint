@@ -7,6 +7,13 @@ import { getDb } from "@/lib/db";
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar.readonly",
+  // Fitbit steps and sleep, via the Google Health API (lib/google-health.ts). The
+  // legacy Fitbit Web API is turned down in September 2026, and its successor
+  // authenticates with Google — so the watch data rides on this same consent rather
+  // than a second provider. Adding these means re-consenting: the stored refresh
+  // token only carries the scopes it was granted.
+  "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
+  "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
 ];
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -33,7 +40,15 @@ export async function ensureGoogleAuthTable() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // What the stored grant actually covers. A token minted before the googlehealth
+  // scopes existed still works for Calendar, so "is Google connected" is not the same
+  // question as "can we read the watch" — without this the scorecard would show a
+  // Sync button that 403s on every press.
+  await sql`ALTER TABLE google_auth ADD COLUMN IF NOT EXISTS scope TEXT`;
 }
+
+/** The Health API scopes, so callers can ask whether the grant covers the watch. */
+export const HEALTH_SCOPES = SCOPES.filter((s) => s.includes("googlehealth"));
 
 export function googleAuthUrl(redirectUri: string, state: string) {
   const { clientId } = credentials();
@@ -64,7 +79,8 @@ export async function exchangeCodeAndStore(code: string, redirectUri: string) {
     }),
   });
   if (!res.ok) throw new Error(`Token exchange failed: ${res.status} ${await res.text()}`);
-  const tokens: { access_token: string; refresh_token?: string; expires_in: number } = await res.json();
+  const tokens: { access_token: string; refresh_token?: string; expires_in: number; scope?: string } =
+    await res.json();
   if (!tokens.refresh_token) throw new Error("Google did not return a refresh token");
 
   // Grab the account email so the UI can show which Google account is connected.
@@ -82,13 +98,14 @@ export async function exchangeCodeAndStore(code: string, redirectUri: string) {
   const sql = getDb();
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
   await sql`
-    INSERT INTO google_auth (id, refresh_token, access_token, access_token_expires_at, email, updated_at)
-    VALUES (1, ${tokens.refresh_token}, ${tokens.access_token}, ${expiresAt}, ${email}, NOW())
+    INSERT INTO google_auth (id, refresh_token, access_token, access_token_expires_at, email, scope, updated_at)
+    VALUES (1, ${tokens.refresh_token}, ${tokens.access_token}, ${expiresAt}, ${email}, ${tokens.scope ?? null}, NOW())
     ON CONFLICT (id) DO UPDATE SET
       refresh_token = EXCLUDED.refresh_token,
       access_token = EXCLUDED.access_token,
       access_token_expires_at = EXCLUDED.access_token_expires_at,
       email = EXCLUDED.email,
+      scope = EXCLUDED.scope,
       updated_at = NOW()
   `;
   return email;
@@ -105,6 +122,25 @@ export async function getGoogleConnection(): Promise<{ email: string | null } | 
   // Pre-existing refresh token from .env.local — treated as connected; it's
   // validated (and dropped in favor of a reconnect) on first API use.
   return process.env.GOOGLE_REFRESH_TOKEN ? { email: null } : null;
+}
+
+/**
+ * Whether the stored grant actually includes the Health scopes.
+ *
+ * Deliberately conservative: a NULL scope column means the grant predates this
+ * check, and claiming the watch works when it might not is worse than one extra
+ * re-consent.
+ */
+export async function hasHealthScope(): Promise<boolean> {
+  const sql = getDb();
+  try {
+    const rows = await sql`SELECT scope FROM google_auth WHERE id = 1`;
+    const scope = rows[0]?.scope;
+    if (typeof scope !== "string") return false;
+    return HEALTH_SCOPES.every((s) => scope.includes(s));
+  } catch {
+    return false;
+  }
 }
 
 export async function disconnectGoogle() {

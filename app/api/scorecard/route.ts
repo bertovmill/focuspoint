@@ -31,7 +31,7 @@ function optionalNumber(raw: unknown): number | null | undefined {
 
 /**
  * Patch today (or an explicit `date`). Only the keys present in the body move, so
- * the Fitbit sync and a manual tap can't overwrite each other.
+ * the health sync and a manual tap can't overwrite each other.
  */
 export async function PATCH(req: Request) {
   try {

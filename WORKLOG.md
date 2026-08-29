@@ -31,17 +31,31 @@ polling all night for nobody. `app/_components/use-polling.ts` stops entirely wh
 `document.visibilityState !== "visible"` and fires immediately on the way back, so the
 data you see when you return is *fresher* than the old always-on poll gave you. `fn` lives
 in a ref so an inline arrow doesn't rebuild the interval every render. All five sites
-converted; intervals also relaxed 15s → 60s. `pin-view`'s window `focus` listener was
-dropped as redundant — the hook's visibility catch-up covers it.
+converted; intervals relaxed 15s → 60s.
+
+**Then Berto said "we can get rid of all of those" — so the timer is gone entirely.**
+`intervalMs` now defaults to `0`: no interval at any point, on any of the five. An idle
+tab costs *exactly nothing* however long it sits there, which is the honest end state for
+an app that lives open on a second monitor. Fetches happen on mount, on
+`visibilitychange` → visible, and on window `focus`.
+
+**Both listeners are load-bearing — this is the subtle bit.** `pin-view`'s original
+window `focus` listener was dropped in the first pass as redundant; that was wrong, and
+it's back. Switching between two windows that are *both* on screen — the pinned task
+window beside the main app, which is exactly how this app is used — fires `focus`/`blur`
+but **not** `visibilitychange`, because neither document was ever hidden. Visibility alone
+would let the two views drift apart silently. Triggers landing within 1s collapse into
+one, since a tab switch commonly fires both.
 
 The two `setInterval`s left in the codebase are 1-second clock ticks that touch no network
 (and the dashboard's only runs while a task timer is actually running).
 
 **Verified with Playwright** against the real app, which is the only way to prove a
-negative here: **hidden 70s → 0 polling calls** (previously ~20), **on refocus → 4 calls
-within 3s**, and **visible 130s → 8 calls**, exactly the two 60s ticks x four routes — so
-a focused tab still refreshes and the hook isn't simply dead. Rough saving on an idle open
-tab: **~95%**.
+negative here. First pass (60s, visibility-gated): hidden 70s → 0 calls (was ~20), refocus
+→ 4 calls within 3s, visible 130s → 8 calls (two ticks x four routes, so a focused tab
+still refreshed). After removing the timer: **idle visible 150s → 0 calls**, **window
+focus → 4 calls**, **focus + visibilitychange together → 4 calls** (collapsed, not
+doubled). An idle tab is now **100%** off, down from ~46,000 invocations a day.
 
 **Not fixed here:** the account pause itself is billing, not code. Berto has to resume the
 project or upgrade; the pending commits deploy on their own once he does.

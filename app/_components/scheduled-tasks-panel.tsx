@@ -71,7 +71,7 @@ export function ScheduledTasksPanel({ onRunNow }: { onRunNow?: (prompt: string) 
     }
   }, []);
 
-  usePolling(fetchTasks, 60_000);
+  usePolling(fetchTasks);
 
   const openCreate = () => {
     setEditingId(null);

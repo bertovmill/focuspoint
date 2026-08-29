@@ -360,8 +360,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   }, []);
 
   // Was a bare 15s setInterval hitting four routes forever, visible or not — the
-  // single biggest contributor to the invocation blowout. See use-polling.ts.
-  usePolling(fetchData, 60_000);
+  // single biggest contributor to the invocation blowout. No timer now at all: this
+  // refetches on mount, on refocus, and after the mutations below. See use-polling.ts.
+  usePolling(fetchData);
 
   useEffect(() => {
     const q = query.trim();

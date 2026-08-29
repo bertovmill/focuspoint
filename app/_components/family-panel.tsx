@@ -64,7 +64,7 @@ export function FamilyPanel() {
     }
   }, []);
 
-  usePolling(fetchMemories, 60_000);
+  usePolling(fetchMemories);
 
   const resetForm = () => {
     setNewTitle("");

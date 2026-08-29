@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Poll only while the tab is actually being looked at.
+ * Refetch when Berto is actually looking — and at no other time.
  *
  * **Why this exists.** On 2026-08-29 Vercel paused the whole account: the free tier's
  * 1,000,000 monthly function invocations had been used *480%* over. The cause was five
@@ -12,20 +12,35 @@ import { useEffect, useRef } from "react";
  * second monitor is ~46,000 invocations a day (every request runs middleware too, so it
  * bills roughly double the fetch count), which clears the monthly cap on its own.
  *
- * The fix isn't a longer interval — a hidden tab polling every two minutes is still
- * polling all night for nobody. It's to stop entirely when hidden and catch up on the
- * way back:
+ * The first fix relaxed the intervals to 60s and paused them while hidden. This is the
+ * second: **there is no interval at all by default.** An idle tab now costs exactly
+ * nothing, however long it sits there.
  *
- *  - Runs `fn` once on mount.
- *  - Ticks every `intervalMs` **only while `document.visibilityState === "visible"`**.
- *  - On becoming visible again, fires immediately, then resumes ticking. So the data you
- *    see when you look back at the tab is fresher than the old always-on poll gave you,
- *    not staler.
+ * What triggers a fetch:
+ *  - mount
+ *  - the tab becoming visible again (`visibilitychange`)
+ *  - the window regaining focus
+ *
+ * Both listeners matter, and they are not redundant. Switching between two windows that
+ * are *both* on screen — the pinned task window beside the main app, which is how this
+ * app is actually used — fires `focus`/`blur` but **not** `visibilitychange`, since
+ * neither document was ever hidden. Listening only for visibility would let those two
+ * views silently drift apart. Consecutive triggers inside `MIN_GAP_MS` collapse into one,
+ * because switching tabs commonly fires both at once.
+ *
+ * `intervalMs` is left in for the rare caller that genuinely needs a timer; pass a
+ * positive number and it ticks *only while visible*. Default is off, and it should stay
+ * off — if you find yourself reaching for it, the answer is usually a refetch after the
+ * mutation that changed the data.
  *
  * `fn` is held in a ref, so an inline arrow function won't tear down and re-create the
- * interval on every render.
+ * listeners on every render.
  */
-export function usePolling(fn: () => void | Promise<void>, intervalMs = 60_000, enabled = true) {
+
+/** Collapse triggers that land together (focus + visibilitychange on a tab switch). */
+const MIN_GAP_MS = 1_000;
+
+export function usePolling(fn: () => void | Promise<void>, intervalMs = 0, enabled = true) {
   const callback = useRef(fn);
   callback.current = fn;
 
@@ -33,7 +48,14 @@ export function usePolling(fn: () => void | Promise<void>, intervalMs = 60_000, 
     if (!enabled) return;
 
     let timer: ReturnType<typeof setInterval> | null = null;
-    const run = () => void callback.current();
+    let lastRun = 0;
+
+    const run = (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastRun < MIN_GAP_MS) return;
+      lastRun = now;
+      void callback.current();
+    };
 
     const stop = () => {
       if (timer !== null) {
@@ -43,8 +65,9 @@ export function usePolling(fn: () => void | Promise<void>, intervalMs = 60_000, 
     };
 
     const start = () => {
+      if (intervalMs <= 0) return;
       stop(); // never stack two intervals
-      timer = setInterval(run, intervalMs);
+      timer = setInterval(() => run(true), intervalMs);
     };
 
     const onVisibility = () => {
@@ -56,13 +79,17 @@ export function usePolling(fn: () => void | Promise<void>, intervalMs = 60_000, 
       }
     };
 
-    run();
+    const onFocus = () => run();
+
+    run(true);
     if (document.visibilityState === "visible") start();
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
 
     return () => {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, [intervalMs, enabled]);
 }

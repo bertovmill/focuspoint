@@ -134,9 +134,10 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     }
   };
 
-  // usePolling already refetches when the tab becomes visible, which covers what the
-  // old window "focus" listener was for.
-  usePolling(fetchTodos, 60_000);
+  // No timer: the hook refetches on mount, on refocus and on visibility. Focus is the
+  // one that matters here — this window usually sits *beside* the main app rather than
+  // behind it, so clicking between them never fires visibilitychange.
+  usePolling(fetchTodos);
 
   useEffect(() => {
     fetchLimit();

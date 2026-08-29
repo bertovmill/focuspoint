@@ -70,7 +70,7 @@ export function VisionPanel() {
     }
   }, []);
 
-  usePolling(fetchItems, 60_000);
+  usePolling(fetchItems);
 
   const createItem = async (body: Partial<VisionItem>) => {
     const res = await fetch("/api/vision", {

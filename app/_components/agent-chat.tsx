@@ -81,9 +81,12 @@ function ChatSession({
 
   useEffect(() => {
     if (!initialMessage || hasSentInitial.current) return;
-    hasSentInitial.current = true;
-    // Brief delay lets the eve transport initialize before the first send.
+    // Brief delay lets the eve transport initialize before the first send. The
+    // "sent" mark must wait for the timer to actually fire: StrictMode's dev
+    // double-invoke clears the first timer on cleanup, and marking eagerly made
+    // the second invocation bail — the message was never sent at all.
     const timer = setTimeout(() => {
+      hasSentInitial.current = true;
       agentSendRef.current({ message: initialMessage });
       onInitialMessageSentRef.current?.();
     }, 100);

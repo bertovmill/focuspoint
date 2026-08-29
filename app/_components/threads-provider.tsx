@@ -90,12 +90,21 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       .then((rows: ApiRow[]) => {
         if (rows.length > 0) {
           const loaded = rows.map(rowToRecord);
-          setThreads(loaded);
-          setActiveId(loaded[0]!.id);
+          // A thread can be created before this fetch resolves (the chat bar
+          // sends on a fresh thread immediately). Merge instead of replacing,
+          // and never steal the active selection — hydration clobbering
+          // activeId used to reroute that first message into whatever thread
+          // happened to be newest in the DB.
+          setThreads((prev) => {
+            const known = new Set(loaded.map((t) => t.id));
+            return [...prev.filter((t) => !known.has(t.id)), ...loaded];
+          });
+          setActiveId((cur) => cur || loaded[0]!.id);
         } else {
           const fresh = freshThread();
-          setThreads([fresh]);
-          setActiveId(fresh.id);
+          // Same guard as above: a pre-hydration thread keeps its place.
+          setThreads((prev) => (prev.length > 0 ? prev : [fresh]));
+          setActiveId((cur) => cur || fresh.id);
           // Create the fresh thread in the DB so it persists on first use.
           void fetch("/api/threads", {
             method: "POST",
@@ -107,8 +116,8 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // DB unreachable — fall back to an in-memory thread.
         const fresh = freshThread();
-        setThreads([fresh]);
-        setActiveId(fresh.id);
+        setThreads((prev) => (prev.length > 0 ? prev : [fresh]));
+        setActiveId((cur) => cur || fresh.id);
       })
       .finally(() => setHydrated(true));
   }, []);

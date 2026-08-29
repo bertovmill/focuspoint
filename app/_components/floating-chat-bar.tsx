@@ -2,11 +2,77 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUpIcon, Minimize2Icon } from "lucide-react";
+import { ArrowUpIcon, CheckIcon, ChevronsUpDownIcon, Minimize2Icon } from "lucide-react";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { CHAT_MODEL_DEFAULT, CHAT_MODEL_TIERS, isChatModelId } from "@/lib/chat-model";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const DOCKED_STORAGE_KEY = "focuspoint:chat-bar-docked";
+
+/**
+ * The rungs of the model ladder, Max at the top — one global setting for every
+ * Cael conversation. Selecting a rung PUTs immediately; agent/model.ts reads it
+ * before every model call, so it applies from the next message.
+ */
+function ModelPicker() {
+  const [model, setModel] = useState<string>(CHAT_MODEL_DEFAULT);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/settings/chat-model", { signal: controller.signal })
+      .then((r) => r.json())
+      .then((d) => {
+        if (isChatModelId(d?.model)) setModel(d.model);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  const pick = useCallback((id: string) => {
+    setModel(id);
+    void fetch("/api/settings/chat-model", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: id }),
+    });
+  }, []);
+
+  const current = CHAT_MODEL_TIERS.find((t) => t.id === model) ?? CHAT_MODEL_TIERS[2]!;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 shrink-0 items-center gap-1 rounded-xl px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Model: ${current.label}`}
+          title="Pick Cael's model"
+        >
+          {current.label}
+          <ChevronsUpDownIcon className="size-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="mb-2 w-64">
+        {/* Rendered top rung first, so "up" reads upward. */}
+        {[...CHAT_MODEL_TIERS].reverse().map((tier) => (
+          <DropdownMenuItem key={tier.id} onClick={() => pick(tier.id)} className="gap-2">
+            <CheckIcon className={cn("size-4 shrink-0", tier.id === model ? "opacity-100" : "opacity-0")} />
+            <span className="flex min-w-0 flex-col">
+              <span className={cn("text-sm", tier.id === model && "font-medium")}>{tier.label}</span>
+              <span className="text-xs text-muted-foreground">{tier.blurb}</span>
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 // Matches the nav rail's spring so the bar moves with the same weight as the
 // rest of the chrome.
@@ -98,6 +164,7 @@ export function FloatingChatBar({ onSend }: { readonly onSend: (message: string)
               aria-label="Message Cael"
               className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
             />
+            <ModelPicker />
             <button
               type="submit"
               disabled={!value.trim()}

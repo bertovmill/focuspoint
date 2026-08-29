@@ -5867,3 +5867,58 @@ Verified with Playwright at 1440×950: dragged +240 → panel 488, toolbar left 
 survived a reload at 488; clamped at 720 dragging past the max and 200 past the min;
 double-click back to 248; collapse still parks the toolbar at 44 with no stray
 handle, and reopening restores the saved width.
+
+## 2026-08-29 — The ever-present chat bar, and a model ladder behind it
+
+Berto asked for a persistent line to Cael: a sizable input pill floating at the
+bottom-center of every section, dismissible to the corner. Then, mid-build: "I
+also want a model picker, with an average model in the middle but we can go all
+the way up and all the way down."
+
+**The bar** (`floating-chat-bar.tsx`, rendered from the `(app)` layout on every
+tab except `/chat`, which has its own composer). Desktop-only — on mobile the
+bottom nav owns that edge and Chat is one tap away. A ~700px pill with the Cael
+avatar, an input, the model picker, and send. The corner button docks it to a
+small avatar bubble bottom-right; the bubble brings it back; docked-or-not lives
+in `focuspoint:chat-bar-docked`. Sending rides the same path as "Run now":
+fresh thread, message on its way, chat page open.
+
+**Two real bugs fell out of verifying the send:**
+
+1. **StrictMode ate `initialMessage`** (dev-only, but it broke "Run now" too):
+   the effect marked `hasSentInitial` *before* its 100ms timer fired, so
+   StrictMode's mount→cleanup→mount cleared the timer and the second pass bailed
+   on the already-set ref. The mark now happens inside the timer callback.
+2. **Hydration clobbered `activeId`** — the dangerous one. Send from the bar
+   before `/api/threads` resolves and the hydration `setActiveId(loaded[0].id)`
+   yanked the view back to the newest DB thread — and the pending message was
+   then delivered INTO that old, real conversation. (My test probes landed in
+   Berto's actual morning thread; scrubbed from its stored events afterward,
+   though the eve server-side session for that thread still saw them.) The
+   provider now merges loaded rows instead of replacing and only sets `activeId`
+   when it's still empty.
+
+**The model ladder.** Five rungs, verified against the AI Gateway catalog, with
+Balanced in the middle: claude-3-haiku (Minimal) → claude-haiku-4.5 (Quick) →
+claude-sonnet-4.6 (Balanced, the default — Cael's usual self) → claude-opus-4.8
+(Strong) → claude-opus-5 (Max). One global setting in `app_settings`
+(`chat_model`, lib/chat-model.ts, GET/PUT `/api/settings/chat-model`), picked
+from a dropdown in the bar rendered Max-on-top so "up" reads upward.
+
+**How the agent honors it at runtime** — eve fixes an agent's model at compile
+time, so `agent/model.ts` hands `defineAgent` a Proxy over the default gateway
+model whose `doGenerate`/`doStream` re-read the setting per call and delegate to
+the chosen `gateway(id)`. Two compile-time footguns: a model *instance* can't be
+catalog-checked, so `modelContextWindowTokens: 200_000` (the ladder's floor) is
+declared by hand — without it the eve build dies with "does not have known AI
+Gateway context window metadata"; and agent-code edits need a dev-server restart
+to recompile (hot reload didn't pick them up). One `[model-picker] serving <id>`
+log line per switch, so the server logs always say which rung answered.
+
+Verified with Playwright on a private :3987 server: bar centered/sizable on home
+and tasks, hidden on chat; dock → bubble → reload → still docked → expand;
+fast-send lands in a fresh thread (the race); picker persists Quick; and the
+server log showed `serving anthropic/claude-3-haiku` then
+`serving anthropic/claude-sonnet-4.6` for consecutive turns after flipping the
+setting — the switch really is per-call, no rebuild, no new session. All test
+threads deleted, the model restored to Balanced, thread count back at 128.

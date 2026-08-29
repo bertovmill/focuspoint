@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { usePolling } from "@/app/_components/use-polling";
 
 interface ScheduledTask {
   id: number;
@@ -70,11 +71,7 @@ export function ScheduledTasksPanel({ onRunNow }: { onRunNow?: (prompt: string) 
     }
   }, []);
 
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 15000);
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
+  usePolling(fetchTasks, 60_000);
 
   const openCreate = () => {
     setEditingId(null);

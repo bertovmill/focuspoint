@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { usePolling } from "@/app/_components/use-polling";
 
 export interface Memory {
   id: number;
@@ -63,11 +64,7 @@ export function FamilyPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchMemories();
-    const interval = setInterval(fetchMemories, 15000);
-    return () => clearInterval(interval);
-  }, [fetchMemories]);
+  usePolling(fetchMemories, 60_000);
 
   const resetForm = () => {
     setNewTitle("");

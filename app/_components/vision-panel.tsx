@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { usePolling } from "@/app/_components/use-polling";
 
 interface VisionItem {
   id: number;
@@ -69,11 +70,7 @@ export function VisionPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchItems();
-    const interval = setInterval(fetchItems, 15000);
-    return () => clearInterval(interval);
-  }, [fetchItems]);
+  usePolling(fetchItems, 60_000);
 
   const createItem = async (body: Partial<VisionItem>) => {
     const res = await fetch("/api/vision", {

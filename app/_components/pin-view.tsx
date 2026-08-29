@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { cyclePinCorner, isDesktopApp, setPinWindowRows } from "@/lib/desktop";
 import { WORKING_LIMIT_MAX } from "@/lib/working-now";
 import { estimateProgress, formatCountdown, FOLLOW_UP_OPTIONS, isFutureDated, remainingSeconds, type Todo } from "@/lib/todo";
+import { usePolling } from "@/app/_components/use-polling";
 
 /** How many tasks the pinned window tracks at once — each gets its own timer. This
  *  is Berto's focus dial: five on a normal day, 1 when one thing matters and
@@ -133,16 +134,13 @@ export function PinView({ onUnpin }: { onUnpin: () => void }) {
     }
   };
 
+  // usePolling already refetches when the tab becomes visible, which covers what the
+  // old window "focus" listener was for.
+  usePolling(fetchTodos, 60_000);
+
   useEffect(() => {
-    fetchTodos();
     fetchLimit();
-    const poll = setInterval(fetchTodos, 60_000);
-    window.addEventListener("focus", fetchTodos);
-    return () => {
-      clearInterval(poll);
-      window.removeEventListener("focus", fetchTodos);
-    };
-  }, [fetchTodos, fetchLimit]);
+  }, [fetchLimit]);
 
   const anyRunning = todos.some((t) => t.timer_started_at);
   useEffect(() => {

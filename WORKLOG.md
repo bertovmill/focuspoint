@@ -4,6 +4,50 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (later still) — Vercel paused the account; the cause was polling
+
+**What happened.** Mid-walkthrough, cael.bertomill.com *and* bertomill.com both started
+returning **HTTP 402 `DEPLOYMENT_DISABLED`**, and a push to main came back from Vercel as
+"Account is blocked." The email said it plainly: the free team had used **480% of the
+1,000,000 monthly function invocations** — about 4.8M — and everything was paused.
+
+**Why 4.8M for a single-user app.** Five components each ran a bare `setInterval` with no
+visibility check. `dashboard.tsx` was the worst: four API routes every **15 seconds**,
+forever, whether or not anyone was looking.
+
+| | |
+|---|---|
+| 4 routes x 4 polls/min | 16 requests/min |
+| every request also runs `middleware.ts` (matcher catches everything) | ~32 invocations/min |
+| **one tab left open 24h** | **~46,000/day** |
+| over a month | **~1.4M — past the cap on the dashboard alone** |
+
+Plus `vision-panel`, `family-panel` and `scheduled-tasks-panel` at 15s each and `pin-view`
+at 60s. This app is *designed* to sit open on a second monitor, so that's the whole budget
+several times over.
+
+**The fix is not a longer interval.** A hidden tab polling every two minutes is still
+polling all night for nobody. `app/_components/use-polling.ts` stops entirely when
+`document.visibilityState !== "visible"` and fires immediately on the way back, so the
+data you see when you return is *fresher* than the old always-on poll gave you. `fn` lives
+in a ref so an inline arrow doesn't rebuild the interval every render. All five sites
+converted; intervals also relaxed 15s → 60s. `pin-view`'s window `focus` listener was
+dropped as redundant — the hook's visibility catch-up covers it.
+
+The two `setInterval`s left in the codebase are 1-second clock ticks that touch no network
+(and the dashboard's only runs while a task timer is actually running).
+
+**Verified with Playwright** against the real app, which is the only way to prove a
+negative here: **hidden 70s → 0 polling calls** (previously ~20), **on refocus → 4 calls
+within 3s**, and **visible 130s → 8 calls**, exactly the two 60s ticks x four routes — so
+a focused tab still refreshes and the hook isn't simply dead. Rough saving on an idle open
+tab: **~95%**.
+
+**Not fixed here:** the account pause itself is billing, not code. Berto has to resume the
+project or upgrade; the pending commits deploy on their own once he does.
+
+---
+
 ## 2026-08-29 (later) — The daily scorecard: "is today a winning day?"
 
 **Ask:** *"i actually wrote a note recently on the different metrics i want to track

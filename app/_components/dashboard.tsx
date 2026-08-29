@@ -52,6 +52,7 @@ import {
   InputGroupButton,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
+import { usePolling } from "@/app/_components/use-polling";
 
 const MEASURE_CATEGORIES = [
   { key: "savings_snapshot" as const, label: "Savings Snapshot", icon: PiggyBankIcon },
@@ -358,11 +359,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  // Was a bare 15s setInterval hitting four routes forever, visible or not — the
+  // single biggest contributor to the invocation blowout. See use-polling.ts.
+  usePolling(fetchData, 60_000);
 
   useEffect(() => {
     const q = query.trim();

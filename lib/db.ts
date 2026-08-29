@@ -496,4 +496,16 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // Keystrokes per day, posted by the local macOS counter (keystroke-agent/). One row
+  // per day in Berto's timezone; `count` is *only* how many keys were pressed — never
+  // which ones. The agent sends a cumulative running total, so lib/keystrokes.ts upserts
+  // with GREATEST: a restart that lost its local tally can never walk the number backward.
+  await sql`
+    CREATE TABLE IF NOT EXISTS keystroke_days (
+      logged_date DATE PRIMARY KEY,
+      count BIGINT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

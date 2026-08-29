@@ -4,6 +4,46 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (keystrokes) — "track my keystrokes each day, add it to the dashboard"
+
+**What it is.** A WhatPulse-style daily keystroke count: a login agent on the Mac counts
+how many keys get pressed, POSTs the running daily total to focuspoint every minute, and a
+new dashboard card shows today's number plus a 14-day sparkline.
+
+**Privacy is the whole design.** The counter counts, it does not record. `on_press` in
+`keystroke-agent/count_keystrokes.py` increments one integer and discards the key object —
+no key identity is ever stored, buffered, or sent. What leaves the machine is a single
+number per day (`{date, count}`). It's a pedometer for the hands, not a keylogger. Said so
+plainly in the agent README because a "keystroke tracker" is exactly the thing that should
+prove it isn't logging content.
+
+**Pieces:**
+- `keystroke-agent/` — the local half. `count_keystrokes.py` (pynput listener, only stdlib
+  otherwise), `install.sh` (venv + pynput + a launchd agent that runs at login and
+  restarts on crash), and a README covering the one-time macOS **Input Monitoring** grant.
+  Buckets days in **America/Toronto** to match `lib/streak.ts`. Caches today's tally to
+  `~/.focuspoint-keystrokes.json` so a restart resumes.
+- `keystroke_days(logged_date, count)` table in `lib/db.ts` (and created directly in
+  Neon — most routes don't call `ensureSchema`, so a fresh table can't wait for one).
+- `lib/keystrokes.ts` — `getKeystrokeSummary` (today + 14-day buckets + active-day average)
+  and `recordKeystrokes`, which upserts with **GREATEST** so a restarted agent that lost
+  its local tally can never walk the server number backward. Verified monotonic against
+  the real DB (1200→3400→900 stays 3400).
+- `app/api/keystrokes/route.ts` — GET for the card (session-gated), POST for the agent,
+  authenticated with a bearer `KEYSTROKE_TOKEN`. `middleware.ts` allow-lists the POST the
+  same way it does the MCP endpoint; the route re-verifies the token itself.
+- `app/_components/keystrokes-card.tsx` — reuses `Sparkline` and `usePolling` (no bare
+  `setInterval` — see the polling post-mortem below). Rendered on the home screen right
+  under the scorecard.
+
+**Setup left for Berto (needs his machine / the Vercel dashboard):**
+1. `KEYSTROKE_TOKEN` is already in `.env.local`. Add the **same value** to Vercel prod
+   (`vercel env add KEYSTROKE_TOKEN production`) and redeploy, or the POST 401s in prod.
+2. `cd keystroke-agent && ./install.sh`, then grant Python **Input Monitoring** in System
+   Settings and `launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes`.
+
+---
+
 ## 2026-08-29 (later still) — Vercel paused the account; the cause was polling
 
 **What happened.** Mid-walkthrough, cael.bertomill.com *and* bertomill.com both started

@@ -42,6 +42,7 @@ import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { Sparkline } from "@/app/_components/sparkline";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
+import { KeystrokesCard } from "@/app/_components/keystrokes-card";
 import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -698,6 +699,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* The daily scorecard — "did I win today?". First thing on the page because
             it's the one block that's actionable at 7am. */}
         <ScorecardCard />
+
+        {/* Keystrokes typed today — a volume metric from the local macOS counter. */}
+        <KeystrokesCard />
 
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (

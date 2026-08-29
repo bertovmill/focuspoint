@@ -1,0 +1,4 @@
+# Local, per-machine — never commit
+.venv/
+keystrokes.log
+__pycache__/

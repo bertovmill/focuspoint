@@ -104,6 +104,18 @@ async function handle(request: NextRequest, auth: AuthResolver | null): Promise<
     return NextResponse.next();
   }
 
+  // The local keystroke counter, which POSTs the day's total with a bearer token instead
+  // of a session cookie (keystroke-agent/). Let it through on a matching header; the route
+  // re-verifies. Same shape as the MCP allowance above.
+  const keystrokeToken = process.env.KEYSTROKE_TOKEN;
+  if (
+    pathname.startsWith("/api/keystrokes") &&
+    keystrokeToken &&
+    request.headers.get("authorization") === `Bearer ${keystrokeToken}`
+  ) {
+    return NextResponse.next();
+  }
+
   // 1. A Clerk session. Signing in is open to anyone, but only the owner gets in:
   //    everyone else holds an account and is shown the door, politely.
   if (auth) {

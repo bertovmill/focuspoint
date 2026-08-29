@@ -4,6 +4,36 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (keystrokes deploy) — migrated live to a non-paused team
+
+The `cael-agent` project (team `team_SpPD…`, home of `cael.bertomill.com`) is **paused for
+usage** — every request to it returns `402`, so the keystroke agent's POSTs had nowhere to
+land. This session's Vercel CLI can't reach that team either. Per Berto's call, the app was
+**migrated to the `bertoaucctus` / `aucctus` team** (`team_rw2fumuExVl71ZKWCk1jBKZ9`, "Berto's
+projects", active).
+
+**New project: `cael-keystrokes`** (`prj_1imCSWv1ZyKhqdwPpV72ojy0PDt1`), live at
+**https://cael-keystrokes.vercel.app**.
+- All 48 env vars from `.env.local` pushed via the REST API (same `DATABASE_URL`, Clerk,
+  Google, Twilio, `KEYSTROKE_TOKEN`, …). Skipped `VERCEL_OIDC_TOKEN` (Vercel injects its own).
+- `vercel.json` uses the legacy `experimentalServices`, which new projects reject. Deployed
+  as a plain single-service Next build via a **temporary** local edit to `vercel.json`, then
+  `git checkout`-reverted — the committed file is unchanged. `withEve()` in `next.config.ts`
+  still builds the eve HTTP routes into the Next app; only eve's **durable runtime**
+  (schedules, sandbox) is absent on this deploy — which is *why* there's no risk of the
+  Twilio morning-digest double-firing from it.
+- Vercel **SSO deployment protection disabled** on the project (the app has its own
+  Clerk + password auth; SSO would force a double login and intermittently 401 the agent).
+- Verified end-to-end: token POST → `200` and the row lands in Neon; bad token → `401`;
+  `GET /` → `307` to the app's own login (not an SSO wall). Test rows deleted.
+
+**Not done / open:**
+- **No custom domain.** Lives on `*.vercel.app`; `cael.bertomill.com` is still attached to the
+  paused project. Moving DNS (via `scripts/cloudflare-dns.mjs`) is deferred — it's a decision,
+  and it would fight the original once it's un-paused.
+- **Point the agent at the new URL:** `FOCUSPOINT_URL=https://cael-keystrokes.vercel.app ./install.sh`
+  (its default is still the paused `cael.bertomill.com`).
+
 ## 2026-08-29 (keystrokes) — "track my keystrokes each day, add it to the dashboard"
 
 **What it is.** A WhatPulse-style daily keystroke count: a login agent on the Mac counts

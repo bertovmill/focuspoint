@@ -4,6 +4,47 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 — Mobile polish: kit drawers for More menu and chat history
+
+**Ask:** *"look through my app, and check and see how to make the mobile experience
+better? usually kits work pretty well, popular ones online"*
+
+Toured every tab at iPhone-14 size first (Playwright, `devices["iPhone 14"]`).
+Baseline was already solid — zero horizontal overflow on any screen, sane tap
+targets. (The dark "N" circle over the Home tab in dev screenshots is the Next.js
+dev-tools button; it doesn't exist in production.) The rough spots were both
+"desktop furniture on a phone" problems, and both had the same kit answer: **vaul**,
+the drawer primitive behind shadcn's `drawer` component (`npx shadcn add drawer`).
+
+**What changed.**
+
+- `components/ui/drawer.tsx` (new, from the shadcn registry) — upgraded the stock
+  bottom-only `DrawerContent` to the registry's current direction-aware version
+  (`data-[vaul-drawer-direction=…]` variants), since the chat history needs
+  `direction="left"`. The drag handle only renders on bottom sheets.
+- `app/(app)/layout.tsx` — the mobile "More" menu (13 destinations in a
+  `DropdownMenu` floating mid-screen) is now a bottom sheet: 4-column icon grid,
+  thumb-reachable, swipe-down to dismiss, active tab highlighted, safe-area padded.
+- `app/_components/agent-chat.tsx` — the hand-rolled mobile chat-history overlay
+  (manual scrim + fixed panel) became `<Drawer direction="left">`; swipe-left to
+  dismiss verified in Playwright.
+- `app/_components/chat-sidebar.tsx` — two touch fixes the drawer exposed: thread
+  titles now reserve space for the always-visible-on-touch edit/delete icons
+  (`touch:pe-16`, using the existing `@custom-variant touch`), and the "New chat"
+  pill's `pb-20` (which cleared the old overlay's bottom nav) became safe-area
+  padding, since the vaul drawer covers the nav.
+- Bottom-nav buttons got `active:scale-95` press feedback (transition only on
+  `active`, so the release snap is instant — feels native, not laggy).
+
+**Data cleanup.** The history drawer surfaced 14 blank threads (empty title, zero
+events) accumulated since June — leftovers of the pre-checkpointing era. Deleted
+them all; nothing to lose at zero events. 128 real threads remain.
+
+**Next steps.** If more side-drawers appear (filters, settings), they should reuse
+the same `Drawer` component rather than hand-rolling overlays.
+
+---
+
 ## 2026-08-29 — Chats stop dropping off: checkpointing + resume
 
 **Ask:** *"now sometimes the app chat just drops off, can we prevent that?"*

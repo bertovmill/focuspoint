@@ -7,6 +7,7 @@ import Link from "next/link";
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { requestNewChat } from "@/app/_components/new-chat-event";
 import { TracePanel } from "@/app/_components/trace-panel";
 import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
@@ -215,39 +216,34 @@ function ChatSession({
       </div>
 
       {/* Mobile chat-history overlay */}
-      {historyOpen ? (
-        <div className="absolute inset-0 z-50 flex lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setHistoryOpen(false)}
-          />
-          <div className="relative flex w-72 max-w-[80%] flex-col border-r border-border bg-background">
-            <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
-              <span className="text-muted-foreground text-sm">Chats</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    requestNewChat();
-                    setHistoryOpen(false);
-                  }}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                  aria-label="New chat"
-                >
-                  <PlusIcon className="size-4" />
-                </button>
-                <button
-                  onClick={() => setHistoryOpen(false)}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                  aria-label="Close chat history"
-                >
-                  <XIcon className="size-4" />
-                </button>
-              </div>
+      {/* Mobile chat history rides in a swipeable side drawer (vaul). */}
+      <Drawer direction="left" open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DrawerContent aria-describedby={undefined} className="lg:hidden">
+          <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
+            <DrawerTitle className="font-normal text-muted-foreground text-sm">Chats</DrawerTitle>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  requestNewChat();
+                  setHistoryOpen(false);
+                }}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                aria-label="New chat"
+              >
+                <PlusIcon className="size-4" />
+              </button>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                aria-label="Close chat history"
+              >
+                <XIcon className="size-4" />
+              </button>
             </div>
-            <ChatSidebar className="flex-1" onNavigate={() => setHistoryOpen(false)} />
           </div>
-        </div>
-      ) : null}
+          <ChatSidebar className="min-h-0 flex-1" onNavigate={() => setHistoryOpen(false)} />
+        </DrawerContent>
+      </Drawer>
 
       {traceOpen ? (
         <TracePanel events={agent.events} onClose={() => setTraceOpen(false)} />

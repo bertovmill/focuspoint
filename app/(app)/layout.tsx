@@ -13,6 +13,7 @@ import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
 import { NEW_CHAT_EVENT } from "@/app/_components/new-chat-event";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { FloatingChatBar } from "@/app/_components/floating-chat-bar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
@@ -25,11 +26,11 @@ import { StreakProvider } from "@/app/_components/streak-provider";
 import { setNativePinMode } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 
 type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition";
 
@@ -148,6 +149,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   // collapsed there so the conversation fills the view. The header toggle brings
   // it back.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | undefined>();
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
@@ -451,32 +453,49 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           onClick={() => setMobileTab("lists")}
           reduceMotion={reduceMotion}
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {/* Everything past the first five tabs lives in a bottom sheet — a
+            thumb-reachable icon grid instead of a desktop dropdown floating
+            mid-screen. vaul gives swipe-to-dismiss for free. */}
+        <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
+          <DrawerTrigger asChild>
             <button
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors active:scale-95 active:transition-transform",
                 MORE_TABS.some((t) => t.tab === mobileTab) ? "text-primary" : "text-muted-foreground",
               )}
             >
               <MoreHorizontalIcon className="size-5" />
               <span className="text-[10px] font-medium">More</span>
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="mb-2">
-            {MORE_TABS.map(({ tab, label, icon: Icon }) => (
-              <DropdownMenuItem
-                key={tab}
-                onClick={() => setMobileTab(tab)}
-                className={cn(mobileTab === tab && "text-primary")}
-              >
-                <Icon className="size-4" />
-                {label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </DrawerTrigger>
+          <DrawerContent aria-describedby={undefined}>
+            <DrawerTitle className="sr-only">More sections</DrawerTitle>
+            <div className="grid grid-cols-4 gap-2 overflow-y-auto p-4 pb-[max(1rem,var(--safe-bottom))]">
+              {MORE_TABS.map(({ tab, label, icon: Icon }) => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setMobileTab(tab);
+                  }}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 transition-colors active:scale-95 active:transition-transform",
+                    mobileTab === tab ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  <Icon className="size-5" />
+                  <span className="text-[11px] font-medium">{label}</span>
+                </button>
+              ))}
+            </div>
+          </DrawerContent>
+        </Drawer>
       </nav>
+
+      {/* Ever-present line to Cael — floats over every section except the chat
+          page, which has its own composer. Sending rides the same path as
+          "Run now": fresh thread, message on its way, chat page open. */}
+      {mobileTab !== "chat" && <FloatingChatBar onSend={handleRunJobWithChat} />}
 
       {/* Section pages render nothing — the shell above owns the UI. */}
       {children}
@@ -502,7 +521,7 @@ function NavButton({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors",
+        "relative flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors active:scale-95 active:transition-transform",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
         active ? "text-primary" : "text-muted-foreground",
       )}

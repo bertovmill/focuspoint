@@ -69,7 +69,7 @@ export const ChatSidebar: FC<{
       </div>
 
       {/* Pinned "New chat" pill */}
-      <div className="absolute bottom-0 inset-x-0 flex justify-center pb-20 lg:pb-4 pointer-events-none">
+      <div className="absolute bottom-0 inset-x-0 flex justify-center pb-[max(1rem,var(--safe-bottom))] lg:pb-4 pointer-events-none">
         <Button
           onClick={handleNew}
           className="pointer-events-auto rounded-full px-5 h-10 gap-2 shadow-md text-sm font-medium"
@@ -137,7 +137,7 @@ const ChatSidebarItem: FC<{
     >
       <button
         onClick={onSwitch}
-        className="flex h-full min-w-0 flex-1 items-center rounded-md px-2.5 text-start text-sm outline-none group-hover:pe-16"
+        className="flex h-full min-w-0 flex-1 items-center rounded-md px-2.5 text-start text-sm outline-none group-hover:pe-16 touch:pe-16"
       >
         <span className="min-w-0 flex-1 truncate">{label}</span>
       </button>

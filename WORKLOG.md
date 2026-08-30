@@ -74,6 +74,57 @@ prove it isn't logging content.
 
 ---
 
+## 2026-08-30 — The watch is connected: steps and sleep from Fitbit, live
+
+The scorecard's two hardest metrics now fill themselves in. **25,137 steps and 6h38m
+of sleep** came off Berto's Fitbit Charge 4 through the Google Health API, with 14 days
+of steps backfilled. Getting there turned up four things no amount of doc-reading had
+settled, each found by `GET /api/health/sync?debug=<date>` — which is the entire
+justification for having built that endpoint.
+
+**1. The app was authenticating against a project we never configured.** The Health API
+and scopes had been set up on project `cael` (`812477857784`), but `GOOGLE_CLIENT_ID`
+began `45298590656` — a *different* project, invisible to his Google account (it belongs
+to the aucctus login). The number before the dash in a client ID is the project number;
+checking that one detail saved an hour of chasing a scope error. Fix: switch the app to
+cael's "Web client 1", which is where the setup already lived. The old
+`GOOGLE_REFRESH_TOKEN` and the stale `google_auth` row went with it.
+
+**2. The Health API refuses a token that also carries calendar scopes.**
+`403 PERMISSION_DENIED`, `DISALLOWED_OAUTH_SCOPES`, `disallowed_scopes: "cl_events,cl_readonly"`.
+This inverted an earlier decision: `include_granted_scopes=true` had been added an hour
+before, specifically to *avoid narrowing* the existing grant — exactly the wrong move
+here. The watch now has its **own health-only grant** (`app_settings` key
+`google_health_tokens`, its own connect/callback/refresh), `lib/google.ts` is
+calendar-only again, and neither grant can contaminate the other. Never add a
+non-googlehealth scope to `HEALTH_SCOPES`.
+
+**3. `CivilDateTime` nests the date.** A flat `{year, month, day}` gets
+`400 Unknown name "year" at 'range.start'`. It is `{ date: { year, month, day } }`, with
+an optional `time` defaulting to midnight — which is what a day boundary wants.
+
+**4. Sleep cannot use dailyRollUp at all.** The API says so outright: *"DailyRollup is
+not supported for data type sleep… supported: list, get, reconcile, create, update,
+batchDelete"*. Sleep uses `list` with a `sleep.interval.civil_end_time` filter — **end**
+time, so last night lands on the day he woke up, not the day he went to bed — and
+multiple sessions a night are summed.
+
+**Time asleep, not time in bed.** The real payload has `sleep.interval` (in bed) plus
+`sleep.stages[]` of AWAKE / LIGHT / DEEP / REM. The card says "time asleep", so awake
+segments are subtracted: a 6h48m interval with 30m waking is 6h18m. Counting the
+interval would have flattered the number every night. Unknown stage types count as
+sleep rather than vanishing, and a point with no stages falls back to the interval.
+
+**Verified end to end** against production: 3-day sync returned 25,137/6h38m,
+19,897/6h42m, 18,565/7h39m; 14 days of steps backfilled. Sleep only reaches back 3 days
+— Google appears to hold less sleep history than step history, worth watching but not a
+bug. Today reads 1/4 (steps hit).
+
+**Answered along the way:** the app's session cookie lasts **30 days**, and the watch
+grant is a refresh token, so there is no repeated logging in — roughly once a month.
+
+---
+
 ## 2026-08-29 (later still) — Vercel paused the account; the cause was polling
 
 **What happened.** Mid-walkthrough, cael.bertomill.com *and* bertomill.com both started

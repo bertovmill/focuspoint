@@ -372,14 +372,22 @@ export function ScorecardCard() {
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/health/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: 3 }),
-      });
-      const result = await res.json();
-      if (!result.connected) toast.error("The watch isn't connected");
-      else toast.success(result.synced ? `Synced ${result.synced} day${result.synced === 1 ? "" : "s"}` : "Nothing new from the watch");
+      // One button, both sources — the portfolio is a different provider but nobody
+      // thinks of it that way; they just want the card to be current.
+      const [health, portfolio] = await Promise.all([
+        fetch("/api/health/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ days: 3 }),
+        }).then((r) => r.json()),
+        fetch("/api/portfolio/sync", { method: "POST" }).then((r) => r.json()),
+      ]);
+
+      if (!health.connected) toast.error("The watch isn't connected");
+      else toast.success(health.synced ? `Synced ${health.synced} day${health.synced === 1 ? "" : "s"}` : "Nothing new from the watch");
+      // The portfolio is below the line, so its failure is a quiet note, not an error
+      // competing with the watch's own result.
+      if (portfolio.connected && portfolio.amount === null) toast.message("Couldn't read the portfolio");
       await load();
     } catch {
       toast.error("Watch sync failed");
@@ -424,7 +432,7 @@ export function ScorecardCard() {
         {googleConnected ? (
           <Button variant="ghost" size="sm" onClick={sync} disabled={syncing} className="h-7 gap-1.5 text-[11px]">
             {syncing ? <Loader2Icon className="size-3 animate-spin" /> : <RefreshCwIcon className="size-3" />}
-            Sync watch
+            Sync
           </Button>
         ) : (
           <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-[11px]">

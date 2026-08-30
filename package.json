@@ -66,6 +66,7 @@
     "server-only": "^0.0.1",
     "sharp": "^0.34.5",
     "shiki": "4.1.0",
+    "snaptrade-typescript-sdk": "^12.1.12",
     "sonner": "^2.0.7",
     "streamdown": "2.5.0",
     "tailwind-merge": "3.6.0",

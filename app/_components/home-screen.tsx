@@ -39,7 +39,6 @@ import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
-import { KeystrokesCard } from "@/app/_components/keystrokes-card";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -440,8 +439,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             it's the one block that's actionable at 7am. */}
         <ScorecardCard />
 
-        {/* Keystrokes typed today — a volume metric from the local macOS counter. */}
-        <KeystrokesCard />
 
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (
@@ -510,7 +507,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         )}
 
       </div>
-
 
       <div className="mx-auto max-w-6xl px-6">
         {/* Daily behaviors mantra */}

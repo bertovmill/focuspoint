@@ -125,8 +125,11 @@ export const METRICS: MetricDef[] = [
     // a thought. Only highlights carrying his own annotation count.
     source: "readwise",
     kind: "count",
-    target: 1,
-    bonusFullAt: 5,
+    // Ten, Berto's number (2026-08-30). His real days cluster hard — 29 notes on Aug 24,
+    // 9 on Aug 21, zero on most others — so ten asks for a genuine reading session
+    // rather than one stray annotation.
+    target: 10,
+    bonusFullAt: 3,
     gates: true,
   },
   {

@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecordConfetti } from "@/app/_components/record-confetti";
+import { ScoreChart } from "@/app/_components/score-chart";
 import {
   GATING_METRICS,
   formatMetric,
@@ -575,40 +576,10 @@ export function ScorecardCard() {
           </div>
         )}
 
-        {/* Fourteen days by score, newest right — so a 19,900-step day and a
-            400-step day finally look different. The peak wears a marker. */}
+        {/* Fourteen days of day-score, drawn as a trajectory rather than fourteen
+            separate verdicts — his ask. See score-chart.tsx for the colour choice. */}
         <div className="mt-3 border-t pt-3">
-          <div className="flex items-end gap-1">
-            {recent.map((day, i) => {
-              const pre = day.date < recordsSince;
-              const isPeak = !pre && peak > 0 && day.score === peak;
-              return (
-                <span
-                  key={day.date}
-                  title={
-                    `${day.date} — ${day.score} pts · ${day.hitCount}/${total} hit` +
-                    (pre ? " · before keystroke tracking, not comparable" : isPeak ? " · best of the fortnight" : "")
-                  }
-                  className={cn(
-                    "relative h-10 flex-1 overflow-hidden rounded bg-muted",
-                    i === recent.length - 1 && "ring-1 ring-foreground/20",
-                    isPeak && "ring-1 ring-amber-500/60",
-                  )}
-                >
-                  {day.score > 0 && (
-                    <span
-                      className={cn(
-                        "absolute inset-x-0 bottom-0 rounded",
-                        isPeak ? "bg-amber-500" : day.perfect ? "bg-emerald-600" : "bg-foreground/35",
-                        pre && "opacity-30",
-                      )}
-                      style={{ height: `${Math.min(100, Math.max(6, (day.score / stripCeiling) * 100))}%` }}
-                    />
-                  )}
-                </span>
-              );
-            })}
-          </div>
+          <ScoreChart recent={recent} record={best?.value ?? null} total={total} recordsSince={recordsSince} />
           <p className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
             <span>Last {recent.length} days · today on the right</span>
             {peak > 0 && <span className="text-amber-600 dark:text-amber-400">peak {peak.toLocaleString("en-CA")}</span>}

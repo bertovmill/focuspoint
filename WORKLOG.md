@@ -6442,3 +6442,54 @@ clean.
 
 Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`,
 `app/_components/record-confetti.tsx` (new).
+
+---
+
+## 2026-08-30 — Keystrokes replace PRs on the scorecard
+
+Berto, looking at the card: *"remove PRs and replace that row with the keystrokes —
+because keystrokes matter more than PRs."* He's right, and the reason is that a
+merged PR is a lumpy, gameable unit: a one-line typo fix and a week of work both
+count 1, and the last fortnight ranges from 1 to 26 in a day. Keys pressed is the
+honest volume of the work, and the counter was already running.
+
+**The swap.** `MetricKey`'s `prs` became `keystrokes`, sourced from
+`keystroke_days` (the launchd agent on his Mac, already feeding the Keystrokes
+card below). `MetricSource` lost `"github"` and gained `"agent"`; the card's
+"which rows may a human type over" rule now reads `source !== "agent"` — the
+agent owns that number and `recordKeystrokes` only ever moves it upward anyway.
+The `github_prs` table and its sync are untouched: other cards use them, PRs just
+no longer score the day.
+
+One real difference from the PR row: **an absent keystroke day is `null`, not
+zero.** The github table was complete, so a missing day genuinely meant "none
+merged"; this table is only as complete as the agent's uptime, and scoring a day
+the Mac was off as "typed nothing" would be a lie.
+
+**Target: 100,000/day.** Berto's own number — I offered 5,000 (a stretch above
+his tracked days of 4,343 and 3,349) and he typed 100,000 instead. Flagged to him
+at the time: at that bar a typical day pays ~7 points and a perfect day is
+effectively out of reach until his typing volume grows ~25×. It's a bar to grow
+into, and it's tunable without a deploy through the `scorecard_targets`
+app_setting, so this stays his dial rather than a code change.
+
+**Records now start at Aug 29**, his call when the tradeoff surfaced. Dropping
+PRs rescores history, and no day before Aug 29 has keystroke data — so every
+older day is missing a whole gating metric and would hold a high score the new
+scorecard could never fairly beat. `computeRecords()` takes a `since` floor,
+derived at runtime from the earliest `keystroke_days` row rather than hardcoded,
+so it stays correct if the table is ever backfilled. The high score moved from
+606 (Aug 23, PR-inflated) to **439 (Aug 29)**.
+
+That exposed a real inconsistency in the strip, now fixed: it was crowning Aug 23
+with `peak 596` directly under a card claiming the best was 439. Pre-tracking days
+are still drawn — they happened — but at 30% opacity, excluded from the peak, and
+labelled "before keystroke tracking, not comparable" on hover. The strip now
+scales to the tallest bar on screen so nothing clamps.
+
+**Verified** on a private :3789 server against live data: today 389 pts, high
+score 439 (Aug 29), keystrokes 3,544 / 100,000 → +7, `peak 439` matching the
+headline, and a genuine `broken: ["sleep_minutes"]` record firing on real numbers
+(6h40m over Aug 29's 6h38m). `npm run typecheck` clean. No test data written.
+
+Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`.

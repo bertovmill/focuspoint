@@ -3,7 +3,7 @@
 // Berto's note (thought #181, 2026-08-28): "Measures of success — the metrics that
 // make the magic happen." The list he landed on after cutting the noisy ones:
 //
-//   Steps · Sleep · Fasting window 12–8pm · PRs merged · Portfolio
+//   Steps · Sleep · Fasting window 12–8pm · Keystrokes · Portfolio
 //
 // The rule he gave for what earns a slot: **highly trackable, high signal**. That's
 // why Readwise highlights are gone ("high noise, less signal") and why every metric
@@ -19,7 +19,12 @@
 //                       second column: the Nutrition screen already owns that
 //                       checkbox, and two places recording "did I hold the window"
 //                       would drift apart within a week.
-//   - prs             → derived live from `github_prs`, nothing to store
+//   - keystrokes      → `keystroke_days`, posted every minute by the launchd agent on
+//                       Berto's Mac (keystroke-agent/). Replaced "PRs merged" on
+//                       2026-08-30 — his call: "keystrokes matter more than PRs". A
+//                       merged PR is a lumpy, gameable unit (a one-line typo fix and a
+//                       week of work both count 1); keys pressed is the honest volume
+//                       of the work. The count is only ever a count — never which keys.
 //   - portfolio       → typed in for now. The unofficial Wealthsimple client that
 //                       filled this was removed (4d8ce55): handing a password and a
 //                       2FA code to a reverse-engineered endpoint wasn't worth a
@@ -46,9 +51,10 @@ const TARGETS_SETTING_KEY = "scorecard_targets";
 
 // --------------------------------------------------------------------- metrics
 
-export type MetricKey = "steps" | "sleep_minutes" | "fasting_held" | "prs" | "portfolio";
+export type MetricKey = "steps" | "sleep_minutes" | "fasting_held" | "keystrokes" | "portfolio";
 
-export type MetricSource = "health" | "github" | "manual";
+/** Where a number comes from — and so whether a human is allowed to type over it. */
+export type MetricSource = "health" | "agent" | "manual";
 
 export type MetricDef = {
   key: MetricKey;
@@ -105,14 +111,17 @@ export const METRICS: MetricDef[] = [
     gates: true,
   },
   {
-    key: "prs",
-    label: "PRs merged",
-    hint: "GitHub · build the thing",
-    source: "github",
+    key: "keystrokes",
+    label: "Keystrokes",
+    hint: "Mac · build the thing",
+    source: "agent",
     kind: "count",
-    target: 1,
+    // Berto's number, picked deliberately high (2026-08-30) against tracked days of
+    // 4,343 and 3,349 — a bar to grow into, not one to clear this week. Tunable
+    // without a deploy via the `scorecard_targets` app_setting.
+    target: 100_000,
     gates: true,
-    bonusFullAt: 3, // three merged PRs is a shipping day
+    bonusFullAt: 1.5,
   },
   {
     key: "portfolio",
@@ -283,6 +292,8 @@ export type ScorecardSummary = {
   broken: (MetricKey | "score")[];
   /** MAX_DAY_SCORE, sent along so the client doesn't re-derive the ceiling. */
   maxScore: number;
+  /** The first day records are counted from — when keystroke tracking began. */
+  recordsSince: string;
 };
 
 /** Did this value clear its bar? A null (never logged) is never a hit. */
@@ -314,14 +325,20 @@ export function buildDay(date: string, values: Partial<Record<MetricKey, number 
 
 /**
  * The high scores standing *before* `excludeDate`, so today can be measured against
- * them. A record needs a real logged number — an unlogged day is not a zero, and a
+ * them, optionally floored at `since`. A record needs a real logged number — an unlogged day is not a zero, and a
  * literal zero never becomes a personal best.
  */
-export function computeRecords(byDate: Map<string, ScorecardDay>, excludeDate: string): Records {
+export function computeRecords(
+  byDate: Map<string, ScorecardDay>,
+  excludeDate: string,
+  /** Ignore days before this one — see `trackingSince` in getScorecardSummary. */
+  since?: string,
+): Records {
   const records: Records = { score: null, metrics: {} };
 
   for (const [date, day] of byDate) {
     if (date === excludeDate) continue;
+    if (since && date < since) continue;
 
     if (day.score > 0 && (!records.score || day.score > records.score.value)) {
       records.score = { value: day.score, date };
@@ -450,7 +467,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, prRows, healthConnected] = await Promise.all([
+  const [targets, logged, fastRows, keyRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
       SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, portfolio
@@ -464,13 +481,12 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
       FROM nutrition_days
       WHERE logged_date >= ${since}::date
     `,
-    // PRs bucketed in Berto's timezone, not UTC — a PR merged at 9pm Toronto belongs
-    // to that day. Same reasoning as lib/streak.ts.
+    // Keystrokes are already bucketed by day, in Berto's timezone, by the agent that
+    // posts them — there is nothing to re-bucket here.
     sql`
-      SELECT to_char(merged_at AT TIME ZONE ${STREAK_TIME_ZONE}, 'YYYY-MM-DD') AS date, COUNT(*)::int AS prs
-      FROM github_prs
-      WHERE merged_at >= ${since}::date
-      GROUP BY 1
+      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, count
+      FROM keystroke_days
+      WHERE logged_date >= ${since}::date
     `,
     // The watch has its OWN health-only grant, separate from the Calendar one —
     // the Health API 403s on any token carrying calendar scopes. See lib/google-health.ts.
@@ -493,26 +509,35 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   for (const r of fastRows as Record<string, unknown>[]) {
     slot(String(r.date)).fasting_held = r.held ? 1 : 0;
   }
-  for (const r of prRows as Record<string, unknown>[]) {
-    slot(String(r.date)).prs = Number(r.prs);
+  for (const r of keyRows as Record<string, unknown>[]) {
+    slot(String(r.date)).keystrokes = Number(r.count);
   }
-  // Zero PRs on a day with any other activity is a real zero, not "unlogged" — the
-  // github table is complete, so an absent day genuinely means none were merged.
-  for (const [, v] of values) if (v.prs === undefined) v.prs = 0;
+  // A day with no keystroke row is *unlogged*, not a zero: it means the Mac agent
+  // wasn't running. Unlike the github table, this one is only as complete as the
+  // agent's uptime, so an absent day must not be scored as "typed nothing".
 
   const byDate = new Map<string, ScorecardDay>();
   for (const [date, v] of values) byDate.set(date, buildDay(date, v, targets));
 
   const { streak, bestStreak, atRisk } = computePerfectStreak(byDate, todayKey);
 
-  const today = byDate.get(todayKey) ?? buildDay(todayKey, { prs: 0 }, targets);
+  const today = byDate.get(todayKey) ?? buildDay(todayKey, {}, targets);
   const recent: ScorecardDay[] = [];
   for (let i = SCORECARD_DAYS - 1; i >= 0; i--) {
     const key = shiftDay(todayKey, i);
     recent.push(byDate.get(key) ?? buildDay(key, {}, targets));
   }
 
-  const records = computeRecords(byDate, todayKey);
+  // Records only count days that could actually score on all four metrics. Keystroke
+  // tracking started 2026-08-29; every day before it is missing a whole gating metric,
+  // so letting those days hold the high score would set a bar the new scorecard can
+  // never fairly beat. Berto's call (2026-08-30) when the metric was swapped in.
+  const trackingSince = [...values.entries()]
+    .filter(([, v]) => (v.keystrokes ?? 0) > 0)
+    .map(([date]) => date)
+    .sort()[0] ?? todayKey;
+
+  const records = computeRecords(byDate, todayKey, trackingSince);
 
   return {
     today,
@@ -525,6 +550,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     records,
     broken: brokenRecords(today, records),
     maxScore: MAX_DAY_SCORE,
+    recordsSince: trackingSince,
   };
 }
 

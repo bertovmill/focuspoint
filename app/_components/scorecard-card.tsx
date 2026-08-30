@@ -6,7 +6,7 @@ import {
   CheckIcon,
   FlameIcon,
   FootprintsIcon,
-  GitPullRequestIcon,
+  KeyboardIcon,
   Loader2Icon,
   MoonIcon,
   RefreshCwIcon,
@@ -54,7 +54,7 @@ const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
   sleep_minutes: MoonIcon,
   fasting_held: UtensilsCrossedIcon,
-  prs: GitPullRequestIcon,
+  keystrokes: KeyboardIcon,
   portfolio: TrendingUpIcon,
 };
 
@@ -226,7 +226,7 @@ function MetricRow({
             setDraft(metric.value === null ? "" : String(metric.value));
             setEditing(true);
           }}
-          title={editable ? "Click to edit" : "Synced automatically from GitHub"}
+          title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
           className={cn(
             "shrink-0 rounded-md px-1.5 py-1 text-right text-[12.5px] tabular-nums",
             editable && "hover:bg-muted",
@@ -398,7 +398,7 @@ export function ScorecardCard() {
 
   if (!summary) return null;
 
-  const { today, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore } = summary;
+  const { today, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore, recordsSince } = summary;
   const total = GATING_METRICS.length;
   const gating = today.metrics.filter((m) => metricDef(m.key).gates);
   const tracked = today.metrics.filter((m) => !metricDef(m.key).gates);
@@ -415,11 +415,16 @@ export function ScorecardCard() {
   // Within striking distance of the record — the bar starts glowing before he gets there.
   const closingIn = !beatingBest && pctOfBar >= 75;
 
-  // The best day visible in the strip, so the sparkline has a peak to point at.
-  const peak = Math.max(...recent.map((d) => d.score));
-  // Bars are drawn as a fraction of his record, not of the theoretical 1,300 — against
-  // a ceiling nobody reaches, every day looks equally flat and the strip says nothing.
-  const stripCeiling = Math.max(peak, best?.value ?? 0, 1);
+  // Days before keystroke tracking began were scored without a whole gating metric, so
+  // they can't be compared to today and can't hold the peak — but they still happened,
+  // so they're drawn, just dimmed. Without this the strip cheerfully crowns a day that
+  // the high score above it says isn't the best.
+  const comparable = recent.filter((d) => d.date >= recordsSince);
+  const peak = comparable.length ? Math.max(...comparable.map((d) => d.score)) : 0;
+  // Bars are drawn as a fraction of the tallest thing on screen, not of the theoretical
+  // 1,300 — against a ceiling nobody reaches, every day looks equally flat and the strip
+  // says nothing. Every day counts toward the ceiling so no bar has to clamp.
+  const stripCeiling = Math.max(...recent.map((d) => d.score), best?.value ?? 0, 1);
 
   return (
     <div className="mb-6">
@@ -483,7 +488,10 @@ export function ScorecardCard() {
               <TrophyIcon className="size-3 text-amber-500" />
               High score
             </p>
-            <p className="text-[15px] font-semibold tabular-nums leading-tight">
+            <p
+              className="text-[15px] font-semibold tabular-nums leading-tight"
+              title={`Best day since keystroke tracking began (${shortDate(recordsSince)})`}
+            >
               {best ? best.value.toLocaleString("en-CA") : "—"}
             </p>
             <p className="text-[10px] text-muted-foreground">{best ? shortDate(best.date) : "not set yet"}</p>
@@ -538,8 +546,9 @@ export function ScorecardCard() {
               metric={m}
               best={records.metrics[m.key]}
               isRecord={broken.includes(m.key)}
-              // PRs are the one number he can't type — GitHub is the record.
-              editable={metricDef(m.key).source !== "github"}
+              // Keystrokes are the one number he can't type: the Mac agent owns that
+              // row, and it only ever moves the count upward.
+              editable={metricDef(m.key).source !== "agent"}
               onEdit={handleEdit}
               onToggle={(held) => void patch({ fasting_held: held })}
             />
@@ -569,11 +578,15 @@ export function ScorecardCard() {
         <div className="mt-3 border-t pt-3">
           <div className="flex items-end gap-1">
             {recent.map((day, i) => {
-              const isPeak = peak > 0 && day.score === peak;
+              const pre = day.date < recordsSince;
+              const isPeak = !pre && peak > 0 && day.score === peak;
               return (
                 <span
                   key={day.date}
-                  title={`${day.date} — ${day.score} pts · ${day.hitCount}/${total} hit${isPeak ? " · best of the fortnight" : ""}`}
+                  title={
+                    `${day.date} — ${day.score} pts · ${day.hitCount}/${total} hit` +
+                    (pre ? " · before keystroke tracking, not comparable" : isPeak ? " · best of the fortnight" : "")
+                  }
                   className={cn(
                     "relative h-10 flex-1 overflow-hidden rounded bg-muted",
                     i === recent.length - 1 && "ring-1 ring-foreground/20",
@@ -585,6 +598,7 @@ export function ScorecardCard() {
                       className={cn(
                         "absolute inset-x-0 bottom-0 rounded",
                         isPeak ? "bg-amber-500" : day.perfect ? "bg-emerald-600" : "bg-foreground/35",
+                        pre && "opacity-30",
                       )}
                       style={{ height: `${Math.min(100, Math.max(6, (day.score / stripCeiling) * 100))}%` }}
                     />

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { hasHealthScope } from "@/lib/google";
-import { debugHealthDay } from "@/lib/google-health";
+
+import { debugHealthDay, isHealthConnected } from "@/lib/google-health";
 import { syncHealthRange } from "@/lib/health-sync";
 import { dayKey } from "@/lib/scorecard";
 
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     return NextResponse.json(await debugHealthDay(debug === "today" ? dayKey(new Date()) : debug));
   }
   try {
-    return NextResponse.json({ connected: await hasHealthScope() });
+    return NextResponse.json({ connected: await isHealthConnected() });
   } catch {
     return NextResponse.json({ connected: false });
   }

@@ -4,8 +4,8 @@
 // the card, the connect flow and the daily cron share one idea of what a sync is.
 
 import { getDb } from "@/lib/db";
-import { hasHealthScope } from "@/lib/google";
-import { fetchHealthDay } from "@/lib/google-health";
+import { fetchHealthDay, isHealthConnected } from "@/lib/google-health";
+
 import { dayKey, recordMetrics, shiftDay } from "@/lib/scorecard";
 
 export type SyncResult = {
@@ -24,7 +24,7 @@ export type SyncResult = {
  */
 export async function syncHealthRange(days = 3): Promise<SyncResult> {
   const sql = getDb();
-  if (!(await hasHealthScope())) return { connected: false, synced: 0, days: [] };
+  if (!(await isHealthConnected())) return { connected: false, synced: 0, days: [] };
 
   const today = dayKey(new Date());
   const out: SyncResult["days"] = [];

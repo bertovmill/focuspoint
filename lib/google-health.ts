@@ -17,7 +17,131 @@
 //
 // Docs: https://developers.google.com/health/reference/rest/v4
 
-import { getAccessToken } from "@/lib/google";
+import { getDb } from "@/lib/db";
+
+const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const TOKEN_URL = "https://oauth2.googleapis.com/token";
+
+/**
+ * The watch grant is **health-only, on purpose**.
+ *
+ * The Health API rejects any access token that also carries calendar scopes:
+ * `403 PERMISSION_DENIED / DISALLOWED_OAUTH_SCOPES`, with
+ * `disallowed_scopes: "cl_events,cl_readonly"`. So this cannot ride on the Calendar
+ * consent in lib/google.ts, and the two grants are stored separately. Never add a
+ * non-googlehealth scope to this list, and never use `include_granted_scopes` here —
+ * either would silently poison the token and every request would 403.
+ */
+export const HEALTH_SCOPES = [
+  "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
+  "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
+];
+
+const TOKEN_KEY = "google_health_tokens";
+/** Refresh this early to dodge clock skew. */
+const EXPIRY_MARGIN_MS = 60_000;
+
+type StoredTokens = { access_token: string; refresh_token: string; expires_at: number };
+
+function credentials() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set");
+  return { clientId, clientSecret };
+}
+
+async function readTokens(): Promise<StoredTokens | null> {
+  const sql = getDb();
+  try {
+    const rows = await sql`SELECT value FROM app_settings WHERE key = ${TOKEN_KEY}`;
+    return rows.length ? (JSON.parse(String(rows[0].value)) as StoredTokens) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeTokens(t: StoredTokens): Promise<void> {
+  const sql = getDb();
+  await sql`
+    INSERT INTO app_settings (key, value) VALUES (${TOKEN_KEY}, ${JSON.stringify(t)})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+}
+
+/** Whether the watch is connected — i.e. a health-only grant exists. */
+export async function isHealthConnected(): Promise<boolean> {
+  return (await readTokens()) !== null;
+}
+
+export async function disconnectHealth(): Promise<void> {
+  const sql = getDb();
+  await sql`DELETE FROM app_settings WHERE key = ${TOKEN_KEY}`;
+}
+
+export function healthAuthUrl(redirectUri: string, state: string): string {
+  const { clientId } = credentials();
+  return `${AUTH_URL}?${new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: HEALTH_SCOPES.join(" "),
+    access_type: "offline",
+    prompt: "consent",
+    state,
+  })}`;
+}
+
+export async function exchangeHealthCode(code: string, redirectUri: string): Promise<void> {
+  const { clientId, clientSecret } = credentials();
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+  if (!res.ok) throw new Error(`Health token exchange failed: ${res.status} ${await res.text()}`);
+  const t = (await res.json()) as { access_token: string; refresh_token?: string; expires_in: number };
+  if (!t.refresh_token) throw new Error("Google did not return a refresh token for the health grant");
+  await writeTokens({
+    access_token: t.access_token,
+    refresh_token: t.refresh_token,
+    expires_at: Date.now() + t.expires_in * 1000,
+  });
+}
+
+/** A valid health access token, refreshing when close to expiry. */
+async function getAccessToken(): Promise<string | null> {
+  const tokens = await readTokens();
+  if (!tokens) return null;
+  if (Date.now() < tokens.expires_at - EXPIRY_MARGIN_MS) return tokens.access_token;
+
+  const { clientId, clientSecret } = credentials();
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: tokens.refresh_token,
+      grant_type: "refresh_token",
+    }),
+  });
+  if (!res.ok) {
+    // A dead refresh token is unrecoverable: drop it so the UI says "connect" rather
+    // than failing every sync from here on.
+    if (res.status === 400 || res.status === 401) await disconnectHealth();
+    throw new Error(`Health token refresh failed: ${res.status} ${await res.text()}`);
+  }
+  const t = (await res.json()) as { access_token: string; expires_in: number };
+  const next = { ...tokens, access_token: t.access_token, expires_at: Date.now() + t.expires_in * 1000 };
+  await writeTokens(next);
+  return next.access_token;
+}
 
 const API = "https://health.googleapis.com/v4";
 
@@ -56,7 +180,7 @@ type RollupPoint = Record<string, unknown>;
  */
 async function dailyRollUp(dataType: string, date: string): Promise<RollupPoint[]> {
   const token = await getAccessToken();
-  if (!token) throw new Error("Google is not connected");
+  if (!token) throw new Error("The watch is not connected");
   const res = await fetch(`${API}/users/me/dataTypes/${dataType}/dataPoints:dailyRollUp`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

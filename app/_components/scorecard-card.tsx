@@ -202,16 +202,16 @@ export function ScorecardCard() {
     void load();
   }, [load]);
 
-  // Coming back from the Google consent screen — say what happened and refresh.
+  // Coming back from the watch consent screen — say what happened and refresh.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const google = params.get("google");
-    if (!google) return;
-    if (google === "connected") {
-      toast.success("Google connected — steps and sleep will sync automatically");
+    const watch = params.get("watch");
+    if (!watch) return;
+    if (watch === "connected") {
+      toast.success("Watch connected — steps and sleep will sync automatically");
       void load();
     } else {
-      toast.error("Couldn't connect Google");
+      toast.error("Couldn't connect the watch");
     }
     // Strip the params so a refresh doesn't re-toast.
     window.history.replaceState({}, "", window.location.pathname);
@@ -252,7 +252,7 @@ export function ScorecardCard() {
         body: JSON.stringify({ days: 3 }),
       });
       const result = await res.json();
-      if (!result.connected) toast.error("Google isn't connected");
+      if (!result.connected) toast.error("The watch isn't connected");
       else toast.success(result.synced ? `Synced ${result.synced} day${result.synced === 1 ? "" : "s"}` : "Nothing new from the watch");
       await load();
     } catch {
@@ -282,7 +282,7 @@ export function ScorecardCard() {
           </Button>
         ) : (
           <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-[11px]">
-            <a href="/api/google/connect">
+            <a href="/api/health/connect">
               <ActivityIcon className="size-3" />
               Connect watch
             </a>

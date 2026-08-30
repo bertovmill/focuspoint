@@ -29,7 +29,7 @@
 
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
 import { normalizeRules } from "@/lib/nutrition";
-import { HEALTH_SCOPES } from "@/lib/google";
+import { isHealthConnected } from "@/lib/google-health";
 
 export { dayKey, STREAK_TIME_ZONE };
 
@@ -295,7 +295,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, prRows, googleRows] = await Promise.all([
+  const [targets, logged, fastRows, prRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
       SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, portfolio
@@ -317,9 +317,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
       WHERE merged_at >= ${since}::date
       GROUP BY 1
     `,
-    // Not "is there a Google row" — a grant minted before the health scopes still
-    // works for Calendar but 403s on the watch. See lib/google.ts hasHealthScope.
-    sql`SELECT scope FROM google_auth WHERE id = 1`,
+    // The watch has its OWN health-only grant, separate from the Calendar one —
+    // the Health API 403s on any token carrying calendar scopes. See lib/google-health.ts.
+    isHealthConnected(),
   ]);
 
   const values = new Map<string, Partial<Record<MetricKey, number | null>>>();
@@ -364,9 +364,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     bestStreak,
     atRisk,
     recent,
-    googleConnected: HEALTH_SCOPES.every((scope) =>
-      String((googleRows[0]?.scope as string | undefined) ?? "").includes(scope),
-    ),
+    googleConnected: healthConnected,
   };
 }
 

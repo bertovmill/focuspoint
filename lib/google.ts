@@ -7,13 +7,6 @@ import { getDb } from "@/lib/db";
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar.readonly",
-  // Fitbit steps and sleep, via the Google Health API (lib/google-health.ts). The
-  // legacy Fitbit Web API is turned down in September 2026, and its successor
-  // authenticates with Google — so the watch data rides on this same consent rather
-  // than a second provider. Adding these means re-consenting: the stored refresh
-  // token only carries the scopes it was granted.
-  "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
-  "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
 ];
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -48,7 +41,6 @@ export async function ensureGoogleAuthTable() {
 }
 
 /** The Health API scopes, so callers can ask whether the grant covers the watch. */
-export const HEALTH_SCOPES = SCOPES.filter((s) => s.includes("googlehealth"));
 
 export function googleAuthUrl(redirectUri: string, state: string) {
   const { clientId } = credentials();
@@ -60,15 +52,11 @@ export function googleAuthUrl(redirectUri: string, state: string) {
     // offline + consent guarantees a refresh_token comes back even on re-auth
     access_type: "offline",
     prompt: "consent",
-    // Incremental authorization: the new token carries everything this account has
-    // already granted this client, plus whatever SCOPES adds.
-    //
-    // This matters because the live grant is *broader* than SCOPES — it holds
-    // `https://mail.google.com/` and full `calendar`, while SCOPES asks only for
-    // calendar.events + calendar.readonly (+ the health pair). Re-consenting without
-    // this flag would hand back a narrower token and silently drop Gmail access,
-    // which nothing in the app uses today but which was deliberately granted.
-    include_granted_scopes: "true",
+    // Deliberately NOT include_granted_scopes. The Google Health API rejects any
+    // token that also carries calendar scopes — 403 DISALLOWED_OAUTH_SCOPES,
+    // "disallowed_scopes: cl_events,cl_readonly" — so the watch grant in
+    // lib/google-health.ts has to stay a separate, health-only token. Folding grants
+    // together here would contaminate it.
     state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
@@ -131,25 +119,6 @@ export async function getGoogleConnection(): Promise<{ email: string | null } | 
   // Pre-existing refresh token from .env.local — treated as connected; it's
   // validated (and dropped in favor of a reconnect) on first API use.
   return process.env.GOOGLE_REFRESH_TOKEN ? { email: null } : null;
-}
-
-/**
- * Whether the stored grant actually includes the Health scopes.
- *
- * Deliberately conservative: a NULL scope column means the grant predates this
- * check, and claiming the watch works when it might not is worse than one extra
- * re-consent.
- */
-export async function hasHealthScope(): Promise<boolean> {
-  const sql = getDb();
-  try {
-    const rows = await sql`SELECT scope FROM google_auth WHERE id = 1`;
-    const scope = rows[0]?.scope;
-    if (typeof scope !== "string") return false;
-    return HEALTH_SCOPES.every((s) => scope.includes(s));
-  } catch {
-    return false;
-  }
 }
 
 export async function disconnectGoogle() {

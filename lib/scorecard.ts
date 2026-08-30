@@ -65,6 +65,13 @@ export type MetricDef = {
    * gated: a balance is a level you don't move by trying harder today.
    */
   gates: boolean;
+  /**
+   * The multiple of target at which overshooting earns the full bonus (see
+   * `metricPoints`). Tuned per metric because "more" means different things:
+   * 30k steps is a genuinely huge day, but 15 hours of sleep is not twice as
+   * good as 7h30 — it's a bad day. Omitted = no bonus for going over.
+   */
+  bonusFullAt?: number;
 };
 
 export const METRICS: MetricDef[] = [
@@ -76,6 +83,7 @@ export const METRICS: MetricDef[] = [
     kind: "count",
     target: 20_000,
     gates: true,
+    bonusFullAt: 1.5, // 30,000 steps is a monster day
   },
   {
     key: "sleep_minutes",
@@ -85,6 +93,7 @@ export const METRICS: MetricDef[] = [
     kind: "duration",
     target: 450, // 7h30m
     gates: true,
+    bonusFullAt: 1.2, // 9h. Past that it isn't a better day, so the bonus stops.
   },
   {
     key: "fasting_held",
@@ -103,6 +112,7 @@ export const METRICS: MetricDef[] = [
     kind: "count",
     target: 1,
     gates: true,
+    bonusFullAt: 3, // three merged PRs is a shipping day
   },
   {
     key: "portfolio",
@@ -145,6 +155,46 @@ export function clampTargets(raw: unknown): Targets {
 
 // ------------------------------------------------------------------- day shape
 
+// -------------------------------------------------------------------- scoring
+//
+// A day is scored, not just judged. "1 / 4" is the same number whether he walked
+// 400 steps or 19,900, which makes a hard day look identical to a lazy one and
+// leaves nothing to chase. Points fix that: every metric pays out in proportion
+// to how far it got, overshooting the bar pays a bonus, and landing all four pays
+// a lump sum on top. The result is a number that moves every single day and has
+// an all-time high worth beating.
+
+/** What a metric pays when you land exactly on its bar. */
+export const BASE_POINTS = 200;
+
+/** The most that overshooting a bar can add, earned in full at `bonusFullAt`. */
+export const MAX_BONUS = 100;
+
+/** Landing every gating metric is worth more than the sum of its parts. */
+export const PERFECT_BONUS = 100;
+
+/**
+ * What one metric is worth today. Non-gating metrics (portfolio) score nothing —
+ * they're tracked, and a balance you didn't move today shouldn't inflate the day.
+ */
+export function metricPoints(key: MetricKey, value: number | null, target: number): number {
+  const def = metricDef(key);
+  if (!def.gates || value === null) return 0;
+  if (def.kind === "toggle") return value > 0 ? BASE_POINTS : 0;
+  if (target <= 0 || value <= 0) return 0;
+
+  const ratio = value / target;
+  const base = Math.min(1, ratio) * BASE_POINTS;
+  const bonus =
+    def.bonusFullAt && def.bonusFullAt > 1
+      ? Math.min(1, Math.max(0, (ratio - 1) / (def.bonusFullAt - 1))) * MAX_BONUS
+      : 0;
+  return Math.round(base + bonus);
+}
+
+/** The ceiling: every bar cleared to its bonus cap, plus the perfect-day bonus. */
+export const MAX_DAY_SCORE = GATING_METRICS.length * (BASE_POINTS + MAX_BONUS) + PERFECT_BONUS;
+
 /** One metric on one day, resolved against its target. */
 export type MetricValue = {
   key: MetricKey;
@@ -152,6 +202,8 @@ export type MetricValue = {
   value: number | null;
   target: number;
   hit: boolean;
+  /** What this metric contributed to the day's score. */
+  points: number;
 };
 
 export type ScorecardDay = {
@@ -162,6 +214,50 @@ export type ScorecardDay = {
   hitCount: number;
   /** Every gating metric hit — a won day. */
   perfect: boolean;
+  /** Total points, including the perfect-day bonus. 0…MAX_DAY_SCORE. */
+  score: number;
+};
+
+/**
+ * A name for how good the day is, so there's something to chase on a day when the
+ * all-time record is out of reach. Graded against the theoretical ceiling, not
+ * against his own history — a tier that drifts as the record moves would mean
+ * "Elite" quietly getting harder every time he has a good week.
+ */
+export type ScoreTier = { key: "legendary" | "elite" | "strong" | "solid" | "warming" | "cold"; label: string };
+
+export function scoreTier(score: number): ScoreTier {
+  const pct = score / MAX_DAY_SCORE;
+  if (pct >= 0.92) return { key: "legendary", label: "Legendary" };
+  if (pct >= 0.75) return { key: "elite", label: "Elite" };
+  if (pct >= 0.6) return { key: "strong", label: "Strong" };
+  if (pct >= 0.4) return { key: "solid", label: "Solid" };
+  if (pct >= 0.2) return { key: "warming", label: "Warming up" };
+  return { key: "cold", label: "Cold start" };
+}
+
+/** The score that would earn the next tier up, or null at the top. */
+export function nextTierAt(score: number): { tier: ScoreTier; points: number } | null {
+  for (const cut of [0.2, 0.4, 0.6, 0.75, 0.92]) {
+    const threshold = Math.ceil(cut * MAX_DAY_SCORE);
+    if (score < threshold) return { tier: scoreTier(threshold), points: threshold - score };
+  }
+  return null;
+}
+
+/** An all-time high for one metric (or for the day score, key `"score"`). */
+export type PersonalBest = {
+  value: number;
+  /** The day it was set. */
+  date: string;
+};
+
+/** Every high score the card can wave at him. Excludes today, so today can beat them. */
+export type Records = {
+  /** Best single-day score. */
+  score: PersonalBest | null;
+  /** Best value per metric — portfolio included, it's the one that only goes up. */
+  metrics: Partial<Record<MetricKey, PersonalBest>>;
 };
 
 export type ScorecardSummary = {
@@ -177,6 +273,16 @@ export type ScorecardSummary = {
   recent: ScorecardDay[];
   /** Whether Google (and so the watch data) is connected — the card nudges when not. */
   googleConnected: boolean;
+  /** The bars to beat, as they stood before today. */
+  records: Records;
+  /**
+   * Records today has already broken — `"score"` plus any metric keys. The card
+   * celebrates these; it's computed server-side so the client never has to guess
+   * what counts as "beaten".
+   */
+  broken: (MetricKey | "score")[];
+  /** MAX_DAY_SCORE, sent along so the client doesn't re-derive the ceiling. */
+  maxScore: number;
 };
 
 /** Did this value clear its bar? A null (never logged) is never a hit. */
@@ -191,11 +297,57 @@ export function buildDay(date: string, values: Partial<Record<MetricKey, number 
   const metrics = METRICS.map<MetricValue>((m) => {
     const value = values[m.key] ?? null;
     const target = targets[m.key] ?? m.target;
-    return { key: m.key, value, target, hit: isHit(m.key, value, target) };
+    return {
+      key: m.key,
+      value,
+      target,
+      hit: isHit(m.key, value, target),
+      points: metricPoints(m.key, value, target),
+    };
   });
   const gating = metrics.filter((v) => metricDef(v.key).gates);
   const hitCount = gating.filter((v) => v.hit).length;
-  return { date, metrics, hitCount, perfect: hitCount === gating.length };
+  const perfect = hitCount === gating.length;
+  const score = gating.reduce((sum, v) => sum + v.points, 0) + (perfect ? PERFECT_BONUS : 0);
+  return { date, metrics, hitCount, perfect, score };
+}
+
+/**
+ * The high scores standing *before* `excludeDate`, so today can be measured against
+ * them. A record needs a real logged number — an unlogged day is not a zero, and a
+ * literal zero never becomes a personal best.
+ */
+export function computeRecords(byDate: Map<string, ScorecardDay>, excludeDate: string): Records {
+  const records: Records = { score: null, metrics: {} };
+
+  for (const [date, day] of byDate) {
+    if (date === excludeDate) continue;
+
+    if (day.score > 0 && (!records.score || day.score > records.score.value)) {
+      records.score = { value: day.score, date };
+    }
+    for (const m of day.metrics) {
+      // A toggle has no "best" — held is held. Its record is the streak, shown separately.
+      if (metricDef(m.key).kind === "toggle") continue;
+      if (m.value === null || m.value <= 0) continue;
+      const current = records.metrics[m.key];
+      if (!current || m.value > current.value) records.metrics[m.key] = { value: m.value, date };
+    }
+  }
+
+  return records;
+}
+
+/** Which of yesterday's records today has already knocked over. */
+export function brokenRecords(today: ScorecardDay, records: Records): (MetricKey | "score")[] {
+  const broken: (MetricKey | "score")[] = [];
+  if (records.score && today.score > records.score.value) broken.push("score");
+  for (const m of today.metrics) {
+    if (metricDef(m.key).kind === "toggle") continue;
+    const pb = records.metrics[m.key];
+    if (pb && m.value !== null && m.value > pb.value) broken.push(m.key);
+  }
+  return broken;
 }
 
 /** The key `back` days before `key`. Walks in UTC noon so DST can't skip a day. */
@@ -360,6 +512,8 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     recent.push(byDate.get(key) ?? buildDay(key, {}, targets));
   }
 
+  const records = computeRecords(byDate, todayKey);
+
   return {
     today,
     targets,
@@ -368,6 +522,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     atRisk,
     recent,
     googleConnected: healthConnected,
+    records,
+    broken: brokenRecords(today, records),
+    maxScore: MAX_DAY_SCORE,
   };
 }
 

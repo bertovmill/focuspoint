@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIcon,
   CheckIcon,
@@ -11,31 +11,43 @@ import {
   MoonIcon,
   RefreshCwIcon,
   TrendingUpIcon,
+  TrophyIcon,
   UtensilsCrossedIcon,
+  ZapIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { RecordConfetti } from "@/app/_components/record-confetti";
 import {
   GATING_METRICS,
   formatMetric,
   formatTarget,
   metricDef,
+  nextTierAt,
+  scoreTier,
   type MetricKey,
   type MetricValue,
+  type PersonalBest,
   type ScorecardSummary,
 } from "@/lib/scorecard";
 import { cn } from "@/lib/utils";
 
 /**
- * "Winning day" — the daily scorecard from Berto's Aug 28 note.
+ * "Winning day" — the daily scorecard from Berto's Aug 28 note, scored.
  *
- * The card answers one question at a glance: is today a win? Four gating metrics,
- * a perfect-day streak, and fourteen days of history. Portfolio rides along below
- * the line because it's a level, not something you win by trying harder today.
+ * The card used to answer one question — is today a win? — with `1 / 4`, which is
+ * the same number whether you walked 400 steps or 19,900. Now it answers a second,
+ * more useful one: **how good is today, and can it beat your best?** Every metric
+ * pays points in proportion to how far it got (lib/scorecard.ts), so the headline
+ * number moves daily and has an all-time high to chase. Break a record and it says
+ * so, loudly, once.
  *
- * Every row is editable by clicking the number — the watch sync is the happy path,
- * but a metric you can't correct is a metric you stop trusting.
+ * Portfolio still rides below the line — it's a level, not something you win by
+ * trying harder today — but it keeps a personal best, because that one only goes up.
+ *
+ * Every row is still editable by clicking the number: a metric you can't correct
+ * is a metric you stop trusting.
  */
 
 const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
@@ -45,6 +57,19 @@ const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   prs: GitPullRequestIcon,
   portfolio: TrendingUpIcon,
 };
+
+/** How each tier reads at a glance — cold is quiet, legendary is loud. */
+const TIER_STYLES: Record<ReturnType<typeof scoreTier>["key"], string> = {
+  legendary: "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+  elite: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+  strong: "bg-emerald-600/15 text-emerald-600 dark:text-emerald-500",
+  solid: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+  warming: "bg-muted text-muted-foreground",
+  cold: "bg-muted text-muted-foreground",
+};
+
+/** Records already celebrated, so a reload or a poll can't re-fire the confetti. */
+const CELEBRATED_KEY = "scorecard:celebrated";
 
 /**
  * Parse what a human types for a duration: "7h30", "7:30", "7.5", "450m", "7h".
@@ -76,13 +101,29 @@ export function parseAmount(input: string): number | null {
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
 }
 
+/** "2026-08-14" → "Aug 14". Parsed as UTC noon so the label can't slip a day. */
+export function shortDate(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function MetricRow({
   metric,
+  best,
+  isRecord,
   editable,
   onEdit,
   onToggle,
 }: {
   metric: MetricValue;
+  /** The bar to beat, as it stood before today. */
+  best: PersonalBest | undefined;
+  /** Today has already beaten it. */
+  isRecord: boolean;
   editable: boolean;
   onEdit: (key: MetricKey, raw: string) => void;
   onToggle: (held: boolean) => void;
@@ -107,20 +148,40 @@ function MetricRow({
       <span
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-lg",
-          metric.hit ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500" : "bg-muted text-muted-foreground",
+          isRecord
+            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+            : metric.hit
+              ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
+              : "bg-muted text-muted-foreground",
         )}
       >
         <Icon className="size-3.5" />
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-medium leading-tight">{def.label}</span>
-        <span className="block truncate text-[10.5px] text-muted-foreground leading-tight">{def.hint}</span>
+        <span className="flex items-center gap-1.5 text-[12.5px] font-medium leading-tight">
+          {def.label}
+          {isRecord && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+              <ZapIcon className="size-2.5" />
+              record
+            </span>
+          )}
+        </span>
+        <span className="block truncate text-[10.5px] text-muted-foreground leading-tight">
+          {def.hint}
+          {/* The bar to beat, right where the eye already is. */}
+          {best && (
+            <span className={cn("ml-1", isRecord && "line-through opacity-60")}>
+              · best {formatMetric(metric.key, best.value)}
+            </span>
+          )}
+        </span>
       </span>
 
       {/* Progress toward the bar, for the metrics that have one. */}
       {pct !== null && (
-        <span className="hidden sm:block h-1 w-20 shrink-0 overflow-hidden rounded-full bg-muted">
+        <span className="hidden sm:block h-1 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
           <span
             className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
             style={{ width: `${pct}%` }}
@@ -181,6 +242,19 @@ function MetricRow({
           )}
         </button>
       )}
+
+      {/* What the row is worth. The whole reason the headline number moves. */}
+      {def.gates && (
+        <span
+          className={cn(
+            "w-11 shrink-0 text-right text-[11px] font-medium tabular-nums",
+            metric.points > 0 ? "text-foreground/70" : "text-muted-foreground/50",
+          )}
+          title={`${metric.points} points`}
+        >
+          +{metric.points}
+        </span>
+      )}
     </div>
   );
 }
@@ -188,6 +262,10 @@ function MetricRow({
 export function ScorecardCard() {
   const [summary, setSummary] = useState<ScorecardSummary | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  // Records celebrated this session, so an in-flight PATCH response can't double-fire
+  // before the localStorage write has been read back.
+  const celebrated = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -201,6 +279,54 @@ export function ScorecardCard() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Fire the celebration for any record broken today that hasn't been celebrated
+   * yet. Keyed by day so beating your steps record at noon and your score record
+   * at 9pm are two separate moments — but reloading the page is neither.
+   */
+  useEffect(() => {
+    if (!summary?.broken.length) return;
+
+    let seen: string[] = [];
+    try {
+      const raw = localStorage.getItem(CELEBRATED_KEY);
+      const parsed = raw ? (JSON.parse(raw) as { date?: string; keys?: string[] }) : null;
+      if (parsed?.date === summary.today.date) seen = parsed.keys ?? [];
+    } catch {
+      // A corrupt or unavailable store just means we celebrate once more than needed.
+    }
+
+    const fresh = summary.broken.filter((k) => !seen.includes(k) && !celebrated.current.has(k));
+    if (!fresh.length) return;
+
+    for (const key of fresh) celebrated.current.add(key);
+    try {
+      localStorage.setItem(
+        CELEBRATED_KEY,
+        JSON.stringify({ date: summary.today.date, keys: [...seen, ...fresh] }),
+      );
+    } catch {
+      // Non-fatal: private mode just means the confetti can repeat on reload.
+    }
+
+    for (const key of fresh) {
+      if (key === "score") {
+        const old = summary.records.score;
+        toast.success(`New high score — ${summary.today.score} pts`, {
+          description: old ? `Your best was ${old.value}, set ${shortDate(old.date)}.` : "The first one on the board.",
+        });
+      } else {
+        const old = summary.records.metrics[key];
+        const value = summary.today.metrics.find((m) => m.key === key)?.value ?? null;
+        toast.success(`New ${metricDef(key).label.toLowerCase()} record — ${formatMetric(key, value)}`, {
+          description: old ? `Old best ${formatMetric(key, old.value)}, ${shortDate(old.date)}.` : undefined,
+        });
+      }
+    }
+
+    setCelebrating(true);
+  }, [summary]);
 
   // Coming back from the watch consent screen — say what happened and refresh.
   useEffect(() => {
@@ -264,13 +390,33 @@ export function ScorecardCard() {
 
   if (!summary) return null;
 
-  const { today, recent, streak, bestStreak, atRisk, googleConnected } = summary;
+  const { today, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore } = summary;
   const total = GATING_METRICS.length;
   const gating = today.metrics.filter((m) => metricDef(m.key).gates);
   const tracked = today.metrics.filter((m) => !metricDef(m.key).gates);
 
+  const tier = scoreTier(today.score);
+  const nextTier = nextTierAt(today.score);
+  const best = records.score;
+  const beatingBest = best !== null && today.score > best.value;
+  // The bar the headline fills toward: your own best, or the theoretical max on day
+  // one when there's nothing to beat yet.
+  const bar = best?.value ?? maxScore;
+  const pctOfBar = Math.min(100, Math.round((today.score / Math.max(1, bar)) * 100));
+  const toBeat = best ? best.value - today.score + 1 : 0;
+  // Within striking distance of the record — the bar starts glowing before he gets there.
+  const closingIn = !beatingBest && pctOfBar >= 75;
+
+  // The best day visible in the strip, so the sparkline has a peak to point at.
+  const peak = Math.max(...recent.map((d) => d.score));
+  // Bars are drawn as a fraction of his record, not of the theoretical 1,300 — against
+  // a ceiling nobody reaches, every day looks equally flat and the strip says nothing.
+  const stripCeiling = Math.max(peak, best?.value ?? 0, 1);
+
   return (
     <div className="mb-6">
+      {celebrating && <RecordConfetti onDone={() => setCelebrating(false)} />}
+
       <div className="flex items-center justify-between gap-3 mb-3">
         <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
           Winning day
@@ -290,14 +436,78 @@ export function ScorecardCard() {
         )}
       </div>
 
-      <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
-        {/* Headline: how many of the four, and the streak riding on it. */}
-        <div className="flex items-baseline justify-between gap-3 pb-1">
-          <p className="text-2xl font-semibold tabular-nums leading-none">
-            {today.hitCount}
-            <span className="text-base text-muted-foreground font-normal"> / {total}</span>
+      <Card
+        className={cn(
+          "rounded-xl px-5 py-4 shadow-none gap-0 transition-colors",
+          beatingBest && "border-amber-500/50 bg-amber-500/[0.03]",
+        )}
+      >
+        {/* Headline: today's score, and the number it's hunting. */}
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p
+              className={cn(
+                "text-[34px] font-semibold tabular-nums leading-none tracking-tight",
+                beatingBest && "text-amber-600 dark:text-amber-400",
+              )}
+              title={`${today.score} of a possible ${maxScore} points`}
+            >
+              {today.score.toLocaleString("en-CA")}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">pts</span>
+            </p>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide",
+                  TIER_STYLES[tier.key],
+                )}
+                title={nextTier ? `${nextTier.points} pts to ${nextTier.tier.label}` : "Top tier — nothing above this"}
+              >
+                {tier.label}
+              </span>
+              {today.hitCount} of {total} hit
+              {today.perfect && <span className="font-medium text-emerald-600 dark:text-emerald-500">· perfect day</span>}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="flex items-center justify-end gap-1 text-[9.5px] font-medium uppercase tracking-widest text-muted-foreground">
+              <TrophyIcon className="size-3 text-amber-500" />
+              High score
+            </p>
+            <p className="text-[15px] font-semibold tabular-nums leading-tight">
+              {best ? best.value.toLocaleString("en-CA") : "—"}
+            </p>
+            <p className="text-[10px] text-muted-foreground">{best ? shortDate(best.date) : "not set yet"}</p>
+          </div>
+        </div>
+
+        {/* How close today is to toppling it. */}
+        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <span
+            className={cn(
+              "block h-full rounded-full transition-[width] duration-500",
+              beatingBest
+                ? "bg-amber-500"
+                : closingIn
+                  ? "bg-amber-500/70"
+                  : today.perfect
+                    ? "bg-emerald-600"
+                    : "bg-foreground/45",
+            )}
+            style={{ width: `${beatingBest ? 100 : pctOfBar}%` }}
+          />
+        </div>
+
+        <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
+          <p className={cn("font-medium", (beatingBest || closingIn) && "text-amber-600 dark:text-amber-400")}>
+            {beatingBest
+              ? `New high score — ${(today.score - best!.value).toLocaleString("en-CA")} clear of your best`
+              : best
+                ? `${toBeat.toLocaleString("en-CA")} pts to beat your best`
+                : "Set the first high score"}
           </p>
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="flex shrink-0 items-center gap-1.5">
             <FlameIcon
               className={cn(
                 "size-3.5",
@@ -310,14 +520,16 @@ export function ScorecardCard() {
               {streak === 1 ? "perfect day" : "perfect days"}
               {bestStreak > streak && ` · best ${bestStreak}`}
             </span>
-          </div>
+          </span>
         </div>
 
-        <div className="divide-y divide-border/60">
+        <div className="mt-3 divide-y divide-border/60 border-t pt-1">
           {gating.map((m) => (
             <MetricRow
               key={m.key}
               metric={m}
+              best={records.metrics[m.key]}
+              isRecord={broken.includes(m.key)}
               // PRs are the one number he can't type — GitHub is the record.
               editable={metricDef(m.key).source !== "github"}
               onEdit={handleEdit}
@@ -326,43 +538,56 @@ export function ScorecardCard() {
           ))}
         </div>
 
-        {/* Below the line: tracked, but it doesn't decide the day. */}
+        {/* Below the line: tracked, but it doesn't decide the day. It still keeps a
+            personal best — a portfolio all-time high is worth seeing. */}
         {tracked.length > 0 && (
           <div className="mt-1 border-t border-dashed pt-1">
             {tracked.map((m) => (
-              <MetricRow key={m.key} metric={m} editable onEdit={handleEdit} onToggle={() => {}} />
+              <MetricRow
+                key={m.key}
+                metric={m}
+                best={records.metrics[m.key]}
+                isRecord={broken.includes(m.key)}
+                editable
+                onEdit={handleEdit}
+                onToggle={() => {}}
+              />
             ))}
           </div>
         )}
 
-        {/* Fourteen days, newest right. A row of near-misses reads very differently
-            from a row of blanks, so partial days show partial fill — with a floor of
-            8% so "1 of 4" is still a visible sliver rather than a hairline. */}
+        {/* Fourteen days by score, newest right — so a 19,900-step day and a
+            400-step day finally look different. The peak wears a marker. */}
         <div className="mt-3 border-t pt-3">
           <div className="flex items-end gap-1">
-            {recent.map((day, i) => (
-              <span
-                key={day.date}
-                title={`${day.date} — ${day.hitCount}/${total} hit`}
-                className={cn(
-                  "relative h-10 flex-1 overflow-hidden rounded bg-muted",
-                  i === recent.length - 1 && "ring-1 ring-foreground/20",
-                )}
-              >
-                {day.hitCount > 0 && (
-                  <span
-                    className={cn(
-                      "absolute inset-x-0 bottom-0 rounded",
-                      day.perfect ? "bg-emerald-600" : "bg-foreground/35",
-                    )}
-                    style={{ height: `${Math.max(8, (day.hitCount / total) * 100)}%` }}
-                  />
-                )}
-              </span>
-            ))}
+            {recent.map((day, i) => {
+              const isPeak = peak > 0 && day.score === peak;
+              return (
+                <span
+                  key={day.date}
+                  title={`${day.date} — ${day.score} pts · ${day.hitCount}/${total} hit${isPeak ? " · best of the fortnight" : ""}`}
+                  className={cn(
+                    "relative h-10 flex-1 overflow-hidden rounded bg-muted",
+                    i === recent.length - 1 && "ring-1 ring-foreground/20",
+                    isPeak && "ring-1 ring-amber-500/60",
+                  )}
+                >
+                  {day.score > 0 && (
+                    <span
+                      className={cn(
+                        "absolute inset-x-0 bottom-0 rounded",
+                        isPeak ? "bg-amber-500" : day.perfect ? "bg-emerald-600" : "bg-foreground/35",
+                      )}
+                      style={{ height: `${Math.min(100, Math.max(6, (day.score / stripCeiling) * 100))}%` }}
+                    />
+                  )}
+                </span>
+              );
+            })}
           </div>
-          <p className="mt-1.5 text-[10px] text-muted-foreground">
-            Last {recent.length} days · today on the right
+          <p className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Last {recent.length} days · today on the right</span>
+            {peak > 0 && <span className="text-amber-600 dark:text-amber-400">peak {peak.toLocaleString("en-CA")}</span>}
           </p>
         </div>
       </Card>

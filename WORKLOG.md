@@ -6341,3 +6341,58 @@ committed version before it was noticed and restored with `git checkout HEAD`.
 The in-app password form drafted here was dropped on purpose — the committed
 design keeps passwords out of the deployed app entirely, which is the better
 call.
+
+---
+
+## 2026-08-30 — The scorecard becomes a high-score game
+
+Berto's note on the card: *"this top score doesn't look gamified enough — I want
+to come in every day and get excited about beating my high scores."* He was
+right, and the reason was structural: `1 / 4` is the same number whether he
+walked 400 steps or 19,900. A day that nearly went perfectly looked identical to
+a day he didn't try. Nothing to chase, and the only counter on the card read `0`.
+
+**The fix is a scored day, not a judged one.** `lib/scorecard.ts` now pays
+points: `BASE_POINTS` (200) scaled by how far a metric got toward its bar, plus
+up to `MAX_BONUS` (100) for overshooting, plus a flat `PERFECT_BONUS` (100) for
+landing all four. Ceiling `MAX_DAY_SCORE` = 1,300. The overshoot bonus is
+per-metric (`bonusFullAt`) because "more" means different things — 30k steps is a
+monster day (1.5×), three merged PRs is a shipping day (3×), but 15 hours of
+sleep is not twice as good as 7h30, so sleep's bonus stops at 9h (1.2×). The
+headline number now moves every single day.
+
+**And a bar to beat.** `computeRecords()` walks the 365 days already in hand and
+returns the standing high score plus a personal best per metric, always
+*excluding today* so today can beat them; `brokenRecords()` says which have
+already fallen. The card leads with today's score against `HIGH SCORE 606 ·
+Aug 23`, a bar filling toward it, and the line that does the actual work:
+**"228 pts to beat your best"**. Within 75% the bar turns amber before he gets
+there; past it the whole card goes gold.
+
+**Celebration** is confetti + toast, his pick over a quiet badge and over full
+arcade. `RecordConfetti` is deliberately *not* the existing full-screen
+`GoalCelebration` modal — records fall often enough that a dialog you must
+dismiss becomes a chore by week two. Pieces fall over the page, self-remove, and
+`localStorage["scorecard:celebrated"]` is keyed by day, so beating steps at noon
+and the score at 9pm are two moments but a page reload is neither.
+
+**Smaller things that mattered.** Each row shows what it's worth (`+178`) and the
+bar to beat inline (`best 25,270`, struck through the moment it falls). A
+`scoreTier` badge (Cold start → Legendary, graded against the fixed 1,300 so
+"Elite" can't quietly get harder every good week) gives him something to chase on
+a day the record is out of reach. The 14-day strip is now drawn by *score* and
+scaled to his record rather than to the unreachable 1,300 — against that ceiling
+every day looked equally flat and the strip said nothing.
+
+Portfolio stays below the line and scores nothing — a balance is a level, not an
+action — but it keeps a personal best, because that one only goes up.
+
+**Verified** on a private :3789 dev server against real data: today 379 pts /
+high score 606; then a PATCH pushing steps to 26,000 produced score 682,
+`broken: ["score","steps","sleep_minutes"]`, 70 confetti pieces on screen and
+three toasts naming each old record — then the real watch numbers (steps 64,
+sleep 400) were restored and the score returned to 379. `npm run typecheck`
+clean.
+
+Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`,
+`app/_components/record-confetti.tsx` (new).

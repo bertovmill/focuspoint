@@ -119,6 +119,49 @@ prove it isn't logging content.
 
 ---
 
+## 2026-08-30 — Notes written, from Readwise (and no meditation)
+
+**Notes, not highlights — and the data settles the argument.** Over the last 30 days
+Berto touched **415 highlights** but wrote a note on **51** of them. Counting highlights
+would have handed him a number he could clear by swiping; the notes cluster on the days
+he actually thought about something (29 on Aug 24, 9 on Aug 21). That 8× gap is exactly
+why he cut highlights from an earlier draft as *"high noise, less signal"*, and it's why
+only highlights carrying a non-empty `note` count here.
+
+Two details that matter more than they look:
+
+- **Bucketed on `highlighted_at`, not `created_at`.** A Kindle sync ingests hours or days
+  after the reading happened; crediting the note to the sync would put it on the wrong
+  day and, worse, make a quiet day look productive.
+- **A day Readwise reports nothing for is written as an explicit `0`, not left null.**
+  Readwise is authoritative here, so "no notes" is a fact, and an unlogged dash claims
+  something different from an honest zero.
+
+The API is official and pleasant: token from readwise.io/access_token, `GET
+/api/v2/export/?updatedAfter=` paginated by `pageCursor`, 240 req/min. The page loop is
+capped at 20 — an unbounded `while` against someone else's pagination is how a cron job
+runs forever. The dispatcher re-syncs 14 days daily rather than one, since a late sync
+can land days after the fact and re-counting a settled day is free.
+
+**Meditation was built and then removed the same hour.** Insight Timer has no API — and
+nor does any meditation app, which is worth recording so nobody re-researches it:
+Headspace, Calm and Waking Up publish nothing; Google Health's only mindfulness type is
+`moods` and it is **write-only**; Oura's `/v2/usercollection/session` genuinely returns
+meditation but means buying a ring; Terra/Rook/Vital are sales-gated B2B. The remaining
+routes were an iOS Shortcut posting Apple Health mindful minutes, or typing it nightly.
+Berto's call: don't track it. A metric needing a nightly hand is a metric that stops
+being logged, and absent beats quietly stale. The empty `meditation_minutes` column went
+with it.
+
+**Fitted into the parallel session's model, not around it.** While this was being built,
+another session replaced the PRs metric with **keystrokes** and added a points/tier
+system (`bonusFullAt`, legendary→cold). Notes slot in with `bonusFullAt: 5`.
+
+**Verified in production:** token valid, 14 days backfilled, Aug 24 → 29 notes and
+Aug 21 → 9, everything else an explicit zero. Today reads 1/6.
+
+---
+
 ## 2026-08-30 (later) — Portfolio, the sanctioned way
 
 `$21,725` now lands on the scorecard's portfolio row from SnapTrade, and Berto's

@@ -42,8 +42,12 @@ export type WSSession = {
 };
 
 /**
- * The one GraphQL query this needs: the identity's current net liquidation value,
- * i.e. what the portfolio is worth right now across all accounts.
+ * Current net liquidation value for a set of accounts. Passing `accountIds` is what
+ * makes this "the portfolio" rather than "everything" — see `investmentAccountIds`.
+ *
+ * Letting Wealthsimple do the summing (rather than adding up per-account values here)
+ * also means their FX applies: a USD holding comes back converted to CAD, which a
+ * naive client-side sum would get wrong.
  */
 const FETCH_IDENTITY_CURRENT_FINANCIALS = `query FetchIdentityCurrentFinancials($identityId: ID!, $currency: Currency!, $startDate: Date, $accountIds: [ID!], $accountScope: AccountScope = OWN) {
   identity(id: $identityId) {
@@ -66,6 +70,34 @@ fragment Money on Money {
   cents
   currency
   __typename
+}`;
+
+/**
+ * Account types that are NOT investments: spending and borrowing. Berto's portfolio
+ * row means invested money, so the Cash account's float and the credit card's
+ * balance would both be lies in it — one inflating the number, one denting it.
+ *
+ * Everything else counts: registered and non-registered, managed and self-directed,
+ * crypto included. New account types therefore default to "investment", which is the
+ * safer direction to be wrong in — a missing account is invisible, whereas a
+ * chequing balance quietly padding the number is not.
+ */
+const NON_INVESTMENT_ACCOUNT_TYPES = new Set(["CASH", "CREDIT_CARD", "PORTFOLIO_LINE_OF_CREDIT"]);
+
+/**
+ * Just the ids and types — deliberately a fraction of the `AccountWithFinancials`
+ * fragment the web app sends, since the values come from the financials query below.
+ */
+const FETCH_ACCOUNT_TYPES = `query FetchAllAccountFinancials($identityId: ID!, $pageSize: Int = 25, $cursor: String) {
+  identity(id: $identityId) {
+    id
+    accounts(filter: {}, first: $pageSize, after: $cursor) {
+      pageInfo { hasNextPage endCursor __typename }
+      edges { node { id status unifiedAccountType __typename } __typename }
+      __typename
+    }
+    __typename
+  }
 }`;
 
 // ------------------------------------------------------------------ session io
@@ -259,7 +291,45 @@ async function graphql(
 export type PortfolioValue = { amount: number; currency: string };
 
 /**
- * Current portfolio value — net liquidation value across all accounts, in CAD.
+ * The ids of every open investment account — chequing and credit deliberately left out.
+ *
+ * Paged, because the accounts connection is a Relay connection and someone with a
+ * TFSA, RRSP, FHSA, crypto and a couple of non-registered accounts is not far off
+ * the default page size. The loop is bounded rather than `while (true)`: a paging
+ * bug upstream shouldn't be able to spin a serverless function until it times out.
+ */
+async function investmentAccountIds(session: WSSession, identityId: string): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | null = null;
+
+  for (let page = 0; page < 10; page++) {
+    const data = await graphql(session, "FetchAllAccountFinancials", FETCH_ACCOUNT_TYPES, {
+      identityId,
+      pageSize: 25,
+      cursor,
+    });
+
+    const identity = data.identity as Record<string, unknown> | undefined;
+    const accounts = identity?.accounts as Record<string, unknown> | undefined;
+    const edges = (accounts?.edges ?? []) as { node?: Record<string, unknown> }[];
+
+    for (const edge of edges) {
+      const node = edge.node;
+      if (!node || node.status !== "open") continue;
+      if (NON_INVESTMENT_ACCOUNT_TYPES.has(String(node.unifiedAccountType))) continue;
+      if (typeof node.id === "string") ids.push(node.id);
+    }
+
+    const pageInfo = accounts?.pageInfo as Record<string, unknown> | undefined;
+    if (!pageInfo?.hasNextPage || typeof pageInfo.endCursor !== "string") break;
+    cursor = pageInfo.endCursor;
+  }
+
+  return ids;
+}
+
+/**
+ * Current portfolio value — net liquidation value across the investment accounts, in CAD.
  *
  * Always refreshes the access token first. Wealthsimple's access tokens are
  * short-lived and this runs once a day, so it would essentially always be expired;
@@ -274,9 +344,16 @@ export async function fetchPortfolioValue(): Promise<PortfolioValue | null> {
   const identityId = info.identity_canonical_id;
   if (typeof identityId !== "string") throw new Error("No identity_canonical_id on the Wealthsimple token.");
 
+  // No investment accounts at all is a real answer (nothing invested), not an error —
+  // but it must not fall through to an unfiltered query, which would silently report
+  // the Cash balance as the portfolio.
+  const accountIds = await investmentAccountIds(session, identityId);
+  if (!accountIds.length) return { amount: 0, currency: "CAD" };
+
   const data = await graphql(session, "FetchIdentityCurrentFinancials", FETCH_IDENTITY_CURRENT_FINANCIALS, {
     identityId,
     currency: "CAD",
+    accountIds,
   });
 
   const identity = data.identity as Record<string, unknown> | undefined;

@@ -95,6 +95,39 @@ prove it isn't logging content.
 
 ---
 
+## 2026-08-30 — Wealthsimple: pulled back to the sanctioned route
+
+Berto's read on the unofficial client, one message after it was built: *"this feels a
+bit sketch, is there another way?"* He was right, and the honest answer is that I'd
+half-checked the alternative and filed it wrong.
+
+**SnapTrade has a free self-serve tier** — 5 connected accounts, no sales gate, an
+official Wealthsimple integration. An earlier note here recorded that they "don't
+publish pricing"; that was out of date, and it's why the sketchy path looked like the
+only path. It never was.
+
+The difference that matters isn't cost, it's what holds the credentials. The unofficial
+route needs his Wealthsimple password and a 2FA code typed into a local script; SnapTrade
+authorizes on Wealthsimple's own page and hands the app a key that reads balances. No
+password anywhere in the system, nothing that could move money, nothing that breaks when
+Wealthsimple redesigns.
+
+**Removed** (`4d8ce55`): `lib/wealthsimple.ts`, `lib/portfolio-sync.ts`,
+`scripts/wealthsimple-login.mjs`, `app/api/portfolio/sync/`, and the dispatcher hook.
+That also removed a parallel session's refinement from `cfba5f8` — scoping the value to
+investment accounts, excluding CASH / CREDIT_CARD / PORTFOLIO_LINE_OF_CREDIT — which is
+worth re-applying if the sanctioned route ever falls through. Both commits stay in
+history for exactly that reason.
+
+**The requirement survives the implementation:** whatever fills this row must count
+*invested* accounts only. The Cash float and the credit card balance are not the
+portfolio.
+
+Portfolio is typed in until the SnapTrade wiring lands. It sits below the line and gates
+nothing, so a stale number costs nothing.
+
+---
+
 ## 2026-08-30 — The watch is connected: steps and sleep from Fitbit, live
 
 The scorecard's two hardest metrics now fill themselves in. **25,137 steps and 6h38m

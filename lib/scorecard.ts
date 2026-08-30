@@ -20,12 +20,12 @@
 //                       checkbox, and two places recording "did I hold the window"
 //                       would drift apart within a week.
 //   - prs             → derived live from `github_prs`, nothing to store
-//   - portfolio       → read from Wealthsimple daily (lib/portfolio-sync.ts) and
-//                       cached into `daily_metrics`. Invested accounts only — the
-//                       Cash and credit card balances are not the portfolio. Still
-//                       hand-editable, because that API is unofficial and may stop
-//                       answering. Deliberately NOT part of "did I win today" (see
-//                       `gates` below): a balance is a level, not an action.
+//   - portfolio       → typed in for now. The unofficial Wealthsimple client that
+//                       filled this was removed (4d8ce55): handing a password and a
+//                       2FA code to a reverse-engineered endpoint wasn't worth a
+//                       number that gates nothing. SnapTrade's free tier is the
+//                       sanctioned replacement. Deliberately NOT part of "did I win
+//                       today" (see `gates` below): a balance is a level, not an action.
 //
 // No db import at module scope — `sql` comes from the caller, same shape as
 // lib/streak.ts and lib/working-now.ts, so client components can import the pure bits.

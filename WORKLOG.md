@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (home screen) — removed the Routines section
+
+Berto asked for the Routines block on the home screen to go. Removed from
+`app/_components/home-screen.tsx`:
+- the whole rendered `Routines` section (the weekly Mon–Sun grid with the
+  Morning Routine / AM Workout / PM Workout / Daytime slots),
+- its inline-edit state (`routines`, `routineEditTarget`, `routineEditValue`) and
+  handlers (`startEditingRoutineTitle/Goal/Slot`, `cancelEditingRoutineField`,
+  `saveRoutineField`),
+- the parsing/rebuilding helpers (`parseRoutine`, `rebuildDaySlot`,
+  `rebuildContentForGoal`, `ROUTINE_DAYS`, `ROUTINE_PERIODS`, `ROUTINE_DAY_RE`),
+- the `/api/vision?kind=routine` fetch and its `toRoutineList` dedupe.
+
+Left intact on purpose: `vision_items` rows with `kind="routine"`, the
+`/api/vision` route, and the `add_vision_item` / `list_vision` agent tools — the
+data and Cael's access to it are unchanged, only the home-screen UI is gone.
+
+`npm run typecheck` and `npm run build` both pass.
+
+---
+
 ## 2026-08-29 (keystrokes deploy) — migrated live to a non-paused team
 
 The `cael-agent` project (team `team_SpPD…`, home of `cael.bertomill.com`) is **paused for

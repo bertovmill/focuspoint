@@ -21,12 +21,19 @@ import { getAccessToken } from "@/lib/google";
 
 const API = "https://health.googleapis.com/v4";
 
-/** What Google calls a wall-clock date with no zone attached. */
-type CivilDateTime = { year: number; month: number; day: number };
+/**
+ * A wall-clock date with no zone attached.
+ *
+ * The date is **nested under `date`**, not flat. Sending `{year, month, day}` at the
+ * top level gets a 400 "Unknown name \"year\" at 'range.start': Cannot find field" —
+ * which is how this was found, via `?debug=`. `time` is optional and defaults to
+ * midnight, which is exactly what a day boundary wants.
+ */
+type CivilDateTime = { date: { year: number; month: number; day: number } };
 
 function civil(date: string): CivilDateTime {
   const [year, month, day] = date.split("-").map(Number);
-  return { year, month, day };
+  return { date: { year, month, day } };
 }
 
 /** The day after `date`, since dailyRollUp's range is closed-open. */
@@ -34,7 +41,7 @@ function nextDay(date: string): CivilDateTime {
   const [y, m, d] = date.split("-").map(Number);
   // Noon UTC so a DST rollover can't land us on the wrong calendar day.
   const next = new Date(Date.UTC(y, m - 1, d, 12) + 86_400_000);
-  return { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1, day: next.getUTCDate() };
+  return { date: { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1, day: next.getUTCDate() } };
 }
 
 type RollupPoint = Record<string, unknown>;

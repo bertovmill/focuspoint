@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-30 (desktop) — point the Mac app at the live deploy
+
+The Mac app was showing "This deployment is temporarily paused" because it still
+loaded `https://cael-agent.vercel.app` — the project on the paused team. Swapped
+the URL to the current live stopgap, **https://cael-keystrokes.vercel.app**, in
+all four places it appears: `desktop/src-tauri/src/main.rs` (`APP_URL`),
+`tauri.conf.json` (`build.frontendDist`), `capabilities/main.json` (the
+navigation allow-list — miss this one and the shell blocks its own home page),
+and `desktop/README.md`.
+
+Rebuilt with `npx tauri build`, replaced `/Applications/Cael.app`, and launched
+it — the binary's embedded URL now reads `cael-keystrokes.vercel.app` and the app
+opens to the login page instead of the pause screen.
+
+**Next:** when `cael-agent` unpauses (or a domain is attached to the new project),
+point these four references back at `cael.bertomill.com` so the desktop app stops
+tracking whichever Vercel project happens to be live.
+
+
 ## 2026-08-29 (home screen) — removed the 8 forms of wealth grid
 
 Follow-up to the Routines removal. Berto asked for the legacy card grid on the home

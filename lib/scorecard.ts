@@ -51,10 +51,17 @@ const TARGETS_SETTING_KEY = "scorecard_targets";
 
 // --------------------------------------------------------------------- metrics
 
-export type MetricKey = "steps" | "sleep_minutes" | "fasting_held" | "keystrokes" | "portfolio";
+export type MetricKey =
+  | "steps"
+  | "sleep_minutes"
+  | "meditation_minutes"
+  | "fasting_held"
+  | "readwise_notes"
+  | "keystrokes"
+  | "portfolio";
 
 /** Where a number comes from — and so whether a human is allowed to type over it. */
-export type MetricSource = "health" | "agent" | "manual";
+export type MetricSource = "health" | "agent" | "readwise" | "manual";
 
 export type MetricDef = {
   key: MetricKey;
@@ -102,12 +109,40 @@ export const METRICS: MetricDef[] = [
     bonusFullAt: 1.2, // 9h. Past that it isn't a better day, so the bonus stops.
   },
   {
+    key: "meditation_minutes",
+    label: "Meditation",
+    hint: "Insight Timer · via Apple Health",
+    // Insight Timer publishes no API — nor does any meditation app; checked
+    // 2026-08-30. An iOS Shortcut posts the day's Apple Health mindful minutes, so as
+    // far as this app is concerned the number arrives the same way a typed one does.
+    source: "manual",
+    kind: "duration",
+    target: 10,
+    // An hour of sitting is a genuinely bigger day than ten minutes, but the returns
+    // flatten long before the bonus should.
+    bonusFullAt: 3,
+    gates: true,
+  },
+  {
     key: "fasting_held",
     label: "Eating window",
     hint: "12pm–8pm · shared with the nutrition protocol",
     source: "manual",
     kind: "toggle",
     target: 1,
+    gates: true,
+  },
+  {
+    key: "readwise_notes",
+    label: "Notes written",
+    hint: "Readwise · notes, not highlights",
+    // Deliberately notes and not highlights. Berto cut highlights from this scorecard
+    // as "high noise, less signal", and he's right: a highlight is a swipe, a note is
+    // a thought. Only highlights carrying his own annotation count.
+    source: "readwise",
+    kind: "count",
+    target: 1,
+    bonusFullAt: 5,
     gates: true,
   },
   {
@@ -470,7 +505,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const [targets, logged, fastRows, keyRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
-      SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, portfolio
+      SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, meditation_minutes, readwise_notes, portfolio
       FROM daily_metrics
       WHERE recorded_date >= ${since}::date
     `,
@@ -504,6 +539,8 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     const v = slot(String(r.date));
     v.steps = r.steps === null ? null : Number(r.steps);
     v.sleep_minutes = r.sleep_minutes === null ? null : Number(r.sleep_minutes);
+    v.meditation_minutes = r.meditation_minutes === null ? null : Number(r.meditation_minutes);
+    v.readwise_notes = r.readwise_notes === null ? null : Number(r.readwise_notes);
     v.portfolio = r.portfolio === null ? null : Number(r.portfolio);
   }
   for (const r of fastRows as Record<string, unknown>[]) {
@@ -558,6 +595,8 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
 export type MetricPatch = {
   steps?: number | null;
   sleep_minutes?: number | null;
+  meditation_minutes?: number | null;
+  readwise_notes?: number | null;
   portfolio?: number | null;
 };
 
@@ -567,18 +606,22 @@ export type MetricPatch = {
  */
 export async function recordMetrics(sql: Sql, date: string, patch: MetricPatch): Promise<void> {
   await sql`
-    INSERT INTO daily_metrics (recorded_date, steps, sleep_minutes, portfolio)
+    INSERT INTO daily_metrics (recorded_date, steps, sleep_minutes, meditation_minutes, readwise_notes, portfolio)
     VALUES (
       ${date}::date,
       ${patch.steps ?? null},
       ${patch.sleep_minutes ?? null},
+      ${patch.meditation_minutes ?? null},
+      ${patch.readwise_notes ?? null},
       ${patch.portfolio ?? null}
     )
     ON CONFLICT (recorded_date) DO UPDATE SET
-      steps         = CASE WHEN ${patch.steps === undefined} THEN daily_metrics.steps ELSE EXCLUDED.steps END,
-      sleep_minutes = CASE WHEN ${patch.sleep_minutes === undefined} THEN daily_metrics.sleep_minutes ELSE EXCLUDED.sleep_minutes END,
-      portfolio     = CASE WHEN ${patch.portfolio === undefined} THEN daily_metrics.portfolio ELSE EXCLUDED.portfolio END,
-      updated_at    = NOW()
+      steps              = CASE WHEN ${patch.steps === undefined} THEN daily_metrics.steps ELSE EXCLUDED.steps END,
+      sleep_minutes      = CASE WHEN ${patch.sleep_minutes === undefined} THEN daily_metrics.sleep_minutes ELSE EXCLUDED.sleep_minutes END,
+      meditation_minutes = CASE WHEN ${patch.meditation_minutes === undefined} THEN daily_metrics.meditation_minutes ELSE EXCLUDED.meditation_minutes END,
+      readwise_notes     = CASE WHEN ${patch.readwise_notes === undefined} THEN daily_metrics.readwise_notes ELSE EXCLUDED.readwise_notes END,
+      portfolio          = CASE WHEN ${patch.portfolio === undefined} THEN daily_metrics.portfolio ELSE EXCLUDED.portfolio END,
+      updated_at         = NOW()
   `;
 }
 

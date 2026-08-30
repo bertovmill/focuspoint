@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIcon,
+  BrainIcon,
   CheckIcon,
   FlameIcon,
   FootprintsIcon,
   KeyboardIcon,
   Loader2Icon,
   MoonIcon,
+  PencilLineIcon,
   RefreshCwIcon,
   TrendingUpIcon,
   TrophyIcon,
@@ -53,7 +55,9 @@ import { cn } from "@/lib/utils";
 const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
   sleep_minutes: MoonIcon,
+  meditation_minutes: BrainIcon,
   fasting_held: UtensilsCrossedIcon,
+  readwise_notes: PencilLineIcon,
   keystrokes: KeyboardIcon,
   portfolio: TrendingUpIcon,
 };

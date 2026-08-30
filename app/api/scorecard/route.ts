@@ -44,6 +44,13 @@ export async function PATCH(req: Request) {
     if (steps !== undefined) patch.steps = steps;
     const sleep = optionalNumber(body.sleep_minutes);
     if (sleep !== undefined) patch.sleep_minutes = sleep;
+    // Meditation arrives here from the iOS Shortcut (Apple Health mindful minutes),
+    // since Insight Timer has no API. It authenticates with the ordinary session
+    // cookie rather than a bearer token, so no middleware allowance is needed.
+    const meditation = optionalNumber(body.meditation_minutes);
+    if (meditation !== undefined) patch.meditation_minutes = meditation;
+    const notes = optionalNumber(body.readwise_notes);
+    if (notes !== undefined) patch.readwise_notes = notes;
     const portfolio = optionalNumber(body.portfolio);
     if (portfolio !== undefined) patch.portfolio = portfolio;
 

@@ -7,6 +7,7 @@ import { syncLuma } from "../../lib/luma-sync.js";
 import { ensureTodaysMeals } from "../../lib/meal-suggest.js";
 import { syncGithubPrs } from "../../lib/github-sync.js";
 import { syncHealthRange } from "../../lib/health-sync.js";
+import { syncReadwise } from "../../lib/readwise-sync.js";
 import { syncPortfolio } from "../../lib/portfolio-sync.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
@@ -81,6 +82,19 @@ export default defineSchedule({
       );
     } catch (err) {
       console.warn("[dispatcher] Portfolio sync failed:", err);
+    }
+
+    // Notes written, from Readwise. Fourteen days rather than one: a Kindle sync can
+    // land days late, and re-counting a settled day is free.
+    try {
+      const readwise = await syncReadwise(14);
+      console.log(
+        readwise.configured
+          ? `[dispatcher] Readwise: ${readwise.days.reduce((n, d) => n + d.notes, 0)} notes over ${readwise.synced} days.`
+          : "[dispatcher] Readwise: no token, skipped.",
+      );
+    } catch (err) {
+      console.warn("[dispatcher] Readwise sync failed:", err);
     }
 
     const phoneNumber = process.env.MY_PHONE_NUMBER;

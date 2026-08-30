@@ -496,6 +496,11 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // Meditation comes from Insight Timer, which has no API — an iOS Shortcut posts the
+  // day's Apple Health mindful minutes. Readwise *notes* (not highlights) are counted
+  // from their export API and cached here so the card doesn't call out on every load.
+  await sql`ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS meditation_minutes INTEGER`;
+  await sql`ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS readwise_notes INTEGER`;
 
   // Keystrokes per day, posted by the local macOS counter (keystroke-agent/). One row
   // per day in Berto's timezone; `count` is *only* how many keys were pressed — never

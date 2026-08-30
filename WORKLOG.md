@@ -4,6 +4,30 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-08-29 (home screen) — removed the 8 forms of wealth grid
+
+Follow-up to the Routines removal. Berto asked for the legacy card grid on the home
+screen to go, so `app/_components/home-screen.tsx` lost:
+- the whole "your 8 forms of wealth" section — the 8 cards, their sparklines, the
+  eye-icon expand (Vision / Methods), the Family quick-add-a-memory uploader, and the
+  Month / Year / Decade granularity toggle,
+- the state and helpers that only fed it: `formVisions`, `formMethods`, `savings`,
+  `expandedForm`, `wealthGranularity`, `memoryTitle`, `uploadingMemory`,
+  `memoryFileInputRef`, `handleQuickAddMemory`, `wealthSparklines`, and `greeting()`,
+- the `/api/vision?kind=statement` and `?kind=method` fetches and their `toFormMap`.
+
+**Kept on purpose:** the TRAINING card (Berto only asked for the grid), and the whole
+goal-celebration path — `formGoals`, `wealthSeries`, `wealthTotals`, and the effect that
+fires the full-screen 🎉 and PATCHes `achieved` when an all-time total first crosses its
+goal. `WEALTH_FORMS` stays for that. `app/_components/sparkline.tsx` stays too; it's
+still used by `measures-overview.tsx` and `keystrokes-card.tsx`.
+
+Dead code was found by temporarily flipping on `noUnusedLocals` in `tsconfig.json`
+and clearing every hit; the tsconfig was reverted afterward. `npm run typecheck` and
+`npm run build` pass.
+
+---
+
 ## 2026-08-29 (home screen) — removed the Routines section
 
 Berto asked for the Routines block on the home screen to go. Removed from

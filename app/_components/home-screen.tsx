@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRightIcon,
   MessageCircleIcon,
@@ -15,10 +15,8 @@ import {
   ImageIcon,
   GaugeIcon,
   TelescopeIcon,
-  EyeIcon,
   ThumbsUpIcon,
   ThumbsDownIcon,
-  UploadIcon,
 } from "lucide-react";
 import {
   BarbellIcon,
@@ -39,11 +37,9 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
-import { Sparkline } from "@/app/_components/sparkline";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { KeystrokesCard } from "@/app/_components/keystrokes-card";
-import { bucketAggregate, type Granularity } from "@/lib/chart-buckets";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -158,23 +154,11 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => void }) {
-  // Vision statements and methods per form of wealth, keyed by lowercased form label.
-  // Sourced from vision_items whose title matches the form name. null = still loading.
-  const [formVisions, setFormVisions] = useState<Record<string, string> | null>(null);
-  const [formMethods, setFormMethods] = useState<Record<string, string> | null>(null);
   // Per-form numeric goals (vision_items kind="goal", title = form label, content = target number).
   const [formGoals, setFormGoals] = useState<Record<string, { id: number; target: number; achieved: boolean }>>({});
   // Queue of forms whose goal was just crossed this session — shown one at a time as a full-screen celebration.
   const [celebrationQueue, setCelebrationQueue] = useState<{ label: string; targetLabel: string }[]>([]);
-  const [savings, setSavings] = useState<{ total: number; goal: number | null } | null>(null);
   const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
@@ -185,11 +169,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [trips, setTrips] = useState<MeasureRow[]>([]);
   const [thankYous, setThankYous] = useState<{ thanked_date: string }[]>([]);
   const [artFailed, setArtFailed] = useState(false);
-  const [expandedForm, setExpandedForm] = useState<string | null>(null);
-  const [wealthGranularity, setWealthGranularity] = useState<Granularity>("year");
-  const [memoryTitle, setMemoryTitle] = useState("");
-  const [uploadingMemory, setUploadingMemory] = useState(false);
-  const memoryFileInputRef = useRef<HTMLInputElement>(null);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
   const handleMealFeedback = async (feedback: "up" | "down") => {
@@ -210,46 +189,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     }
   };
 
-  const handleQuickAddMemory = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are supported");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5 MB");
-      return;
-    }
-    setUploadingMemory(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      const createRes = await fetch("/api/memories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: url, title: memoryTitle.trim() || undefined }),
-      });
-      if (!createRes.ok) throw new Error();
-      const row = await createRes.json();
-      setMemories((prev) => [row, ...prev]);
-      setMemoryTitle("");
-      toast.success("Memory added.");
-    } catch {
-      toast.error("Couldn't add memory. Try again.");
-    } finally {
-      setUploadingMemory(false);
-    }
-  };
-
   useEffect(() => {
     (async () => {
       try {
-        const [visionRes, methodRes, goalRes, measuresRes, mealsRes, workoutsRes, readingRes, memoriesRes, communityRes, tripsRes, thanksRes, githubRes] =
+        const [goalRes, measuresRes, mealsRes, workoutsRes, readingRes, memoriesRes, communityRes, tripsRes, thanksRes, githubRes] =
           await Promise.all([
-            fetch("/api/vision?kind=statement"),
-            fetch("/api/vision?kind=method"),
             fetch("/api/vision?kind=goal"),
             fetch("/api/measures?category=savings_snapshot&limit=400"),
             fetch("/api/meals?limit=3"),
@@ -261,17 +205,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/thanks?limit=500"),
             fetch("/api/github"),
           ]);
-        // Rows are newest-first; keep the first (most recent) item per form.
-        const toFormMap = (rows: { title: string | null; content: string | null }[]) => {
-          const map: Record<string, string> = {};
-          for (const row of rows) {
-            const key = row.title?.trim().toLowerCase();
-            if (key && row.content && !(key in map)) map[key] = row.content;
-          }
-          return map;
-        };
-        setFormVisions(visionRes.ok ? toFormMap(await visionRes.json()) : {});
-        setFormMethods(methodRes.ok ? toFormMap(await methodRes.json()) : {});
         if (goalRes.ok) {
           const rows: { id: number; title: string | null; content: string | null; achieved: boolean }[] = await goalRes.json();
           const map: Record<string, { id: number; target: number; achieved: boolean }> = {};
@@ -288,12 +221,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         if (measuresRes.ok) {
           const rows: MeasureRow[] = await measuresRes.json();
           setSavingsHistory(rows);
-          const latest = rows[0];
-          const total = Number(latest?.data?.total_savings);
-          if (Number.isFinite(total)) {
-            const goal = Number(latest?.data?.goal);
-            setSavings({ total, goal: Number.isFinite(goal) && goal > 0 ? goal : null });
-          }
         }
         if (mealsRes.ok) {
           const meals: Meal[] = await mealsRes.json();
@@ -312,8 +239,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         if (tripsRes.ok) setTrips(await tripsRes.json());
         if (thanksRes.ok) setThankYous(await thanksRes.json());
       } catch {
-        setFormVisions({});
-        setFormMethods({});
         setTodayMeal(null);
       }
     })();
@@ -391,14 +316,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     };
     return series;
   }, [readingLogs, workoutLogs, savingsHistory, githubPrs, memories, communityContacts, trips, thankYous]);
-
-  const wealthSparklines = useMemo(() => {
-    const out: Record<string, { buckets: ReturnType<typeof bucketAggregate>; unit: string; mode: "sum" | "last" }> = {};
-    for (const [key, { points, mode, unit }] of Object.entries(wealthSeries)) {
-      out[key] = { buckets: bucketAggregate(points, wealthGranularity, mode), unit, mode };
-    }
-    return out;
-  }, [wealthSeries, wealthGranularity]);
 
   // All-time progress toward each form's goal — independent of the Month/Year/Decade toggle above.
   const wealthTotals = useMemo(() => {
@@ -592,144 +509,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </div>
         )}
 
-        {/* 8 forms of wealth */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
-              {greeting()}, Berto — your 8 forms of wealth
-            </p>
-            <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 shrink-0">
-              {(["month", "year", "decade"] as Granularity[]).map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setWealthGranularity(g)}
-                  aria-pressed={wealthGranularity === g}
-                  className={cn(
-                    "tap-target px-2 py-1 rounded-md text-[10px] font-medium capitalize whitespace-nowrap transition-colors",
-                    wealthGranularity === g
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {WEALTH_FORMS.map(({ label, icon: Icon, target }) => {
-              const isExpanded = expandedForm === label;
-              const visionText = formVisions?.[label.toLowerCase()];
-              const methodText = formMethods?.[label.toLowerCase()];
-              const spark = wealthSparklines[label.toLowerCase()];
-              const goal = formGoals[label.toLowerCase()];
-              const goalTarget = label === "Money" ? (savings?.goal ?? undefined) : goal?.target;
-              const goalAchieved = label === "Money" ? Boolean(savings?.goal && savings.total >= savings.goal) : goal?.achieved;
-              return (
-                <Card
-                  key={label}
-                  className={cn(
-                    "relative gap-2 h-full rounded-xl px-4 py-3.5 shadow-none hover:border-primary/40 transition-colors",
-                    isExpanded && "col-span-2 sm:col-span-4",
-                  )}
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedForm(isExpanded ? null : label);
-                    }}
-                    aria-label={isExpanded ? `Collapse ${label}` : `View ${label} vision`}
-                    aria-expanded={isExpanded}
-                    className="tap-target absolute top-2.5 right-2.5 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <EyeIcon size={14} />
-                  </button>
-                  <button onClick={() => onNavigate(target)} className="text-left contents">
-                    <Icon size={22} weight="duotone" className="text-primary" />
-                    <p className="text-sm font-medium leading-snug pr-4">{label}</p>
-                    <div className="mt-auto">
-                      {spark && (
-                        <Sparkline
-                          data={spark.buckets}
-                          unit={spark.unit}
-                          mode={spark.mode}
-                          goal={goalTarget}
-                          goalAchieved={goalAchieved}
-                        />
-                      )}
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="mt-1 pt-3 border-t space-y-3">
-                      <div>
-                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                          Vision
-                        </p>
-                        {visionText ? (
-                          <p className="text-sm leading-relaxed">{visionText}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
-                            No vision written yet for {label}.
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                          Methods
-                        </p>
-                        {methodText ? (
-                          <p className="text-sm leading-relaxed">{methodText}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground/60 italic leading-relaxed">
-                            No methods added yet for {label}.
-                          </p>
-                        )}
-                      </div>
-                      {label === "Family" && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                            Add a memory
-                          </p>
-                          <input
-                            ref={memoryFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleQuickAddMemory(file);
-                              e.target.value = "";
-                            }}
-                          />
-                          <div className="flex gap-2">
-                            <input
-                              value={memoryTitle}
-                              onChange={(e) => setMemoryTitle(e.target.value)}
-                              placeholder="Title (optional)…"
-                              className="flex-1 min-w-0 text-sm rounded-md border border-border bg-transparent px-2.5 py-1.5 outline-none focus:border-primary/50"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={uploadingMemory}
-                              onClick={() => memoryFileInputRef.current?.click()}
-                              className="shrink-0"
-                            >
-                              <UploadIcon className="size-3.5 mr-1.5" />
-                              {uploadingMemory ? "Uploading…" : "Photo"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
 

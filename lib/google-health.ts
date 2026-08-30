@@ -194,35 +194,45 @@ async function listDataPoints(dataType: string, date: string): Promise<RollupPoi
 }
 
 /**
- * Minutes of sleep in one listed data point.
+ * Minutes actually **asleep** in one listed data point.
  *
- * Tries an explicit duration first (Google serializes durations as "27180s"), then
- * falls back to the interval's own start/end. Permissive on purpose: a hard-coded path
- * that silently misses is indistinguishable from "no data yet", which is the worst
- * failure for a metric you are supposed to trust.
+ * The real shape, from his Charge 4: `sleep.interval` is start/end in bed, and
+ * `sleep.stages[]` breaks that into AWAKE / LIGHT / DEEP / REM segments. The card
+ * says "time asleep", so the awake segments are subtracted — a 6h48m interval with
+ * 30m of waking is 6h18m of sleep, and counting the former would quietly flatter the
+ * number every single night.
+ *
+ * Falls back to the whole interval when a point carries no stages (`type` is not
+ * STAGES — some sources only report a block of time).
  */
 function sleepMinutesFromPoint(point: RollupPoint): number | null {
   const sleep = point.sleep as Record<string, unknown> | undefined;
   if (!sleep) return null;
 
-  for (const key of ["duration", "totalSleepDuration", "asleepDuration"]) {
-    const raw = sleep[key];
-    if (typeof raw === "string" && raw.endsWith("s")) {
-      const secs = Number(raw.slice(0, -1));
-      if (Number.isFinite(secs) && secs > 0) return Math.round(secs / 60);
+  const span = (seg: Record<string, unknown> | undefined): number | null => {
+    const start = seg?.startTime ?? seg?.start_time;
+    const finish = seg?.endTime ?? seg?.end_time;
+    if (typeof start !== "string" || typeof finish !== "string") return null;
+    const ms = Date.parse(finish) - Date.parse(start);
+    return Number.isFinite(ms) && ms > 0 ? ms / 60000 : null;
+  };
+
+  const stages = sleep.stages;
+  if (Array.isArray(stages) && stages.length > 0) {
+    let asleep = 0;
+    for (const raw of stages) {
+      const seg = raw as Record<string, unknown>;
+      // Anything that isn't sleep: AWAKE, plus the out-of-bed variants other
+      // sources use. Unknown stage types count as sleep rather than vanishing.
+      const type = String(seg.type ?? "").toUpperCase();
+      if (type.includes("AWAKE") || type.includes("OUT_OF_BED")) continue;
+      asleep += span(seg) ?? 0;
     }
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0) return Math.round(n / 60);
+    if (asleep > 0) return Math.round(asleep);
   }
 
-  const interval = sleep.interval as Record<string, unknown> | undefined;
-  const start = interval?.startTime ?? interval?.start_time;
-  const finish = interval?.endTime ?? interval?.end_time;
-  if (typeof start === "string" && typeof finish === "string") {
-    const ms = Date.parse(finish) - Date.parse(start);
-    if (Number.isFinite(ms) && ms > 0) return Math.round(ms / 60000);
-  }
-  return null;
+  const interval = span(sleep.interval as Record<string, unknown> | undefined);
+  return interval === null ? null : Math.round(interval);
 }
 
 /**

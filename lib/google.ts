@@ -60,6 +60,15 @@ export function googleAuthUrl(redirectUri: string, state: string) {
     // offline + consent guarantees a refresh_token comes back even on re-auth
     access_type: "offline",
     prompt: "consent",
+    // Incremental authorization: the new token carries everything this account has
+    // already granted this client, plus whatever SCOPES adds.
+    //
+    // This matters because the live grant is *broader* than SCOPES — it holds
+    // `https://mail.google.com/` and full `calendar`, while SCOPES asks only for
+    // calendar.events + calendar.readonly (+ the health pair). Re-consenting without
+    // this flag would hand back a narrower token and silently drop Gmail access,
+    // which nothing in the app uses today but which was deliberately granted.
+    include_granted_scopes: "true",
     state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;

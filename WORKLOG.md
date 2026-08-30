@@ -6241,3 +6241,46 @@ server log showed `serving anthropic/claude-3-haiku` then
 `serving anthropic/claude-sonnet-4.6` for consecutive turns after flipping the
 setting — the switch really is per-call, no rebuild, no new session. All test
 threads deleted, the model restored to Balanced, thread count back at 128.
+
+---
+
+## 2026-08-29 — Portfolio counts investments only
+
+Answering "how do I connect to Wealthsimple for free" ended up as a small
+correction to work a parallel session had just landed (`3384e46`).
+
+**The free route, for the record.** Wealthsimple publishes no developer API and
+no third-party OAuth. What exists is the GraphQL backend `my.wealthsimple.com`
+talks to, which you are allowed to drive as yourself: scrape the `wssdi` device
+cookie and the production `clientId` off the login page and its JS bundle, POST
+a password grant to `api.production.wealthsimple.com/v1/oauth/v2/token` with the
+6-digit code in `x-wealthsimple-otp`, then keep the refresh token. Read-only
+scope, `invest.read trade.read tax.read`. Reference port:
+github.com/gboudreau/ws-api-python.
+
+**What changed.** `fetchPortfolioValue()` was asking for net liquidation value
+across *every* account, which folds in the Cash account's float and the credit
+card's balance. Berto's answer to what the row should mean was "just
+investments", so it now runs a small accounts query first and scopes the
+financials query to the investment accounts — everything except `CASH`,
+`CREDIT_CARD` and `PORTFOLIO_LINE_OF_CREDIT`. An unrecognized account type
+counts as an investment: a missing account is invisible in the total, whereas a
+chequing balance quietly padding it is worse. Scoping the existing query with
+`accountIds`, rather than summing per-account values locally, keeps
+Wealthsimple's FX in play so a USD holding still arrives converted to CAD.
+
+**Verified.** `npm run typecheck` clean, and the unauthenticated half of the
+chain driven live: login page 200, `wssdi` found, bundle at
+`assets.wealthsimple.com/app-c766f5a345db678d.js`, `clientId` extracted. The
+authenticated half is untested — it needs Berto's password and a live TOTP code,
+which by design only ever happens locally via `scripts/wealthsimple-login.mjs`.
+
+**Next step is Berto's:** run `node scripts/wealthsimple-login.mjs` once. Until
+then `syncPortfolio()` is a no-op and the row stays hand-typed.
+
+**Note on two sessions at once.** Two background agents built this feature
+simultaneously; this one's `Write` of `lib/wealthsimple.ts` clobbered the other's
+committed version before it was noticed and restored with `git checkout HEAD`.
+The in-app password form drafted here was dropped on purpose — the committed
+design keeps passwords out of the deployed app entirely, which is the better
+call.

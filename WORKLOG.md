@@ -119,6 +119,52 @@ prove it isn't logging content.
 
 ---
 
+## 2026-08-30 (later) — Portfolio, the sanctioned way
+
+`$21,725` now lands on the scorecard's portfolio row from SnapTrade, and Berto's
+Wealthsimple password is nowhere in the system.
+
+**How the connection works.** SnapTrade's free personal tier: he authorises Wealthsimple
+on *their* page, and this app holds only a `SNAPTRADE_CLIENT_ID` / `SNAPTRADE_CONSUMER_KEY`
+pair that reads balances. The **personal** key needs no user registration —
+`listSnapTradeUsers` 403s on it, and `listUserAccounts({})` simply returns the accounts
+already connected in his dashboard. Nothing here can trade.
+
+**What honestly changed, and what didn't.** SnapTrade's own Wealthsimple connection
+reports `"auth_type":"UNOFFICIAL_API"` in its `authorization_types`. So the underlying
+fragility didn't vanish — it moved to a company that maintains it for a living. The real
+change is who handles the password, which was the whole objection.
+
+**Investments only — this is the number that matters.** The requirement survived the
+implementation it was written for (`cfba5f8`, deleted with the unofficial client):
+
+| account | | |
+|---|---|---|
+| Wealthsimple Trade TFSA (open) | tfsa | **$16,811.47** counted |
+| Wealthsimple Trade FHSA (open) | fhsa | **$4,913.53** counted |
+| Wealthsimple Trade MSB | ca_cash_msb | $8,070.86 **excluded** — cash float |
+| CARD / CORPORATE / closed TFSA | — | excluded, closed |
+
+Counting everything would have read $29,795.85 — a third of it cash. An unrecognised
+account type still counts as an investment: a missing account is invisible in the total,
+whereas a chequing balance quietly inflating it is the worse failure. Closed accounts are
+skipped even at zero, since a closed account with a stale balance would be worse than
+noise. Mixed currencies are excluded rather than summed at 1:1 — everything is CAD today,
+but a wrong number beats an incomplete one only in the other direction.
+
+`GET /api/portfolio/sync?debug=1` returns every inclusion and exclusion with a reason,
+because a portfolio total you can't account for is one you won't trust.
+
+**The card's button now says "Sync"** and refreshes both sources at once — the watch and
+the portfolio are different providers, but nobody thinks of them that way. A portfolio
+failure is a quiet note rather than an error competing with the watch's result, since it
+sits below the line and gates nothing. The dispatcher records it daily.
+
+**Verified in production:** `{"connected":true,"amount":21725,"currency":"CAD"}` with the
+two counted accounts named in the response.
+
+---
+
 ## 2026-08-30 — Wealthsimple: pulled back to the sanctioned route
 
 Berto's read on the unofficial client, one message after it was built: *"this feels a

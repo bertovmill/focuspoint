@@ -171,6 +171,61 @@ function nextDay(date: string): CivilDateTime {
 type RollupPoint = Record<string, unknown>;
 
 /**
+ * List raw data points for one day.
+ *
+ * Sleep cannot use dailyRollUp — the API says so outright: "DailyRollup is not
+ * supported for data type sleep, but the following actions are supported: list, get,
+ * reconcile, create, update, batchDelete". So sleep comes through here instead.
+ *
+ * Filtered on the session's *end* time, which is what puts last night's sleep on the
+ * day you woke up rather than the day you went to bed.
+ */
+async function listDataPoints(dataType: string, date: string): Promise<RollupPoint[]> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("The watch is not connected");
+  const end = nextDay(date).date;
+  const endStr = `${end.year}-${String(end.month).padStart(2, "0")}-${String(end.day).padStart(2, "0")}`;
+  const filter = `${dataType}.interval.civil_end_time >= "${date}" AND ${dataType}.interval.civil_end_time < "${endStr}"`;
+  const url = `${API}/users/me/dataTypes/${dataType}/dataPoints?pageSize=25&filter=${encodeURIComponent(filter)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Google Health list ${dataType} ${date} failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { dataPoints?: RollupPoint[] };
+  return json.dataPoints ?? [];
+}
+
+/**
+ * Minutes of sleep in one listed data point.
+ *
+ * Tries an explicit duration first (Google serializes durations as "27180s"), then
+ * falls back to the interval's own start/end. Permissive on purpose: a hard-coded path
+ * that silently misses is indistinguishable from "no data yet", which is the worst
+ * failure for a metric you are supposed to trust.
+ */
+function sleepMinutesFromPoint(point: RollupPoint): number | null {
+  const sleep = point.sleep as Record<string, unknown> | undefined;
+  if (!sleep) return null;
+
+  for (const key of ["duration", "totalSleepDuration", "asleepDuration"]) {
+    const raw = sleep[key];
+    if (typeof raw === "string" && raw.endsWith("s")) {
+      const secs = Number(raw.slice(0, -1));
+      if (Number.isFinite(secs) && secs > 0) return Math.round(secs / 60);
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.round(n / 60);
+  }
+
+  const interval = sleep.interval as Record<string, unknown> | undefined;
+  const start = interval?.startTime ?? interval?.start_time;
+  const finish = interval?.endTime ?? interval?.end_time;
+  if (typeof start === "string" && typeof finish === "string") {
+    const ms = Date.parse(finish) - Date.parse(start);
+    if (Number.isFinite(ms) && ms > 0) return Math.round(ms / 60000);
+  }
+  return null;
+}
+
+/**
  * One day of one data type, aggregated by Google into a single bucket.
  *
  * Returns the raw rollup points rather than a number: the per-type field names
@@ -238,7 +293,7 @@ export type HealthDay = {
 export async function fetchHealthDay(date: string): Promise<HealthDay> {
   const [stepsRes, sleepRes] = await Promise.allSettled([
     dailyRollUp("steps", date),
-    dailyRollUp("sleep", date),
+    listDataPoints("sleep", date),
   ]);
 
   let steps: number | null = null;
@@ -253,21 +308,11 @@ export async function fetchHealthDay(date: string): Promise<HealthDay> {
 
   let sleepMinutes: number | null = null;
   if (sleepRes.status === "fulfilled") {
+    // More than one session a night is normal (a nap, or a broken night), so sum.
     for (const point of sleepRes.value) {
-      // Sleep totals come back in minutes or in seconds depending on the field;
-      // anything implausibly large for a night is treated as seconds.
-      const n = extractNumber(point, "sleep", [
-        "duration_sum",
-        "durationSum",
-        "asleep_duration_sum",
-        "totalMinutesAsleep",
-      ]);
-      if (n === null) continue;
-      const minutes = n > 1440 ? Math.round(n / 60) : n;
-      sleepMinutes = (sleepMinutes ?? 0) + minutes;
+      const minutes = sleepMinutesFromPoint(point);
+      if (minutes !== null) sleepMinutes = (sleepMinutes ?? 0) + minutes;
     }
-    // 0 means "no sleep record for this date", not "he was awake all night".
-    if (sleepMinutes === 0) sleepMinutes = null;
   } else {
     console.warn(`[google-health] sleep ${date}:`, sleepRes.reason);
   }
@@ -282,12 +327,15 @@ export async function fetchHealthDay(date: string): Promise<HealthDay> {
  */
 export async function debugHealthDay(date: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = { date };
-  for (const dataType of ["steps", "sleep"]) {
-    try {
-      out[dataType] = await dailyRollUp(dataType, date);
-    } catch (err) {
-      out[dataType] = { error: String(err) };
-    }
+  try {
+    out.steps = await dailyRollUp("steps", date);
+  } catch (err) {
+    out.steps = { error: String(err) };
+  }
+  try {
+    out.sleep = await listDataPoints("sleep", date);
+  } catch (err) {
+    out.sleep = { error: String(err) };
   }
   return out;
 }

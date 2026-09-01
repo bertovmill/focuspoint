@@ -221,6 +221,10 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const [runningDream, setRunningDream] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  // The hand-written note composer at the top of the Notes tab. Manual notes land
+  // in the same table as the ones Cael captures — one list, one search index.
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -475,6 +479,29 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     } catch {
       setThoughts(prevThoughts);
       toast.error("Couldn't save note.");
+    }
+  };
+
+  const handleCreateThought = async () => {
+    const content = newNote.trim();
+    if (!content || savingNote) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch("/api/thoughts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error();
+      const saved: Thought = await res.json();
+      // Prepend rather than refetch: the list is sorted newest-first anyway, and a
+      // refetch would drop an active semantic search back to the unfiltered list.
+      setThoughts((prev) => [saved, ...prev]);
+      setNewNote("");
+    } catch {
+      toast.error("Couldn't save note.");
+    } finally {
+      setSavingNote(false);
     }
   };
 
@@ -842,6 +869,42 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
         {/* Notes */}
         {activeTab === "notes" && (
           <div className="px-5 py-4 overflow-x-hidden">
+            {/* Write a note by hand. Always visible — including on an empty list,
+                where it's the one thing to do — so a note never depends on Cael
+                being in the conversation. */}
+            <div className="mb-3 rounded-lg border bg-card px-3 py-2.5">
+              <Textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter saves, shift+Enter breaks the line — the same contract as
+                  // editing an existing note just below.
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleCreateThought();
+                  }
+                }}
+                rows={2}
+                placeholder="Write a note…"
+                className="text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 resize-none focus-visible:ring-0 dark:bg-transparent"
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <Button
+                  size="xs"
+                  onClick={handleCreateThought}
+                  disabled={!newNote.trim() || savingNote}
+                >
+                  {savingNote ? <Spinner className="size-3 mr-1.5" /> : <PlusIcon className="size-3 mr-1.5" />}
+                  Add note
+                </Button>
+                {newNote.trim() && (
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                    Enter to save · Shift+Enter for a new line
+                  </span>
+                )}
+              </div>
+            </div>
+
             {!loading && thoughts.length > 0 && (
               <InputGroup className="mb-3">
                 {searching ? (
@@ -910,7 +973,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                     <BrainIcon className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>No notes yet</EmptyTitle>
-                  <EmptyDescription>Share a thought with your agent to capture it.</EmptyDescription>
+                  <EmptyDescription>Write one above, or share a thought with your agent to capture it.</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : searchActive && searchError ? (

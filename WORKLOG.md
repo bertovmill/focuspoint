@@ -4,6 +4,74 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-01 (notes + journal) — write it yourself
+
+Two asks in one: *"for our notes section, can you please enable me to add manually
+written notes? not just AI?"* and *"on the home page every day under the metrics
+there should be a section for the daily journal that's just a markdown text editor
+similar to Google Docs or Notion."* Both were already sitting on his own board
+(tasks #498, #497, #496).
+
+**Notes you can type.** `/api/thoughts` had GET, PATCH and DELETE but no POST —
+a note could only be born inside a conversation with Cael. Added POST, and a
+composer pinned to the top of the Notes tab. Deliberately the *same* `thoughts`
+table as `capture_thought`, not a parallel "manual notes" store: one list, one
+tag cloud, one semantic index. The embedding is best-effort on the same terms as
+the agent tool — a flaky gateway costs that note its semantic search, never the
+note. Enter saves, shift+Enter breaks the line, matching the edit-in-place
+contract directly below it. The new note is prepended rather than refetched,
+because a refetch would knock an active semantic search back to the raw list.
+
+**The daily journal.** New `daily_journal` table — `entry_date` primary key,
+markdown `content` — and `/api/daily-journal` (GET/PUT, plus POST as a PUT alias
+because `sendBeacon` can only POST). One page per day, sitting directly under the
+scorecard: the metrics say *what* happened, this says *why*.
+
+Berto picked a real WYSIWYG over a markdown box with a preview tab, so it's
+Tiptap/ProseMirror: `# ` becomes a heading as you type, `- ` a bullet, `[] ` a
+checkbox, cmd+B bolds. What gets *stored* is still plain markdown
+(`tiptap-markdown`), so a day reads back as text and Cael can be pointed at it
+later without an HTML parser in the way.
+
+Three decisions worth keeping:
+
+- **No save button.** It autosaves 900ms after you stop typing, and flushes
+  through `navigator.sendBeacon` on `beforeunload` — a fetch gets aborted by the
+  page teardown, a beacon doesn't. A journal you have to remember to commit is a
+  journal with half-written days in it.
+- **‹ › day navigation** (his task #496). The autosave is keyed to the date the
+  document was *loaded* for, so switching days mid-debounce flushes the old day
+  before loading the new one instead of writing yesterday's text onto today.
+- **No `ensureSchema()` on the hot paths.** It re-runs every CREATE TABLE in
+  `lib/db.ts` and cost 5–6s on a home-page load. The read path skips it entirely
+  (a missing table just reads as an empty document); the write path runs it only
+  after an insert actually fails for want of the table.
+
+Editor styling lives in `app/globals.css` as `.journal-prose` — the Tailwind
+reset strips headings and lists back to body text, and there's no typography
+plugin here. Kept restrained on purpose: this is a page in a notebook, not an
+article.
+
+**Verified** on a private :3789 dev server against live data. Journal: typed a
+heading, two bullets, a checkbox and cmd+B bold; serialized to
+`# Verification run / - typed a bullet / - [ ] a checkbox item / Felt **great**
+about it.`; ticking the box round-tripped as `- [x]`; survived a reload; the
+previous day loaded as its own empty page and Today came back intact. Notes:
+typed a note, Enter saved it, it appeared in the list, the box cleared, it was
+in `/api/thoughts`, and semantic search found it by meaning — then the test note
+was deleted. `npm run typecheck` and `npm run build` both clean. No test data
+left behind.
+
+Files: `lib/db.ts`, `app/api/daily-journal/route.ts` (new),
+`app/api/thoughts/route.ts`, `app/_components/daily-journal.tsx` (new),
+`app/_components/home-screen.tsx`, `app/_components/dashboard.tsx`,
+`app/globals.css`, `package.json` (Tiptap).
+
+Next: nothing reads the journal yet — a `read_journal` tool would let Cael use
+the day's own words in the nightly dream/consolidation pass.
+
+---
+
 ## 2026-08-30 (desktop) — point the Mac app at the live deploy
 
 The Mac app was showing "This deployment is temporarily paused" because it still

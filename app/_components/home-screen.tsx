@@ -39,6 +39,7 @@ import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
+import { DailyJournal } from "@/app/_components/daily-journal";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -439,6 +440,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             it's the one block that's actionable at 7am. */}
         <ScorecardCard />
 
+        {/* The day in his own words, directly under the numbers that scored it —
+            the metrics say what happened, this says why. */}
+        <DailyJournal />
 
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (

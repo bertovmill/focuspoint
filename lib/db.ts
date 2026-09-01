@@ -511,4 +511,16 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // The daily journal — one free-form markdown document per day, written by hand in
+  // the editor on the home page (app/_components/daily-journal.tsx). Keyed by the
+  // local date so there is exactly one page per day; an absent row means "not
+  // written yet", which is not the same as an emptied one.
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_journal (
+      entry_date DATE PRIMARY KEY,
+      content TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

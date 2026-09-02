@@ -5,7 +5,9 @@ import {
   ActivityIcon,
   CheckIcon,
   FlameIcon,
+  BookOpenIcon,
   FootprintsIcon,
+  Flower2Icon,
   KeyboardIcon,
   Loader2Icon,
   MoonIcon,
@@ -23,6 +25,7 @@ import { RecordConfetti } from "@/app/_components/record-confetti";
 import { ScoreChart } from "@/app/_components/score-chart";
 import {
   GATING_METRICS,
+  METRIC_WEIGHT,
   formatMetric,
   formatTarget,
   metricDef,
@@ -56,6 +59,8 @@ const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
   sleep_minutes: MoonIcon,
   fasting_held: UtensilsCrossedIcon,
+  meditation_minutes: Flower2Icon,
+  journalled: BookOpenIcon,
   readwise_notes: PencilLineIcon,
   keystrokes: KeyboardIcon,
   portfolio: TrendingUpIcon,
@@ -77,8 +82,12 @@ const CELEBRATED_KEY = "scorecard:celebrated";
 /**
  * Parse what a human types for a duration: "7h30", "7:30", "7.5", "450m", "7h".
  * Returns minutes, or null if it's not a number at all.
+ *
+ * `bare` decides what a naked number means, and it genuinely differs by row: typing
+ * "8" in the sleep row means eight hours, typing "20" in the meditation row means
+ * twenty minutes. Reading both as hours would log a twenty-hour sit.
  */
-export function parseDuration(input: string): number | null {
+export function parseDuration(input: string, bare: "hours" | "minutes" = "hours"): number | null {
   const s = input.trim().toLowerCase();
   if (!s) return null;
 
@@ -90,6 +99,7 @@ export function parseDuration(input: string): number | null {
 
   const n = Number(s.replace(/[^\d.]/g, ""));
   if (!Number.isFinite(n)) return null;
+  if (bare === "minutes") return Math.round(n);
   // A bare number under 24 is hours ("7.5"); anything larger is already minutes.
   return n < 24 ? Math.round(n * 60) : Math.round(n);
 }
@@ -192,7 +202,21 @@ function MetricRow({
         </span>
       )}
 
-      {def.kind === "toggle" ? (
+      {def.kind === "toggle" && def.source === "journal" ? (
+        /* Derived from the journal page below, so there is nothing to tap here — it
+           earns itself the moment there are words on the page. Reads as a state, not
+           a control, so nobody hunts for a checkbox that was never going to exist. */
+        <span
+          className={cn(
+            "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium",
+            metric.hit ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-600 dark:text-emerald-500" : "border-dashed border-border text-muted-foreground",
+          )}
+          title="Earned by writing today's journal page, below"
+        >
+          {metric.hit && <CheckIcon className="size-3" />}
+          {metric.hit ? "written" : "not yet"}
+        </span>
+      ) : def.kind === "toggle" ? (
         <button
           type="button"
           onClick={() => onToggle(!metric.hit)}
@@ -218,7 +242,7 @@ function MetricRow({
             if (e.key === "Enter") commit();
             if (e.key === "Escape") setEditing(false);
           }}
-          placeholder={def.kind === "duration" ? "7h30" : ""}
+          placeholder={def.kind === "duration" ? (metric.key === "meditation_minutes" ? "20m" : "7h30") : ""}
           className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums outline-none focus:border-foreground/40"
         />
       ) : (
@@ -246,16 +270,25 @@ function MetricRow({
         </button>
       )}
 
-      {/* What the row is worth. The whole reason the headline number moves. */}
+      {/* What the row is worth, out of the slice it could have been worth. Showing
+          the denominator on every row is the point: the score stops being a number
+          you have to trust and becomes one you can add up by eye. */}
       {def.gates && (
         <span
           className={cn(
-            "w-11 shrink-0 text-right text-[11px] font-medium tabular-nums",
-            metric.points > 0 ? "text-foreground/70" : "text-muted-foreground/50",
+            "w-[52px] shrink-0 text-right text-[11px] font-medium tabular-nums",
+            metric.hit
+              ? "text-emerald-600 dark:text-emerald-500"
+              : metric.points > 0
+                ? "text-foreground/70"
+                : "text-muted-foreground/50",
           )}
-          title={`${metric.points} points`}
+          title={`${metric.points} of a possible ${METRIC_WEIGHT.toFixed(1)} points`}
         >
-          +{metric.points}
+          {metric.points.toFixed(1)}
+          <span className="text-muted-foreground/60 font-normal">
+            /{METRIC_WEIGHT.toFixed(1)}
+          </span>
         </span>
       )}
     </div>
@@ -281,6 +314,25 @@ export function ScorecardCard() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  /**
+   * Re-read when something else on the page moves a key: the meditation timer
+   * finishing a sit, or coming back to the tab after writing the journal (which is
+   * scored from its own autosave, with nothing to notify us). Deliberately not a
+   * poll — a bare interval here is what burned 4.8M invocations in August.
+   */
+  useEffect(() => {
+    const refresh = () => void load();
+    const onFocus = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("scorecard:refresh", refresh);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("scorecard:refresh", refresh);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [load]);
 
   /**
@@ -362,7 +414,11 @@ export function ScorecardCard() {
 
   const handleEdit = useCallback(
     (key: MetricKey, raw: string) => {
-      const value = metricDef(key).kind === "duration" ? parseDuration(raw) : parseAmount(raw);
+      const def = metricDef(key);
+      const value =
+        def.kind === "duration"
+          ? parseDuration(raw, key === "meditation_minutes" ? "minutes" : "hours")
+          : parseAmount(raw);
       if (value === null) {
         toast.error("Didn't understand that number");
         return;
@@ -464,12 +520,14 @@ export function ScorecardCard() {
             <p
               className={cn(
                 "text-[34px] font-semibold tabular-nums leading-none tracking-tight",
-                beatingBest && "text-amber-600 dark:text-amber-400",
+                today.perfect
+                  ? "text-emerald-600 dark:text-emerald-500"
+                  : beatingBest && "text-amber-600 dark:text-amber-400",
               )}
-              title={`${today.score} of a possible ${maxScore} points`}
+              title={`${today.score} out of ${maxScore} — a perfect day is every target hit`}
             >
-              {today.score.toLocaleString("en-CA")}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">pts</span>
+              {Math.round(today.score)}
+              <span className="ml-1 text-sm font-normal text-muted-foreground">/ {maxScore}</span>
             </p>
             <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span
@@ -481,7 +539,7 @@ export function ScorecardCard() {
               >
                 {tier.label}
               </span>
-              {today.hitCount} of {total} hit
+              {today.hitCount} of {total} targets hit
               {today.perfect && <span className="font-medium text-emerald-600 dark:text-emerald-500">· perfect day</span>}
             </p>
           </div>
@@ -557,6 +615,15 @@ export function ScorecardCard() {
             />
           ))}
         </div>
+
+        {/* How the number above was built, in one line. The old 1,600-point model
+            needed the source open to interpret; this one shouldn't need anything. */}
+        <p className="mt-1 border-t border-dashed pt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground/70">100 is a perfect day.</span>{" "}
+          {total} keys, worth {METRIC_WEIGHT.toFixed(1)} each. Hit a target and you bank the whole
+          slice; get halfway and you bank half. Going past a target earns nothing extra — the
+          target is the target.
+        </p>
 
         {/* Below the line: tracked, but it doesn't decide the day. It still keeps a
             personal best — a portfolio all-time high is worth seeing. */}

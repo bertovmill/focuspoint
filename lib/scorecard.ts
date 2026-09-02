@@ -49,18 +49,28 @@ const HISTORY_DAYS = 365;
 
 const TARGETS_SETTING_KEY = "scorecard_targets";
 
+/**
+ * How much text counts as having journalled. One character: Berto's call was "the
+ * daily journal has real text in it", and any bar above that turns a scorecard into
+ * a word-count quota, which is exactly the kind of rule that makes people stop
+ * writing. An accidental keystroke scoring the day is a cost worth paying.
+ */
+const JOURNAL_MIN_CHARS = 1;
+
 // --------------------------------------------------------------------- metrics
 
 export type MetricKey =
   | "steps"
   | "sleep_minutes"
   | "fasting_held"
+  | "meditation_minutes"
+  | "journalled"
   | "readwise_notes"
   | "keystrokes"
   | "portfolio";
 
 /** Where a number comes from — and so whether a human is allowed to type over it. */
-export type MetricSource = "health" | "agent" | "readwise" | "manual";
+export type MetricSource = "health" | "agent" | "readwise" | "journal" | "manual";
 
 export type MetricDef = {
   key: MetricKey;
@@ -77,13 +87,6 @@ export type MetricDef = {
    * gated: a balance is a level you don't move by trying harder today.
    */
   gates: boolean;
-  /**
-   * The multiple of target at which overshooting earns the full bonus (see
-   * `metricPoints`). Tuned per metric because "more" means different things:
-   * 30k steps is a genuinely huge day, but 15 hours of sleep is not twice as
-   * good as 7h30 — it's a bad day. Omitted = no bonus for going over.
-   */
-  bonusFullAt?: number;
 };
 
 export const METRICS: MetricDef[] = [
@@ -93,9 +96,8 @@ export const METRICS: MetricDef[] = [
     hint: "Watch · daily movement",
     source: "health",
     kind: "count",
-    target: 20_000,
+    target: 30_000,
     gates: true,
-    bonusFullAt: 1.5, // 30,000 steps is a monster day
   },
   {
     key: "sleep_minutes",
@@ -103,33 +105,7 @@ export const METRICS: MetricDef[] = [
     hint: "Watch · time asleep",
     source: "health",
     kind: "duration",
-    target: 450, // 7h30m
-    gates: true,
-    bonusFullAt: 1.2, // 9h. Past that it isn't a better day, so the bonus stops.
-  },
-  {
-    key: "fasting_held",
-    label: "Eating window",
-    hint: "12pm–8pm · shared with the nutrition protocol",
-    source: "manual",
-    kind: "toggle",
-    target: 1,
-    gates: true,
-  },
-  {
-    key: "readwise_notes",
-    label: "Notes written",
-    hint: "Readwise · notes, not highlights",
-    // Deliberately notes and not highlights. Berto cut highlights from this scorecard
-    // as "high noise, less signal", and he's right: a highlight is a swipe, a note is
-    // a thought. Only highlights carrying his own annotation count.
-    source: "readwise",
-    kind: "count",
-    // Ten, Berto's number (2026-08-30). His real days cluster hard — 29 notes on Aug 24,
-    // 9 on Aug 21, zero on most others — so ten asks for a genuine reading session
-    // rather than one stray annotation.
-    target: 10,
-    bonusFullAt: 3,
+    target: 480, // 8h
     gates: true,
   },
   {
@@ -138,12 +114,51 @@ export const METRICS: MetricDef[] = [
     hint: "Mac · build the thing",
     source: "agent",
     kind: "count",
-    // Berto's number, picked deliberately high (2026-08-30) against tracked days of
-    // 4,343 and 3,349 — a bar to grow into, not one to clear this week. Tunable
-    // without a deploy via the `scorecard_targets` app_setting.
     target: 100_000,
     gates: true,
-    bonusFullAt: 1.5,
+  },
+  {
+    key: "fasting_held",
+    label: "Eating window",
+    hint: "Nothing before noon · shared with the nutrition protocol",
+    source: "manual",
+    kind: "toggle",
+    target: 1,
+    gates: true,
+  },
+  {
+    key: "meditation_minutes",
+    label: "Meditation",
+    hint: "Timer · sit and breathe",
+    source: "manual",
+    kind: "duration",
+    // Berto's own session: 20 minutes with a bell at the halfway mark.
+    target: 20,
+    gates: true,
+  },
+  {
+    key: "journalled",
+    label: "Journal",
+    hint: "Today's page has words in it",
+    // Derived from `daily_journal`, never typed here. Same rule as the eating
+    // window: one place records it, and the scorecard is a second door onto that
+    // record rather than a competing one that drifts within a week.
+    source: "journal",
+    kind: "toggle",
+    target: 1,
+    gates: true,
+  },
+  {
+    key: "readwise_notes",
+    label: "Notes written",
+    hint: "Readwise · notes, not highlights",
+    // Tracked, not gated. Berto's list of what makes a day (2026-09-02) named six
+    // keys and this wasn't one of them — but the number is already synced and
+    // worth seeing, so it rides below the line with the portfolio.
+    source: "readwise",
+    kind: "count",
+    target: 10,
+    gates: false,
   },
   {
     key: "portfolio",
@@ -188,43 +203,89 @@ export function clampTargets(raw: unknown): Targets {
 
 // -------------------------------------------------------------------- scoring
 //
-// A day is scored, not just judged. "1 / 4" is the same number whether he walked
-// 400 steps or 19,900, which makes a hard day look identical to a lazy one and
-// leaves nothing to chase. Points fix that: every metric pays out in proportion
-// to how far it got, overshooting the bar pays a bonus, and landing all four pays
-// a lump sum on top. The result is a number that moves every single day and has
-// an all-time high worth beating.
+// The score is a **percentage of a perfect day**: 0 when nothing was logged, 100
+// when every key hit its target. Berto's rule (2026-09-02): *"perfect means we hit
+// our target, so really it should be between 0 and 100."*
+//
+// That replaced a 1,600-point model with overshoot bonuses and a perfect-day lump
+// sum. The old model moved every day and had a record to chase, but nobody could
+// say what 437 meant without opening the source — and a "perfect" day scored 1,300
+// of a possible 1,600, which is a strange thing to call perfect. This one you can
+// explain in a sentence: six keys, worth the same, filled in proportion to how far
+// each got.
+//
+// The consequences, on purpose:
+//   - **Overshooting pays nothing.** 60,000 steps scores exactly what 30,000 does.
+//     The target is the target; the surplus is its own reward.
+//   - **The ceiling is reachable**, so 100 can be hit repeatedly. The high score
+//     stops being the thing to chase and the *streak* takes over that job.
+//   - Partial credit is still real: 15,000 of 30,000 steps pays half its slice, so
+//     a hard day and a lazy one never read the same.
 
-/** What a metric pays when you land exactly on its bar. */
-export const BASE_POINTS = 200;
-
-/** The most that overshooting a bar can add, earned in full at `bonusFullAt`. */
-export const MAX_BONUS = 100;
-
-/** Landing every gating metric is worth more than the sum of its parts. */
-export const PERFECT_BONUS = 100;
+/** A perfect day. Every score is a fraction of this. */
+export const MAX_DAY_SCORE = 100;
 
 /**
- * What one metric is worth today. Non-gating metrics (portfolio) score nothing —
- * they're tracked, and a balance you didn't move today shouldn't inflate the day.
+ * What one gating key is worth. Equal across all six — Berto's call when the
+ * alternative was weighting the graded efforts (steps/sleep/keystrokes) above the
+ * single taps (fasting/meditation/journal). Equal is the version you can't argue
+ * with: every key costs the same to skip.
  */
-export function metricPoints(key: MetricKey, value: number | null, target: number): number {
+export const METRIC_WEIGHT = MAX_DAY_SCORE / GATING_METRICS.length;
+
+/**
+ * The unrounded share one metric earned, 0…METRIC_WEIGHT. Non-gating metrics
+ * (portfolio, Readwise notes) score nothing — they're tracked, and a balance you
+ * didn't move today shouldn't inflate the day.
+ *
+ * A null value scores 0 but is *not* the same as a zero: see `buildDay`, which
+ * keeps the distinction so an unlogged day never looks like a failed one.
+ */
+export function rawMetricPoints(key: MetricKey, value: number | null, target: number): number {
   const def = metricDef(key);
   if (!def.gates || value === null) return 0;
-  if (def.kind === "toggle") return value > 0 ? BASE_POINTS : 0;
+  if (def.kind === "toggle") return value > 0 ? METRIC_WEIGHT : 0;
   if (target <= 0 || value <= 0) return 0;
-
-  const ratio = value / target;
-  const base = Math.min(1, ratio) * BASE_POINTS;
-  const bonus =
-    def.bonusFullAt && def.bonusFullAt > 1
-      ? Math.min(1, Math.max(0, (ratio - 1) / (def.bonusFullAt - 1))) * MAX_BONUS
-      : 0;
-  return Math.round(base + bonus);
+  // Capped at 1: past the target there is nothing more to earn.
+  return Math.min(1, value / target) * METRIC_WEIGHT;
 }
 
-/** The ceiling: every bar cleared to its bonus cap, plus the perfect-day bonus. */
-export const MAX_DAY_SCORE = GATING_METRICS.length * (BASE_POINTS + MAX_BONUS) + PERFECT_BONUS;
+/**
+ * Round the per-metric shares to one decimal so that **they add up to the total
+ * exactly**, using largest-remainder apportionment.
+ *
+ * Worth the twenty lines: 100 does not divide six ways, so the naive rounding
+ * shows six rows of `16.7` under a headline of `100` — the rows visibly summing to
+ * 100.2. A scorecard whose own arithmetic doesn't add up is a scorecard you stop
+ * believing, and "make it clear how it's calculated" was the whole ask. This way a
+ * perfect day reads 16.7 · 16.7 · 16.7 · 16.7 · 16.6 · 16.6 = 100.0, which is true.
+ */
+export function apportion(raw: number[]): { points: number[]; total: number } {
+  const totalTenths = Math.round(raw.reduce((a, b) => a + b, 0) * 10);
+  const floors = raw.map((r) => Math.floor(r * 10));
+  let left = totalTenths - floors.reduce((a, b) => a + b, 0);
+
+  // Hand the leftover tenths to whichever metrics were rounded down hardest.
+  const order = raw
+    .map((r, i) => ({ i, frac: r * 10 - Math.floor(r * 10) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    floors[i] += 1;
+    left -= 1;
+  }
+
+  return { points: floors.map((t) => t / 10), total: totalTenths / 10 };
+}
+
+/**
+ * What one metric is worth today, rounded on its own. Kept for callers that want a
+ * single metric's value without building the whole day (Cael's spoken replies, the
+ * agent tools); `buildDay` uses `apportion` instead so the rows add up.
+ */
+export function metricPoints(key: MetricKey, value: number | null, target: number): number {
+  return Math.round(rawMetricPoints(key, value, target) * 10) / 10;
+}
 
 /** One metric on one day, resolved against its target. */
 export type MetricValue = {
@@ -245,7 +306,7 @@ export type ScorecardDay = {
   hitCount: number;
   /** Every gating metric hit — a won day. */
   perfect: boolean;
-  /** Total points, including the perfect-day bonus. 0…MAX_DAY_SCORE. */
+  /** Percentage of a perfect day, 0…100, to one decimal. */
   score: number;
 };
 
@@ -271,7 +332,9 @@ export function scoreTier(score: number): ScoreTier {
 export function nextTierAt(score: number): { tier: ScoreTier; points: number } | null {
   for (const cut of [0.2, 0.4, 0.6, 0.75, 0.92]) {
     const threshold = Math.ceil(cut * MAX_DAY_SCORE);
-    if (score < threshold) return { tier: scoreTier(threshold), points: threshold - score };
+    if (score < threshold) {
+      return { tier: scoreTier(threshold), points: Math.round((threshold - score) * 10) / 10 };
+    }
   }
   return null;
 }
@@ -327,21 +390,35 @@ export function isHit(key: MetricKey, value: number | null, target: number): boo
 
 /** Build a day from raw per-metric numbers. */
 export function buildDay(date: string, values: Partial<Record<MetricKey, number | null>>, targets: Targets): ScorecardDay {
-  const metrics = METRICS.map<MetricValue>((m) => {
+  const resolved = METRICS.map((m) => {
     const value = values[m.key] ?? null;
     const target = targets[m.key] ?? m.target;
-    return {
-      key: m.key,
-      value,
-      target,
-      hit: isHit(m.key, value, target),
-      points: metricPoints(m.key, value, target),
-    };
+    return { def: m, value, target, raw: rawMetricPoints(m.key, value, target) };
   });
+
+  // Apportion across the gating metrics only, so the rows that carry points add up
+  // to the headline exactly. Non-gating rows are pinned at 0 and shown below the line.
+  const gatingIdx = resolved.map((r, i) => (r.def.gates ? i : -1)).filter((i) => i >= 0);
+  const { points, total } = apportion(gatingIdx.map((i) => resolved[i].raw));
+
+  const share = new Map<number, number>();
+  gatingIdx.forEach((idx, n) => share.set(idx, points[n]));
+
+  const metrics = resolved.map<MetricValue>((r, i) => ({
+    key: r.def.key,
+    value: r.value,
+    target: r.target,
+    hit: isHit(r.def.key, r.value, r.target),
+    points: share.get(i) ?? 0,
+  }));
+
   const gating = metrics.filter((v) => metricDef(v.key).gates);
   const hitCount = gating.filter((v) => v.hit).length;
   const perfect = hitCount === gating.length;
-  const score = gating.reduce((sum, v) => sum + v.points, 0) + (perfect ? PERFECT_BONUS : 0);
+  // Perfect is exactly 100 by construction — every share is capped at its weight and
+  // the weights sum to MAX_DAY_SCORE — but clamp anyway so a hand-edited target can
+  // never print 101.
+  const score = Math.min(MAX_DAY_SCORE, total);
   return { date, metrics, hitCount, perfect, score };
 }
 
@@ -437,7 +514,10 @@ export function formatMetric(key: MetricKey, value: number | null): string {
   switch (metricDef(key).kind) {
     case "duration": {
       const h = Math.floor(value / 60);
-      const m = value % 60;
+      const m = Math.round(value % 60);
+      // Meditation shares this branch with sleep, and a 20-minute sit reading
+      // "0h 20m" is nonsense — under an hour, minutes are the whole story.
+      if (h === 0) return `${m}m`;
       return m === 0 ? `${h}h` : `${h}h ${m}m`;
     }
     case "toggle":
@@ -489,7 +569,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, keyRows, healthConnected] = await Promise.all([
+  const [targets, logged, fastRows, keyRows, medRows, journalRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
       SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, readwise_notes, portfolio
@@ -509,6 +589,23 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
       SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, count
       FROM keystroke_days
       WHERE logged_date >= ${since}::date
+    `,
+    // Meditation minutes, written only when a session finishes (lib/meditation.ts).
+    sql`
+      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, minutes
+      FROM meditation_days
+      WHERE logged_date >= ${since}::date
+    `,
+    // Did the day's journal page end up with words in it? Asked in SQL rather than
+    // pulled back as text: the scorecard has no business reading what he wrote, and
+    // a year of journal entries is not something to ship over the wire to score a
+    // boolean. The editor stores HTML, so an empty document is "<p></p>" and not "" —
+    // strip the tags and the entities before deciding it's blank.
+    sql`
+      SELECT to_char(entry_date, 'YYYY-MM-DD') AS date,
+             length(trim(regexp_replace(regexp_replace(content, '<[^>]*>', ' ', 'g'), '&nbsp;|&#160;', ' ', 'g'))) AS chars
+      FROM daily_journal
+      WHERE entry_date >= ${since}::date
     `,
     // The watch has its OWN health-only grant, separate from the Calendar one —
     // the Health API 403s on any token carrying calendar scopes. See lib/google-health.ts.
@@ -534,6 +631,15 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   }
   for (const r of keyRows as Record<string, unknown>[]) {
     slot(String(r.date)).keystrokes = Number(r.count);
+  }
+  for (const r of medRows as Record<string, unknown>[]) {
+    slot(String(r.date)).meditation_minutes = Number(r.minutes);
+  }
+  // No row at all means the page was never opened — left null, so an untouched day
+  // reads "—" rather than a scolding "not written". A row that exists but is blank
+  // is a real, logged miss.
+  for (const r of journalRows as Record<string, unknown>[]) {
+    slot(String(r.date)).journalled = Number(r.chars) >= JOURNAL_MIN_CHARS ? 1 : 0;
   }
   // A day with no keystroke row is *unlogged*, not a zero: it means the Mac agent
   // wasn't running. Unlike the github table, this one is only as complete as the

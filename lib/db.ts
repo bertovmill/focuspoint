@@ -512,6 +512,24 @@ export async function ensureSchema() {
     )
   `;
 
+  // Meditation, one row per day. `minutes` is the *sum* of completed sessions, so a
+  // 10-minute sit in the morning and another after lunch make twenty — the scorecard
+  // asks for twenty minutes of meditation, not one twenty-minute block. `sessions`
+  // is kept because "20 minutes in one sit" and "20 in four" are different days and
+  // the number costs nothing to store.
+  //
+  // Only *completed* time is written: the timer posts when a session ends or is
+  // stopped early, never while it runs, so a browser tab left open on a paused timer
+  // can never inflate the day.
+  await sql`
+    CREATE TABLE IF NOT EXISTS meditation_days (
+      logged_date DATE PRIMARY KEY,
+      minutes INTEGER NOT NULL DEFAULT 0,
+      sessions INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   // The daily journal — one free-form markdown document per day, written by hand in
   // the editor on the home page (app/_components/daily-journal.tsx). Keyed by the
   // local date so there is exactly one page per day; an absent row means "not

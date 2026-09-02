@@ -6799,3 +6799,119 @@ a different one. So keystrokes, thoughts, todos, scorecard history — everythin
 has been accumulating in two places since the Aug 30 stopgap. Not fixed here;
 flagging it because the numbers now differ depending on which host you open, and
 merging or picking one is Berto's call.
+
+---
+
+## 2026-09-02 — The scorecard is out of 100, and a meditation timer to feed it
+
+Berto: *"the points should be more clear how its calculated — remember perfect
+means we hit our target, so really it should be between 0 and 100 the score, with
+100 being 8 hours of sleep, 100k keystrokes, and 30K steps, and fasted past noon,
+and meditated, and journalled, those are all the keys, lets also add a meditation
+timer to the app as well."*
+
+### The score is now a percentage of a perfect day
+
+The old model paid 200 points a metric, up to 100 more for overshooting, plus a
+100-point perfect-day bonus — a ceiling of 1,600, of which a "perfect" day scored
+1,300. It moved every day and had a record worth chasing, but nobody could say
+what 437 meant without opening `lib/scorecard.ts`, and calling 1,300-out-of-1,600
+perfect is a contradiction. Now: **six keys, 16.7 points each, 100 is perfect.**
+
+The consequences, all deliberate:
+
+- **Overshooting pays nothing.** 60,000 steps scores exactly what 30,000 does.
+- **The ceiling is reachable**, so 100 can be hit repeatedly and the high score
+  stops being the thing to chase — the perfect-day *streak* takes that job over.
+- Partial credit survives: half the target still banks half the slice, so a hard
+  day and a lazy one never read alike.
+
+**The keys and their targets**, from Berto's message: steps 30,000 (was 20,000),
+sleep 8h (was 7h30), keystrokes 100,000 (unchanged), the eating window, meditation
+20 min (new), journal written (new). **Weights are equal** — his call when the
+alternative was scoring the graded efforts above the single taps. Equal is the
+version you can't argue with: every key costs the same to skip.
+
+**Readwise "Notes written" dropped below the line.** It wasn't among the six he
+named. The number still syncs and still shows, next to the portfolio, in the
+tracked-but-not-gated section.
+
+**The card now shows its own arithmetic.** Every row carries `12.4/16.7` rather
+than a bare `+12`, and a line under the rows says what the number is: *"100 is a
+perfect day. 6 keys, worth 16.7 each. Hit a target and you bank the whole slice;
+get halfway and you bank half. Going past a target earns nothing extra."*
+
+**A rounding detail worth the twenty lines it cost.** 100 doesn't divide six ways,
+so the naive version prints six rows of 16.7 under a headline of 100 — rows that
+visibly sum to 100.2. `apportion()` does largest-remainder rounding across the
+gating rows, so a perfect day reads 16.7 · 16.7 · 16.7 · 16.7 · 16.6 · 16.6 = 100.0
+and every other day adds up too. A scorecard whose own arithmetic doesn't add up is
+one you stop believing, and "make it clear how it's calculated" was the whole ask.
+
+**Journal is derived, not tapped.** Any text on the day's `daily_journal` page earns
+it — same precedent as the eating window reading off the nutrition protocol rather
+than duplicating it. Its row is a state pill ("written" / "not yet"), not a
+checkbox, so nobody hunts for a control that was never going to exist. The check
+runs in SQL (`length(trim(regexp_replace(...)))`) so a year of journal text never
+crosses the wire to score a boolean.
+
+### The meditation timer
+
+New: `app/_components/meditation-timer.tsx`, on the home screen between the
+scorecard it feeds and the journal that finishes the day. 20 minutes and a bell at
+10 by default — Berto's own sit. Presets 5/10/20/30/45, interval bell none/5/10/15.
+Finished sits log themselves; a sit ended early still logs the time actually sat,
+because it happened. Under a minute isn't a sit and isn't written.
+
+**Bells are scheduled, not ticked.** Every strike for the session is placed on the
+AudioContext timeline the moment you press start, at an absolute time. Browsers
+throttle `setInterval` to ~1Hz or worse in a hidden tab — and the entire point of
+sitting is that you are not looking at the screen. The Web Audio clock doesn't care
+whether the tab is visible, so the ten-minute bell lands at ten minutes. Pausing
+stops the scheduled nodes; resuming re-schedules what's left. The countdown is
+derived from `Date.now()` for the same reason: counting ticks drifts by however
+long the tab was throttled, and a meditation timer that quietly runs long is worse
+than none.
+
+**The bells are synthesised, not sampled** (`lib/bells.ts`) — a decent bowl sample
+is a few hundred KB, the desktop WebView blocks cross-origin media anyway, and a
+sample plays the *same* strike every time, which twice a day starts to sound like a
+notification. So: additive synthesis of a struck bowl. Inharmonic partials
+(1 / 2.76 / 5.40 / 8.93 / 13.34 — irrational ratios are why a bell sounds like metal
+and not a synth pad), decay that shortens with partial number (the "ting… mmm"
+shape), two oscillators per partial detuned 1.2 cents so the tone breathes, and 25ms
+of filtered noise for the mallet. Interval bells are a higher, lighter bowl than the
+closing three, so halfway is never mistaken for the end.
+
+### Verified
+
+On a private :3789 server against live data:
+
+- `buildDay` unit pass: all targets exactly → **100** and rows sum to 100; all
+  targets *doubled* → still 100 (overshoot pays nothing); nothing logged → 0; half
+  of everything → 33.3; five of six → 83.3. Row points equalled the headline in
+  every case.
+- Live `/api/scorecard`: today 37.3, rows 0 + 16.7 + 3.9 + 16.7 + 0 + 0 = 37.3 ✓.
+  Sep 1 (the one day with a journal entry) correctly scored its journal key.
+- Timer driven in Playwright: countdown ran, pause froze it, resume continued from
+  the pause, End reset it, and a sub-minute sit was correctly **not** logged.
+  AudioContext live after the start click; no page errors.
+- POSTed a 20-minute sit → score 37.3 → 54.0, meditation row `20m / 20m` hit.
+  **Test row deleted afterwards**; the card is back on real numbers.
+- `lib/bells.ts` driven against a recording stub: partials inharmonic, high
+  partials ring out 1.49s against the fundamental's 9.05s, closing bell three
+  strikes at 0 / 2.4 / 4.8s fading 0.5 → 0.41 → 0.34.
+- `npm run build` and `npm run typecheck` clean.
+
+### Still true from this morning
+
+The Mac app points at `cael-agent-seven`, which **cannot be redeployed** (the
+`experimentalServices` blocker), so none of this reaches the desktop app until the
+eve 0.18 → 0.47 upgrade lands. This shipped to `cael-keystrokes`, the project that
+still accepts deploys — and per the entry above, that's a different database.
+
+Files: `lib/scorecard.ts`, `lib/bells.ts` (new), `lib/meditation.ts` (new),
+`lib/db.ts` (`meditation_days`), `app/api/meditation/route.ts` (new),
+`app/api/scorecard/route.ts`, `app/_components/meditation-timer.tsx` (new),
+`app/_components/scorecard-card.tsx`, `app/_components/home-screen.tsx`,
+`agent/tools/get_scorecard.ts`, `agent/tools/log_metrics.ts`.

@@ -40,6 +40,7 @@ import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { TrainingLog } from "@/app/_components/training-log";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
+import { MeditationTimer } from "@/app/_components/meditation-timer";
 import { DailyJournal } from "@/app/_components/daily-journal";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -440,6 +441,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* The daily scorecard — "did I win today?". First thing on the page because
             it's the one block that's actionable at 7am. */}
         <ScorecardCard />
+
+        {/* The sit sits between the score it feeds and the journal that finishes the
+            day — both of those are scorecard keys, and this is the only one the app
+            itself can produce. */}
+        <MeditationTimer />
 
         {/* The day in his own words, directly under the numbers that scored it —
             the metrics say what happened, this says why. */}

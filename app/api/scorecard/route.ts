@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { setDay as setMeditation } from "@/lib/meditation";
 import {
   dayKey,
   getScorecardSummary,
@@ -52,6 +53,12 @@ export async function PATCH(req: Request) {
     if (Object.keys(patch).length) await recordMetrics(sql, date, patch);
     // Fasting is stored on the nutrition protocol, not daily_metrics.
     if (typeof body.fasting_held === "boolean") await setFastingHeld(sql, date, body.fasting_held);
+    // Meditation lives in its own table because the timer writes to it all day; a
+    // typed correction *replaces* the day's total, where the timer only ever adds.
+    const meditation = optionalNumber(body.meditation_minutes);
+    if (meditation !== undefined) await setMeditation(sql, date, meditation ?? 0);
+    // `journalled` is derived from the journal page and is deliberately not writable
+    // here — the only way to earn it is to write something.
 
     return NextResponse.json(await getScorecardSummary(sql));
   } catch (err) {

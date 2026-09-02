@@ -2,6 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
 import {
+  METRIC_WEIGHT,
   formatMetric,
   formatTarget,
   getScorecardSummary,
@@ -10,7 +11,7 @@ import {
 
 export default defineTool({
   description:
-    "Read the daily scorecard — whether today is a winning day. Four metrics decide it: steps, sleep, the 12–8pm eating window, and PRs merged. Portfolio is tracked alongside but doesn't decide the day. Use this when he asks how today is going, whether he's winning, what's left to hit, or about his perfect-day streak.",
+    "Read the daily scorecard — whether today is a winning day, scored out of 100. Six keys decide it, each worth an equal share: steps, sleep, keystrokes, holding the eating window, meditation, and writing the journal. 100 means every target was hit; going past a target earns nothing extra. Portfolio and Readwise notes are tracked alongside but don't decide the day. Use this when he asks how today is going, whether he's winning, what's left to hit, or about his perfect-day streak.",
   inputSchema: z.object({}),
   async execute() {
     return getScorecardSummary(getDb());
@@ -21,7 +22,7 @@ export default defineTool({
       const def = metricDef(m.key);
       const value = formatMetric(m.key, m.value);
       const target = formatTarget(m.key, m.target);
-      return `${m.hit ? "✓" : "·"} ${def.label}: ${value}${target ? ` (target ${target})` : ""}`;
+      return `${m.hit ? "✓" : "·"} ${def.label}: ${value}${target ? ` (target ${target})` : ""} — ${m.points}/${METRIC_WEIGHT.toFixed(1)} pts`;
     });
 
     const missing = gating.filter((m) => !m.hit).map((m) => metricDef(m.key).label);
@@ -38,7 +39,7 @@ export default defineTool({
     return {
       type: "text",
       value: [
-        `${output.today.date} — ${output.today.hitCount}/${gating.length} hit.`,
+        `${output.today.date} — ${Math.round(output.today.score)}/100, ${output.today.hitCount} of ${gating.length} targets hit.`,
         ...lines,
         portfolio?.value != null ? `Portfolio: ${formatMetric("portfolio", portfolio.value)}.` : null,
         verdict,

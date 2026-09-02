@@ -6779,14 +6779,20 @@ POST errors since (the agent only logs on failure).
 
 ### Two things Berto should know
 
-**1. cael-agent-seven cannot be redeployed.** `vercel --prod --scope bertoaucctus`
-against that project still fails with *"The `experimentalServices` property is no
-longer available for new projects. Use the `services` property instead."* — the
-same blocker logged on Aug 30. So that host is **frozen at its Aug 30 08:19
-build** and will stay there until the eve 0.18 → 0.47 upgrade lands.
-`cael-keystrokes` is the project still taking deploys (last one 2h ago). The Mac
-app now points at the older code by design; worth revisiting once eve is upgraded
-or the paused team clears.
+**1. cael-agent-seven needs the deploy script, not `vercel --prod`.** A plain
+`vercel --prod --scope bertoaucctus` fails with *"The `experimentalServices`
+property is no longer available for new projects. Use the `services` property
+instead."* — because `vercel.json` on main carries `experimentalServices`, which is
+what eve 0.18.2 emits and what the original (paused) project needs.
+`scripts/deploy-bertoaucctus.sh` exists for exactly this: it rewrites `vercel.json`
+to the `services` model, forces the middleware to the Node runtime, deploys, and
+restores the tree on exit. That works — used later the same day to ship the
+scorecard rewrite. *(Corrected: an earlier version of this entry said the host
+could not be redeployed at all. It can; the plain CLI invocation is what fails.)*
+
+The script's documented limitation stands: under `services`, eve 0.18.2's build
+output is never mounted, so **Cael's chat 404s** on this deployment. Pages and
+`/api/*` are fine. The real fix is the eve 0.18 → 0.47 upgrade.
 
 **2. The two hosts are on different databases — confirmed.** On restart the
 keystroke agent resumes from whatever today's count is on its target: against
@@ -6905,10 +6911,16 @@ On a private :3789 server against live data:
 
 ### Still true from this morning
 
-The Mac app points at `cael-agent-seven`, which **cannot be redeployed** (the
-`experimentalServices` blocker), so none of this reaches the desktop app until the
-eve 0.18 → 0.47 upgrade lands. This shipped to `cael-keystrokes`, the project that
-still accepts deploys — and per the entry above, that's a different database.
+The Mac app points at `cael-agent-seven`, and this **shipped there** via
+`scripts/deploy-bertoaucctus.sh` (a plain `vercel --prod` is what the
+`experimentalServices` error rejects — the script patches the config first).
+Verified live: `/api/scorecard` on cael-agent-seven returns `37.4 / 100` with all
+six keys and their new targets.
+
+Two caveats carried over from this morning: **Cael's chat 404s** on this
+deployment (eve 0.18.2 under `services`), and `cael-keystrokes` is a **different
+database**, so it holds different numbers and is now the stale one — nothing points
+at it any more.
 
 Files: `lib/scorecard.ts`, `lib/bells.ts` (new), `lib/meditation.ts` (new),
 `lib/db.ts` (`meditation_days`), `app/api/meditation/route.ts` (new),

@@ -6749,3 +6749,48 @@ headline, and a genuine `broken: ["sleep_minutes"]` record firing on real number
 (6h40m over Aug 29's 6h38m). `npm run typecheck` clean. No test data written.
 
 Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`.
+
+---
+
+## 2026-09-02 — Mac app and keystroke agent moved to cael-agent-seven
+
+Berto: *"we have a desktop app but its still pointing to the old url, can we point
+it to the new one"* — and picked **https://cael-agent-seven.vercel.app** (the
+`cael-agent` project on the bertoaucctus team) over the `cael-keystrokes` stopgap
+it had been on since Aug 30.
+
+**Changed** — every hard-coded copy of the URL, of which there were six:
+`desktop/src-tauri/src/main.rs` (`APP_URL`), `desktop/src-tauri/tauri.conf.json`
+(`frontendDist`), `desktop/src-tauri/capabilities/main.json` (the WebView
+allowlist — the app is blank without this one), `desktop/README.md`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift` (the `FOCUSPOINT_URL` fallback)
+and `keystroke-agent/menubar/install.sh` (its default).
+
+Then rebuilt (`npm run build` in `desktop/`) and reinstalled `/Applications/Cael.app`
+from the bundle — the constant is compiled in, so editing the source alone leaves
+the installed binary on the old host. Verified with `strings` on the installed
+binary: only `https://cael-agent-seven.vercel.app` remains.
+
+Also rewrote the two **installed launchd plists** in `~/Library/LaunchAgents`
+(`com.focuspoint.keystrokes.plist`, `.menubar.plist`), which carried the old URL
+in their own `FOCUSPOINT_URL`, and reloaded both. They're running clean —
+`keystrokes.log` shows `counting to https://cael-agent-seven.vercel.app` and no
+POST errors since (the agent only logs on failure).
+
+### Two things Berto should know
+
+**1. cael-agent-seven cannot be redeployed.** `vercel --prod --scope bertoaucctus`
+against that project still fails with *"The `experimentalServices` property is no
+longer available for new projects. Use the `services` property instead."* — the
+same blocker logged on Aug 30. So that host is **frozen at its Aug 30 08:19
+build** and will stay there until the eve 0.18 → 0.47 upgrade lands.
+`cael-keystrokes` is the project still taking deploys (last one 2h ago). The Mac
+app now points at the older code by design; worth revisiting once eve is upgraded
+or the paused team clears.
+
+**2. The two hosts appear to be on different databases.** On restart the
+keystroke agent resumes from whatever today's count is on its target: against
+`cael-keystrokes` it read **8,448**, against `cael-agent-seven` it read **18,609**.
+Same day, same Mac, two different answers — so keystrokes (and presumably
+everything else) have been accumulating in two places. Not fixed here; flagging it
+because it means the scorecard numbers differ depending on which host you open.

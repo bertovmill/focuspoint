@@ -6788,9 +6788,14 @@ build** and will stay there until the eve 0.18 → 0.47 upgrade lands.
 app now points at the older code by design; worth revisiting once eve is upgraded
 or the paused team clears.
 
-**2. The two hosts appear to be on different databases.** On restart the
+**2. The two hosts are on different databases — confirmed.** On restart the
 keystroke agent resumes from whatever today's count is on its target: against
 `cael-keystrokes` it read **8,448**, against `cael-agent-seven` it read **18,609**.
-Same day, same Mac, two different answers — so keystrokes (and presumably
-everything else) have been accumulating in two places. Not fixed here; flagging it
-because it means the scorecard numbers differ depending on which host you open.
+Same day, same Mac, two different answers. Confirmed at the source: pulling
+production env for both projects (`VERCEL_ORG_ID=team_rw2fumuExVl71ZKWCk1jBKZ9
+VERCEL_PROJECT_ID=<id> vercel env pull`) gives two different `DATABASE_URL`s —
+`cael-keystrokes` is on the Neon branch `ep-shiny-mouse-ats0h3zi`, `cael-agent` on
+a different one. So keystrokes, thoughts, todos, scorecard history — everything —
+has been accumulating in two places since the Aug 30 stopgap. Not fixed here;
+flagging it because the numbers now differ depending on which host you open, and
+merging or picking one is Berto's call.

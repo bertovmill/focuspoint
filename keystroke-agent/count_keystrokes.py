@@ -50,6 +50,10 @@ FOCUSPOINT_URL = os.environ.get("FOCUSPOINT_URL", "https://cael.bertomill.com").
 TOKEN = os.environ.get("KEYSTROKE_TOKEN", "")
 TIMEZONE = os.environ.get("KEYSTROKE_TIMEZONE", "America/Toronto")
 FLUSH_SECONDS = int(os.environ.get("KEYSTROKE_FLUSH_SECONDS", "60"))
+# How often today's total is written to STATE_PATH. Separate from FLUSH_SECONDS because the
+# menu bar app (menubar/) reads that file to show a live count: a local file write is free,
+# so it happens often, while the network POST stays at one a minute.
+STATE_SECONDS = int(os.environ.get("KEYSTROKE_STATE_SECONDS", "2"))
 STATE_PATH = Path(os.environ.get("KEYSTROKE_STATE", str(Path.home() / ".focuspoint-keystrokes.json")))
 
 _tz = ZoneInfo(TIMEZONE) if ZoneInfo else None
@@ -132,6 +136,15 @@ def flush_loop() -> None:
             flush_locked()
 
 
+def state_loop() -> None:
+    """Keep STATE_PATH close to live for the menu bar, without touching the network."""
+    while True:
+        time.sleep(STATE_SECONDS)
+        with _lock:
+            if _dirty:
+                save_state()
+
+
 def main() -> None:
     if not TOKEN:
         sys.stderr.write("KEYSTROKE_TOKEN is not set. See README.\n")
@@ -147,6 +160,7 @@ def main() -> None:
         flush_locked(final=True)
 
     threading.Thread(target=flush_loop, daemon=True).start()
+    threading.Thread(target=state_loop, daemon=True).start()
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
 

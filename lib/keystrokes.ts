@@ -32,6 +32,14 @@ export type KeystrokeSummary = {
   windowTotal: number;
   /** Mean per day over the days that actually have any count (never divides by idle days). */
   dailyAverage: number;
+  /** Same mean, over the last 7 days rather than the full window. Includes today, which is
+   *  partial until the day ends — the menu bar shows today's own count right above it, so
+   *  the partiality is visible rather than hidden. */
+  average7: number;
+  /** The best single day ever recorded, *excluding today* so today always has a bar to
+   *  beat — the same convention computeRecords() uses in lib/scorecard.ts. Null until
+   *  there is a completed day with any count. */
+  bestDay: { date: string; count: number } | null;
   /** Newest last: one bucket per day for the sparkline, labelled "Aug 29". */
   recent: Bucket[];
   /** Whether any day in the window has a count — the card nudges to set up the agent when not. */
@@ -72,11 +80,29 @@ export async function getKeystrokeSummary(sql: Sql): Promise<KeystrokeSummary> {
   const windowTotal = recent.reduce((s, b) => s + b.value, 0);
   const activeDays = recent.filter((b) => b.value > 0).length;
 
+  // Last 7 days, averaged the same way as dailyAverage — over days that actually have a
+  // count, so a weekend away doesn't halve the number.
+  const last7 = recent.slice(-7);
+  const total7 = last7.reduce((s, b) => s + b.value, 0);
+  const active7 = last7.filter((b) => b.value > 0).length;
+
+  // The all-time best completed day. Excludes today so the number stays a bar to beat
+  // rather than a mirror of the count sitting right above it in the menu.
+  const [best] = await sql`
+    SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, count
+    FROM keystroke_days
+    WHERE logged_date < ${today}::date AND count > 0
+    ORDER BY count DESC, logged_date DESC
+    LIMIT 1
+  `;
+
   return {
     today,
     todayCount: byDate.get(today) ?? 0,
     windowTotal,
     dailyAverage: activeDays ? Math.round(windowTotal / activeDays) : 0,
+    average7: active7 ? Math.round(total7 / active7) : 0,
+    bestDay: best ? { date: String(best.date), count: Number(best.count) } : null,
     recent,
     hasData: windowTotal > 0,
   };

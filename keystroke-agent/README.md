@@ -46,6 +46,38 @@ stored, buffered, or sent. What leaves your machine is a single number per day
 That's it. Today's count appears on the focuspoint dashboard within a minute and updates
 every minute after that.
 
+## Menu bar (optional)
+
+Today's count, live in the Mac menu bar — click it for your high score and 7-day average.
+
+```bash
+cd keystroke-agent/menubar
+./install.sh
+```
+
+It compiles a small Swift app, registers it to start at login, and lifts the token and URL
+from the counter's own launch agent, so there is nothing to configure.
+
+**It is a separate process from the counter on purpose.** The counting is the part that
+matters — it feeds the day score and can't be recovered after the fact — so nothing about
+drawing a menu is allowed to take it down. If the menu bar app dies, the counter keeps
+counting and keeps reporting; only the display goes away.
+
+It needs no permissions of its own. Today's number is read from
+`~/.focuspoint-keystrokes.json`, which the counter already writes (every couple of seconds,
+so the menu bar is live without any network traffic). The high score and 7-day average come
+from `/api/keystrokes` every five minutes, since that history lives server-side and outlives
+this Mac.
+
+| | |
+|---|---|
+| Restart | `launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes.menubar` |
+| Stop | `launchctl unload ~/Library/LaunchAgents/com.focuspoint.keystrokes.menubar.plist` |
+| Logs | `tail -f keystroke-agent/menubar/menubar.log` |
+
+The high score deliberately **excludes today**, so it stays a bar to beat rather than a
+mirror of the count directly above it. Once today clears it the row says so.
+
 ## Running it by hand (to test)
 
 ```bash

@@ -1,7 +1,7 @@
 # Cael Desktop
 
 A native macOS app (Tauri v2) that wraps the production web app at
-`https://cael-keystrokes.vercel.app` in the system WebView — no Chrome involved.
+`https://cael-agent-seven.vercel.app` in the system WebView — no Chrome involved.
 
 Because it loads the deployed site, every `vercel --prod` deploy updates the
 desktop app automatically; there is nothing to rebuild unless you want to

@@ -2,7 +2,7 @@
 
 use tauri::{LogicalSize, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
 
-const APP_URL: &str = "https://cael-keystrokes.vercel.app";
+const APP_URL: &str = "https://cael-agent-seven.vercel.app";
 
 // WKWebView silently drops target="_blank" clicks and window.open() calls
 // (there is no popup handler). Rewrite them into same-window navigations so

@@ -4,6 +4,73 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-02 (training log) — the plain-text half of training
+
+Berto: *"I need some really simple ways to just note down what workout I did each
+day, and what I accomplished, in plain text, to track what I did when to improve
+my training."*
+
+Half of this already existed and the other half was missing. `workout_logs` has
+tracked six numeric lifts since day one and draws the Training chart, but a number
+can only say *how much* — nothing in the app could say **what happened**. "Squat
+225" and "squat 225, bar speed still good on the last set, first time it didn't
+feel like a grind" are not the same record, and only the second one is useful for
+deciding what to do next week.
+
+**A new table, not a new column.** `workout_notes(logged_date PRIMARY KEY, note,
+updated_at)` — one plain-text note per day, so re-logging a day replaces it. It is
+deliberately separate from `workout_logs` rather than a `note` column on it: that
+table is keyed `(exercise, logged_date)`, so a note hung off it would either
+duplicate across every lift of the day or arbitrarily attach to one of them. The
+note is about the *day*, so the day is the key.
+
+**Placement** was Berto's pick from three: its own card above the Training chart,
+over folding it into the daily journal or leaving it chat-only. The reasoning that
+decided it — training notes buried inside general journaling make "what have I been
+doing on push days?" a search problem instead of a glance.
+
+**A textarea, not the tiptap editor** the daily journal uses. A workout note is
+three lines typed one-handed on the way out of the gym; a rich-text toolbar is
+friction there. Plain text is also exactly what Cael reads back, so there is no
+markdown to strip. Autosaves on a 900ms pause, flushed on unmount, on the day
+changing, and on the tab closing via `sendBeacon` (the only save that survives it).
+Chevrons walk back through past days, and the history list under the box is
+clickable — the card doubles as the archive.
+
+**Clearing a note deletes the row** rather than storing `''`. Otherwise every day
+opened and not written would accumulate a blank entry in the history list.
+
+**The card fetches its own history.** It started as a prop from `home-screen`, and
+verification caught the flaw: that page loads everything through one `Promise.all`,
+so a single unrelated route failing there left the training log silently empty.
+Owning the request means the log works regardless of what else on the page is
+broken. One extra request on load, worth it.
+
+**Cael reads and writes it too** — `log_workout_note` and `list_workout_notes`.
+`log_workout_note`'s description explicitly tells the model that writing a day
+*replaces* it, and to read the existing note first when adding to a day already
+logged, since the natural failure mode is silently clobbering the morning's entry
+with the evening's.
+
+**Verified** on a private :3789 dev server against the real DB, not mocks: API
+round-trip on a throwaway 2021 date; the card rendering, saving, surviving a
+reload, and loading a past day when its history row is clicked; clearing deleting
+the row. Then both agent tools driven through the actual chat UI — Cael called
+`log_workout_note` and the row appeared, then `list_workout_notes` and read it back
+with the date intact (`2021-03-05`, no timezone shift, which is why both the route
+and the tool format DATE columns locally rather than via `toISOString()`). All test
+rows and both test threads deleted afterward. `npm run typecheck` clean.
+
+One false alarm worth recording: the first browser run looked like the load fetch
+never resolved. It was the cold Turbopack dev server compiling ~10 routes in
+parallel — the same fetch took 29s in-page and 1.5s from curl. Nothing was wrong.
+
+Files: `lib/db.ts`, `app/api/workout-notes/route.ts` (new),
+`app/_components/training-log.tsx` (new), `app/_components/home-screen.tsx`,
+`agent/tools/log_workout_note.ts` (new), `agent/tools/list_workout_notes.ts` (new).
+
+---
+
 ## 2026-09-01 (notes + journal) — write it yourself
 
 Two asks in one: *"for our notes section, can you please enable me to add manually

@@ -37,6 +37,7 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
+import { TrainingLog } from "@/app/_components/training-log";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { DailyJournal } from "@/app/_components/daily-journal";
@@ -497,6 +498,15 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             </Card>
           </div>
         )}
+
+        {/* Training — the plain-text log of what was actually done each day, above the
+            numeric chart. The note says what happened; the chart says how much. */}
+        <div className="mb-6">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            Training log
+          </p>
+          <TrainingLog />
+        </div>
 
         {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
         {workoutLogs.length > 0 && (

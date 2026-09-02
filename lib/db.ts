@@ -523,4 +523,18 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // The training log — one plain-text note per day describing the workout that was
+  // done and what was accomplished ("push day, bench 5x5 @185, first unbroken set
+  // of dips"). Deliberately separate from `workout_logs`, which holds only the six
+  // numeric lifts: the number says how much, this says what happened. Keyed by the
+  // local date, one note per day, so re-logging a day overwrites rather than
+  // appending — the note is the day's summary, not a stream of entries.
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_notes (
+      logged_date DATE PRIMARY KEY,
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

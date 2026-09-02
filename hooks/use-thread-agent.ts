@@ -1,6 +1,6 @@
 "use client";
 
-import type { HandleMessageStreamEvent, SessionState } from "eve/client";
+import type { ClientSessionState, HandleMessageStreamEvent } from "eve/client";
 import type { EveMessageData } from "eve/react";
 import { useEveAgent } from "eve/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -18,7 +18,6 @@ const CHECKPOINT_INTERVAL_MS = 2500;
  */
 type TurnCursor = {
   readonly sessionId: string;
-  readonly continuationToken: string | undefined;
   /** Stream index this turn started at — 0 whenever the server opened a new session. */
   readonly baseIndex: number;
   /** How many events the thread already had when this turn started. */
@@ -27,12 +26,11 @@ type TurnCursor = {
 
 function liveSession(
   turn: TurnCursor | null,
-  settled: SessionState,
+  settled: ClientSessionState | undefined,
   eventCount: number,
-): SessionState {
+): ClientSessionState | undefined {
   if (!turn) return settled;
   return {
-    continuationToken: turn.continuationToken,
     sessionId: turn.sessionId,
     streamIndex: turn.baseIndex + Math.max(0, eventCount - turn.baseEvents),
   };
@@ -62,37 +60,38 @@ export function useThreadAgent(threadId: string) {
 
   const turnRef = useRef<TurnCursor | null>(null);
   const eventCountRef = useRef(0);
+  // Last session ID the store reported. Survives across turns so a checkpoint
+  // taken mid-turn can name the session the events belong to.
+  const sessionIdRef = useRef<string | undefined>(thread?.session?.sessionId);
 
   // Session config is read once, when useEveAgent builds its store. The chat is
   // keyed by thread id, so pointing at another thread is a fresh mount anyway.
   const initialRef = useRef<{
-    session: SessionState | undefined;
+    session: ClientSessionState | undefined;
     events: readonly HandleMessageStreamEvent[] | undefined;
   }>({ session: thread?.session, events: thread?.events });
 
+  // A thread we have seen before is addressed by its own session ID, so we attach
+  // a handle to it and hand that to the store. A brand-new thread has no ID yet:
+  // the store creates the session on the first send and reports it back through
+  // `onSessionChange`, which is where `turnRef` picks it up from then on.
   const session = useMemo(() => {
-    const owned = getEveClient().session(initialRef.current.session);
-    const send = owned.send.bind(owned);
-    // The POST that opens a turn is the first (and for a brand-new session, the
-    // only) place the live session ID appears. Without it a turn interrupted
-    // before it ever finished is unresumable.
-    owned.send = async (input) => {
-      const before = owned.state;
-      const response = await send(input);
-      turnRef.current = {
-        baseEvents: eventCountRef.current,
-        // eve restarts the cursor whenever the server hands back a new session.
-        baseIndex: before.sessionId === response.sessionId ? before.streamIndex : 0,
-        continuationToken: response.continuationToken ?? before.continuationToken,
-        sessionId: response.sessionId,
-      };
-      return response;
-    };
-    return owned;
+    const saved = initialRef.current.session;
+    if (!saved?.sessionId) return undefined;
+    return getEveClient().sessions.attach(saved.sessionId, {
+      streamIndex: saved.streamIndex,
+    });
   }, []);
 
   const agent = useEveAgent({
     initialEvents: initialRef.current.events,
+    initialSession: session ? undefined : initialRef.current.session,
+    onSessionChange: (next) => {
+      // Where the live session ID comes from once a turn has opened one. Without
+      // it a turn interrupted before it ever finished is unresumable.
+      if (!next?.sessionId) return;
+      sessionIdRef.current = next.sessionId;
+    },
     onFinish: (snapshot) => {
       // The turn is over, so the session's own cursor is authoritative again.
       turnRef.current = null;
@@ -129,12 +128,29 @@ export function useThreadAgent(threadId: string) {
   // mid-answer keeps whatever had arrived.
   useEffect(() => {
     if (agent.status !== "streaming" && agent.status !== "submitted") return;
+    // A turn just opened. Remember where it started, because the store only
+    // advances its own cursor once a turn *ends* — mid-stream `agent.session`
+    // still describes the previous turn. With no session ID yet (the very first
+    // turn of a brand-new thread) we leave this null and let the checkpoint fall
+    // back to the store's cursor rather than write a cursor with no session.
+    if (!turnRef.current) {
+      const settled = agent.session;
+      const sessionId = sessionIdRef.current ?? settled?.sessionId;
+      if (sessionId) {
+        turnRef.current = {
+          baseEvents: eventCountRef.current,
+          // eve restarts the cursor whenever the server hands back a new session.
+          baseIndex: settled?.sessionId === sessionId ? settled.streamIndex : 0,
+          sessionId,
+        };
+      }
+    }
     const timer = setInterval(checkpoint, CHECKPOINT_INTERVAL_MS);
     return () => {
       clearInterval(timer);
       checkpoint();
     };
-  }, [agent.status, checkpoint]);
+  }, [agent.session, agent.status, checkpoint]);
 
   // Backgrounding the tab is the moment right before a laptop sleeps, so flush
   // while the page is still alive enough to do it.

@@ -198,10 +198,12 @@ export function useEveRuntime(agent: UseEveAgentHelpers<EveMessageData>) {
           ? parts[0]!.text
           : parts;
 
-      await agent.send({ message });
+      await agent.send(message);
     },
     onCancel: async () => {
-      agent.stop();
+      // eve 0.49 renamed this: cancellation is now durable (the server is told to
+      // stop the turn) rather than a local stream detach.
+      await agent.cancel();
     },
   });
 }

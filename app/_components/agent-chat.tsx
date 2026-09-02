@@ -87,7 +87,7 @@ function ChatSession({
     // the second invocation bail — the message was never sent at all.
     const timer = setTimeout(() => {
       hasSentInitial.current = true;
-      agentSendRef.current({ message: initialMessage });
+      agentSendRef.current(initialMessage);
       onInitialMessageSentRef.current?.();
     }, 100);
     return () => clearTimeout(timer);

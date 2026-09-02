@@ -4,6 +4,65 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-02 (menu bar) — the keystroke count where he can see it
+
+Berto: *"is there a way to just show keystrokes in the top menu bar of my mac?"* —
+then, on being offered a target: *"no target, what I actually want to see is just
+the keystrokes today, then if I click it it shows high score, last 7 days average."*
+
+**A separate process, on purpose.** The obvious build is to hang an `NSStatusItem`
+off the existing `count_keystrokes.py`. Rejected: the counting is the part that
+matters — it feeds the day score and cannot be reconstructed after the fact —
+so nothing about drawing a menu should be able to take it down. `menubar/` is its
+own tiny Swift app. If it crashes the counter keeps counting and keeps reporting;
+only the display goes away.
+
+**Two sources, because they answer different questions.** Today's number is read
+from `~/.focuspoint-keystrokes.json`, the counter's own state file, every 2s — the
+title is live with *zero* network traffic, which matters given
+[[focuspoint-polling-invocation-budget]]. The high score and 7-day average come
+from `/api/keystrokes` every 5 minutes, because that history lives server-side and
+outlives this Mac. The menu also re-reads both the moment it opens, which is the
+only instant the numbers are actually being looked at.
+
+To make the local read worth doing, the counter now writes its state file every 2s
+(`STATE_SECONDS`) instead of only on the 60s network flush. A local file write is
+free; the POST cadence is unchanged.
+
+**`getKeystrokeSummary()` gains `average7` and `bestDay`.** `bestDay` deliberately
+**excludes today** — the same convention `computeRecords()` uses in
+`lib/scorecard.ts` — so the high score stays a bar to beat rather than a mirror of
+the count sitting directly above it in the menu. When today clears it, that row
+switches to "🏆 New high score — beat 42,680" so the win is visible rather than
+silently swallowing the record.
+
+**Auth needed no change.** `middleware.ts` already allows any method on
+`/api/keystrokes` carrying the bearer `KEYSTROKE_TOKEN`, so the menu bar reads the
+summary with the token the counter already has. `menubar/install.sh` lifts that
+token out of the counter's own launchd plist — nothing to retype, one token on the
+machine. The app itself needs no permissions at all: Accessibility is the
+counter's business, and this only reads a number the counter already wrote.
+
+**Verified** end to end on the real machine, not in theory: prod returning
+`average7: 24,291` / `bestDay: {2026-08-31, 42,680}` over the bearer token; the app
+installed via its own installer and running under launchd (`com.focuspoint.
+keystrokes.menubar`, PID 4011, clean log); a screenshot of the menu bar showing
+**⌨ 8,443** and the opened dropdown showing Today 8,443 / High score 42,680 · Aug 31
+/ 7-day average 24,291 — every figure matching the API exactly. Then the counter
+restarted to load the faster state writes: it resumed at 8,448 with nothing lost,
+the file was observed ticking within 6s, and prod advanced to 8,748, so the whole
+chain is healthy. `npm run typecheck` clean.
+
+The `.app` bundle is built by the installer and gitignored — it is a compiled
+artifact, not source. `LSUIElement` keeps it out of the Dock and app switcher.
+
+Files: `lib/keystrokes.ts`, `keystroke-agent/count_keystrokes.py`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift` (new),
+`keystroke-agent/menubar/install.sh` (new), `keystroke-agent/README.md`,
+`keystroke-agent/.gitignore`.
+
+---
+
 ## 2026-09-02 (training log) — the plain-text half of training
 
 Berto: *"I need some really simple ways to just note down what workout I did each

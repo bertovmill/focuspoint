@@ -27,7 +27,7 @@ let statePath = ProcessInfo.processInfo.environment["KEYSTROKE_STATE"]
     ?? NSHomeDirectory() + "/.focuspoint-keystrokes.json"
 
 let focuspointURL = (ProcessInfo.processInfo.environment["FOCUSPOINT_URL"]
-    ?? "https://cael-agent-seven.vercel.app").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    ?? "https://cael-keystrokes.vercel.app").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
 
 let token = ProcessInfo.processInfo.environment["KEYSTROKE_TOKEN"] ?? ""
 

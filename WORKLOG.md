@@ -4,6 +4,75 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-02 (hosts) — the Mac app moves to cael-keystrokes, and why
+
+Berto, looking at the Notes tab in the Mac app: *"can we add the feature to allow
+the user to manually type their own notes?"* — then *"please merge and push to
+main, unless i dont see it?"*
+
+**The feature already existed.** The composer shipped the day before in `10b6375`
+("Write your own notes, and a daily journal under the metrics") and was sitting
+on `origin/main` the whole time: a textarea pinned to the top of the Notes tab,
+Enter to save, `POST /api/thoughts` writing to the same `thoughts` table Cael's
+`capture_thought` tool uses, embedding computed best-effort so hand-written notes
+are semantically searchable like the rest. Nothing to merge. What was missing was
+a *deploy*.
+
+**The deploy had been dead for three days.** Vercel stopped accepting the
+`experimentalServices` key in `vercel.json` on 2026-08-30 — the exact day
+`cael-agent`'s last successful production deploy went out. Every commit since,
+the note composer included, was stuck on the branch. The Mac app pointed at
+`cael-agent-seven`, so Berto was looking at an Aug-30 build.
+
+**The eve upgrade is real but not finished.** eve 0.18.2 emits
+`experimentalServices`; 0.49.1 emits `services`. The migration is bounded — 11
+TypeScript errors across 6 files — and is parked on the `eve-0.49-upgrade`
+branch:
+
+- Delete `vercel.json` entirely. `withEve()` generates the services block into
+  `.vercel/output/config.json` at build time, and eve's own code *throws* if
+  `vercel.json` already declares services. A hand-written block is worse than no
+  block unless you also reproduce eve's generated `buildCommand`, with its env
+  exports and relative paths.
+- `middleware.ts` needs `runtime: "nodejs"`. Services reject Edge Function
+  output and middleware defaults to Edge.
+- The Vercel *project* framework preset had to change from `services` to
+  `nextjs`, or the deploy is refused before it builds. That is applied to
+  `prj_QisD5Wv80dw4vJ8GoXKWDjLeixgq` already and lives in no file.
+- Client renames: `SessionState` → `ClientSessionState`, `client.session(x)` →
+  `client.sessions.attach(id, { streamIndex })`, `send({ message })` →
+  `send(message)`, `agent.stop()` → `agent.cancel()`,
+  `ClientOptions.maxReconnectAttempts` → a per-stream `streamReconnectPolicy`.
+  `continuationToken` is gone; sessions are ID + cursor now.
+- The schedule handler's `receive(channel, input)` → `to(channel, target).send()`.
+
+It typechecks, builds, and deploys — but the promoted build returned
+`FUNCTION_INVOCATION_FAILED` on `/eve/v1/health`, so production was rolled back
+to the Aug-30 deployment. Two agents were working this blocker at once and both
+promoted within a minute of each other, which is how production ended up two
+deploys past the free plan's one-step rollback limit; `vercel promote <url>`
+recovers where `vercel rollback` refuses.
+
+**The actual fix was to change hosts.** `cael-keystrokes` — same repo, same team,
+different Neon database — had been deploying fine the whole time. It has the note
+composer *and* a healthy eve runtime (`/eve/v1/health` returns 200 there, against
+a 404 on `cael-agent-seven`), so moving the Mac app there restores Cael's chat as
+well, which had been broken since the account switch.
+
+Changed: the six hard-coded URLs (`desktop/src-tauri/src/main.rs`,
+`tauri.conf.json`, `capabilities/main.json`, `desktop/README.md`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift`, `menubar/install.sh`) plus the
+two launchd plists in `~/Library/LaunchAgents`. Rebuilt `Cael.app`, reinstalled
+to `/Applications`, reloaded both agents — `keystrokes.log` now reads
+`counting to https://cael-keystrokes.vercel.app`.
+
+**Open:** the two databases have been forked since Aug 30, so notes and tasks
+written against `cael-agent-seven` since then are not visible on the new host and
+still need reconciling. And `cael-agent-seven` itself stays undeployable until
+the `eve-0.49-upgrade` branch's runtime crash is diagnosed.
+
+---
+
 ## 2026-09-02 (menu bar) — the keystroke count where he can see it
 
 Berto: *"is there a way to just show keystrokes in the top menu bar of my mac?"* —

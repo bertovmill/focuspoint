@@ -34,7 +34,7 @@ read_counter_env() {
 
 KEYSTROKE_TOKEN="${KEYSTROKE_TOKEN:-$(read_counter_env KEYSTROKE_TOKEN)}"
 FOCUSPOINT_URL="${FOCUSPOINT_URL:-$(read_counter_env FOCUSPOINT_URL)}"
-FOCUSPOINT_URL="${FOCUSPOINT_URL:-https://cael-agent-seven.vercel.app}"
+FOCUSPOINT_URL="${FOCUSPOINT_URL:-https://cael-keystrokes.vercel.app}"
 
 if [[ -z "${KEYSTROKE_TOKEN}" ]]; then
   echo "No KEYSTROKE_TOKEN found (checked \$KEYSTROKE_TOKEN and ${COUNTER_PLIST})." >&2

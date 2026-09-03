@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.bertomill.focuspoint",
   "build": {
-    "frontendDist": "https://cael-agent-seven.vercel.app"
+    "frontendDist": "https://cael-keystrokes.vercel.app"
   },
   "app": {
     "withGlobalTauri": true,

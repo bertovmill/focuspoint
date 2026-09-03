@@ -64,6 +64,7 @@ export type MetricKey =
   | "sleep_minutes"
   | "fasting_held"
   | "meditation_minutes"
+  | "reading_minutes"
   | "journalled"
   | "readwise_notes"
   | "keystrokes"
@@ -137,6 +138,15 @@ export const METRICS: MetricDef[] = [
     gates: true,
   },
   {
+    key: "reading_minutes",
+    label: "Reading",
+    hint: "Timer · Kindle has no minutes API, so this is the sensor",
+    source: "manual",
+    kind: "duration",
+    target: 30,
+    gates: true,
+  },
+  {
     key: "journalled",
     label: "Journal",
     hint: "Today's page has words in it",
@@ -151,7 +161,7 @@ export const METRICS: MetricDef[] = [
   {
     key: "readwise_notes",
     label: "Notes written",
-    hint: "Readwise · notes, not highlights",
+    hint: "Kindle clippings · notes, not highlights",
     // Tracked, not gated. Berto's list of what makes a day (2026-09-02) named six
     // keys and this wasn't one of them — but the number is already synced and
     // worth seeing, so it rides below the line with the portfolio.
@@ -569,7 +579,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, keyRows, medRows, journalRows, healthConnected] = await Promise.all([
+  const [targets, logged, fastRows, keyRows, medRows, readRows, journalRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
       SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, readwise_notes, portfolio
@@ -594,6 +604,12 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     sql`
       SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, minutes
       FROM meditation_days
+      WHERE logged_date >= ${since}::date
+    `,
+    // Reading minutes, written only when a session finishes (lib/reading-time.ts).
+    sql`
+      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, minutes
+      FROM reading_days
       WHERE logged_date >= ${since}::date
     `,
     // Did the day's journal page end up with words in it? Asked in SQL rather than
@@ -634,6 +650,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   }
   for (const r of medRows as Record<string, unknown>[]) {
     slot(String(r.date)).meditation_minutes = Number(r.minutes);
+  }
+  for (const r of readRows as Record<string, unknown>[]) {
+    slot(String(r.date)).reading_minutes = Number(r.minutes);
   }
   // No row at all means the page was never opened — left null, so an untouched day
   // reads "—" rather than a scolding "not written". A row that exists but is blank
@@ -711,6 +730,23 @@ export async function recordMetrics(sql: Sql, date: string, patch: MetricPatch):
       readwise_notes     = CASE WHEN ${patch.readwise_notes === undefined} THEN daily_metrics.readwise_notes ELSE EXCLUDED.readwise_notes END,
       portfolio          = CASE WHEN ${patch.portfolio === undefined} THEN daily_metrics.portfolio ELSE EXCLUDED.portfolio END,
       updated_at         = NOW()
+  `;
+}
+
+/**
+ * Bump a day's notes-written count by however many new notes an import just added.
+ * Additive rather than a replace-write, same reasoning as meditation/reading
+ * sessions: a batch of clippings pasted at night shouldn't erase a count another
+ * import already wrote that morning.
+ */
+export async function incrementNotesWritten(sql: Sql, date: string, amount: number): Promise<void> {
+  if (amount <= 0) return;
+  await sql`
+    INSERT INTO daily_metrics (recorded_date, readwise_notes)
+    VALUES (${date}::date, ${amount})
+    ON CONFLICT (recorded_date) DO UPDATE SET
+      readwise_notes = COALESCE(daily_metrics.readwise_notes, 0) + ${amount},
+      updated_at     = NOW()
   `;
 }
 

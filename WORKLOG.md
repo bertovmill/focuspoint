@@ -4,6 +4,61 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-03 (chat) — reading time and notes, off the Readwise clock
+
+Berto: *"my readwise api doesnt reflect right away my reading notes on
+kindle, is there a faster way to track my reading minutes, pages, or
+notes?"* → *"i think there are some open source apis we can use"* → *"okay
+can we do notes but also reading time?"*
+
+**The finding.** Kindle has no cloud API for either. Readwise's own notes
+sync is just a periodic poll of the same source every open-source
+alternative (Brightnote, kindle-clippings-to-notion) reads directly: the
+local `My Clippings.txt` file the device writes instantly on every
+highlight/note. And reading *minutes* has no source anywhere — Kindle
+never exposes session time — so the only sensor for that is a timer, same
+as meditation already is.
+
+**What shipped**, mirroring the existing meditation pattern exactly:
+
+- `reading_days` table + `lib/reading-time.ts` (`recordReadingSession` /
+  `getReadingDay` / `setReadingDay`) — a per-day minutes/sessions total,
+  written only when a session finishes.
+- `<ReadingTimer>` (`app/_components/reading-timer.tsx`), a stripped-down
+  copy of `<MeditationTimer>` (no bells — a reading session doesn't need
+  chimes) with 15/30/45/60m presets, on the home screen right under the
+  meditation timer.
+- New gated scorecard metric `reading_minutes` (target 30m, same weight as
+  every other key) — `lib/scorecard.ts` merges `reading_days` in the same
+  pass as `meditation_days`.
+- `lib/kindle-clippings.ts` parses `My Clippings.txt` text (entries split on
+  `==========`, skips `Your Highlight` entries — only `Your Note` counts,
+  same rule the old Readwise metric always used) into `{bookTitle, note,
+  location, date}`.
+- `reading_notes` table (unique on book+note+date, so re-pasting the whole
+  file after adding a few notes is a no-op for what's already stored) +
+  `POST /api/reading-notes` + an eve tool (`agent/tools/import_reading_notes.ts`)
+  so Berto can just paste the clippings text to Cael in chat — no upload UI,
+  per his call.
+- The existing "Notes written" scorecard tile (`readwise_notes` key/column —
+  left as-is to avoid a migration) now increments from this import instead
+  of a manual Readwise number; hint text changed from "Readwise" to "Kindle
+  clippings" to match. `incrementNotesWritten()` in `lib/scorecard.ts` is
+  additive, same reasoning as the meditation/reading timers.
+
+**Verified live**: started `PORT=3789 npm run dev`, logged in, POSTed a
+sample clippings blob (one note + one highlight) — highlight correctly
+skipped, note inserted, "Notes written" went 0→1; POSTed a 15-minute
+session — "Reading" went 0m→15m on the card; re-posted the same clippings
+text — `imported: 0`, confirming the dedupe. All test data deleted after.
+
+**Next**: no import cadence is automated — Berto still plugs in and pastes
+whenever he wants a sync. If that gets old, a Mac agent watching the mounted
+Kindle's `My Clippings.txt` (same shape as the keystroke agent) would remove
+even that step.
+
+---
+
 ## 2026-09-02 (chat) — the model picker goes cross-provider
 
 Berto: *"enable us to have multiple different models to pick from using the

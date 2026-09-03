@@ -6,6 +6,7 @@ import {
   CheckIcon,
   FlameIcon,
   BookOpenIcon,
+  BookmarkIcon,
   FootprintsIcon,
   Flower2Icon,
   KeyboardIcon,
@@ -60,6 +61,7 @@ const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   sleep_minutes: MoonIcon,
   fasting_held: UtensilsCrossedIcon,
   meditation_minutes: Flower2Icon,
+  reading_minutes: BookmarkIcon,
   journalled: BookOpenIcon,
   readwise_notes: PencilLineIcon,
   keystrokes: KeyboardIcon,
@@ -242,7 +244,13 @@ function MetricRow({
             if (e.key === "Enter") commit();
             if (e.key === "Escape") setEditing(false);
           }}
-          placeholder={def.kind === "duration" ? (metric.key === "meditation_minutes" ? "20m" : "7h30") : ""}
+          placeholder={
+            def.kind === "duration"
+              ? metric.key === "meditation_minutes" || metric.key === "reading_minutes"
+                ? "20m"
+                : "7h30"
+              : ""
+          }
           className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums outline-none focus:border-foreground/40"
         />
       ) : (
@@ -417,7 +425,7 @@ export function ScorecardCard() {
       const def = metricDef(key);
       const value =
         def.kind === "duration"
-          ? parseDuration(raw, key === "meditation_minutes" ? "minutes" : "hours")
+          ? parseDuration(raw, key === "meditation_minutes" || key === "reading_minutes" ? "minutes" : "hours")
           : parseAmount(raw);
       if (value === null) {
         toast.error("Didn't understand that number");

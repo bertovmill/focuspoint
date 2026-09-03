@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { setDay as setMeditation } from "@/lib/meditation";
+import { setReadingDay } from "@/lib/reading-time";
 import {
   dayKey,
   getScorecardSummary,
@@ -57,6 +58,9 @@ export async function PATCH(req: Request) {
     // typed correction *replaces* the day's total, where the timer only ever adds.
     const meditation = optionalNumber(body.meditation_minutes);
     if (meditation !== undefined) await setMeditation(sql, date, meditation ?? 0);
+    // Same reasoning as meditation: the timer only ever adds, a typed correction replaces.
+    const reading = optionalNumber(body.reading_minutes);
+    if (reading !== undefined) await setReadingDay(sql, date, reading ?? 0);
     // `journalled` is derived from the journal page and is deliberately not writable
     // here — the only way to earn it is to write something.
 

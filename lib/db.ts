@@ -530,6 +530,36 @@ export async function ensureSchema() {
     )
   `;
 
+  // Reading time, one row per day — same shape as meditation_days and for the same
+  // reason: Kindle exposes no reading-session API, so the timer in
+  // app/_components/reading-timer.tsx is both the tool and the sensor.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_days (
+      logged_date DATE PRIMARY KEY,
+      minutes INTEGER NOT NULL DEFAULT 0,
+      sessions INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  // Reading notes, imported from Kindle's local `My Clippings.txt` (read.amazon.com/notebook
+  // and Readwise both source from the same clippings — this just skips their sync lag by
+  // reading the file directly off the device). `note_date` is the date Kindle stamped on the
+  // clipping, not the import date, so notes land on the day they were actually written. The
+  // unique constraint is the dedupe: re-pasting the same file after adding new notes is a
+  // no-op for everything already stored.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_notes (
+      id SERIAL PRIMARY KEY,
+      book_title TEXT NOT NULL,
+      note TEXT NOT NULL,
+      location TEXT,
+      note_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (book_title, note, note_date)
+    )
+  `;
+
   // The daily journal — one free-form markdown document per day, written by hand in
   // the editor on the home page (app/_components/daily-journal.tsx). Keyed by the
   // local date so there is exactly one page per day; an absent row means "not

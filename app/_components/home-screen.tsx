@@ -41,6 +41,7 @@ import { TrainingLog } from "@/app/_components/training-log";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { MeditationTimer } from "@/app/_components/meditation-timer";
+import { ReadingTimer } from "@/app/_components/reading-timer";
 import { DailyJournal } from "@/app/_components/daily-journal";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -446,6 +447,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             day — both of those are scorecard keys, and this is the only one the app
             itself can produce. */}
         <MeditationTimer />
+
+        {/* Same idea as the sit above — Kindle has no reading-minutes API, so the
+            timer itself is the sensor that feeds the scorecard. */}
+        <ReadingTimer />
 
         {/* The day in his own words, directly under the numbers that scored it —
             the metrics say what happened, this says why. */}

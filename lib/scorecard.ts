@@ -537,6 +537,85 @@ export function formatTarget(key: MetricKey, target: number): string {
   return formatMetric(key, target);
 }
 
+
+/**
+ * One sentence saying how a metric's points were worked out, for the tap-to-explain
+ * on the card. A sentence rather than a formula: the ask was "how is this
+ * calculated", and the honest answer to that on a scorecard is the arithmetic done
+ * with today's own numbers, not a general rule the reader has to apply themselves.
+ *
+ * Pure and value-driven, so the sentence can never disagree with the number beside
+ * it — both come from the same `MetricValue`.
+ */
+export function explainMetric(metric: MetricValue): string {
+  const def = metricDef(metric.key);
+  const slice = METRIC_WEIGHT.toFixed(1);
+  const banked = metric.points.toFixed(1);
+  /**
+   * Full credit, said in a way that cannot contradict the cell beside it. `apportion`
+   * hands two of the six rows 16.6 rather than 16.7 so the day sums to exactly 100,
+   * so a hit row genuinely can read `16.6/16.7` — and a sentence answering "16.7"
+   * there would be explaining a number the reader is not looking at. When the tenth
+   * has been shaved, that IS the question being asked, so it gets answered.
+   */
+  const fullSlice =
+    banked === slice
+      ? `the full ${slice} points`
+      : `its full slice — ${banked} rather than ${slice} only because the odd tenth goes to another row so the ${GATING_METRICS.length} add up to exactly ${MAX_DAY_SCORE}`;
+
+  // The two rows below the line are both unscored, for two different reasons, and
+  // one sentence covering both would be wrong about one of them: a portfolio is a
+  // level you don't move by trying harder today, while notes written plainly is —
+  // it simply isn't one of the keys Berto named as making a day.
+  if (!def.gates) {
+    const why =
+      def.kind === "money"
+        ? "a balance is a level rather than something today's effort moves"
+        : `it isn't one of the ${GATING_METRICS.length} keys the day is judged on`;
+    return `Tracked but not scored — ${why}, so this row rides below the line and never changes the number above.`;
+  }
+
+  if (def.kind === "toggle") {
+    if (def.source === "journal") {
+      return metric.hit
+        ? `Earned the moment today's journal page has words in it, and it does, so this row banked ${fullSlice}.`
+        : `Earned the moment today's journal page has words in it, and it hasn't yet, so this row banked 0 of ${slice} points.`;
+    }
+    return metric.hit
+      ? `All or nothing: the ${def.label.toLowerCase()} was held today, so this row banked ${fullSlice}.`
+      : `All or nothing: the ${def.label.toLowerCase()} was not held today, so this row banked 0 of ${slice} points.`;
+  }
+
+  if (metric.target <= 0) {
+    return `No target is set for ${def.label.toLowerCase()}, so there is nothing to score against and this row banks 0 points.`;
+  }
+
+  if (metric.value === null) {
+    return `Nothing logged yet, so this row banks 0 of ${slice} points — a number here pays in proportion to how close it gets to ${formatMetric(metric.key, metric.target)}.`;
+  }
+
+  const value = formatMetric(metric.key, metric.value);
+  const target = formatMetric(metric.key, metric.target);
+
+  if (metric.hit) {
+    return `${value} clears the ${target} target, so this row banked ${fullSlice}${banked === slice ? " — going further earns nothing extra" : ""}.`;
+  }
+
+  const pct = Math.round((metric.value / metric.target) * 100);
+  return `${value} is ${pct}% of the ${target} target, so this row banked ${banked} of the ${slice} points it is worth.`;
+}
+
+/**
+ * One sentence saying how the headline score was worked out. Kept separate from
+ * `explainMetric` because the interesting fact is different: a row explains its own
+ * fraction, the headline explains why the rows are weighted equally at all.
+ */
+export function explainScore(day: ScorecardDay): string {
+  const n = GATING_METRICS.length;
+  const slice = METRIC_WEIGHT.toFixed(1);
+  return `${n} keys count toward the day and each is worth the same ${slice} points, filled in proportion to how far it got, which is how today's rows add up to ${day.score.toFixed(1)} out of ${MAX_DAY_SCORE}.`;
+}
+
 // -------------------------------------------------------------------- database
 
 type Sql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;

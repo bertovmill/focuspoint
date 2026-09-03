@@ -4,6 +4,54 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-03 (scorecard) — tap a score, get the sentence behind it
+
+Berto: *"when I tap on one of the scores whether it's the main score or a sub
+score, I want a simple one sentence explanation of how the score is
+calculated."*
+
+**The problem was that the card already explained itself, to a mouse.** The
+headline carried `title="415 out of 100 — a perfect day is every target hit"`
+and each points cell carried `title="0.6 of a possible 16.7 points"` — and this
+card is read on a phone, where there is no hover and a `title` is simply
+invisible. So the two numbers most worth explaining were the two with an
+explanation nobody could reach.
+
+**What changed.**
+
+- `explainMetric(metric)` and `explainScore(day)` in `lib/scorecard.ts` — pure
+  functions returning one sentence each. Tapping the points cell on any row, or
+  the headline number, opens it inline underneath; tapping again closes it.
+- **The sentence is today's own arithmetic, not the general rule.** "1,149 is 4%
+  of the 30,000 target, so this row banked 0.6 of the 16.7 points it is worth"
+  answers *how is this calculated* in a way that "each key is worth a sixth"
+  doesn't. Both functions read from the same `MetricValue` the cell renders, so
+  the sentence can never disagree with the number beside it.
+- **Every row answers, including the two below the line.** Portfolio and Notes
+  written previously rendered no points cell at all; they now get the same slot
+  with a dash in it, and they explain themselves *differently* — a balance is a
+  level today's effort doesn't move, while notes written simply isn't one of the
+  six keys. One sentence covering both would have been wrong about one of them.
+- The static footer line now ends "Tap any score for how that one was worked
+  out", since a tap target with no affordance is one nobody finds.
+
+**The bug worth recording, because it was mine and it was the exact failure
+`apportion` exists to prevent.** The first draft said "banked the full 16.7
+points" on every hit. But 100 doesn't divide six ways, so `apportion` hands two
+rows 16.6 — meaning on a *perfect day* two rows read `16.6/16.7` while their
+explanation claimed 16.7. A sentence contradicting the number it's explaining is
+worse than no sentence. The shaved tenth is now the thing the sentence answers:
+"banked its full slice — 16.6 rather than 16.7 only because the odd tenth goes to
+another row so the 6 add up to exactly 100."
+
+**Files.** `lib/scorecard.ts` (the two functions),
+`app/_components/scorecard-card.tsx` (the tap targets and the inline lines).
+Verified by running the real `buildDay` over a partial, a perfect and an empty
+day and reading every sentence against its own points; `npm run typecheck` and
+`next build` both clean.
+
+---
+
 ## 2026-09-02 (chat) — the model picker goes cross-provider
 
 Berto: *"enable us to have multiple different models to pick from using the

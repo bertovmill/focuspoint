@@ -26,6 +26,8 @@ import { ScoreChart } from "@/app/_components/score-chart";
 import {
   GATING_METRICS,
   METRIC_WEIGHT,
+  explainMetric,
+  explainScore,
   formatMetric,
   formatTarget,
   metricDef,
@@ -145,6 +147,10 @@ function MetricRow({
   const Icon = ICONS[metric.key];
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  // Tapping the points cell says how those points were worked out. Local rather than
+  // lifted: two rows open at once is a fine thing to want, and hoisting it would make
+  // every row re-render whenever any one of them is opened.
+  const [explaining, setExplaining] = useState(false);
 
   const pct =
     def.kind === "toggle" || def.kind === "money" || metric.value === null || metric.target <= 0
@@ -157,139 +163,161 @@ function MetricRow({
   };
 
   return (
-    <div className="flex items-center gap-3 py-2">
-      <span
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-lg",
-          isRecord
-            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-            : metric.hit
-              ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
-              : "bg-muted text-muted-foreground",
-        )}
-      >
-        <Icon className="size-3.5" />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium leading-tight">
-          {def.label}
-          {isRecord && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-              <ZapIcon className="size-2.5" />
-              record
-            </span>
-          )}
-        </span>
-        <span className="block truncate text-[10.5px] text-muted-foreground leading-tight">
-          {def.hint}
-          {/* The bar to beat, right where the eye already is. */}
-          {best && (
-            <span className={cn("ml-1", isRecord && "line-through opacity-60")}>
-              · best {formatMetric(metric.key, best.value)}
-            </span>
-          )}
-        </span>
-      </span>
-
-      {/* Progress toward the bar, for the metrics that have one. */}
-      {pct !== null && (
-        <span className="hidden sm:block h-1 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-          <span
-            className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
-            style={{ width: `${pct}%` }}
-          />
-        </span>
-      )}
-
-      {def.kind === "toggle" && def.source === "journal" ? (
-        /* Derived from the journal page below, so there is nothing to tap here — it
-           earns itself the moment there are words on the page. Reads as a state, not
-           a control, so nobody hunts for a checkbox that was never going to exist. */
+    <div>
+      <div className="flex items-center gap-3 py-2">
         <span
           className={cn(
-            "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium",
-            metric.hit ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-600 dark:text-emerald-500" : "border-dashed border-border text-muted-foreground",
+            "flex size-7 shrink-0 items-center justify-center rounded-lg",
+            isRecord
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+              : metric.hit
+                ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
+                : "bg-muted text-muted-foreground",
           )}
-          title="Earned by writing today's journal page, below"
         >
-          {metric.hit && <CheckIcon className="size-3" />}
-          {metric.hit ? "written" : "not yet"}
+          <Icon className="size-3.5" />
         </span>
-      ) : def.kind === "toggle" ? (
-        <button
-          type="button"
-          onClick={() => onToggle(!metric.hit)}
-          aria-pressed={metric.hit}
-          aria-label={metric.hit ? "Mark the eating window broken" : "Mark the eating window held"}
-          className={cn(
-            "tap-target flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums transition-colors",
-            metric.hit
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-border text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {metric.hit && <CheckIcon className="size-3" />}
-          {metric.value === null ? "not set" : formatMetric(metric.key, metric.value)}
-        </button>
-      ) : editing ? (
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          placeholder={def.kind === "duration" ? (metric.key === "meditation_minutes" ? "20m" : "7h30") : ""}
-          className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums outline-none focus:border-foreground/40"
-        />
-      ) : (
-        <button
-          type="button"
-          disabled={!editable}
-          onClick={() => {
-            setDraft(metric.value === null ? "" : String(metric.value));
-            setEditing(true);
-          }}
-          title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
-          className={cn(
-            "shrink-0 rounded-md px-1.5 py-1 text-right text-[12.5px] tabular-nums",
-            editable && "hover:bg-muted",
-            metric.hit ? "font-semibold text-emerald-600 dark:text-emerald-500" : "text-foreground",
-          )}
-        >
-          {formatMetric(metric.key, metric.value)}
-          {def.kind !== "money" && (
-            <span className="text-muted-foreground font-normal">
-              {" / "}
-              {formatTarget(metric.key, metric.target)}
-            </span>
-          )}
-        </button>
-      )}
 
-      {/* What the row is worth, out of the slice it could have been worth. Showing
-          the denominator on every row is the point: the score stops being a number
-          you have to trust and becomes one you can add up by eye. */}
-      {def.gates && (
-        <span
-          className={cn(
-            "w-[52px] shrink-0 text-right text-[11px] font-medium tabular-nums",
-            metric.hit
-              ? "text-emerald-600 dark:text-emerald-500"
-              : metric.points > 0
-                ? "text-foreground/70"
-                : "text-muted-foreground/50",
-          )}
-          title={`${metric.points} of a possible ${METRIC_WEIGHT.toFixed(1)} points`}
-        >
-          {metric.points.toFixed(1)}
-          <span className="text-muted-foreground/60 font-normal">
-            /{METRIC_WEIGHT.toFixed(1)}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-[12.5px] font-medium leading-tight">
+            {def.label}
+            {isRecord && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                <ZapIcon className="size-2.5" />
+                record
+              </span>
+            )}
+          </span>
+          <span className="block truncate text-[10.5px] text-muted-foreground leading-tight">
+            {def.hint}
+            {/* The bar to beat, right where the eye already is. */}
+            {best && (
+              <span className={cn("ml-1", isRecord && "line-through opacity-60")}>
+                · best {formatMetric(metric.key, best.value)}
+              </span>
+            )}
           </span>
         </span>
+
+        {/* Progress toward the bar, for the metrics that have one. */}
+        {pct !== null && (
+          <span className="hidden sm:block h-1 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+            <span
+              className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
+              style={{ width: `${pct}%` }}
+            />
+          </span>
+        )}
+
+        {def.kind === "toggle" && def.source === "journal" ? (
+          /* Derived from the journal page below, so there is nothing to tap here — it
+             earns itself the moment there are words on the page. Reads as a state, not
+             a control, so nobody hunts for a checkbox that was never going to exist. */
+          <span
+            className={cn(
+              "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium",
+              metric.hit ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-600 dark:text-emerald-500" : "border-dashed border-border text-muted-foreground",
+            )}
+            title="Earned by writing today's journal page, below"
+          >
+            {metric.hit && <CheckIcon className="size-3" />}
+            {metric.hit ? "written" : "not yet"}
+          </span>
+        ) : def.kind === "toggle" ? (
+          <button
+            type="button"
+            onClick={() => onToggle(!metric.hit)}
+            aria-pressed={metric.hit}
+            aria-label={metric.hit ? "Mark the eating window broken" : "Mark the eating window held"}
+            className={cn(
+              "tap-target flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums transition-colors",
+              metric.hit
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {metric.hit && <CheckIcon className="size-3" />}
+            {metric.value === null ? "not set" : formatMetric(metric.key, metric.value)}
+          </button>
+        ) : editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            placeholder={def.kind === "duration" ? (metric.key === "meditation_minutes" ? "20m" : "7h30") : ""}
+            className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums outline-none focus:border-foreground/40"
+          />
+        ) : (
+          <button
+            type="button"
+            disabled={!editable}
+            onClick={() => {
+              setDraft(metric.value === null ? "" : String(metric.value));
+              setEditing(true);
+            }}
+            title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
+            className={cn(
+              "shrink-0 rounded-md px-1.5 py-1 text-right text-[12.5px] tabular-nums",
+              editable && "hover:bg-muted",
+              metric.hit ? "font-semibold text-emerald-600 dark:text-emerald-500" : "text-foreground",
+            )}
+          >
+            {formatMetric(metric.key, metric.value)}
+            {def.kind !== "money" && (
+              <span className="text-muted-foreground font-normal">
+                {" / "}
+                {formatTarget(metric.key, metric.target)}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* What the row is worth, out of the slice it could have been worth. Showing
+            the denominator on every row is the point: the score stops being a number
+            you have to trust and becomes one you can add up by eye. Tapping it goes one
+            step further and says how that fraction was reached — a `title` can't, since
+            this card is read on a phone where there is no hover. The tracked-only rows
+            get the same slot with a dash in it rather than nothing, so every row on the
+            card answers when you tap it instead of the two below the line staying mute. */}
+        <button
+          type="button"
+          onClick={() => setExplaining((v) => !v)}
+          aria-expanded={explaining}
+          aria-label={`How ${def.label} is scored`}
+          className={cn(
+            "tap-target w-[52px] shrink-0 rounded-md py-1 text-right text-[11px] font-medium tabular-nums transition-colors hover:bg-muted",
+            explaining && "bg-muted",
+            !def.gates
+              ? "text-muted-foreground/50"
+              : metric.hit
+                ? "text-emerald-600 dark:text-emerald-500"
+                : metric.points > 0
+                  ? "text-foreground/70"
+                  : "text-muted-foreground/50",
+          )}
+        >
+          {def.gates ? (
+            <>
+              {metric.points.toFixed(1)}
+              <span className="text-muted-foreground/60 font-normal">
+                /{METRIC_WEIGHT.toFixed(1)}
+              </span>
+            </>
+          ) : (
+            "—"
+          )}
+        </button>
+      </div>
+
+      {explaining && (
+        <p className="pb-2 pl-10 pr-1 text-[10.5px] leading-relaxed text-muted-foreground">
+          {explainMetric(metric)}
+        </p>
       )}
     </div>
   );
@@ -298,6 +326,8 @@ function MetricRow({
 export function ScorecardCard() {
   const [summary, setSummary] = useState<ScorecardSummary | null>(null);
   const [syncing, setSyncing] = useState(false);
+  /** Tapping the headline says how the 0-100 was built, same as tapping a row. */
+  const [explainingScore, setExplainingScore] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   // Records celebrated this session, so an in-flight PATCH response can't double-fire
   // before the localStorage write has been read back.
@@ -517,18 +547,22 @@ export function ScorecardCard() {
         {/* Headline: today's score, and the number it's hunting. */}
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p
+            <button
+              type="button"
+              onClick={() => setExplainingScore((v) => !v)}
+              aria-expanded={explainingScore}
+              aria-label="How the day's score is calculated"
               className={cn(
-                "text-[34px] font-semibold tabular-nums leading-none tracking-tight",
+                "-ml-1 rounded-md px-1 text-left text-[34px] font-semibold tabular-nums leading-none tracking-tight transition-colors hover:bg-muted",
+                explainingScore && "bg-muted",
                 today.perfect
                   ? "text-emerald-600 dark:text-emerald-500"
                   : beatingBest && "text-amber-600 dark:text-amber-400",
               )}
-              title={`${today.score} out of ${maxScore} — a perfect day is every target hit`}
             >
               {Math.round(today.score)}
               <span className="ml-1 text-sm font-normal text-muted-foreground">/ {maxScore}</span>
-            </p>
+            </button>
             <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <span
                 className={cn(
@@ -558,6 +592,12 @@ export function ScorecardCard() {
             <p className="text-[10px] text-muted-foreground">{best ? shortDate(best.date) : "not set yet"}</p>
           </div>
         </div>
+
+        {explainingScore && (
+          <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+            {explainScore(today)}
+          </p>
+        )}
 
         {/* How close today is to toppling it. */}
         <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -622,7 +662,7 @@ export function ScorecardCard() {
           <span className="font-medium text-foreground/70">100 is a perfect day.</span>{" "}
           {total} keys, worth {METRIC_WEIGHT.toFixed(1)} each. Hit a target and you bank the whole
           slice; get halfway and you bank half. Going past a target earns nothing extra — the
-          target is the target.
+          target is the target. Tap any score for how that one was worked out.
         </p>
 
         {/* Below the line: tracked, but it doesn't decide the day. It still keeps a

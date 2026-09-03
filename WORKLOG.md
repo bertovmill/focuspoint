@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-02 (data) — there was never a second database
+
+Berto, after being told the hosts had forked: *"yes migrate the data over"*.
+
+**There was nothing to migrate.** Both `cael-agent-seven` and `cael-keystrokes`
+read and write the same Neon database, so the migration would have been a no-op
+at best and a duplicate-everything at worst.
+
+How it was checked, since the previous claim also sounded confident: log into
+both hosts and hash the response body of every list endpoint. All eleven match
+to the SHA — `thoughts` (85,713 bytes), `todos`, `measures`, `lists`, `reading`,
+`sketches` (2.3 MB), `vision`, `threads` (4.2 MB), `scheduled-tasks`, `dreams`,
+`memories` — and both report the same live keystroke count (25,928) and the same
+newest note (id 192). Two independently-forked databases do not agree to the byte
+across 6.5 MB of payload.
+
+**Where the earlier conclusion went wrong.** It rested on the keystroke agent
+resuming at 8,448 against one host and 18,609 against the other. Those readings
+were taken hours apart on the same day, against a counter that climbs all day —
+the same database answers differently at 9am and 2pm. The second piece of
+evidence, two different `DATABASE_URL`s from `vercel env pull`, no longer
+reproduces: Vercel now returns `[SENSITIVE]` for integration-managed secrets, so
+that comparison cannot have been reading real values.
+
+Useful for next time: `DATABASE_URL` on both projects is `sensitive`-typed, which
+means the Vercel API will not decrypt it for any caller. To identify which
+database a host is on, compare its API responses against a `psql` query on the
+connection string in `.env.local` rather than trying to read the secret back.
+
+No code changed. The correction is applied to the 2026-09-02 (hosts) entry and to
+the stopgap entry that first made the claim.
+
+---
+
 ## 2026-09-02 (hosts) — the Mac app moves to cael-keystrokes, and why
 
 Berto, looking at the Notes tab in the Mac app: *"can we add the feature to allow
@@ -66,10 +100,12 @@ two launchd plists in `~/Library/LaunchAgents`. Rebuilt `Cael.app`, reinstalled
 to `/Applications`, reloaded both agents — `keystrokes.log` now reads
 `counting to https://cael-keystrokes.vercel.app`.
 
-**Open:** the two databases have been forked since Aug 30, so notes and tasks
-written against `cael-agent-seven` since then are not visible on the new host and
-still need reconciling. And `cael-agent-seven` itself stays undeployable until
-the `eve-0.49-upgrade` branch's runtime crash is diagnosed.
+**Open:** `cael-agent-seven` stays undeployable until the `eve-0.49-upgrade`
+branch's runtime crash is diagnosed.
+
+*(Corrected: this entry originally warned that the two hosts' databases had
+forked and needed reconciling. They had not — see the 2026-09-02 (data) entry
+above. Switching hosts cost no data.)*
 
 ---
 
@@ -6863,7 +6899,8 @@ The script's documented limitation stands: under `services`, eve 0.18.2's build
 output is never mounted, so **Cael's chat 404s** on this deployment. Pages and
 `/api/*` are fine. The real fix is the eve 0.18 → 0.47 upgrade.
 
-**2. The two hosts are on different databases — confirmed.** On restart the
+**2. The two hosts are on different databases — WRONG, see the 2026-09-02
+(hosts) entry above; they share one Neon database.** On restart the
 keystroke agent resumes from whatever today's count is on its target: against
 `cael-keystrokes` it read **8,448**, against `cael-agent-seven` it read **18,609**.
 Same day, same Mac, two different answers. Confirmed at the source: pulling
@@ -6874,6 +6911,14 @@ a different one. So keystrokes, thoughts, todos, scorecard history — everythin
 has been accumulating in two places since the Aug 30 stopgap. Not fixed here;
 flagging it because the numbers now differ depending on which host you open, and
 merging or picking one is Berto's call.
+
+*(Correction, later on 2026-09-02: this is wrong. The two keystroke readings were
+taken hours apart against a counter that grows all day, so they were never
+evidence of two databases. Both hosts serve byte-identical responses across
+`/api/thoughts`, `todos`, `measures`, `lists`, `reading`, `sketches`, `vision`,
+`threads`, `scheduled-tasks`, `dreams` and `memories` — including a 4.2 MB
+threads payload and a 2.3 MB sketches payload matching to the SHA — and report
+the same live keystroke count to the digit. There is one database.)*
 
 ---
 

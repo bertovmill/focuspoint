@@ -7206,3 +7206,48 @@ Files: `lib/scorecard.ts`, `lib/bells.ts` (new), `lib/meditation.ts` (new),
 `app/api/scorecard/route.ts`, `app/_components/meditation-timer.tsx` (new),
 `app/_components/scorecard-card.tsx`, `app/_components/home-screen.tsx`,
 `agent/tools/get_scorecard.ts`, `agent/tools/log_metrics.ts`.
+
+## 2026-09-03 — Rings instead of boxes, plus a habits row
+
+His ask: make the three scorecard metrics read like the Fitbit/Google Fit app —
+progress rings — and add a second row underneath for core habits: read, meditate,
+journal, fast til noon.
+
+**Decisions, confirmed with him first:**
+
+- Habits stay **unscored**. The 100-point scorecard is still exactly the three
+  keys from the Sep 3 cut (steps, sleep, keystrokes); the habit row is a plain
+  daily checklist below it, no points attached. Reopening the 3-vs-7-keys
+  tradeoff wasn't the ask.
+- **Read** and **journal** are auto-detected rather than tapped: read = a
+  `reading_notes` row (Kindle clippings) dated today, journal = a non-empty
+  `daily_journal` entry for today. Both already get written from real usage
+  elsewhere, so there was nothing to add. **Meditate** and **fast til noon** have
+  no existing tracker, so those two are a manual tap, backed by a new
+  `daily_habits` table (`habit_date` PK, `meditated`, `fasted_til_noon`).
+
+**Built:**
+
+- `app/_components/activity-rings.tsx` (new) — three SVG progress rings (Steps ·
+  Sleep · Keystrokes), replacing the old three-box row in `scorecard-card.tsx`.
+  Same click-to-edit behaviour as before (keystrokes stays read-only — the Mac
+  agent owns that number); a broken record still glows amber and gets the small
+  lightning badge, now on the ring's corner instead of the box header.
+- `app/_components/habit-row.tsx` (new) + `lib/habits.ts` (new) +
+  `app/api/habits/route.ts` (new) — the four-habit checklist. GET returns
+  today's four booleans; PATCH only accepts `meditate`/`fast` (read/journal
+  aren't settable — they follow their source table).
+- `lib/db.ts` — new `daily_habits` table.
+- `scorecard-card.tsx` — swapped the box row for `<ActivityRings>` + `<HabitRow>`,
+  deleted the now-dead `MetricBox` component.
+
+**Verified:** on a private `:3789` server against live data — rings render with
+correct fill percentages for today's real steps/sleep/keystrokes; habit row
+correctly showed Journal already checked (a real journal entry existed for
+today) with the other three unchecked; toggled Meditate on via Playwright,
+confirmed `/api/habits` flipped to `true`, toggled it back off and confirmed it
+reverted — no leftover test state. `npx tsc --noEmit` clean.
+
+Files: `lib/db.ts`, `lib/habits.ts` (new), `app/api/habits/route.ts` (new),
+`app/_components/activity-rings.tsx` (new), `app/_components/habit-row.tsx`
+(new), `app/_components/scorecard-card.tsx`.

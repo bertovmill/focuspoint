@@ -4,29 +4,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIcon,
   FlameIcon,
-  FootprintsIcon,
-  KeyboardIcon,
   Loader2Icon,
-  MoonIcon,
   RefreshCwIcon,
   TrophyIcon,
-  ZapIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecordConfetti } from "@/app/_components/record-confetti";
 import { ScoreChart } from "@/app/_components/score-chart";
+import { ActivityRings } from "@/app/_components/activity-rings";
+import { HabitRow } from "@/app/_components/habit-row";
 import {
   METRIC_WEIGHT,
   formatMetric,
-  formatTarget,
   metricDef,
   nextTierAt,
   scoreTier,
   type MetricKey,
-  type MetricValue,
-  type PersonalBest,
   type ScorecardSummary,
 } from "@/lib/scorecard";
 import { cn } from "@/lib/utils";
@@ -41,15 +36,10 @@ import { cn } from "@/lib/utils";
  * gating the day (portfolio, notes written) is gone — every remaining key comes
  * from an API or an always-on background agent, so the card never waits on him.
  *
- * The three boxes read left to right rather than the old stacked rows — three
- * things fit as a glance, not a list.
+ * Drawn as three Fitbit/Google-Fit-style progress rings (2026-09-03, his ask) rather
+ * than the old stacked boxes, with a second unscored row of core habits — read,
+ * meditate, journal, fast til noon — underneath (see ActivityRings and HabitRow).
  */
-
-const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
-  steps: FootprintsIcon,
-  sleep_minutes: MoonIcon,
-  keystrokes: KeyboardIcon,
-};
 
 /** How each tier reads at a glance — cold is quiet, legendary is loud. */
 const TIER_STYLES: Record<ReturnType<typeof scoreTier>["key"], string> = {
@@ -99,121 +89,6 @@ export function shortDate(key: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
-}
-
-function MetricBox({
-  metric,
-  best,
-  isRecord,
-  editable,
-  onEdit,
-}: {
-  metric: MetricValue;
-  /** The bar to beat, as it stood before today. */
-  best: PersonalBest | undefined;
-  /** Today has already beaten it. */
-  isRecord: boolean;
-  editable: boolean;
-  onEdit: (key: MetricKey, raw: string) => void;
-}) {
-  const def = metricDef(metric.key);
-  const Icon = ICONS[metric.key];
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const pct = metric.value === null || metric.target <= 0 ? null : Math.min(100, Math.round((metric.value / metric.target) * 100));
-
-  const commit = () => {
-    setEditing(false);
-    if (draft.trim()) onEdit(metric.key, draft);
-  };
-
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 flex-1 flex-col gap-2 rounded-lg border px-3 py-3",
-        isRecord ? "border-amber-500/40 bg-amber-500/[0.04]" : metric.hit ? "border-emerald-600/30 bg-emerald-600/[0.04]" : "border-border",
-      )}
-    >
-      <div className="flex items-center justify-between gap-1.5">
-        <span
-          className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-md",
-            isRecord
-              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-              : metric.hit
-                ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
-                : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Icon className="size-3.5" />
-        </span>
-        {isRecord && (
-          <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-            <ZapIcon className="size-2.5" />
-            record
-          </span>
-        )}
-      </div>
-
-      <p className="truncate text-[11px] font-medium leading-tight">{def.label}</p>
-
-      {editing ? (
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          placeholder={def.kind === "duration" ? "7h30" : ""}
-          className="w-full rounded-md border border-border bg-background px-1.5 py-1 text-[15px] font-semibold tabular-nums outline-none focus:border-foreground/40"
-        />
-      ) : (
-        <button
-          type="button"
-          disabled={!editable}
-          onClick={() => {
-            setDraft(metric.value === null ? "" : String(metric.value));
-            setEditing(true);
-          }}
-          title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
-          className={cn(
-            "-mx-1 rounded-md px-1 py-0.5 text-left text-[15px] font-semibold tabular-nums leading-none",
-            editable && "hover:bg-muted",
-            metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-foreground",
-          )}
-        >
-          {formatMetric(metric.key, metric.value)}
-          <span className="text-[10.5px] font-normal text-muted-foreground"> / {formatTarget(metric.key, metric.target)}</span>
-        </button>
-      )}
-
-      {pct !== null && (
-        <span className="block h-1 w-full overflow-hidden rounded-full bg-muted">
-          <span
-            className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
-            style={{ width: `${pct}%` }}
-          />
-        </span>
-      )}
-
-      <div className="flex items-center justify-between text-[10px] leading-tight">
-        <span className="text-muted-foreground">
-          {best ? (
-            <span className={isRecord ? "line-through opacity-60" : undefined}>best {formatMetric(metric.key, best.value)}</span>
-          ) : (
-            def.hint
-          )}
-        </span>
-        <span className={cn("font-medium tabular-nums", metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground/60")}>
-          {metric.points.toFixed(1)}/{METRIC_WEIGHT.toFixed(1)}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 export function ScorecardCard() {
@@ -498,21 +373,13 @@ export function ScorecardCard() {
           </span>
         </div>
 
-        {/* Three boxes, left to right — Steps · Sleep · Keystrokes. */}
-        <div className="mt-3 flex gap-2 border-t pt-3 sm:gap-3">
-          {today.metrics.map((m) => (
-            <MetricBox
-              key={m.key}
-              metric={m}
-              best={records.metrics[m.key]}
-              isRecord={broken.includes(m.key)}
-              // Keystrokes are the one number he can't type: the Mac agent owns that
-              // box, and it only ever moves the count upward.
-              editable={metricDef(m.key).source !== "agent"}
-              onEdit={handleEdit}
-            />
-          ))}
+        {/* Three rings, left to right — Steps · Sleep · Keystrokes. */}
+        <div className="mt-3 border-t pt-3">
+          <ActivityRings metrics={today.metrics} broken={broken} onEdit={handleEdit} />
         </div>
+
+        {/* Second row, unscored — the core habits. */}
+        <HabitRow />
 
         {/* How the number above was built, in one line. */}
         <p className="mt-3 border-t border-dashed pt-2 text-[10.5px] leading-relaxed text-muted-foreground">

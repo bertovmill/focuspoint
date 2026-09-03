@@ -555,4 +555,17 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // The two core habits with nowhere else to live (lib/habits.ts). Read and journal
+  // are derived from reading_notes / daily_journal instead of stored here — only
+  // meditate and fasting need a manual tap. One row per day; an absent row means
+  // neither happened yet, not a logged "no".
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_habits (
+      habit_date DATE PRIMARY KEY,
+      meditated BOOLEAN NOT NULL DEFAULT FALSE,
+      fasted_til_noon BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

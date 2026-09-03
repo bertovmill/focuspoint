@@ -4,6 +4,58 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-02 (chat) — the model picker goes cross-provider
+
+Berto: *"enable us to have multiple different models to pick from using the
+vercel ai elements model picker"* — plus, when asked: keep it one global
+setting, *"lets be able to pin models, also show the average cost of input and
+output per model"*.
+
+**What changed.** The old picker was five hardcoded Anthropic rungs
+(Minimal → Max) living inline in the floating chat bar, and it wasn't on the
+chat page at all — the composer in `/chat` had no way to switch models.
+
+- **The list is no longer hardcoded.** `lib/gateway-catalog.ts` reads the AI
+  Gateway catalog at runtime (`gateway.getAvailableModels()`, cached one hour
+  per lambda) — 223 language models across OpenAI, Google, Anthropic, xAI,
+  DeepSeek, Mistral, Meta, Alibaba and the rest. New models show up without a
+  deploy. Falls back to a small Anthropic ladder if the gateway is unreachable.
+- **Prices come from the gateway, not from memory.** Every row shows USD per 1M
+  tokens as `in / out`, taken from the catalog's own per-token pricing. All 223
+  models are priced, so nothing renders as "—" today.
+- **Pinning.** A pin button on each row; pinned models get a "Pinned" group at
+  the top. Stored globally in `app_settings.chat_model_pins` as a JSON array, so
+  the pins follow Berto across devices. Defaults to Haiku 4.5 / Sonnet 4.6 /
+  Opus 5. Clicking the pin deliberately does *not* select the model.
+- **AI Elements `model-selector`.** Installed from the `@ai-elements` registry —
+  a cmdk command palette with search, provider grouping and provider logos.
+- **Two places, one setting.** `app/_components/model-picker.tsx` is shared by
+  the floating chat bar and the chat composer, with a module-scope store so both
+  show the same selection at once.
+
+**Files:** `lib/chat-model.ts` (rewritten — `ChatModel` type, pin helpers,
+price/provider formatting, `isChatModelId` now validates the `provider/model`
+shape rather than a fixed list), `lib/gateway-catalog.ts` (new),
+`app/api/settings/chat-model/route.ts` (GET returns model + pins + catalog; PUT
+takes either or both), `app/_components/model-picker.tsx` (new),
+`components/ai-elements/model-selector.tsx` (new, from the registry),
+`app/_components/floating-chat-bar.tsx` (inline picker deleted),
+`components/assistant-ui/thread.tsx` (picker added to the composer),
+`agent/agent.ts` (comment only).
+
+**Caveat worth knowing.** eve fixes `modelContextWindowTokens` at compile time
+and it's still declared as 200k. That's right for every Claude model and the
+frontier models worth picking, but a small model from the catalog's long tail
+may have a smaller real window — eve would then compact later than that model
+can take. Pin the models you actually use and this never comes up.
+
+**Verified** in the running app: picker opens from both the chat composer and
+the floating bar, search filters, pinning persists to the DB without changing
+the selection, and selecting GPT-5 wrote `openai/gpt-5` to `app_settings`
+(reset to Sonnet 4.6 afterwards). `npm run typecheck` and `npm run build` clean.
+
+---
+
 ## 2026-09-02 (data) — there was never a second database
 
 Berto, after being told the hosts had forked: *"yes migrate the data over"*.

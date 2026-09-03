@@ -3,20 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIcon,
-  CheckIcon,
   FlameIcon,
-  BookOpenIcon,
-  BookmarkIcon,
   FootprintsIcon,
-  Flower2Icon,
   KeyboardIcon,
   Loader2Icon,
   MoonIcon,
-  PencilLineIcon,
   RefreshCwIcon,
-  TrendingUpIcon,
   TrophyIcon,
-  UtensilsCrossedIcon,
   ZapIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { RecordConfetti } from "@/app/_components/record-confetti";
 import { ScoreChart } from "@/app/_components/score-chart";
 import {
-  GATING_METRICS,
   METRIC_WEIGHT,
   formatMetric,
   formatTarget,
@@ -42,30 +34,21 @@ import { cn } from "@/lib/utils";
 /**
  * "Winning day" — the daily scorecard from Berto's Aug 28 note, scored.
  *
- * The card used to answer one question — is today a win? — with `1 / 4`, which is
- * the same number whether you walked 400 steps or 19,900. Now it answers a second,
- * more useful one: **how good is today, and can it beat your best?** Every metric
- * pays points in proportion to how far it got (lib/scorecard.ts), so the headline
- * number moves daily and has an all-time high to chase. Break a record and it says
- * so, loudly, once.
+ * Cut down to three keys on 2026-09-03 — his call: *"lets remove the reading
+ * measure, lets remove the fasting measure, lets instead just make it the 3 -
+ * keystrokes, steps, and sleep time."* Everything that needed a manual tap or a
+ * timer (fasting, meditation, reading, journal) or rode below the line without
+ * gating the day (portfolio, notes written) is gone — every remaining key comes
+ * from an API or an always-on background agent, so the card never waits on him.
  *
- * Portfolio still rides below the line — it's a level, not something you win by
- * trying harder today — but it keeps a personal best, because that one only goes up.
- *
- * Every row is still editable by clicking the number: a metric you can't correct
- * is a metric you stop trusting.
+ * The three boxes read left to right rather than the old stacked rows — three
+ * things fit as a glance, not a list.
  */
 
 const ICONS: Record<MetricKey, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
   sleep_minutes: MoonIcon,
-  fasting_held: UtensilsCrossedIcon,
-  meditation_minutes: Flower2Icon,
-  reading_minutes: BookmarkIcon,
-  journalled: BookOpenIcon,
-  readwise_notes: PencilLineIcon,
   keystrokes: KeyboardIcon,
-  portfolio: TrendingUpIcon,
 };
 
 /** How each tier reads at a glance — cold is quiet, legendary is loud. */
@@ -82,14 +65,10 @@ const TIER_STYLES: Record<ReturnType<typeof scoreTier>["key"], string> = {
 const CELEBRATED_KEY = "scorecard:celebrated";
 
 /**
- * Parse what a human types for a duration: "7h30", "7:30", "7.5", "450m", "7h".
- * Returns minutes, or null if it's not a number at all.
- *
- * `bare` decides what a naked number means, and it genuinely differs by row: typing
- * "8" in the sleep row means eight hours, typing "20" in the meditation row means
- * twenty minutes. Reading both as hours would log a twenty-hour sit.
+ * Parse what a human types for a duration: "7h30", "7:30", "7.5". Returns minutes,
+ * or null if it's not a number at all. A naked number under 24 reads as hours.
  */
-export function parseDuration(input: string, bare: "hours" | "minutes" = "hours"): number | null {
+export function parseDuration(input: string): number | null {
   const s = input.trim().toLowerCase();
   if (!s) return null;
 
@@ -101,17 +80,13 @@ export function parseDuration(input: string, bare: "hours" | "minutes" = "hours"
 
   const n = Number(s.replace(/[^\d.]/g, ""));
   if (!Number.isFinite(n)) return null;
-  if (bare === "minutes") return Math.round(n);
-  // A bare number under 24 is hours ("7.5"); anything larger is already minutes.
   return n < 24 ? Math.round(n * 60) : Math.round(n);
 }
 
-/** Parse a plain count or dollar amount, tolerating "18,240" and "$142k". */
+/** Parse a plain count, tolerating "18,240". */
 export function parseAmount(input: string): number | null {
   const s = input.trim().toLowerCase().replace(/[$,\s]/g, "");
   if (!s) return null;
-  const k = s.match(/^([\d.]+)k$/);
-  if (k) return Math.round(Number(k[1]) * 1000);
   const n = Number(s);
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
 }
@@ -126,13 +101,12 @@ export function shortDate(key: string): string {
   });
 }
 
-function MetricRow({
+function MetricBox({
   metric,
   best,
   isRecord,
   editable,
   onEdit,
-  onToggle,
 }: {
   metric: MetricValue;
   /** The bar to beat, as it stood before today. */
@@ -141,17 +115,13 @@ function MetricRow({
   isRecord: boolean;
   editable: boolean;
   onEdit: (key: MetricKey, raw: string) => void;
-  onToggle: (held: boolean) => void;
 }) {
   const def = metricDef(metric.key);
   const Icon = ICONS[metric.key];
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
 
-  const pct =
-    def.kind === "toggle" || def.kind === "money" || metric.value === null || metric.target <= 0
-      ? null
-      : Math.min(100, Math.round((metric.value / metric.target) * 100));
+  const pct = metric.value === null || metric.target <= 0 ? null : Math.min(100, Math.round((metric.value / metric.target) * 100));
 
   const commit = () => {
     setEditing(false);
@@ -159,82 +129,36 @@ function MetricRow({
   };
 
   return (
-    <div className="flex items-center gap-3 py-2">
-      <span
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-lg",
-          isRecord
-            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-            : metric.hit
-              ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
-              : "bg-muted text-muted-foreground",
-        )}
-      >
-        <Icon className="size-3.5" />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[12.5px] font-medium leading-tight">
-          {def.label}
-          {isRecord && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-              <ZapIcon className="size-2.5" />
-              record
-            </span>
-          )}
-        </span>
-        <span className="block truncate text-[10.5px] text-muted-foreground leading-tight">
-          {def.hint}
-          {/* The bar to beat, right where the eye already is. */}
-          {best && (
-            <span className={cn("ml-1", isRecord && "line-through opacity-60")}>
-              · best {formatMetric(metric.key, best.value)}
-            </span>
-          )}
-        </span>
-      </span>
-
-      {/* Progress toward the bar, for the metrics that have one. */}
-      {pct !== null && (
-        <span className="hidden sm:block h-1 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
-          <span
-            className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
-            style={{ width: `${pct}%` }}
-          />
-        </span>
+    <div
+      className={cn(
+        "flex min-w-0 flex-1 flex-col gap-2 rounded-lg border px-3 py-3",
+        isRecord ? "border-amber-500/40 bg-amber-500/[0.04]" : metric.hit ? "border-emerald-600/30 bg-emerald-600/[0.04]" : "border-border",
       )}
-
-      {def.kind === "toggle" && def.source === "journal" ? (
-        /* Derived from the journal page below, so there is nothing to tap here — it
-           earns itself the moment there are words on the page. Reads as a state, not
-           a control, so nobody hunts for a checkbox that was never going to exist. */
+    >
+      <div className="flex items-center justify-between gap-1.5">
         <span
           className={cn(
-            "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium",
-            metric.hit ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-600 dark:text-emerald-500" : "border-dashed border-border text-muted-foreground",
+            "flex size-6 shrink-0 items-center justify-center rounded-md",
+            isRecord
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+              : metric.hit
+                ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500"
+                : "bg-muted text-muted-foreground",
           )}
-          title="Earned by writing today's journal page, below"
         >
-          {metric.hit && <CheckIcon className="size-3" />}
-          {metric.hit ? "written" : "not yet"}
+          <Icon className="size-3.5" />
         </span>
-      ) : def.kind === "toggle" ? (
-        <button
-          type="button"
-          onClick={() => onToggle(!metric.hit)}
-          aria-pressed={metric.hit}
-          aria-label={metric.hit ? "Mark the eating window broken" : "Mark the eating window held"}
-          className={cn(
-            "tap-target flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums transition-colors",
-            metric.hit
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-border text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {metric.hit && <CheckIcon className="size-3" />}
-          {metric.value === null ? "not set" : formatMetric(metric.key, metric.value)}
-        </button>
-      ) : editing ? (
+        {isRecord && (
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            <ZapIcon className="size-2.5" />
+            record
+          </span>
+        )}
+      </div>
+
+      <p className="truncate text-[11px] font-medium leading-tight">{def.label}</p>
+
+      {editing ? (
         <input
           autoFocus
           value={draft}
@@ -244,14 +168,8 @@ function MetricRow({
             if (e.key === "Enter") commit();
             if (e.key === "Escape") setEditing(false);
           }}
-          placeholder={
-            def.kind === "duration"
-              ? metric.key === "meditation_minutes" || metric.key === "reading_minutes"
-                ? "20m"
-                : "7h30"
-              : ""
-          }
-          className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums outline-none focus:border-foreground/40"
+          placeholder={def.kind === "duration" ? "7h30" : ""}
+          className="w-full rounded-md border border-border bg-background px-1.5 py-1 text-[15px] font-semibold tabular-nums outline-none focus:border-foreground/40"
         />
       ) : (
         <button
@@ -263,42 +181,37 @@ function MetricRow({
           }}
           title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
           className={cn(
-            "shrink-0 rounded-md px-1.5 py-1 text-right text-[12.5px] tabular-nums",
+            "-mx-1 rounded-md px-1 py-0.5 text-left text-[15px] font-semibold tabular-nums leading-none",
             editable && "hover:bg-muted",
-            metric.hit ? "font-semibold text-emerald-600 dark:text-emerald-500" : "text-foreground",
+            metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-foreground",
           )}
         >
           {formatMetric(metric.key, metric.value)}
-          {def.kind !== "money" && (
-            <span className="text-muted-foreground font-normal">
-              {" / "}
-              {formatTarget(metric.key, metric.target)}
-            </span>
-          )}
+          <span className="text-[10.5px] font-normal text-muted-foreground"> / {formatTarget(metric.key, metric.target)}</span>
         </button>
       )}
 
-      {/* What the row is worth, out of the slice it could have been worth. Showing
-          the denominator on every row is the point: the score stops being a number
-          you have to trust and becomes one you can add up by eye. */}
-      {def.gates && (
-        <span
-          className={cn(
-            "w-[52px] shrink-0 text-right text-[11px] font-medium tabular-nums",
-            metric.hit
-              ? "text-emerald-600 dark:text-emerald-500"
-              : metric.points > 0
-                ? "text-foreground/70"
-                : "text-muted-foreground/50",
-          )}
-          title={`${metric.points} of a possible ${METRIC_WEIGHT.toFixed(1)} points`}
-        >
-          {metric.points.toFixed(1)}
-          <span className="text-muted-foreground/60 font-normal">
-            /{METRIC_WEIGHT.toFixed(1)}
-          </span>
+      {pct !== null && (
+        <span className="block h-1 w-full overflow-hidden rounded-full bg-muted">
+          <span
+            className={cn("block h-full rounded-full", metric.hit ? "bg-emerald-600" : "bg-foreground/40")}
+            style={{ width: `${pct}%` }}
+          />
         </span>
       )}
+
+      <div className="flex items-center justify-between text-[10px] leading-tight">
+        <span className="text-muted-foreground">
+          {best ? (
+            <span className={isRecord ? "line-through opacity-60" : undefined}>best {formatMetric(metric.key, best.value)}</span>
+          ) : (
+            def.hint
+          )}
+        </span>
+        <span className={cn("font-medium tabular-nums", metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground/60")}>
+          {metric.points.toFixed(1)}/{METRIC_WEIGHT.toFixed(1)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -324,12 +237,6 @@ export function ScorecardCard() {
     void load();
   }, [load]);
 
-  /**
-   * Re-read when something else on the page moves a key: the meditation timer
-   * finishing a sit, or coming back to the tab after writing the journal (which is
-   * scored from its own autosave, with nothing to notify us). Deliberately not a
-   * poll — a bare interval here is what burned 4.8M invocations in August.
-   */
   useEffect(() => {
     const refresh = () => void load();
     const onFocus = () => {
@@ -423,10 +330,7 @@ export function ScorecardCard() {
   const handleEdit = useCallback(
     (key: MetricKey, raw: string) => {
       const def = metricDef(key);
-      const value =
-        def.kind === "duration"
-          ? parseDuration(raw, key === "meditation_minutes" || key === "reading_minutes" ? "minutes" : "hours")
-          : parseAmount(raw);
+      const value = def.kind === "duration" ? parseDuration(raw) : parseAmount(raw);
       if (value === null) {
         toast.error("Didn't understand that number");
         return;
@@ -439,22 +343,14 @@ export function ScorecardCard() {
   const sync = useCallback(async () => {
     setSyncing(true);
     try {
-      // One button, both sources — the portfolio is a different provider but nobody
-      // thinks of it that way; they just want the card to be current.
-      const [health, portfolio] = await Promise.all([
-        fetch("/api/health/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ days: 3 }),
-        }).then((r) => r.json()),
-        fetch("/api/portfolio/sync", { method: "POST" }).then((r) => r.json()),
-      ]);
+      const health = await fetch("/api/health/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 3 }),
+      }).then((r) => r.json());
 
       if (!health.connected) toast.error("The watch isn't connected");
       else toast.success(health.synced ? `Synced ${health.synced} day${health.synced === 1 ? "" : "s"}` : "Nothing new from the watch");
-      // The portfolio is below the line, so its failure is a quiet note, not an error
-      // competing with the watch's own result.
-      if (portfolio.connected && portfolio.amount === null) toast.message("Couldn't read the portfolio");
       await load();
     } catch {
       toast.error("Watch sync failed");
@@ -466,9 +362,7 @@ export function ScorecardCard() {
   if (!summary) return null;
 
   const { today, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore, recordsSince } = summary;
-  const total = GATING_METRICS.length;
-  const gating = today.metrics.filter((m) => metricDef(m.key).gates);
-  const tracked = today.metrics.filter((m) => !metricDef(m.key).gates);
+  const total = today.metrics.length;
 
   const tier = scoreTier(today.score);
   const nextTier = nextTierAt(today.score);
@@ -488,10 +382,6 @@ export function ScorecardCard() {
   // the high score above it says isn't the best.
   const comparable = recent.filter((d) => d.date >= recordsSince);
   const peak = comparable.length ? Math.max(...comparable.map((d) => d.score)) : 0;
-  // Bars are drawn as a fraction of the tallest thing on screen, not of the theoretical
-  // 1,300 — against a ceiling nobody reaches, every day looks equally flat and the strip
-  // says nothing. Every day counts toward the ceiling so no bar has to clamp.
-  const stripCeiling = Math.max(...recent.map((d) => d.score), best?.value ?? 0, 1);
 
   return (
     <div className="mb-6">
@@ -608,48 +498,29 @@ export function ScorecardCard() {
           </span>
         </div>
 
-        <div className="mt-3 divide-y divide-border/60 border-t pt-1">
-          {gating.map((m) => (
-            <MetricRow
+        {/* Three boxes, left to right — Steps · Sleep · Keystrokes. */}
+        <div className="mt-3 flex gap-2 border-t pt-3 sm:gap-3">
+          {today.metrics.map((m) => (
+            <MetricBox
               key={m.key}
               metric={m}
               best={records.metrics[m.key]}
               isRecord={broken.includes(m.key)}
               // Keystrokes are the one number he can't type: the Mac agent owns that
-              // row, and it only ever moves the count upward.
+              // box, and it only ever moves the count upward.
               editable={metricDef(m.key).source !== "agent"}
               onEdit={handleEdit}
-              onToggle={(held) => void patch({ fasting_held: held })}
             />
           ))}
         </div>
 
-        {/* How the number above was built, in one line. The old 1,600-point model
-            needed the source open to interpret; this one shouldn't need anything. */}
-        <p className="mt-1 border-t border-dashed pt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+        {/* How the number above was built, in one line. */}
+        <p className="mt-3 border-t border-dashed pt-2 text-[10.5px] leading-relaxed text-muted-foreground">
           <span className="font-medium text-foreground/70">100 is a perfect day.</span>{" "}
           {total} keys, worth {METRIC_WEIGHT.toFixed(1)} each. Hit a target and you bank the whole
           slice; get halfway and you bank half. Going past a target earns nothing extra — the
           target is the target.
         </p>
-
-        {/* Below the line: tracked, but it doesn't decide the day. It still keeps a
-            personal best — a portfolio all-time high is worth seeing. */}
-        {tracked.length > 0 && (
-          <div className="mt-1 border-t border-dashed pt-1">
-            {tracked.map((m) => (
-              <MetricRow
-                key={m.key}
-                metric={m}
-                best={records.metrics[m.key]}
-                isRecord={broken.includes(m.key)}
-                editable
-                onEdit={handleEdit}
-                onToggle={() => {}}
-              />
-            ))}
-          </div>
-        )}
 
         {/* Fourteen days of day-score, drawn as a trajectory rather than fourteen
             separate verdicts — his ask. See score-chart.tsx for the colour choice. */}

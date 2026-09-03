@@ -7,8 +7,6 @@ import { syncLuma } from "../../lib/luma-sync.js";
 import { ensureTodaysMeals } from "../../lib/meal-suggest.js";
 import { syncGithubPrs } from "../../lib/github-sync.js";
 import { syncHealthRange } from "../../lib/health-sync.js";
-import { syncReadwise } from "../../lib/readwise-sync.js";
-import { syncPortfolio } from "../../lib/portfolio-sync.js";
 
 // Dispatcher for application-managed scheduled tasks (see agent/tools/create_scheduled_task.ts
 // and friends). Vercel Hobby plans cap ALL cron jobs at once per day, so this wakes once daily
@@ -68,33 +66,6 @@ export default defineSchedule({
       );
     } catch (err) {
       console.warn("[dispatcher] Google Health sync failed:", err);
-    }
-
-    // The invested balance for the scorecard's portfolio row, via SnapTrade. A no-op
-    // until a brokerage is connected, and never fatal — an aggregator outage must not
-    // stop the scheduled tasks behind it.
-    try {
-      const portfolio = await syncPortfolio();
-      console.log(
-        portfolio.connected
-          ? `[dispatcher] Portfolio: ${portfolio.amount ?? "no value"} ${portfolio.currency ?? ""}`.trim()
-          : "[dispatcher] Portfolio: no brokerage connected, skipped.",
-      );
-    } catch (err) {
-      console.warn("[dispatcher] Portfolio sync failed:", err);
-    }
-
-    // Notes written, from Readwise. Fourteen days rather than one: a Kindle sync can
-    // land days late, and re-counting a settled day is free.
-    try {
-      const readwise = await syncReadwise(14);
-      console.log(
-        readwise.configured
-          ? `[dispatcher] Readwise: ${readwise.days.reduce((n, d) => n + d.notes, 0)} notes over ${readwise.synced} days.`
-          : "[dispatcher] Readwise: no token, skipped.",
-      );
-    } catch (err) {
-      console.warn("[dispatcher] Readwise sync failed:", err);
     }
 
     const phoneNumber = process.env.MY_PHONE_NUMBER;

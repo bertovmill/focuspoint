@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { setDay as setMeditation } from "@/lib/meditation";
-import { setReadingDay } from "@/lib/reading-time";
-import {
-  dayKey,
-  getScorecardSummary,
-  recordMetrics,
-  setFastingHeld,
-  type MetricPatch,
-} from "@/lib/scorecard";
+import { dayKey, getScorecardSummary, recordMetrics, type MetricPatch } from "@/lib/scorecard";
 
 // The daily scorecard — see lib/scorecard.ts for what makes a day a win.
 
@@ -33,7 +25,7 @@ function optionalNumber(raw: unknown): number | null | undefined {
 
 /**
  * Patch today (or an explicit `date`). Only the keys present in the body move, so
- * the health sync and a manual tap can't overwrite each other.
+ * the health sync and a manual correction can't overwrite each other.
  */
 export async function PATCH(req: Request) {
   try {
@@ -46,23 +38,8 @@ export async function PATCH(req: Request) {
     if (steps !== undefined) patch.steps = steps;
     const sleep = optionalNumber(body.sleep_minutes);
     if (sleep !== undefined) patch.sleep_minutes = sleep;
-    const notes = optionalNumber(body.readwise_notes);
-    if (notes !== undefined) patch.readwise_notes = notes;
-    const portfolio = optionalNumber(body.portfolio);
-    if (portfolio !== undefined) patch.portfolio = portfolio;
 
     if (Object.keys(patch).length) await recordMetrics(sql, date, patch);
-    // Fasting is stored on the nutrition protocol, not daily_metrics.
-    if (typeof body.fasting_held === "boolean") await setFastingHeld(sql, date, body.fasting_held);
-    // Meditation lives in its own table because the timer writes to it all day; a
-    // typed correction *replaces* the day's total, where the timer only ever adds.
-    const meditation = optionalNumber(body.meditation_minutes);
-    if (meditation !== undefined) await setMeditation(sql, date, meditation ?? 0);
-    // Same reasoning as meditation: the timer only ever adds, a typed correction replaces.
-    const reading = optionalNumber(body.reading_minutes);
-    if (reading !== undefined) await setReadingDay(sql, date, reading ?? 0);
-    // `journalled` is derived from the journal page and is deliberately not writable
-    // here — the only way to earn it is to write something.
 
     return NextResponse.json(await getScorecardSummary(sql));
   } catch (err) {

@@ -1,42 +1,29 @@
 // The daily scorecard — "did I win today?".
 //
-// Berto's note (thought #181, 2026-08-28): "Measures of success — the metrics that
-// make the magic happen." The list he landed on after cutting the noisy ones:
-//
-//   Steps · Sleep · Fasting window 12–8pm · Keystrokes · Portfolio
-//
-// The rule he gave for what earns a slot: **highly trackable, high signal**. That's
-// why Readwise highlights are gone ("high noise, less signal") and why every metric
-// here either comes from an API or is a single tap. A metric that needs a paragraph
-// of typing each night is a metric that stops getting logged in a week.
+// Berto's call (2026-09-03): three keys, full stop — **Steps · Sleep · Keystrokes**.
+// Everything else that used to live here (fasting, meditation, reading, journal,
+// portfolio, notes written) was cut: *"lets remove the reading measure, lets remove
+// the fasting measure, lets instead just make it the 3."* His earlier rule still
+// holds for why these three stayed — **highly trackable, high signal** — but the
+// bar for "worth a slot" got higher: every remaining key comes from an API or an
+// always-on background agent, nothing needs a manual tap or a timer anymore.
 //
 // Where the numbers come from:
-//   - steps, sleep    → the watch, via the Google Health API (lib/google-health.ts),
-//                       cached into `daily_metrics`. Not the Fitbit Web API: that is
-//                       turned down in September 2026 and its successor rides on the
-//                       Google OAuth this app already holds.
-//   - fasting         → the `fasted` rule on `nutrition_days`. Deliberately NOT a
-//                       second column: the Nutrition screen already owns that
-//                       checkbox, and two places recording "did I hold the window"
-//                       would drift apart within a week.
-//   - keystrokes      → `keystroke_days`, posted every minute by the launchd agent on
-//                       Berto's Mac (keystroke-agent/). Replaced "PRs merged" on
-//                       2026-08-30 — his call: "keystrokes matter more than PRs". A
-//                       merged PR is a lumpy, gameable unit (a one-line typo fix and a
-//                       week of work both count 1); keys pressed is the honest volume
-//                       of the work. The count is only ever a count — never which keys.
-//   - portfolio       → typed in for now. The unofficial Wealthsimple client that
-//                       filled this was removed (4d8ce55): handing a password and a
-//                       2FA code to a reverse-engineered endpoint wasn't worth a
-//                       number that gates nothing. SnapTrade's free tier is the
-//                       sanctioned replacement. Deliberately NOT part of "did I win
-//                       today" (see `gates` below): a balance is a level, not an action.
+//   - steps, sleep  → the watch, via the Google Health API (lib/google-health.ts),
+//                     cached into `daily_metrics`. Not the Fitbit Web API: that is
+//                     turned down in September 2026 and its successor rides on the
+//                     Google OAuth this app already holds.
+//   - keystrokes    → `keystroke_days`, posted every minute by the launchd agent on
+//                     Berto's Mac (keystroke-agent/). Replaced "PRs merged" on
+//                     2026-08-30 — his call: "keystrokes matter more than PRs". A
+//                     merged PR is a lumpy, gameable unit (a one-line typo fix and a
+//                     week of work both count 1); keys pressed is the honest volume
+//                     of the work. The count is only ever a count — never which keys.
 //
 // No db import at module scope — `sql` comes from the caller, same shape as
 // lib/streak.ts and lib/working-now.ts, so client components can import the pure bits.
 
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
-import { normalizeRules } from "@/lib/nutrition";
 import { isHealthConnected } from "@/lib/google-health";
 
 export { dayKey, STREAK_TIME_ZONE };
@@ -49,29 +36,12 @@ const HISTORY_DAYS = 365;
 
 const TARGETS_SETTING_KEY = "scorecard_targets";
 
-/**
- * How much text counts as having journalled. One character: Berto's call was "the
- * daily journal has real text in it", and any bar above that turns a scorecard into
- * a word-count quota, which is exactly the kind of rule that makes people stop
- * writing. An accidental keystroke scoring the day is a cost worth paying.
- */
-const JOURNAL_MIN_CHARS = 1;
-
 // --------------------------------------------------------------------- metrics
 
-export type MetricKey =
-  | "steps"
-  | "sleep_minutes"
-  | "fasting_held"
-  | "meditation_minutes"
-  | "reading_minutes"
-  | "journalled"
-  | "readwise_notes"
-  | "keystrokes"
-  | "portfolio";
+export type MetricKey = "steps" | "sleep_minutes" | "keystrokes";
 
 /** Where a number comes from — and so whether a human is allowed to type over it. */
-export type MetricSource = "health" | "agent" | "readwise" | "journal" | "manual";
+export type MetricSource = "health" | "agent";
 
 export type MetricDef = {
   key: MetricKey;
@@ -80,14 +50,9 @@ export type MetricDef = {
   hint: string;
   source: MetricSource;
   /** How the value renders and how a target is compared. */
-  kind: "count" | "duration" | "toggle" | "money";
+  kind: "count" | "duration";
   /** Default target. Overridable per-metric via app_settings — see `getTargets`. */
   target: number;
-  /**
-   * Whether missing this metric costs him the day. Portfolio is tracked but not
-   * gated: a balance is a level you don't move by trying harder today.
-   */
-  gates: boolean;
 };
 
 export const METRICS: MetricDef[] = [
@@ -98,7 +63,6 @@ export const METRICS: MetricDef[] = [
     source: "health",
     kind: "count",
     target: 30_000,
-    gates: true,
   },
   {
     key: "sleep_minutes",
@@ -107,7 +71,6 @@ export const METRICS: MetricDef[] = [
     source: "health",
     kind: "duration",
     target: 480, // 8h
-    gates: true,
   },
   {
     key: "keystrokes",
@@ -116,73 +79,11 @@ export const METRICS: MetricDef[] = [
     source: "agent",
     kind: "count",
     target: 100_000,
-    gates: true,
-  },
-  {
-    key: "fasting_held",
-    label: "Eating window",
-    hint: "Nothing before noon · shared with the nutrition protocol",
-    source: "manual",
-    kind: "toggle",
-    target: 1,
-    gates: true,
-  },
-  {
-    key: "meditation_minutes",
-    label: "Meditation",
-    hint: "Timer · sit and breathe",
-    source: "manual",
-    kind: "duration",
-    // Berto's own session: 20 minutes with a bell at the halfway mark.
-    target: 20,
-    gates: true,
-  },
-  {
-    key: "reading_minutes",
-    label: "Reading",
-    hint: "Timer · Kindle has no minutes API, so this is the sensor",
-    source: "manual",
-    kind: "duration",
-    target: 30,
-    gates: true,
-  },
-  {
-    key: "journalled",
-    label: "Journal",
-    hint: "Today's page has words in it",
-    // Derived from `daily_journal`, never typed here. Same rule as the eating
-    // window: one place records it, and the scorecard is a second door onto that
-    // record rather than a competing one that drifts within a week.
-    source: "journal",
-    kind: "toggle",
-    target: 1,
-    gates: true,
-  },
-  {
-    key: "readwise_notes",
-    label: "Notes written",
-    hint: "Kindle clippings · notes, not highlights",
-    // Tracked, not gated. Berto's list of what makes a day (2026-09-02) named six
-    // keys and this wasn't one of them — but the number is already synced and
-    // worth seeing, so it rides below the line with the portfolio.
-    source: "readwise",
-    kind: "count",
-    target: 10,
-    gates: false,
-  },
-  {
-    key: "portfolio",
-    label: "Portfolio",
-    hint: "Wealthsimple · invested, not gated",
-    source: "manual",
-    kind: "money",
-    target: 0,
-    gates: false,
   },
 ];
 
-/** The metrics a day is actually judged on. */
-export const GATING_METRICS = METRICS.filter((m) => m.gates);
+/** Every metric gates the day now — there's nothing left that's tracked-but-not-scored. */
+export const GATING_METRICS = METRICS;
 
 export function metricDef(key: MetricKey): MetricDef {
   const def = METRICS.find((m) => m.key === key);
@@ -202,7 +103,6 @@ export function clampTargets(raw: unknown): Targets {
   if (!raw || typeof raw !== "object") return base;
   const input = raw as Record<string, unknown>;
   for (const m of METRICS) {
-    if (m.kind === "toggle" || m.kind === "money") continue; // not a dial
     const n = Math.trunc(Number(input[m.key]));
     if (Number.isFinite(n) && n > 0) base[m.key] = n;
   }
@@ -217,13 +117,6 @@ export function clampTargets(raw: unknown): Targets {
 // when every key hit its target. Berto's rule (2026-09-02): *"perfect means we hit
 // our target, so really it should be between 0 and 100."*
 //
-// That replaced a 1,600-point model with overshoot bonuses and a perfect-day lump
-// sum. The old model moved every day and had a record to chase, but nobody could
-// say what 437 meant without opening the source — and a "perfect" day scored 1,300
-// of a possible 1,600, which is a strange thing to call perfect. This one you can
-// explain in a sentence: six keys, worth the same, filled in proportion to how far
-// each got.
-//
 // The consequences, on purpose:
 //   - **Overshooting pays nothing.** 60,000 steps scores exactly what 30,000 does.
 //     The target is the target; the surplus is its own reward.
@@ -235,26 +128,17 @@ export function clampTargets(raw: unknown): Targets {
 /** A perfect day. Every score is a fraction of this. */
 export const MAX_DAY_SCORE = 100;
 
-/**
- * What one gating key is worth. Equal across all six — Berto's call when the
- * alternative was weighting the graded efforts (steps/sleep/keystrokes) above the
- * single taps (fasting/meditation/journal). Equal is the version you can't argue
- * with: every key costs the same to skip.
- */
+/** What one key is worth. Equal across all three — every key costs the same to skip. */
 export const METRIC_WEIGHT = MAX_DAY_SCORE / GATING_METRICS.length;
 
 /**
- * The unrounded share one metric earned, 0…METRIC_WEIGHT. Non-gating metrics
- * (portfolio, Readwise notes) score nothing — they're tracked, and a balance you
- * didn't move today shouldn't inflate the day.
+ * The unrounded share one metric earned, 0…METRIC_WEIGHT.
  *
  * A null value scores 0 but is *not* the same as a zero: see `buildDay`, which
  * keeps the distinction so an unlogged day never looks like a failed one.
  */
 export function rawMetricPoints(key: MetricKey, value: number | null, target: number): number {
-  const def = metricDef(key);
-  if (!def.gates || value === null) return 0;
-  if (def.kind === "toggle") return value > 0 ? METRIC_WEIGHT : 0;
+  if (value === null) return 0;
   if (target <= 0 || value <= 0) return 0;
   // Capped at 1: past the target there is nothing more to earn.
   return Math.min(1, value / target) * METRIC_WEIGHT;
@@ -264,11 +148,9 @@ export function rawMetricPoints(key: MetricKey, value: number | null, target: nu
  * Round the per-metric shares to one decimal so that **they add up to the total
  * exactly**, using largest-remainder apportionment.
  *
- * Worth the twenty lines: 100 does not divide six ways, so the naive rounding
- * shows six rows of `16.7` under a headline of `100` — the rows visibly summing to
- * 100.2. A scorecard whose own arithmetic doesn't add up is a scorecard you stop
- * believing, and "make it clear how it's calculated" was the whole ask. This way a
- * perfect day reads 16.7 · 16.7 · 16.7 · 16.7 · 16.6 · 16.6 = 100.0, which is true.
+ * Worth the twenty lines: 100 does not divide three ways cleanly, so the naive
+ * rounding shows rows that visibly don't sum to the headline. This way a perfect
+ * day reads 33.4 · 33.3 · 33.3 = 100.0, which is true.
  */
 export function apportion(raw: number[]): { points: number[]; total: number } {
   const totalTenths = Math.round(raw.reduce((a, b) => a + b, 0) * 10);
@@ -312,9 +194,9 @@ export type ScorecardDay = {
   /** YYYY-MM-DD in STREAK_TIME_ZONE. */
   date: string;
   metrics: MetricValue[];
-  /** Gating metrics hit, out of GATING_METRICS.length. */
+  /** Metrics hit, out of GATING_METRICS.length. */
   hitCount: number;
-  /** Every gating metric hit — a won day. */
+  /** Every metric hit — a won day. */
   perfect: boolean;
   /** Percentage of a perfect day, 0…100, to one decimal. */
   score: number;
@@ -356,11 +238,11 @@ export type PersonalBest = {
   date: string;
 };
 
-/** Every high score the card can wave at him. Excludes today, so today can beat them. */
+/** Every high score the card can wave at him. */
 export type Records = {
   /** Best single-day score. */
   score: PersonalBest | null;
-  /** Best value per metric — portfolio included, it's the one that only goes up. */
+  /** Best value per metric. */
   metrics: Partial<Record<MetricKey, PersonalBest>>;
 };
 
@@ -392,9 +274,8 @@ export type ScorecardSummary = {
 };
 
 /** Did this value clear its bar? A null (never logged) is never a hit. */
-export function isHit(key: MetricKey, value: number | null, target: number): boolean {
+export function isHit(value: number | null, target: number): boolean {
   if (value === null) return false;
-  if (metricDef(key).kind === "toggle") return value > 0;
   return value >= target;
 }
 
@@ -406,25 +287,18 @@ export function buildDay(date: string, values: Partial<Record<MetricKey, number 
     return { def: m, value, target, raw: rawMetricPoints(m.key, value, target) };
   });
 
-  // Apportion across the gating metrics only, so the rows that carry points add up
-  // to the headline exactly. Non-gating rows are pinned at 0 and shown below the line.
-  const gatingIdx = resolved.map((r, i) => (r.def.gates ? i : -1)).filter((i) => i >= 0);
-  const { points, total } = apportion(gatingIdx.map((i) => resolved[i].raw));
-
-  const share = new Map<number, number>();
-  gatingIdx.forEach((idx, n) => share.set(idx, points[n]));
+  const { points, total } = apportion(resolved.map((r) => r.raw));
 
   const metrics = resolved.map<MetricValue>((r, i) => ({
     key: r.def.key,
     value: r.value,
     target: r.target,
-    hit: isHit(r.def.key, r.value, r.target),
-    points: share.get(i) ?? 0,
+    hit: isHit(r.value, r.target),
+    points: points[i],
   }));
 
-  const gating = metrics.filter((v) => metricDef(v.key).gates);
-  const hitCount = gating.filter((v) => v.hit).length;
-  const perfect = hitCount === gating.length;
+  const hitCount = metrics.filter((v) => v.hit).length;
+  const perfect = hitCount === metrics.length;
   // Perfect is exactly 100 by construction — every share is capped at its weight and
   // the weights sum to MAX_DAY_SCORE — but clamp anyway so a hand-edited target can
   // never print 101.
@@ -453,8 +327,6 @@ export function computeRecords(
       records.score = { value: day.score, date };
     }
     for (const m of day.metrics) {
-      // A toggle has no "best" — held is held. Its record is the streak, shown separately.
-      if (metricDef(m.key).kind === "toggle") continue;
       if (m.value === null || m.value <= 0) continue;
       const current = records.metrics[m.key];
       if (!current || m.value > current.value) records.metrics[m.key] = { value: m.value, date };
@@ -469,7 +341,6 @@ export function brokenRecords(today: ScorecardDay, records: Records): (MetricKey
   const broken: (MetricKey | "score")[] = [];
   if (records.score && today.score > records.score.value) broken.push("score");
   for (const m of today.metrics) {
-    if (metricDef(m.key).kind === "toggle") continue;
     const pb = records.metrics[m.key];
     if (pb && m.value !== null && m.value > pb.value) broken.push(m.key);
   }
@@ -521,29 +392,17 @@ export function computePerfectStreak(byDate: Map<string, ScorecardDay>, todayKey
 /** Human-readable value for a metric — used by the card and by Cael's spoken replies. */
 export function formatMetric(key: MetricKey, value: number | null): string {
   if (value === null) return "—";
-  switch (metricDef(key).kind) {
-    case "duration": {
-      const h = Math.floor(value / 60);
-      const m = Math.round(value % 60);
-      // Meditation shares this branch with sleep, and a 20-minute sit reading
-      // "0h 20m" is nonsense — under an hour, minutes are the whole story.
-      if (h === 0) return `${m}m`;
-      return m === 0 ? `${h}h` : `${h}h ${m}m`;
-    }
-    case "toggle":
-      return value > 0 ? "held" : "broken";
-    case "money":
-      return `$${Math.round(value).toLocaleString("en-CA")}`;
-    default:
-      return value.toLocaleString("en-CA");
+  if (metricDef(key).kind === "duration") {
+    const h = Math.floor(value / 60);
+    const m = Math.round(value % 60);
+    if (h === 0) return `${m}m`;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
   }
+  return value.toLocaleString("en-CA");
 }
 
-/** The target as it reads next to the value. Toggles have no meaningful target text. */
+/** The target as it reads next to the value. */
 export function formatTarget(key: MetricKey, target: number): string {
-  const def = metricDef(key);
-  if (def.kind === "toggle") return "";
-  if (def.kind === "money") return "";
   return formatMetric(key, target);
 }
 
@@ -579,19 +438,12 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
-  const [targets, logged, fastRows, keyRows, medRows, readRows, journalRows, healthConnected] = await Promise.all([
+  const [targets, logged, keyRows, healthConnected] = await Promise.all([
     getTargets(sql),
     sql`
-      SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes, readwise_notes, portfolio
+      SELECT to_char(recorded_date, 'YYYY-MM-DD') AS date, steps, sleep_minutes
       FROM daily_metrics
       WHERE recorded_date >= ${since}::date
-    `,
-    // The eating window lives on the nutrition protocol, not here. A day with no
-    // row has never been answered (null); a row without 'fasted' is a logged miss.
-    sql`
-      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, ('fasted' = ANY(rules)) AS held
-      FROM nutrition_days
-      WHERE logged_date >= ${since}::date
     `,
     // Keystrokes are already bucketed by day, in Berto's timezone, by the agent that
     // posts them — there is nothing to re-bucket here.
@@ -599,29 +451,6 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
       SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, count
       FROM keystroke_days
       WHERE logged_date >= ${since}::date
-    `,
-    // Meditation minutes, written only when a session finishes (lib/meditation.ts).
-    sql`
-      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, minutes
-      FROM meditation_days
-      WHERE logged_date >= ${since}::date
-    `,
-    // Reading minutes, written only when a session finishes (lib/reading-time.ts).
-    sql`
-      SELECT to_char(logged_date, 'YYYY-MM-DD') AS date, minutes
-      FROM reading_days
-      WHERE logged_date >= ${since}::date
-    `,
-    // Did the day's journal page end up with words in it? Asked in SQL rather than
-    // pulled back as text: the scorecard has no business reading what he wrote, and
-    // a year of journal entries is not something to ship over the wire to score a
-    // boolean. The editor stores HTML, so an empty document is "<p></p>" and not "" —
-    // strip the tags and the entities before deciding it's blank.
-    sql`
-      SELECT to_char(entry_date, 'YYYY-MM-DD') AS date,
-             length(trim(regexp_replace(regexp_replace(content, '<[^>]*>', ' ', 'g'), '&nbsp;|&#160;', ' ', 'g'))) AS chars
-      FROM daily_journal
-      WHERE entry_date >= ${since}::date
     `,
     // The watch has its OWN health-only grant, separate from the Calendar one —
     // the Health API 403s on any token carrying calendar scopes. See lib/google-health.ts.
@@ -639,26 +468,9 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     const v = slot(String(r.date));
     v.steps = r.steps === null ? null : Number(r.steps);
     v.sleep_minutes = r.sleep_minutes === null ? null : Number(r.sleep_minutes);
-    v.readwise_notes = r.readwise_notes === null ? null : Number(r.readwise_notes);
-    v.portfolio = r.portfolio === null ? null : Number(r.portfolio);
-  }
-  for (const r of fastRows as Record<string, unknown>[]) {
-    slot(String(r.date)).fasting_held = r.held ? 1 : 0;
   }
   for (const r of keyRows as Record<string, unknown>[]) {
     slot(String(r.date)).keystrokes = Number(r.count);
-  }
-  for (const r of medRows as Record<string, unknown>[]) {
-    slot(String(r.date)).meditation_minutes = Number(r.minutes);
-  }
-  for (const r of readRows as Record<string, unknown>[]) {
-    slot(String(r.date)).reading_minutes = Number(r.minutes);
-  }
-  // No row at all means the page was never opened — left null, so an untouched day
-  // reads "—" rather than a scolding "not written". A row that exists but is blank
-  // is a real, logged miss.
-  for (const r of journalRows as Record<string, unknown>[]) {
-    slot(String(r.date)).journalled = Number(r.chars) >= JOURNAL_MIN_CHARS ? 1 : 0;
   }
   // A day with no keystroke row is *unlogged*, not a zero: it means the Mac agent
   // wasn't running. Unlike the github table, this one is only as complete as the
@@ -676,7 +488,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     recent.push(byDate.get(key) ?? buildDay(key, {}, targets));
   }
 
-  // Records only count days that could actually score on all four metrics. Keystroke
+  // Records only count days that could actually score on all three metrics. Keystroke
   // tracking started 2026-08-29; every day before it is missing a whole gating metric,
   // so letting those days hold the high score would set a bar the new scorecard can
   // never fairly beat. Berto's call (2026-08-30) when the metric was swapped in.
@@ -706,62 +518,19 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
 export type MetricPatch = {
   steps?: number | null;
   sleep_minutes?: number | null;
-  readwise_notes?: number | null;
-  portfolio?: number | null;
 };
 
 /**
  * Upsert one day's manual/synced numbers. Only the fields present in `patch` move,
- * so a health sync writing steps can't blow away a fasting tap made an hour earlier.
+ * so a health sync writing steps can't blow away a correction made an hour earlier.
  */
 export async function recordMetrics(sql: Sql, date: string, patch: MetricPatch): Promise<void> {
   await sql`
-    INSERT INTO daily_metrics (recorded_date, steps, sleep_minutes, readwise_notes, portfolio)
-    VALUES (
-      ${date}::date,
-      ${patch.steps ?? null},
-      ${patch.sleep_minutes ?? null},
-      ${patch.readwise_notes ?? null},
-      ${patch.portfolio ?? null}
-    )
+    INSERT INTO daily_metrics (recorded_date, steps, sleep_minutes)
+    VALUES (${date}::date, ${patch.steps ?? null}, ${patch.sleep_minutes ?? null})
     ON CONFLICT (recorded_date) DO UPDATE SET
-      steps              = CASE WHEN ${patch.steps === undefined} THEN daily_metrics.steps ELSE EXCLUDED.steps END,
-      sleep_minutes      = CASE WHEN ${patch.sleep_minutes === undefined} THEN daily_metrics.sleep_minutes ELSE EXCLUDED.sleep_minutes END,
-      readwise_notes     = CASE WHEN ${patch.readwise_notes === undefined} THEN daily_metrics.readwise_notes ELSE EXCLUDED.readwise_notes END,
-      portfolio          = CASE WHEN ${patch.portfolio === undefined} THEN daily_metrics.portfolio ELSE EXCLUDED.portfolio END,
-      updated_at         = NOW()
-  `;
-}
-
-/**
- * Bump a day's notes-written count by however many new notes an import just added.
- * Additive rather than a replace-write, same reasoning as meditation/reading
- * sessions: a batch of clippings pasted at night shouldn't erase a count another
- * import already wrote that morning.
- */
-export async function incrementNotesWritten(sql: Sql, date: string, amount: number): Promise<void> {
-  if (amount <= 0) return;
-  await sql`
-    INSERT INTO daily_metrics (recorded_date, readwise_notes)
-    VALUES (${date}::date, ${amount})
-    ON CONFLICT (recorded_date) DO UPDATE SET
-      readwise_notes = COALESCE(daily_metrics.readwise_notes, 0) + ${amount},
+      steps          = CASE WHEN ${patch.steps === undefined} THEN daily_metrics.steps ELSE EXCLUDED.steps END,
+      sleep_minutes  = CASE WHEN ${patch.sleep_minutes === undefined} THEN daily_metrics.sleep_minutes ELSE EXCLUDED.sleep_minutes END,
       updated_at     = NOW()
-  `;
-}
-
-/**
- * The eating-window tap. Adds or removes the `fasted` rule on the nutrition day,
- * leaving the other three protocol rules exactly as they were — the scorecard is a
- * second door onto the same checkbox, not a competing record.
- */
-export async function setFastingHeld(sql: Sql, date: string, held: boolean): Promise<void> {
-  const rows = await sql`SELECT rules FROM nutrition_days WHERE logged_date = ${date}::date`;
-  const current = (rows[0]?.rules as string[] | undefined) ?? [];
-  const next = normalizeRules(held ? [...current, "fasted"] : current.filter((r) => r !== "fasted"));
-  await sql`
-    INSERT INTO nutrition_days (logged_date, rules, updated_at)
-    VALUES (${date}::date, ${next}, NOW())
-    ON CONFLICT (logged_date) DO UPDATE SET rules = EXCLUDED.rules, updated_at = NOW()
   `;
 }

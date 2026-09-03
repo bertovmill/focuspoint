@@ -2,7 +2,6 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db.js";
 import { parseClippings } from "../../lib/kindle-clippings.js";
-import { incrementNotesWritten } from "../../lib/scorecard.js";
 
 export default defineTool({
   description:
@@ -17,22 +16,18 @@ export default defineTool({
     const clippings = parseClippings(clippings_text);
     if (clippings.length === 0) return { imported: 0, total_parsed: 0 };
 
-    const insertedDates: string[] = [];
+    let imported = 0;
     for (const c of clippings) {
       const rows = await sql`
         INSERT INTO reading_notes (book_title, note, location, note_date)
         VALUES (${c.bookTitle}, ${c.note}, ${c.location}, ${c.date}::date)
         ON CONFLICT (book_title, note, note_date) DO NOTHING
-        RETURNING to_char(note_date, 'YYYY-MM-DD') AS date
+        RETURNING id
       `;
-      if (rows[0]) insertedDates.push(String(rows[0].date));
+      if (rows[0]) imported += 1;
     }
 
-    const byDate = new Map<string, number>();
-    for (const date of insertedDates) byDate.set(date, (byDate.get(date) ?? 0) + 1);
-    for (const [date, count] of byDate) await incrementNotesWritten(sql, date, count);
-
-    return { imported: insertedDates.length, total_parsed: clippings.length };
+    return { imported, total_parsed: clippings.length };
   },
   toModelOutput(output) {
     return {

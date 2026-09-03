@@ -4,6 +4,64 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-03 (chat) — scorecard cut back to three: Steps, Sleep, Keystrokes
+
+Berto, right after the reading-time/notes feature shipped: *"oh thats way too
+much effort"* → *"lets remove the reading measure, lets remove the fasting
+measure, lets instead just make it the 3 - keystrokes, steps, and sleep time.
+those are the three, make them left to right boxes."* Asked whether that meant
+trimming just those two or cutting the card down to only the three — he
+confirmed the aggressive read: drop fasting, reading, meditation, journal,
+portfolio, and notes-written entirely, and their widgets on the home screen.
+
+**What changed.**
+
+- `lib/scorecard.ts`: `MetricKey` is now `"steps" | "sleep_minutes" |
+  "keystrokes"` — full stop. Every metric gates the day (no more
+  tracked-but-not-scored tier), so `METRIC_WEIGHT` is 100/3 ≈ 33.3 each.
+  Dropped `toggle`/`money` metric kinds, `setFastingHeld`,
+  `incrementNotesWritten`, and the fasting/meditation/reading/journal/
+  readwise/portfolio joins out of `getScorecardSummary`.
+- `scorecard-card.tsx`: replaced the vertical divided-row list with a
+  `<MetricBox>` — three boxes, left to right, each with icon/label, the big
+  editable value, a progress bar, and its points share. Steps and sleep are
+  still click-to-correct; keystrokes stays read-only (Mac agent owns it).
+- **Deleted, not just unwired** — genuinely dead now that their only reason
+  to exist was feeding a metric that's gone:
+  - `app/_components/meditation-timer.tsx` + `app/api/meditation/` +
+    `lib/meditation.ts` + `lib/bells.ts` (bells were meditation-only)
+  - `app/_components/reading-timer.tsx` + `app/api/reading-time/` +
+    `lib/reading-time.ts` (last session's build — the reading-minutes timer)
+  - `lib/portfolio-sync.ts` + `app/api/portfolio/sync/` + `lib/snaptrade.ts`
+    (SnapTrade existed solely to fill the portfolio scorecard row)
+  - `lib/readwise.ts` + `lib/readwise-sync.ts` + `app/api/readwise/sync/`
+    (the original slow Readwise-API sync that started this whole thread —
+    turns out it's gone now too, for a different reason than expected)
+  - The `meditation_days`/`reading_days` table creation in `lib/db.ts`
+  - Removed the portfolio and Readwise sync blocks from
+    `agent/schedules/dispatcher.ts`'s daily tick
+- **Kept, deliberately**: `<DailyJournal>` (`app/_components/daily-journal.tsx`)
+  is unmounted from the home screen per his confirmed choice, but the
+  component/API weren't deleted — it's a real writing feature independent of
+  scoring, not a pure scorecard sensor like the two timers were. Also kept:
+  `reading_notes` table + `POST /api/reading-notes` + the
+  `import_reading_notes` chat tool from the prior session — the Kindle
+  clippings importer still works, it just no longer bumps a scorecard field
+  (`incrementNotesWritten` calls removed from both callers).
+- `agent/tools/log_metrics.ts` and `get_scorecard.ts` trimmed to match —
+  steps/sleep only, three keys in the spoken summary.
+
+**Verified**: `npm run typecheck` clean; live scorecard GET showed exactly
+3 metrics summing to the headline score (1.4 + 29.7 + 5.6 = 36.7); screenshot
+confirmed the three boxes render left to right as asked.
+
+**Not deployed** — Berto flagged the `vercel.json` swap + background deploy
+dance as too much effort right after asking for this, so this round stayed
+local: committed and pushed to `main`, not pushed to `cael-keystrokes`. Next
+session that touches this app should offer the deploy rather than assume it.
+
+---
+
 ## 2026-09-03 (chat) — reading time and notes, off the Readwise clock
 
 Berto: *"my readwise api doesnt reflect right away my reading notes on

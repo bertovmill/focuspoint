@@ -512,36 +512,6 @@ export async function ensureSchema() {
     )
   `;
 
-  // Meditation, one row per day. `minutes` is the *sum* of completed sessions, so a
-  // 10-minute sit in the morning and another after lunch make twenty — the scorecard
-  // asks for twenty minutes of meditation, not one twenty-minute block. `sessions`
-  // is kept because "20 minutes in one sit" and "20 in four" are different days and
-  // the number costs nothing to store.
-  //
-  // Only *completed* time is written: the timer posts when a session ends or is
-  // stopped early, never while it runs, so a browser tab left open on a paused timer
-  // can never inflate the day.
-  await sql`
-    CREATE TABLE IF NOT EXISTS meditation_days (
-      logged_date DATE PRIMARY KEY,
-      minutes INTEGER NOT NULL DEFAULT 0,
-      sessions INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
-  // Reading time, one row per day — same shape as meditation_days and for the same
-  // reason: Kindle exposes no reading-session API, so the timer in
-  // app/_components/reading-timer.tsx is both the tool and the sensor.
-  await sql`
-    CREATE TABLE IF NOT EXISTS reading_days (
-      logged_date DATE PRIMARY KEY,
-      minutes INTEGER NOT NULL DEFAULT 0,
-      sessions INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
   // Reading notes, imported from Kindle's local `My Clippings.txt` (read.amazon.com/notebook
   // and Readwise both source from the same clippings — this just skips their sync lag by
   // reading the file directly off the device). `note_date` is the date Kindle stamped on the

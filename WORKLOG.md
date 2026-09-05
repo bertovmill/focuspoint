@@ -7464,3 +7464,12 @@ Files: `package.json`, `package-lock.json`, `vercel.json` (deleted), `agent/agen
 `hooks/use-thread-agent.ts`, `hooks/use-resume-turn.ts`, `hooks/use-eve-runtime.ts`,
 `app/_components/agent-chat.tsx`, `app/_components/threads-provider.tsx`,
 `middleware.ts`, `scripts/deploy-bertoaucctus.sh`.
+
+## 2026-09-05 — Deploy script retired (post eve 0.52)
+
+Deploying the Konsta commit through `scripts/deploy-bertoaucctus.sh` failed the
+build: another session had just landed the eve 0.18 → 0.52 upgrade (`580545c`),
+which deletes `vercel.json` and puts `runtime: "nodejs"` in `middleware.ts`
+itself — so the script's patch produced a duplicate `runtime` key. The script now
+refuses to run when `vercel.json` isn't tracked and prints the plain command.
+Deploy is now just `vercel --prod --yes --scope bertoaucctus`.

@@ -12,6 +12,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# OBSOLETE since the eve 0.52 upgrade (2026-09-05): vercel.json is gone from the
+# repo (withEve generates the services block) and middleware.ts already sets the
+# Node runtime, so the patch below would write a stray vercel.json and a duplicate
+# `runtime` key — which is exactly what broke a build today. Plain deploy instead.
+if ! git ls-files --error-unmatch vercel.json >/dev/null 2>&1; then
+  echo "vercel.json is no longer tracked — this script is obsolete." >&2
+  echo "Deploy with:  vercel --prod --yes --scope bertoaucctus" >&2
+  exit 1
+fi
+
 if [ -e vercel.json ]; then
   echo "vercel.json exists — eve generates the services config itself; remove it first." >&2
   exit 1

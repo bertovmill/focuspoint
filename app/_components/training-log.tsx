@@ -216,7 +216,8 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
         spellCheck
         rows={3}
         className={cn(
-          "w-full resize-y bg-transparent text-sm leading-relaxed outline-none",
+          // 16px on purpose: typed on a phone, and under 16px iOS zooms on focus.
+          "w-full resize-y bg-transparent text-base leading-7 outline-none",
           "placeholder:text-muted-foreground/50 placeholder:leading-relaxed",
           loading && "opacity-0",
         )}
@@ -234,10 +235,10 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
                 h.logged_date === date && "bg-accent/40",
               )}
             >
-              <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-14 pt-px">
+              <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-14 pt-0.5">
                 {shortLabel(h.logged_date)}
               </span>
-              <span className="text-xs text-foreground/80 truncate">
+              <span className="text-sm text-foreground/80 truncate">
                 {h.note.replace(/\s+/g, " ")}
               </span>
             </button>

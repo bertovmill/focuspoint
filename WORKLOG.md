@@ -7321,3 +7321,19 @@ restored today's entry to exactly what it was and confirmed the habit went back 
 
 Files: `app/_components/daily-journal.tsx`, `app/_components/home-screen.tsx`,
 `lib/habits.ts`, `WORKLOG.md`.
+
+## 2026-09-05 — Bigger type in the journal and training log (phone)
+
+His feedback with a phone screenshot: *"a little bit tight font for me, remember
+im mostly going to be using cael on my phone."* The two writing surfaces were 14px.
+
+- `.journal-prose` (the tiptap editor) → 16px / 1.75 line-height; h1/h2 scaled up
+  to match. Min height 12rem.
+- Training log textarea → `text-base leading-7`. History rows `text-xs` → `text-sm`,
+  the date column and the journal word counter `11px` → `text-xs`.
+- 16px is also the iOS threshold below which Safari zooms the page on focus, so
+  this fixes that jump too.
+
+Checked at iPhone 14 viewport on `:3789`. `npx tsc --noEmit` clean.
+
+Files: `app/globals.css`, `app/_components/daily-journal.tsx`, `app/_components/training-log.tsx`.

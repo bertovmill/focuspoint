@@ -157,7 +157,7 @@ export function DailyJournal() {
     ],
     editorProps: {
       attributes: {
-        class: "journal-prose focus:outline-none min-h-[10rem]",
+        class: "journal-prose focus:outline-none min-h-[12rem]",
       },
     },
     onUpdate({ editor }) {
@@ -390,7 +390,7 @@ export function DailyJournal() {
           </div>
           <span
             className={cn(
-              "inline-flex items-center gap-1 text-[11px] tabular-nums shrink-0",
+              "inline-flex items-center gap-1 text-xs tabular-nums shrink-0",
               goalMet ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
             )}
           >

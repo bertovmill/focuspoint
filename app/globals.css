@@ -421,20 +421,22 @@
  * article, so the scale between H1 and body is small.
  */
 .journal-prose {
-  font-size: 0.875rem;
-  line-height: 1.65;
+  /* 16px, not 14: this is written on a phone with thumbs. Under 16px iOS also zooms
+     the page on focus, which is its own kind of tight. */
+  font-size: 1rem;
+  line-height: 1.75;
 }
 .journal-prose > * + * {
   margin-top: 0.6em;
 }
 .journal-prose h1 {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
   font-weight: 600;
   line-height: 1.3;
   margin-top: 1.2em;
 }
 .journal-prose h2 {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.35;
   margin-top: 1.1em;

@@ -7560,3 +7560,11 @@ Files: `app/_components/agent-chat.tsx`, `components/chat/*` (new),
 `components/ai-elements/*` (new), `components/ui/scroll-area.tsx` (new),
 `components/assistant-ui/*` (deleted), `hooks/use-eve-runtime.ts` (deleted),
 `package.json`, `package-lock.json`.
+
+## 2026-09-05 — Keystrokes target to 30k
+
+- **Keystrokes 100% = 30,000** (was 50k, set earlier today; 100k before that). His
+  words: *"change our goal for the keystrokes from 50k to 30k"*. Same single-line
+  change as last time: only the default in `lib/scorecard.ts`; still no
+  `scorecard_targets` override row in `app_settings`, so the default is what's live.
+  Past days rescore against the lower bar, so the history strip shifts up again.

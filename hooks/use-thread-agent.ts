@@ -161,15 +161,21 @@ export function useThreadAgent(
   latestRef.current = { agent, saveSnapshot, threadId };
 
   // Fresh mount after a stale session: send the message that failed, now that
-  // there is no session pinned and the store will create one.
+  // there is no session pinned and the store will create one. Deferred a tick
+  // for the same reason the chat's initialMessage is: dev strict mode mounts
+  // twice, and a send fired on the first pass is aborted by the simulated
+  // unmount, taking the pending message with it.
   useEffect(() => {
-    const pending = pendingResend.get(threadId);
-    if (!pending) return;
-    pendingResend.delete(threadId);
-    const { message, inputResponses: _ignored, ...rest } = pending;
-    if (message === undefined) return;
-    void latestRef.current.agent.send(message, rest);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!pendingResend.has(threadId)) return;
+    const timer = setTimeout(() => {
+      const pending = pendingResend.get(threadId);
+      if (!pending) return;
+      pendingResend.delete(threadId);
+      const { message, inputResponses: _ignored, ...rest } = pending;
+      if (message === undefined) return;
+      void latestRef.current.agent.send(message, rest);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [threadId]);
   eventCountRef.current = agent.events.length;
 

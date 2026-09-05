@@ -13,6 +13,9 @@
 
 import { dayKey } from "@/lib/streak";
 
+/** Words per day that count as having journalled. The editor's counter imports this too. */
+export const JOURNAL_WORD_GOAL = 250;
+
 export type HabitKey = "read" | "meditate" | "journal";
 
 export type HabitDef = {
@@ -26,7 +29,7 @@ export type HabitDef = {
 export const HABITS: HabitDef[] = [
   { key: "read", label: "Read", hint: "A Kindle note today", manual: false },
   { key: "meditate", label: "Meditate", hint: "Tap when done", manual: true },
-  { key: "journal", label: "Journal", hint: "Wrote in today's journal", manual: false },
+  { key: "journal", label: "Journal", hint: "250 words in today's journal", manual: false },
 ];
 
 export type HabitsToday = Record<HabitKey, boolean>;
@@ -38,7 +41,10 @@ export async function getHabitsToday(sql: Sql, date?: string): Promise<HabitsTod
 
   const [notes, journal, manualRows] = await Promise.all([
     sql`SELECT 1 FROM reading_notes WHERE note_date = ${today}::date LIMIT 1`,
-    sql`SELECT 1 FROM daily_journal WHERE entry_date = ${today}::date AND length(trim(content)) > 0 LIMIT 1`,
+    // Same bar as the editor's word counter: 250 words. Counted in SQL so a long
+    // entry never crosses the wire just to be measured.
+    sql`SELECT 1 FROM daily_journal WHERE entry_date = ${today}::date
+        AND array_length(regexp_split_to_array(trim(content), '\\s+'), 1) >= ${JOURNAL_WORD_GOAL} LIMIT 1`,
     sql`SELECT meditated FROM daily_habits WHERE habit_date = ${today}::date`,
   ]);
 

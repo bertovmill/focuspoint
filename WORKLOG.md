@@ -7289,3 +7289,35 @@ Files: `lib/habits.ts`, `app/_components/habit-row.tsx`, `app/api/habits/route.t
   current one.
 
 Files: `lib/scorecard.ts`.
+
+## 2026-09-05 — Daily journal back on the home page, with a 250-word goal
+
+His ask: *"on the main page after training journal, there should be daily journal
+with a goal of just writing 250 words of whats on my mind."*
+
+The tiptap journal editor (`daily-journal.tsx`, `/api/daily-journal`, the
+`daily_journal` table) all still existed — the card had just been dropped from
+`home-screen.tsx` in the Sep 3 scorecard cut (`aabb5c4`), which also left the habit
+row's "Journal" check pointing at a card nobody could see. So:
+
+- **Re-mounted `<DailyJournal />`** directly under the Training log section (before
+  the numeric Training chart). Section label is now "Daily journal".
+- **250-word target.** New footer on the card: a thin progress bar that fills as he
+  types plus a `n / 250 words` count; at 250 the bar and count turn green with a
+  check. It's a floor, not a cap — nothing stops him past it. Placeholder now reads
+  *"What's on your mind? 250 words, no editing."*
+- **Habit row agrees with the bar.** `JOURNAL_WORD_GOAL = 250` lives in
+  `lib/habits.ts` and the editor imports it. The "Journal" habit previously ticked
+  on any non-empty entry; it now ticks at ≥250 words, counted in SQL
+  (`regexp_split_to_array`) so the entry text never crosses the wire just to be
+  measured. Hint text updated to "250 words in today's journal".
+
+**Verified** on a private `:3789` server with Playwright against live data: section
+order Training log → Daily journal → Training; counter read `0 / 250 words` on
+today's (empty) entry; after PUTting a 250-word entry the counter read
+`250 / 250 words` with the green check and `/api/habits` flipped `journal: true`;
+restored today's entry to exactly what it was and confirmed the habit went back to
+`false`. `npx tsc --noEmit` clean.
+
+Files: `app/_components/daily-journal.tsx`, `app/_components/home-screen.tsx`,
+`lib/habits.ts`, `WORKLOG.md`.

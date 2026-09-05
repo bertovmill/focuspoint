@@ -25,6 +25,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { todayISO } from "@/lib/nutrition";
+// The daily target: 250 words of whatever is on his mind. Small on purpose — the
+// point is to sit down and write every day, not to write a lot. Shared with the
+// habit row's "Journal" check so the bar and the checkmark always agree.
+import { JOURNAL_WORD_GOAL } from "@/lib/habits";
 import { cn } from "@/lib/utils";
 
 /** Shift a YYYY-MM-DD string by whole days without going through UTC. */
@@ -58,6 +62,11 @@ function toMarkdown(editor: Editor): string {
 }
 
 const AUTOSAVE_MS = 900;
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
 
 function ToolbarButton({
   editor,
@@ -143,7 +152,7 @@ export function DailyJournal() {
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: "How did today actually go?" }),
+      Placeholder.configure({ placeholder: "What's on your mind? 250 words, no editing." }),
       Markdown.configure({ transformPastedText: true, breaks: true }),
     ],
     editorProps: {
@@ -219,11 +228,14 @@ export function DailyJournal() {
   }, [editor, save]);
 
   const isToday = date === todayISO();
+  const words = editor && !loading ? countWords(editor.getText()) : 0;
+  const goalMet = words >= JOURNAL_WORD_GOAL;
+  const progress = Math.min(1, words / JOURNAL_WORD_GOAL);
 
   return (
     <div className="mb-6">
       <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
-        Journal
+        Daily journal
       </p>
       <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
         <div className="flex items-center gap-1 border-b pb-2.5 mb-3">
@@ -355,6 +367,37 @@ export function DailyJournal() {
         ) : (
           <EditorContent editor={editor} />
         )}
+
+        {/* The 250-word target. A thin bar that fills as he types and a count next to
+            it; at 250 the count turns green and gets a check. Nothing blocks past the
+            goal — it's a floor, not a ceiling. */}
+        <div
+          className="mt-3 flex items-center gap-3 border-t pt-2.5"
+          role="progressbar"
+          aria-label="Words written today"
+          aria-valuemin={0}
+          aria-valuemax={JOURNAL_WORD_GOAL}
+          aria-valuenow={Math.min(words, JOURNAL_WORD_GOAL)}
+        >
+          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-[width] duration-300",
+                goalMet ? "bg-emerald-500" : "bg-foreground/60",
+              )}
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-[11px] tabular-nums shrink-0",
+              goalMet ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+            )}
+          >
+            {goalMet && <CheckIcon className="size-3" />}
+            {words} / {JOURNAL_WORD_GOAL} words
+          </span>
+        </div>
       </Card>
     </div>
   );

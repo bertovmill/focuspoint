@@ -38,6 +38,7 @@ import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { TrainingLog } from "@/app/_components/training-log";
+import { DailyJournal } from "@/app/_components/daily-journal";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { currentSlot } from "@/lib/nutrition";
@@ -502,6 +503,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </p>
           <TrainingLog />
         </div>
+
+        {/* Daily journal — 250 words of whatever is on his mind, right under the
+            training log. The word target lives in daily-journal.tsx. */}
+        <DailyJournal />
 
         {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
         {workoutLogs.length > 0 && (

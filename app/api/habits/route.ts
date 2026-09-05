@@ -21,6 +21,7 @@ export async function PATCH(req: Request) {
     const sql = getDb();
 
     if (typeof body.meditate === "boolean") await setHabit(sql, "meditate", body.meditate);
+    if (typeof body.window === "boolean") await setHabit(sql, "window", body.window);
 
     return NextResponse.json(await getHabitsToday(sql));
   } catch (err) {

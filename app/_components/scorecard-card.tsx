@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
  *
  * Drawn as three Fitbit/Google-Fit-style progress rings (2026-09-03, his ask) rather
  * than the old stacked boxes, with a second unscored row of core habits — read,
- * meditate, journal — underneath (see ActivityRings and HabitRow).
+ * meditate, journal, 12–8 window — underneath (see ActivityRings and HabitRow).
  */
 
 /** How each tier reads at a glance — cold is quiet, legendary is loud. */

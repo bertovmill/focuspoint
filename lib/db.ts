@@ -568,4 +568,7 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // 12–8 eating window (2026-09-05). Not the old fasted_til_noon: that was the
+  // morning half only; this is the whole window, so it is its own flag.
+  await sql`ALTER TABLE daily_habits ADD COLUMN IF NOT EXISTS ate_in_window BOOLEAN NOT NULL DEFAULT FALSE`;
 }

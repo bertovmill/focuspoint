@@ -225,17 +225,16 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
         )}
       />
 
-      {history.length > 0 && (
+      {/* The open day lives in the textarea above, so it is left out of the list —
+          otherwise today's note shows twice on the card. */}
+      {history.some((h) => h.logged_date !== date) && (
         <div className="mt-3 border-t pt-3 max-h-56 overflow-y-auto">
-          {history.map((h) => (
+          {history.filter((h) => h.logged_date !== date).map((h) => (
             <button
               key={h.logged_date}
               type="button"
               onClick={() => setDate(h.logged_date)}
-              className={cn(
-                "w-full text-left flex gap-3 py-1.5 rounded-md px-1 -mx-1 hover:bg-accent/50 transition-colors",
-                h.logged_date === date && "bg-accent/40",
-              )}
+              className="w-full text-left flex gap-3 py-1.5 rounded-md px-1 -mx-1 hover:bg-accent/50 transition-colors"
             >
               <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-14 pt-0.5">
                 {shortLabel(h.logged_date)}

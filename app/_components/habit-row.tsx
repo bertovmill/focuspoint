@@ -1,25 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpenIcon, CheckIcon, NotebookPenIcon, SparklesIcon } from "lucide-react";
+import { BookOpenIcon, CheckIcon, NotebookPenIcon, SparklesIcon, UtensilsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { HABITS, type HabitKey, type HabitsToday } from "@/lib/habits";
 import { cn } from "@/lib/utils";
 
 /**
- * Second row on the scorecard: the three core habits (read, meditate, journal) as a
- * plain checklist — no points, just done/not done. Berto's ask (2026-09-03): "a
- * second row for core habits"; fast-til-noon came off on 2026-09-05. Read and
- * journal are derived from data already logged elsewhere; meditate is tapped here.
+ * Second row on the scorecard: the core habits (read, meditate, journal, 12–8
+ * eating window) as a plain checklist — no points, just done/not done. Berto's ask
+ * (2026-09-03): "a second row for core habits"; fast-til-noon came off on
+ * 2026-09-05 and the 12–8 window went on the same day. Read and journal are derived
+ * from data already logged elsewhere; meditate and the window are tapped here.
  */
 
 const ICONS: Record<HabitKey, typeof BookOpenIcon> = {
   read: BookOpenIcon,
   meditate: SparklesIcon,
   journal: NotebookPenIcon,
+  window: UtensilsIcon,
 };
 
-/** One colour per habit, like the rings above — amber, teal, rose. */
+/** One colour per habit, like the rings above — amber, teal, rose, lime. */
 const PALETTE: Record<HabitKey, { tile: string; doneTile: string; icon: string; text: string }> = {
   read: {
     tile: "bg-amber-500/[0.07]",
@@ -38,6 +40,12 @@ const PALETTE: Record<HabitKey, { tile: string; doneTile: string; icon: string; 
     doneTile: "bg-rose-500/15 ring-1 ring-rose-500/40",
     icon: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
     text: "text-rose-700 dark:text-rose-400",
+  },
+  window: {
+    tile: "bg-lime-500/[0.07]",
+    doneTile: "bg-lime-500/15 ring-1 ring-lime-500/40",
+    icon: "bg-lime-500/15 text-lime-700 dark:text-lime-400",
+    text: "text-lime-700 dark:text-lime-400",
   },
 };
 

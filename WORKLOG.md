@@ -7568,3 +7568,30 @@ Files: `app/_components/agent-chat.tsx`, `components/chat/*` (new),
   change as last time: only the default in `lib/scorecard.ts`; still no
   `scorecard_targets` override row in `app_settings`, so the default is what's live.
   Past days rescore against the lower bar, so the history strip shifts up again.
+
+## 2026-09-05 — Training log shown once; 12–8 eating window habit
+
+Berto, with a screenshot of the home card: *"we have two training log entries for
+the day"* and *"add one more binary habit which is 12-8 eating window."*
+
+**The training log wasn't duplicated in the database** — `workout_notes` is keyed
+on the day, so there can only ever be one row. It was the card showing the open
+day twice: once in the textarea and again as the first row of the history list
+under it. The list now leaves out whichever day is open in the editor (today by
+default), and the "current row" highlight went with it since that row no longer
+exists. Walk back to Sep 3 and Sep 5 reappears in the list while Sep 3 drops out.
+
+**12–8 window** is a fourth tile on the habit row, a manual tap like Meditate,
+lime-coloured with a utensils icon. It is stored in a new `daily_habits.ate_in_window`
+column — not the old `fasted_til_noon` one, which only ever covered the morning
+half; this is the whole window (noon to 8pm), so it is its own flag. The column
+was added to the live Neon DB by hand and `ensureSchema()` carries the same
+`ADD COLUMN IF NOT EXISTS` for fresh setups. PATCH `/api/habits` accepts `window`.
+
+**Verified** on a private `:3789` server: tapped the tile via Playwright, `/api/habits`
+went `window: true`, tile showed the check, reverted to `false` afterwards. Body
+text contained today's note zero times outside the textarea. `npm run typecheck` clean.
+
+Files: `lib/habits.ts`, `lib/db.ts`, `app/api/habits/route.ts`,
+`app/_components/habit-row.tsx`, `app/_components/training-log.tsx`,
+`app/_components/scorecard-card.tsx`, `WORKLOG.md`.

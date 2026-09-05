@@ -4,18 +4,15 @@ import { useEveAgent, type EveMessagePart } from "eve/react";
 import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { type MutableRefObject, useEffect, useRef, useState } from "react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { requestNewChat } from "@/app/_components/new-chat-event";
 import { TracePanel } from "@/app/_components/trace-panel";
-import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
-import { Thread } from "@/components/assistant-ui/thread";
-import { useEveRuntime } from "@/hooks/use-eve-runtime";
+import { EveComposer } from "@/components/chat/eve-composer";
+import { EveThread, type SentFile } from "@/components/chat/eve-thread";
 import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
 import { useThreadAgent } from "@/hooks/use-thread-agent";
-import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { cn } from "@/lib/utils";
 
@@ -101,7 +98,16 @@ function ChatSession({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const runtime = useEveRuntime(agent);
+  // Files attached to outgoing messages, by message index. eve keeps only a
+  // text summary of attachments, so previews in the thread come from here for
+  // the life of this chat session.
+  const sentFilesRef = useRef(new Map<number, readonly SentFile[]>());
+  const [, bumpSentFiles] = useState(0);
+  const rememberSentFiles = useCallback((index: number, files: readonly SentFile[]) => {
+    if (files.length === 0) return;
+    sentFilesRef.current.set(index, files);
+    bumpSentFiles((n) => n + 1);
+  }, []);
 
   const lastMsg = agent.data.messages.at(-1);
   const stoppedAfterTools =
@@ -160,8 +166,7 @@ function ChatSession({
               </Tooltip>
             </TooltipProvider>
           )}
-          <CaelAvatar size={40} active={agent.status === "submitted" || agent.status === "streaming"} />
-          <span className="truncate text-muted-foreground text-sm">Cael</span>
+          <span className="truncate pl-1 text-sm font-medium">Cael</span>
           <StatusDot status={agent.status} />
         </span>
         <span className="flex items-center gap-1">
@@ -217,12 +222,17 @@ function ChatSession({
         </div>
       ) : null}
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <AssistantRuntimeProvider runtime={runtime}>
-          {/* Registers the in-chat calendar widget for list_calendar_events. */}
-          <CalendarToolUI />
-          <Thread components={{ Welcome: PersonalizedWelcome }} />
-        </AssistantRuntimeProvider>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1">
+          <EveThread
+            agent={agent}
+            sentFiles={sentFilesRef.current}
+            welcome={<PersonalizedWelcome />}
+          />
+        </div>
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
+          <EveComposer agent={agent} onSend={rememberSentFiles} />
+        </div>
       </div>
 
       {/* Mobile chat-history overlay */}

@@ -7506,3 +7506,57 @@ Verified on `:3789` at iPhone 14 and Pixel 7 widths and on desktop, no page erro
 Files: `app/globals.css`, `app/(app)/layout.tsx`, `activity-rings.tsx`,
 `habit-row.tsx`, `scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`,
 `home-screen.tsx`.
+
+## 2026-09-05 — Chat rebuilt on Vercel AI Elements; wizard avatar out of the chat header
+
+Berto: *"remove the little wizard icon, lets instead use the latest vercel ai
+elements to make this chat experience as cutting edge as possible."*
+
+**What changed.** The chat no longer goes through assistant-ui. eve 0.52's
+`defaultMessageReducer` already projects `agent.data.messages` in the AI SDK
+`parts[]` shape that AI Elements renders, so the runtime adapter
+(`hooks/use-eve-runtime.ts`) and the whole `components/assistant-ui/` tree are
+gone, along with the three `@assistant-ui/*` packages. In their place:
+
+- `components/chat/eve-thread.tsx` — `Conversation` + `Message`/`MessageResponse`
+  (Streamdown markdown, GFM, math, code blocks), consolidated `Reasoning` that
+  auto-opens while thinking, `Tool` cards for every `dynamic-tool` part (collapsed
+  when done, open on error, JSON output in `CodeBlock`), the ported calendar card
+  for `list_calendar_events`, an authorization card for eve sign-in prompts, a
+  `Shimmer` "Cael is thinking…" line until the first visible part lands, a copy
+  action on assistant replies (always visible on the last one, hover on older),
+  `ConversationScrollButton`, and the welcome screen with `Suggestions`.
+- `components/chat/eve-composer.tsx` — `PromptInput` with drag-and-drop /
+  paste attachments (inline previews + remove), a screenshot action, the existing
+  app-wide `ModelPicker`, and a submit button that becomes stop while a turn runs
+  (`agent.cancel()`). Files go out as eve `file` parts (data URLs); images are
+  also parked in Blob and their public URL appended, as before.
+- `components/chat/calendar-tool.tsx` — the calendar card, now a plain component
+  taking the tool part's state and output.
+- `agent-chat.tsx` — `CaelAvatar` removed from the header (name + status dot
+  stay); keeps a per-session map of sent files by message index so previews
+  survive the send (eve stores only a text summary of attachments).
+- Installed via `npx shadcn add @ai-elements/…` (registry already in
+  `components.json`): conversation, message, prompt-input, attachments, tool,
+  reasoning, suggestion, shimmer, plus `code-block` and `ui/scroll-area` as deps.
+  Existing `components/ui/*` files were deliberately not overwritten.
+- `react-markdown` is now a direct dependency: it only reached `manual-panel.tsx`
+  transitively through assistant-ui.
+
+**Verified** on `:3789` with Playwright on a throwaway thread: empty state
+(greeting + suggestions), typed message, shimmer, a `list_calendar_events` tool
+card, streamed reply with copy button, no page or console errors; iPhone
+viewport under the Konsta tab bar looks right. Test thread deleted.
+
+**Gotcha for the next session:** a `next dev` on this checkout started
+answering 404 on every dynamic route (static files still 200) after other
+sessions committed and rebuilt underneath it; a plain restart fixed it.
+
+**Open question for Berto:** the wizard avatar still appears in the sidebar
+brand, the home screen card, the floating chat bar and the app layout. Only the
+chat header was asked for; the rest is one small pass if wanted.
+
+Files: `app/_components/agent-chat.tsx`, `components/chat/*` (new),
+`components/ai-elements/*` (new), `components/ui/scroll-area.tsx` (new),
+`components/assistant-ui/*` (deleted), `hooks/use-eve-runtime.ts` (deleted),
+`package.json`, `package-lock.json`.

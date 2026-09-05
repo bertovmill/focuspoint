@@ -13,4 +13,10 @@ export default defineAgent({
   // than that model can actually take.
   modelContextWindowTokens: 200_000,
   reasoning: "low",
+  // sharp ships a native binary per platform. Left to eve's bundler it gets
+  // inlined into the hosted function, which then can't find the Linux binary
+  // and dies at boot with FUNCTION_INVOCATION_FAILED on every route, health
+  // included (that is what killed the 0.49 attempt on 2026-09-02). Listing it
+  // here keeps it a normal Node dependency that eve traces into the output.
+  build: { externalDependencies: ["sharp"] },
 });

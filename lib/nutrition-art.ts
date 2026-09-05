@@ -1,6 +1,5 @@
 import { generateImage } from "ai";
 import { put } from "@vercel/blob";
-import sharp from "sharp";
 
 import { RULE_IMAGE_PROMPTS } from "./nutrition";
 
@@ -75,6 +74,10 @@ export async function generateMealImage(imagePrompt: string, slot: string) {
  * re-encoded to webp on the way in. Overwrites, so re-running is free.
  */
 async function upload(key: string, image: { base64: string; mediaType?: string }, width: number) {
+  // Loaded on demand rather than at module init: this module is pulled into
+  // the eve agent bundle via set_daily_meal, and a static import of a native
+  // package there is a boot-time crash if the platform binary is missing.
+  const { default: sharp } = await import("sharp");
   const webp = await sharp(Buffer.from(image.base64, "base64"))
     .resize(width, undefined, { withoutEnlargement: true })
     .webp({ quality: 82 })

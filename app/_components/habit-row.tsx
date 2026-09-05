@@ -104,20 +104,20 @@ export function HabitRow() {
             onClick={() => toggle(def)}
             title={def.hint}
             className={cn(
-              "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-colors",
+              "flex min-w-0 flex-1 flex-col items-center gap-2 rounded-3xl px-2 py-4 transition-colors",
               done ? c.doneTile : c.tile,
               def.manual && !done && "active:scale-95",
             )}
           >
             <span
               className={cn(
-                "flex size-8 shrink-0 items-center justify-center rounded-full",
+                "flex size-11 shrink-0 items-center justify-center rounded-full",
                 c.icon,
               )}
             >
-              {done ? <CheckIcon className="size-4" /> : <Icon className="size-4" />}
+              {done ? <CheckIcon className="size-5.5" /> : <Icon className="size-5.5" />}
             </span>
-            <span className={cn("truncate text-xs font-semibold leading-tight", c.text)}>
+            <span className={cn("truncate text-sm font-semibold leading-tight", c.text)}>
               {def.label}
             </span>
           </button>

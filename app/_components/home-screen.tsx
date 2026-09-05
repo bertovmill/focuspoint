@@ -514,7 +514,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
               Training
             </p>
-            <Card className="rounded-xl px-5 py-4 shadow-none">
+            <Card className="rounded-3xl px-5 py-5 shadow-none">
               <WorkoutChart logs={workoutLogs} />
             </Card>
           </div>

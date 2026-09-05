@@ -108,14 +108,19 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
-// The five tabs on the phone bar, in order. The rest are behind "More".
-const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon }[] = [
-  { tab: "home", label: "Home", icon: HomeIcon },
-  { tab: "chat", label: "Chat", icon: MessageCircleIcon },
-  { tab: "tasks", label: "Tasks", icon: ListTodoIcon },
-  { tab: "notes", label: "Notes", icon: FileTextIcon },
-  { tab: "lists", label: "Lists", icon: ListChecksIcon },
+/** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
+type TabColor = { text: string; pill: string };
+
+// The five tabs on the phone bar, in order, each in its own colour — the same
+// idea as the metric tiles. The rest are behind "More".
+const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color: TabColor }[] = [
+  { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
+  { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
+  { tab: "tasks", label: "Tasks", icon: ListTodoIcon, color: { text: "text-emerald-600 dark:text-emerald-400", pill: "bg-emerald-500/15" } },
+  { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },
+  { tab: "lists", label: "Lists", icon: ListChecksIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
 ];
+const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 
 // Konsta's defaults are iOS blue and Material purple; this is the app's terracotta
 // on the app's own surface, in both themes.
@@ -132,8 +137,45 @@ const TABBAR_LINK_COLORS = {
   textActiveIos: "text-primary",
   textMaterial: "text-muted-foreground",
   textActiveMaterial: "text-primary",
-  iconBgActiveMaterial: "bg-primary/15",
+  // The pill is drawn by TabIcon so it can slide between tabs; Konsta's own stays off.
+  iconBgActiveMaterial: "bg-transparent",
 };
+
+/**
+ * A tab's icon with the coloured pill behind it. The pill shares one `layoutId`
+ * across all six tabs, so it slides from the old tab to the new one instead of
+ * blinking. Sized for a thumb: 56×36 pill, 26px icon.
+ */
+function TabIcon({
+  icon: Icon,
+  color,
+  active,
+  reduceMotion,
+}: {
+  icon: typeof HomeIcon;
+  color: TabColor;
+  active: boolean;
+  reduceMotion?: boolean | null;
+}) {
+  return (
+    <span className="relative flex h-9 w-14 items-center justify-center">
+      {active && (
+        <motion.span
+          layoutId="mobileTabPill"
+          transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
+          className={cn("absolute inset-0 rounded-full", color.pill)}
+        />
+      )}
+      <motion.span
+        className="relative"
+        animate={reduceMotion ? undefined : { scale: active ? 1.12 : 1, y: active ? -1 : 0 }}
+        transition={NAV_SPRING}
+      >
+        <Icon className="size-6.5" strokeWidth={active ? 2.4 : 2} />
+      </motion.span>
+    </span>
+  );
+}
 
 const NAV_RAIL_STORAGE_KEY = "focuspoint:nav-rail-open";
 
@@ -444,24 +486,28 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         </div>
       </div>
 
-      {/* Mobile bottom navigation bar — Konsta's Tabbar, so it renders as a native
-          iOS tab bar on the phone and a Material one elsewhere (his ask, 2026-09-05).
-          Colours are overridden to the app's own palette; the "More" sheet is still
-          vaul, opened from the last tab. */}
+      {/* Mobile bottom navigation bar — Konsta's Tabbar as a floating pill above the
+          bottom edge, every tab in its own colour, and a filled pill that slides to
+          the active icon (his ask, 2026-09-05: "a more fun menu bar"). The "More"
+          sheet is still vaul, opened from the last tab. */}
       <Tabbar
         labels
         icons
-        className="fixed bottom-0 left-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden!"
+        className={cn(
+          "fixed inset-x-3 z-50 rounded-[2rem] border border-border/60 bg-background/90 shadow-lg shadow-black/10 backdrop-blur-md lg:hidden!",
+          "bottom-[calc(var(--mobile-nav-gap)_+_var(--safe-bottom))] w-auto!",
+        )}
         colors={TABBAR_COLORS}
+        innerClassName="h-17! rounded-[2rem] px-1"
       >
-        {MOBILE_TABS.map(({ tab, label, icon: Icon }) => (
+        {MOBILE_TABS.map(({ tab, label, icon: Icon, color }) => (
           <TabbarLink
             key={tab}
             active={mobileTab === tab}
             onClick={() => setMobileTab(tab)}
-            icon={<Icon className="size-6" />}
+            icon={<TabIcon icon={Icon} color={color} active={mobileTab === tab} reduceMotion={reduceMotion} />}
             label={label}
-            colors={TABBAR_LINK_COLORS}
+            colors={{ ...TABBAR_LINK_COLORS, textActiveIos: color.text, textActiveMaterial: color.text }}
             className="min-w-0 flex-1 basis-0 px-0!"
           />
         ))}
@@ -469,9 +515,16 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           <DrawerTrigger asChild>
             <TabbarLink
               active={MORE_TABS.some((t) => t.tab === mobileTab)}
-              icon={<MoreHorizontalIcon className="size-6" />}
+              icon={
+                <TabIcon
+                  icon={MoreHorizontalIcon}
+                  color={MORE_COLOR}
+                  active={MORE_TABS.some((t) => t.tab === mobileTab)}
+                  reduceMotion={reduceMotion}
+                />
+              }
               label="More"
-              colors={TABBAR_LINK_COLORS}
+              colors={{ ...TABBAR_LINK_COLORS, textActiveIos: MORE_COLOR.text, textActiveMaterial: MORE_COLOR.text }}
               className="min-w-0 flex-1 basis-0 px-0!"
             />
           </DrawerTrigger>

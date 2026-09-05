@@ -85,7 +85,7 @@ function ToolbarButton({
     <Button
       type="button"
       variant="ghost"
-      size="icon-xs"
+      size="icon-sm"
       aria-label={label}
       aria-pressed={isActive}
       // Mousedown, not click: the editor must not lose the selection before the
@@ -100,7 +100,7 @@ function ToolbarButton({
         isActive && "bg-accent text-foreground",
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-4" />
     </Button>
   );
 }
@@ -237,29 +237,29 @@ export function DailyJournal() {
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
         Daily journal
       </p>
-      <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
+      <Card className="rounded-3xl px-5 py-5 shadow-none gap-0">
         <div className="flex items-center gap-1 border-b pb-2.5 mb-3">
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Previous day"
             onClick={() => setDate((d) => addDays(d, -1))}
             className="text-muted-foreground"
           >
-            <ChevronLeftIcon className="size-3.5" />
+            <ChevronLeftIcon className="size-5" />
           </Button>
-          <span className="text-sm font-medium">{dayLabel(date)}</span>
+          <span className="text-base font-semibold">{dayLabel(date)}</span>
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Next day"
             disabled={isToday}
             onClick={() => setDate((d) => addDays(d, 1))}
             className="text-muted-foreground"
           >
-            <ChevronRightIcon className="size-3.5" />
+            <ChevronRightIcon className="size-5" />
           </Button>
           {!isToday && (
             <Button

@@ -267,12 +267,12 @@ export function ScorecardCard() {
           Winning day
         </p>
         {googleConnected ? (
-          <Button variant="ghost" size="sm" onClick={sync} disabled={syncing} className="h-7 gap-1.5 text-xs">
-            {syncing ? <Loader2Icon className="size-3 animate-spin" /> : <RefreshCwIcon className="size-3" />}
+          <Button variant="secondary" size="sm" onClick={sync} disabled={syncing} className="h-9 gap-1.5 rounded-full px-4 text-sm">
+            {syncing ? <Loader2Icon className="size-4 animate-spin" /> : <RefreshCwIcon className="size-4" />}
             Sync
           </Button>
         ) : (
-          <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-xs">
+          <Button variant="outline" size="sm" asChild className="h-9 gap-1.5 rounded-full px-4 text-sm">
             <a href="/api/health/connect">
               <ActivityIcon className="size-3" />
               Connect watch
@@ -283,7 +283,7 @@ export function ScorecardCard() {
 
       <Card
         className={cn(
-          "rounded-xl px-5 py-4 shadow-none gap-0 transition-colors",
+          "rounded-3xl px-5 py-5 shadow-none gap-0 transition-colors",
           beatingBest && "border-amber-500/50 bg-amber-500/[0.03]",
         )}
       >
@@ -335,7 +335,7 @@ export function ScorecardCard() {
         </div>
 
         {/* How close today is to toppling it. */}
-        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
           <span
             className={cn(
               "block h-full rounded-full transition-[width] duration-500",

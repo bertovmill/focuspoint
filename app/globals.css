@@ -66,9 +66,10 @@
      silently drops the whole declaration when it meets a bare `env()` inside one.
      Behind a `var()` it leaves the calc alone. */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* 5rem: Konsta's material tab bar is 80px tall with icons + labels; iOS is 64px
-     plus a 16px bottom inset. One height covers both. */
+  /* The floating pill tab bar: 4.25rem of bar, 0.75rem of air under it, plus the
+     home indicator. Content scrolls up to here, then stops. */
   --mobile-nav-h: calc(5rem + var(--safe-bottom));
+  --mobile-nav-gap: 0.75rem;
   /* ElevenLabs-inspired: near-white page, white cards, neutral grays, vibrant orange accent. */
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.09 0 0);
@@ -93,7 +94,10 @@
   --ring: oklch(0.55 0.13 38);
   --priority-high: oklch(0.58 0.22 27);
   --priority-urgent: oklch(0.55 0.25 15);
-  --radius: 0.5rem;
+  /* 0.875rem, up from 0.5rem — his call (2026-09-05): "more generously round at the
+     corners". Every shadcn control and card inherits it: rounded-lg is 14px,
+     rounded-xl 18px. */
+  --radius: 0.875rem;
   /* Measures chart palette — CVD-validated categorical pair + neutrals */
   --chart-essential: #2a78d6;
   --chart-discretionary: #1baf7a;

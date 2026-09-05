@@ -54,8 +54,8 @@ const PALETTE: Record<MetricKey, { ring: string; track: string; text: string; ti
   },
 };
 
-const SIZE = 76;
-const STROKE = 7;
+const SIZE = 88;
+const STROKE = 8;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -85,7 +85,7 @@ function Ring({
   };
 
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-2xl px-1 py-3", c.tile)}>
+    <div className={cn("flex min-w-0 flex-1 flex-col items-center gap-2 rounded-3xl px-1 py-4", c.tile)}>
       <div className="relative" style={{ width: SIZE, height: SIZE }}>
         <svg width={SIZE} height={SIZE} className="-rotate-90">
           <circle
@@ -112,11 +112,11 @@ function Ring({
         <span className="absolute inset-0 flex items-center justify-center">
           <span
             className={cn(
-              "flex size-9 items-center justify-center rounded-full",
+              "flex size-11 items-center justify-center rounded-full",
               isRecord ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : c.iconBg,
             )}
           >
-            <Icon className="size-4.5" />
+            <Icon className="size-5.5" />
           </span>
         </span>
         {isRecord && (
@@ -139,7 +139,7 @@ function Ring({
             if (e.key === "Escape") setEditing(false);
           }}
           placeholder={def.kind === "duration" ? "7h30" : ""}
-          className="w-20 rounded-md border border-border bg-background px-1.5 py-0.5 text-center text-sm font-semibold tabular-nums outline-none focus:border-foreground/40"
+          className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-center text-base font-semibold tabular-nums outline-none focus:border-foreground/40"
         />
       ) : (
         <button
@@ -153,7 +153,7 @@ function Ring({
           className={cn(
             // Value on one line, target on the next: at phone width "16,314 / 30,000"
             // wrapped mid-string and knocked the three columns out of line.
-            "flex flex-col items-center rounded-md px-1 py-0.5 text-center text-sm font-semibold leading-tight tabular-nums",
+            "flex flex-col items-center rounded-lg px-2 py-1 text-center text-base font-semibold leading-tight tabular-nums",
             editable && "hover:bg-background/60",
             "text-foreground",
           )}

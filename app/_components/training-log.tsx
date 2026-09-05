@@ -163,13 +163,13 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
   const isToday = date === todayISO();
 
   return (
-    <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
+    <Card className="rounded-3xl px-5 py-5 shadow-none gap-0">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
-            <DumbbellIcon className="size-4" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
+            <DumbbellIcon className="size-5" />
           </span>
-          <span className="text-sm font-medium truncate">{dayLabel(date)}</span>
+          <span className="text-base font-semibold truncate">{dayLabel(date)}</span>
           {saved && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <CheckIcon className="size-3" />
@@ -181,21 +181,21 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Previous day"
             onClick={() => setDate((d) => addDays(d, -1))}
           >
-            <ChevronLeftIcon className="size-4" />
+            <ChevronLeftIcon className="size-5" />
           </Button>
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Next day"
             disabled={isToday}
             onClick={() => setDate((d) => addDays(d, 1))}
           >
-            <ChevronRightIcon className="size-4" />
+            <ChevronRightIcon className="size-5" />
           </Button>
           {!isToday && (
             <Button

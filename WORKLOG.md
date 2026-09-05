@@ -7473,3 +7473,36 @@ which deletes `vercel.json` and puts `runtime: "nodejs"` in `middleware.ts`
 itself — so the script's patch produced a duplicate `runtime` key. The script now
 refuses to run when `vercel.json` isn't tracked and prints the plain command.
 Deploy is now just `vercel --prod --yes --scope bertoaucctus`.
+
+## 2026-09-05 — Rounder, bigger, and a floating colour tab bar
+
+His feedback with a phone screenshot: *"a little more generously round at the
+corners, and bigger buttons, i think a more fun menu bar would be great too."*
+He picked, when asked: colour per tab, floating pill bar.
+
+- **Radius**: `--radius` 0.5rem → 0.875rem in `globals.css`, so every shadcn control
+  and card rounds more. Home-screen cards are `rounded-3xl`; metric and habit tiles
+  too.
+- **Bigger**: rings 76 → 88px with a 44px icon disc; habit tiles taller with 44px
+  icon discs and 14px labels; ring values 16px; Sync / Connect watch are 36px
+  rounded pills; day-nav chevrons on the journal and training log are `icon-sm`
+  with 20px arrows; day label 16px semibold; score bar 10px tall.
+- **Tab bar** (`app/(app)/layout.tsx`): Konsta `Tabbar` now floats as a pill
+  (`fixed inset-x-3`, 2rem radius, blur, shadow) 0.75rem above the home indicator.
+  Each tab has its own colour — Home terracotta, Chat sky, Tasks emerald, Notes
+  amber, Lists violet, More slate — and a new `TabIcon` draws a filled pill behind
+  the active icon with a shared motion `layoutId`, so it slides between tabs.
+  `--mobile-nav-gap` (0.75rem) joins `--mobile-nav-h` (5rem) in `globals.css`.
+
+**Gotchas hit:** (1) a Tailwind arbitrary `calc()` needs `_` for spaces —
+`bottom-[calc(var(--a)_+_var(--b))]` — or the rule is dropped and the fixed bar
+lands at the top; (2) Turbopack served a stale `globals.css` (old `--mobile-nav-h`)
+until the dev server was restarted — if a CSS variable edit "doesn't apply",
+restart before debugging.
+
+Verified on `:3789` at iPhone 14 and Pixel 7 widths and on desktop, no page errors.
+`npx tsc --noEmit` clean.
+
+Files: `app/globals.css`, `app/(app)/layout.tsx`, `activity-rings.tsx`,
+`habit-row.tsx`, `scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`,
+`home-screen.tsx`.

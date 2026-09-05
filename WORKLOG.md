@@ -7387,3 +7387,80 @@ unchanged apart from the colour. No page errors. `npx tsc --noEmit` clean.
 Files: `package.json`, `package-lock.json`, `app/globals.css`, `app/(app)/layout.tsx`,
 `app/_components/konsta-app.tsx` (new), `activity-rings.tsx`, `habit-row.tsx`,
 `scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`.
+
+## 2026-09-05 — eve 0.18.2 → 0.52.1: Cael's chat is back in production
+
+Berto asked for "the latest eve changes" implemented. eve on npm was at 0.52.1
+(published 2026-09-04); the app was on 0.18.2, 34 minors behind, and every
+deploy of the original config had been refused since Aug 30 (`experimentalServices`
+gone). The 0.49 attempt on branch `eve-0.49-upgrade` typechecked, built, deployed
+and then died at runtime on every route. This pass jumps straight to 0.52.1 and
+finds why that happened.
+
+**Migration (re-applied from the 0.49 branch, all still valid on 0.52):**
+- `vercel.json` deleted — `withEve()` generates the `services` block into
+  `.vercel/output/config.json` at build time and throws if vercel.json declares
+  services itself.
+- `middleware.ts` → `runtime: "nodejs"` (services reject Edge output).
+- Client renames: `SessionState`→`ClientSessionState`, `client.session(x)`→
+  `client.sessions.attach(id, { streamIndex })`, `send({ message })`→`send(message)`,
+  `agent.stop()`→`await agent.cancel()`, `maxReconnectAttempts`→per-stream
+  `streamReconnectPolicy`. `continuationToken` no longer exists.
+- Schedule handler: `receive(channel, input)`→`to(channel, target).send(msg, opts)`.
+
+**Three things the 0.49 branch never found, all fixed:**
+
+1. **The runtime crash was `sharp`.** Vercel function logs:
+   `Could not load the "sharp" module using the linux-x64 runtime` at module init
+   → `FUNCTION_INVOCATION_FAILED` on `/eve/v1/health` and everything else.
+   eve's bundler (Nitro/rolldown) had inlined sharp — reached via
+   `set_daily_meal` → `lib/nutrition-art.ts` — into the function, where its native
+   binary is unreachable. Fix: `build: { externalDependencies: ["sharp"] }` in
+   `agent/agent.ts` (eve then traces `@img/sharp-linux-x64` into the output — the
+   build log lists it) **and** a lazy `await import("sharp")` inside `upload()` so
+   a missing binary can only ever fail an image upload, never boot.
+2. **Old threads crashed the whole chat page.** Threads saved under 0.18 carry a
+   session with no `sessionId` (only the dead continuation token), and 0.52's
+   `ClientSessions.attach(undefined)` throws `reading 'length'` inside
+   `useEveAgent`. `useThreadAgent` now only passes `initialSession` when it has an
+   ID; the old transcript still renders and is preserved on the next turn.
+3. **Stale sessions failed silently.** A fixed session ID the server no longer
+   holds (expired — 30 days by default — reset, or minted on another deployment,
+   which is exactly what a local-dev turn on the shared DB produces) answers
+   409 `session_not_active`, and the UI just sat there. 0.18's server used to open
+   a new session in that case. `useThreadAgent` now catches it, re-saves the
+   transcript with `session: null` (the provider sends an explicit null — an
+   `undefined` dropped the key and the PATCH route kept the old session), asks
+   `AgentChat` to remount via a `sessionEpoch` key, and the fresh mount resends
+   the message on a new session. The resend is deferred a tick, like
+   `initialMessage`, because dev strict mode's double mount aborted it otherwise.
+
+**Verified:**
+- Local `eve dev`: `/eve/v1/health` ready; a client turn completes; Playwright
+  types into the composer and the streamed reply renders, no console errors.
+- Thread seeded with 7 old-shape events → 16 after a turn, first message intact.
+- Thread seeded with a bogus session ID → four 409s, then `POST /eve/v1/session`
+  202, reply rendered, 16 events, live session saved.
+- **Production (cael-agent-seven):** health `{"ok":true,"status":"ready"}` and a
+  client turn answered `PONG` with `turn.completed` — first working Cael chat on
+  that deployment since Aug 30. Sidebar RSC *prefetches* show 404 in the console
+  there (`/family?_rsc=…`), but the pages themselves return 200; pre-existing
+  noise, not this change.
+
+**Housekeeping:** `scripts/deploy-bertoaucctus.sh` is now a plain
+`vercel --prod --yes --scope bertoaucctus` and refuses to run if a vercel.json
+exists — the old version *wrote* a services vercel.json + patched middleware and
+would now break the build (another session ran it mid-upgrade and left a
+duplicate `runtime` key behind for a few minutes).
+
+**Left for Berto:** my first smoke test landed in the real thread "Hi Cael. I'm
+hurting today…" (it was the newest, so the UI opened it). It had 0 events before
+(created 2026-09-03 while chat was dead), so nothing was lost, but it now holds
+one junk PONGUI turn and pointed at a local-dev session; the app will recover the
+session on the next send. Clearing the junk needed a write the sandbox refused.
+
+Files: `package.json`, `package-lock.json`, `vercel.json` (deleted), `agent/agent.ts`,
+`agent/schedules/dispatcher.ts`, `lib/nutrition-art.ts`, `lib/eve-client.ts`,
+`hooks/use-thread-agent.ts`, `hooks/use-resume-turn.ts`, `hooks/use-eve-runtime.ts`,
+`app/_components/agent-chat.tsx`, `app/_components/threads-provider.tsx`,
+`middleware.ts`, `scripts/deploy-bertoaucctus.sh`.

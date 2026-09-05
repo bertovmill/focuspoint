@@ -44,7 +44,7 @@ export function TaskUpdateLine({
     <div
       title={`${fromAgent ? "Update from an agent" : "Your update"}${age ? ` · ${age === "just now" ? age : `${age} ago`}` : ""}\n${body}`}
       className={cn(
-        "rounded-md border-l-2 px-1.5 py-1 text-[10px] leading-snug",
+        "rounded-md border-l-2 px-1.5 py-1 text-xs leading-snug",
         fromAgent
           ? "border-l-primary bg-primary/10 text-foreground/90"
           : "border-l-border bg-muted/60 text-muted-foreground",
@@ -53,7 +53,7 @@ export function TaskUpdateLine({
     >
       {/* Who and when on their own line, so the note itself gets the full width
           and can clamp cleanly instead of wrapping around a timestamp. */}
-      <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wide opacity-70">
+      <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide opacity-70">
         {fromAgent ? <BotIcon className="size-2.5 text-primary" /> : <UserIcon className="size-2.5" />}
         <span>{fromAgent ? "Agent" : "You"}</span>
         {age && <span className="tabular-nums normal-case">· {age}</span>}
@@ -131,7 +131,7 @@ export function TaskUpdateComposer({
             onClose();
           }
         }}
-        className="h-6 px-1 text-[11px]"
+        className="h-6 px-1 text-xs"
       />
     </div>
   );

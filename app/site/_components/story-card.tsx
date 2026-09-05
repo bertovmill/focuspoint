@@ -70,7 +70,7 @@ export function StoryCard({
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 font-mono text-[11px] tracking-wide text-white/75 backdrop-blur-sm"
+                  className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 font-mono text-xs tracking-wide text-white/75 backdrop-blur-sm"
                 >
                   {tag}
                 </span>

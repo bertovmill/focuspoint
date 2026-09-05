@@ -77,7 +77,7 @@ export function ProtocolChart({ days, window = 30 }: { days: NutritionDay[]; win
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Days on protocol</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Days on protocol</p>
           <p className="text-3xl font-semibold leading-none mt-1">
             {rate}
             <span className="text-base font-normal text-muted-foreground">%</span>
@@ -86,7 +86,7 @@ export function ProtocolChart({ days, window = 30 }: { days: NutritionDay[]; win
             {total > 0 ? `${kept} of ${total} days, all four rules kept` : "No days logged yet"}
           </p>
         </div>
-        <p className="text-[11px] text-muted-foreground text-right max-w-[46%] leading-snug">
+        <p className="text-xs text-muted-foreground text-right max-w-[46%] leading-snug">
           7-day rolling share of days where every rule held
         </p>
       </div>

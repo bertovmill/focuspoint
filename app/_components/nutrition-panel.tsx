@@ -345,7 +345,7 @@ export function NutritionPanel() {
           <div className="mt-3 space-y-3">
             {mealsByDay.map(([date, rows]) => (
               <div key={date}>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">{dayLabel(date)}</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{dayLabel(date)}</p>
                 <ul className="space-y-1">
                   {rows.map((m) => (
                     <li
@@ -376,7 +376,7 @@ export function NutritionPanel() {
       <section>
         <div className="flex items-baseline justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold">Energy staples</h2>
-          <p className="text-[11px] text-muted-foreground">Tap the cart to send one to Groceries</p>
+          <p className="text-xs text-muted-foreground">Tap the cart to send one to Groceries</p>
         </div>
         <div className="grid gap-1.5 sm:grid-cols-2">
           {staples.map((s) => (
@@ -441,7 +441,7 @@ export function NutritionPanel() {
       <section className="pb-4">
         <div className="flex items-baseline justify-between gap-2 mb-2">
           <h2 className="text-sm font-semibold">Food principles</h2>
-          <p className="text-[11px] text-muted-foreground">From your notes</p>
+          <p className="text-xs text-muted-foreground">From your notes</p>
         </div>
         <ul className="space-y-1.5">
           {shownPrinciples.map((p) => (
@@ -450,7 +450,7 @@ export function NutritionPanel() {
               {p.tags && p.tags.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {p.tags.slice(0, 5).map((t) => (
-                    <Badge key={t} variant="secondary" className="h-4 px-1.5 text-[10px] font-normal">
+                    <Badge key={t} variant="secondary" className="h-4 px-1.5 text-xs font-normal">
                       {t}
                     </Badge>
                   ))}

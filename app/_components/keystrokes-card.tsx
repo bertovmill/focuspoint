@@ -32,11 +32,11 @@ export function KeystrokesCard() {
 
   return (
     <div className="mb-6">
-      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">Keystrokes</p>
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Keystrokes</p>
       <Card className="rounded-xl shadow-none px-5 py-4 gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <KeyboardIcon className="size-3.5" />
               Typed today
             </span>
@@ -45,7 +45,7 @@ export function KeystrokesCard() {
             </span>
           </div>
           {data.hasData && (
-            <div className="text-right text-[11px] text-muted-foreground leading-tight">
+            <div className="text-right text-xs text-muted-foreground leading-tight">
               <span className="block">{data.dailyAverage.toLocaleString("en-CA")}/day avg</span>
               <span className="block">{data.windowTotal.toLocaleString("en-CA")} in 14d</span>
             </div>
@@ -55,7 +55,7 @@ export function KeystrokesCard() {
         {data.hasData ? (
           <Sparkline data={data.recent} unit="keys" mode="last" />
         ) : (
-          <p className="text-[11px] text-muted-foreground/70 italic">
+          <p className="text-xs text-muted-foreground/70 italic">
             No keystrokes counted yet — set up the local counter in <span className="font-mono">keystroke-agent/</span>.
           </p>
         )}

@@ -82,7 +82,7 @@ function StatTile({
 }) {
   return (
     <Card className="gap-1 rounded-lg px-3 py-2.5 shadow-none">
-      <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
+      <p className="text-xs text-muted-foreground leading-tight">{label}</p>
       <div className="flex items-end justify-between gap-2">
         <p className="text-lg font-semibold leading-none">
           {value}
@@ -145,7 +145,7 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
         <div>
           <div className="flex items-end justify-between gap-2 mb-1.5">
             <div>
-              <p className="text-[11px] text-muted-foreground">Total investments</p>
+              <p className="text-xs text-muted-foreground">Total investments</p>
               <p className="text-2xl font-semibold leading-tight">{moneyExact(savingsTotal)}</p>
             </div>
             {savingsHistory.length >= 2 && (
@@ -175,7 +175,7 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
                   }}
                 />
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {Math.round((savingsTotal / savingsGoal) * 100)}% of {money(savingsGoal)} goal
                 {savingsTotal < savingsGoal && <> · {money(savingsGoal - savingsTotal)} to go</>}
               </p>
@@ -199,7 +199,7 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
               ].filter((s) => s.value > 0.01);
               return (
                 <div key={r.month} className="flex items-center gap-2">
-                  <span className="w-7 shrink-0 text-[11px] text-muted-foreground">{r.month}</span>
+                  <span className="w-7 shrink-0 text-xs text-muted-foreground">{r.month}</span>
                   <div className="flex-1 flex items-center gap-0.5 min-w-0">
                     {segments.map((s, i) => (
                       <div
@@ -210,7 +210,7 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
                       />
                     ))}
                   </div>
-                  <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-foreground">
+                  <span className="w-12 shrink-0 text-right text-xs tabular-nums text-foreground">
                     {money(r.total)}
                   </span>
                 </div>
@@ -219,13 +219,13 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
             {SPEND_SEGMENTS.map(({ key, label, color }) => (
-              <span key={key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="size-2 rounded-full shrink-0" style={{ background: color }} />
                 {label}
               </span>
             ))}
             {hasUnallocated && (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span
                   className="size-2 rounded-full shrink-0"
                   style={{ background: "var(--chart-neutral)" }}
@@ -303,7 +303,7 @@ export function MeasuresOverview({ measures }: { measures: MeasureRow[] }) {
 
       {/* Nudge toward the first check-in */}
       {!latestCheckin && (
-        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <GaugeIcon className="size-3 shrink-0" />
           Log a daily check-in below to start tracking energy, sleep, body and mood trends.
         </p>

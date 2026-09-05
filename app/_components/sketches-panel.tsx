@@ -317,7 +317,7 @@ export function SketchesPanel() {
                 <div className="flex items-center justify-between gap-1 px-2.5 py-1.5 border-t border-border">
                   <div className="min-w-0">
                     <p className="text-xs font-medium truncate">{sketch.title}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {new Date(sketch.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </p>
                   </div>

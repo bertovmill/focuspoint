@@ -968,14 +968,14 @@ export function TaskCanvas({
             key={m}
             asChild
             variant={newEstimate === m ? "default" : "outline"}
-            className="h-5 cursor-pointer px-1.5 text-[10px]"
+            className="h-5 cursor-pointer px-1.5 text-xs"
           >
             <button type="button" onClick={() => setNewEstimate(m)}>
               {formatEstimateLabel(m)}
             </button>
           </Badge>
         ))}
-        <Button type="submit" size="sm" className="ml-auto h-5 px-2 text-[10px]" disabled={creating}>
+        <Button type="submit" size="sm" className="ml-auto h-5 px-2 text-xs" disabled={creating}>
           Add
         </Button>
       </div>
@@ -1103,20 +1103,20 @@ export function TaskCanvas({
                 className={cn("size-2 rounded-full ring-offset-1 hover:ring-1 hover:ring-ring", PRIORITY_DOT[todo.priority])}
               />
               {todo.recurrence && todo.recurrence !== "none" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                   <RepeatIcon className="size-2.5" />
                   {todo.recurrence}
                 </span>
               )}
               {todo.category && (
-                <Badge variant="outline" className={cn("h-4 px-1 text-[9px]", CATEGORY_BADGE_CLASS[todo.category])}>
+                <Badge variant="outline" className={cn("h-4 px-1 text-xs", CATEGORY_BADGE_CLASS[todo.category])}>
                   {TASK_CATEGORY_LABELS[todo.category]}
                 </Badge>
               )}
               {todo.estimated_minutes ? (
                 <span
                   className={cn(
-                    "inline-flex items-center gap-0.5 text-[10px] tabular-nums",
+                    "inline-flex items-center gap-0.5 text-xs tabular-nums",
                     running ? (overdue ? "text-priority-urgent" : "text-primary") : "text-muted-foreground",
                   )}
                 >
@@ -1426,7 +1426,7 @@ export function TaskCanvas({
           {!loading && <StreakChip />}
           {/* The chip owns "how many today"; this is just the size of the pile. */}
           {!loading && (
-            <span className="rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground backdrop-blur-sm">
+            <span className="rounded-md bg-background/80 px-1.5 py-0.5 text-xs whitespace-nowrap text-muted-foreground backdrop-blur-sm">
               {todos.length - doneToday} open
             </span>
           )}
@@ -1449,7 +1449,7 @@ export function TaskCanvas({
           >
             <PlusIcon className="size-3.5" />
             New task here
-            <kbd className="ml-auto rounded border px-1 text-[10px] text-muted-foreground">N</kbd>
+            <kbd className="ml-auto rounded border px-1 text-xs text-muted-foreground">N</kbd>
           </button>
         </div>
       )}
@@ -1490,14 +1490,14 @@ export function TaskCanvas({
             />
           ))}
           <span className="h-4 w-px bg-border" />
-          <Button size="sm" variant="secondary" className="h-6 gap-1 px-2 text-[11px]" onClick={bulkComplete}>
+          <Button size="sm" variant="secondary" className="h-6 gap-1 px-2 text-xs" onClick={bulkComplete}>
             <CheckIcon className="size-3" />
             Complete
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 gap-1 px-2 text-[11px] text-priority-urgent hover:text-priority-urgent"
+            className="h-6 gap-1 px-2 text-xs text-priority-urgent hover:text-priority-urgent"
             onClick={bulkDelete}
           >
             <TrashIcon className="size-3" />

@@ -105,7 +105,7 @@ export function ScoreChart({
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as (typeof data)[number];
             return (
-              <div className="rounded-lg border bg-background px-2.5 py-1.5 text-[11px] shadow-sm">
+              <div className="rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-sm">
                 <p className="font-medium">{shortDate(d.date)}</p>
                 <p className="tabular-nums">
                   {d.score.toLocaleString("en-CA")} pts · {d.hitCount}/{total} hit

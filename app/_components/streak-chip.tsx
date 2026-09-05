@@ -63,7 +63,7 @@ export function StreakChip({ compact = false }: { compact?: boolean }) {
   const trigger = (
     <button
       className={cn(
-        "flex items-center gap-1.5 rounded-md text-[11px] font-medium tabular-nums transition-colors",
+        "flex items-center gap-1.5 rounded-md text-xs font-medium tabular-nums transition-colors",
         compact
           ? "px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           : "border bg-background/80 px-2 py-1 text-muted-foreground backdrop-blur-sm hover:bg-muted hover:text-foreground"
@@ -145,7 +145,7 @@ export function StreakChip({ compact = false }: { compact?: boolean }) {
                 key={d.date}
                 title={`${dayLabel(d.date)} — ${d.tasks} done, ${d.points} pts`}
                 className={cn(
-                  "h-6 flex-1 rounded-sm border text-[9px] leading-6 text-center tabular-nums",
+                  "h-6 flex-1 rounded-sm border text-xs leading-6 text-center tabular-nums",
                   d.hit
                     ? "border-emerald-500/40 bg-emerald-500/25 text-emerald-700 dark:text-emerald-300"
                     : d.tasks > 0
@@ -157,7 +157,7 @@ export function StreakChip({ compact = false }: { compact?: boolean }) {
               </div>
             ))}
           </div>
-          <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+          <div className="mt-1 flex justify-between text-xs text-muted-foreground">
             <span>{recent.length} days ago</span>
             <span>today</span>
           </div>

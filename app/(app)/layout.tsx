@@ -465,7 +465,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               )}
             >
               <MoreHorizontalIcon className="size-5" />
-              <span className="text-[10px] font-medium">More</span>
+              <span className="text-xs font-medium">More</span>
             </button>
           </DrawerTrigger>
           <DrawerContent aria-describedby={undefined}>
@@ -484,7 +484,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
                   )}
                 >
                   <Icon className="size-5" />
-                  <span className="text-[11px] font-medium">{label}</span>
+                  <span className="text-xs font-medium">{label}</span>
                 </button>
               ))}
             </div>
@@ -541,7 +541,7 @@ function NavButton({
       >
         {icon}
       </motion.span>
-      <span className="relative text-[10px] font-medium">{label}</span>
+      <span className="relative text-xs font-medium">{label}</span>
     </button>
   );
 }

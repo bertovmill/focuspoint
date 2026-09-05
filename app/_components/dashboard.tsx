@@ -898,7 +898,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                   Add note
                 </Button>
                 {newNote.trim() && (
-                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
                     Enter to save · Shift+Enter for a new line
                   </span>
                 )}

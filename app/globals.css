@@ -349,7 +349,7 @@
 .fc .fc-timegrid-slot-label,
 .fc .fc-timegrid-axis-cushion {
   color: var(--muted-foreground);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 /* The agenda view a phone gets instead of the month grid (see calendar-panel). */

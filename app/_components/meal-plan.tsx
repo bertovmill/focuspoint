@@ -50,9 +50,9 @@ export function MealPlan() {
               )}
             >
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b">
-                <span className="text-[10.5px] font-semibold uppercase tracking-wide">{slotMeta.label}</span>
+                <span className="text-xs font-semibold uppercase tracking-wide">{slotMeta.label}</span>
                 {slotMeta.key === live && !ate && (
-                  <span className="text-[10px] text-muted-foreground">now</span>
+                  <span className="text-xs text-muted-foreground">now</span>
                 )}
                 {rec && (
                   <button

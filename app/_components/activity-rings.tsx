@@ -99,7 +99,7 @@ function Ring({
         )}
       </div>
 
-      <p className="text-[10.5px] font-medium leading-tight text-muted-foreground">{def.label}</p>
+      <p className="text-xs font-medium leading-tight text-muted-foreground">{def.label}</p>
 
       {editing ? (
         <input
@@ -112,7 +112,7 @@ function Ring({
             if (e.key === "Escape") setEditing(false);
           }}
           placeholder={def.kind === "duration" ? "7h30" : ""}
-          className="w-20 rounded-md border border-border bg-background px-1.5 py-0.5 text-center text-[13px] font-semibold tabular-nums outline-none focus:border-foreground/40"
+          className="w-20 rounded-md border border-border bg-background px-1.5 py-0.5 text-center text-sm font-semibold tabular-nums outline-none focus:border-foreground/40"
         />
       ) : (
         <button
@@ -124,17 +124,19 @@ function Ring({
           }}
           title={editable ? "Click to edit" : "Counted automatically by the Mac agent"}
           className={cn(
-            "rounded-md px-1 py-0.5 text-center text-[13px] font-semibold leading-none tabular-nums",
+            // Value on one line, target on the next: at phone width "16,314 / 30,000"
+            // wrapped mid-string and knocked the three columns out of line.
+            "flex flex-col items-center rounded-md px-1 py-0.5 text-center text-sm font-semibold leading-tight tabular-nums",
             editable && "hover:bg-muted",
             metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-foreground",
           )}
         >
           {formatMetric(metric.key, metric.value)}
-          <span className="text-[10px] font-normal text-muted-foreground"> / {formatTarget(metric.key, metric.target)}</span>
+          <span className="text-xs font-normal text-muted-foreground">/ {formatTarget(metric.key, metric.target)}</span>
         </button>
       )}
 
-      <span className={cn("text-[9.5px] font-medium tabular-nums", metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground/60")}>
+      <span className={cn("text-xs font-medium tabular-nums", metric.hit ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground/60")}>
         {metric.points.toFixed(1)}/{METRIC_WEIGHT.toFixed(1)} pts
       </span>
     </div>

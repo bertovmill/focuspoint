@@ -206,7 +206,7 @@ export function ModelPicker({ variant = "bar", className }: ModelPickerProps) {
             </ModelSelectorGroup>
           ))}
         </ModelSelectorList>
-        <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
           Prices are USD per 1M tokens (in / out), straight from the AI Gateway catalog.
         </div>
       </ModelSelectorContent>
@@ -238,7 +238,7 @@ function ModelRow({
       <CheckIcon className={cn("size-4 shrink-0", selected ? "opacity-100" : "opacity-0")} />
       <ModelSelectorLogo provider={model.provider} />
       <ModelSelectorName className={cn(selected && "font-medium")}>{model.label}</ModelSelectorName>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+      <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
         {formatPricePerMillion(model.inputPrice)} / {formatPricePerMillion(model.outputPrice)}
       </span>
       <button

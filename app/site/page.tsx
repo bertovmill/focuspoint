@@ -128,7 +128,7 @@ export default async function SiteHomePage() {
             {/* The stats take the slot a portfolio would give to client logos. */}
             {stats && (
               <div className="relative">
-                <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground short:mb-3">
+                <p className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground short:mb-3">
                   Live from Cael&apos;s database
                 </p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 lg:grid-cols-2 short:gap-y-3">

@@ -299,7 +299,7 @@ export function PipelineLanes({
         style={{ writingMode: "vertical-rl" }}
       >
         <LayersIcon className="size-3.5 rotate-90 text-muted-foreground" />
-        <span className="text-[11px] font-medium tracking-wide">Pipelines</span>
+        <span className="text-xs font-medium tracking-wide">Pipelines</span>
       </button>
     );
   }
@@ -339,7 +339,7 @@ export function PipelineLanes({
       )}
       <div className="flex items-center gap-1.5 rounded-t-xl border-b px-2.5 py-1.5">
         <LayersIcon className="size-3.5 text-muted-foreground" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide">Pipelines</span>
+        <span className="text-xs font-semibold uppercase tracking-wide">Pipelines</span>
         {!inline && (
           <button
             type="button"
@@ -399,10 +399,10 @@ export function PipelineLanes({
                   <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
                 )}
                 <LaneIcon className={cn("size-3.5 shrink-0", meta.accent)} />
-                <span className="text-[10.5px] font-semibold uppercase tracking-wide">
+                <span className="text-xs font-semibold uppercase tracking-wide">
                   {TASK_CATEGORY_LABELS[lane]}
                 </span>
-                <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">{pieces.length}</span>
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">{pieces.length}</span>
               </button>
 
               {laneOpen && (
@@ -456,7 +456,7 @@ export function PipelineLanes({
                             <TaskLatestUpdate todo={piece} className="mt-1" />
                           </div>
                           {kids.length > 0 && (
-                            <span className="mt-px shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                            <span className="mt-px shrink-0 text-xs tabular-nums text-muted-foreground">
                               {doneKids}/{kids.length}
                             </span>
                           )}
@@ -489,7 +489,7 @@ export function PipelineLanes({
                                     {titleField(
                                       kid,
                                       cn(
-                                        "text-[11.5px] leading-snug",
+                                        "text-xs leading-snug",
                                         done && "text-muted-foreground line-through",
                                       ),
                                     )}
@@ -539,7 +539,7 @@ export function PipelineLanes({
                                     if (!newTask.trim()) setTaskComposerFor(null);
                                   }}
                                   placeholder="Add a task…"
-                                  className="h-6 px-1.5 text-[11.5px]"
+                                  className="h-6 px-1.5 text-xs"
                                 />
                               </form>
                             ) : (
@@ -549,7 +549,7 @@ export function PipelineLanes({
                                   setNewTask("");
                                   setTaskComposerFor(piece.id);
                                 }}
-                                className="flex w-full items-center gap-1 rounded px-1 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                                className="flex w-full items-center gap-1 rounded px-1 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                               >
                                 <PlusIcon className="size-3" />
                                 Add task
@@ -572,7 +572,7 @@ export function PipelineLanes({
                           return next;
                         })
                       }
-                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-[10.5px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       {showDone ? "Hide done" : `Show ${hiddenCount} done`}
                     </button>
@@ -594,7 +594,7 @@ export function PipelineLanes({
                           if (!newPiece.trim()) setPieceComposerFor(null);
                         }}
                         placeholder={meta.placeholder}
-                        className="h-6 px-1.5 text-[11.5px]"
+                        className="h-6 px-1.5 text-xs"
                       />
                     </form>
                   ) : (
@@ -604,7 +604,7 @@ export function PipelineLanes({
                         setNewPiece("");
                         setPieceComposerFor(lane);
                       }}
-                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                       <PlusIcon className="size-3" />
                       {allPieces.length === 0

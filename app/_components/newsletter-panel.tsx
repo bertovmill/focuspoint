@@ -110,7 +110,7 @@ export function NewsletterPanel() {
 
       {growth.length > 1 && (
         <div className="mt-6">
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Growth</p>
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">Growth</p>
           <ChartContainer config={chartConfig} className="h-36 w-full">
             <AreaChart data={growth} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <XAxis dataKey="day" hide />
@@ -131,7 +131,7 @@ export function NewsletterPanel() {
         </div>
       )}
 
-      <p className="mt-7 mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+      <p className="mt-7 mb-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
         Subscribers
       </p>
       {data.subscribers.length === 0 ? (
@@ -146,7 +146,7 @@ export function NewsletterPanel() {
                 {s.email}
               </span>
               {s.unsubscribed && (
-                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                   left
                 </span>
               )}

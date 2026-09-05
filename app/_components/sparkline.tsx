@@ -35,7 +35,7 @@ export function Sparkline({
   const domainMax = Math.max(...values, goal ?? 0) * 1.15 || 1;
 
   if (!hasData) {
-    return <p className="text-[11px] text-muted-foreground/50 italic h-32 flex items-center">No data yet</p>;
+    return <p className="text-xs text-muted-foreground/50 italic h-32 flex items-center">No data yet</p>;
   }
 
   return (
@@ -76,7 +76,7 @@ export function Sparkline({
           />
         </LineChart>
       </ChartContainer>
-      <p className="text-[11px] text-muted-foreground mt-0.5">
+      <p className="text-xs text-muted-foreground mt-0.5">
         {goalAchieved && "🎉 "}
         {fmtValue(caption, unit)}
         {goal !== undefined && ` / ${fmtValue(goal, unit)}`}

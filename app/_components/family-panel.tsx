@@ -371,8 +371,8 @@ export function FamilyPanel() {
                         )}
                       >
                         {m.title && <p className="text-xs font-medium">{m.title}</p>}
-                        {m.description && <p className="text-[11px] opacity-90 line-clamp-2">{m.description}</p>}
-                        <p className={cn("text-[10px] mt-0.5", m.image_url ? "opacity-75" : "text-muted-foreground")}>
+                        {m.description && <p className="text-xs opacity-90 line-clamp-2">{m.description}</p>}
+                        <p className={cn("text-xs mt-0.5", m.image_url ? "opacity-75" : "text-muted-foreground")}>
                           {formatMemoryDate(m.memory_date)}
                         </p>
                       </div>

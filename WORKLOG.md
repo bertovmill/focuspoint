@@ -7337,3 +7337,14 @@ im mostly going to be using cael on my phone."* The two writing surfaces were 14
 Checked at iPhone 14 viewport on `:3789`. `npx tsc --noEmit` clean.
 
 Files: `app/globals.css`, `app/_components/daily-journal.tsx`, `app/_components/training-log.tsx`.
+
+## 2026-09-05 — Type floor: nothing under 12px
+
+His rule, after the journal bump: *"no font under 12px"* — he uses Cael on his
+phone. Mechanical sweep: every `text-[9px]`…`text-[11.5px]` in `app/` and
+`components/` (101 spots, 29 files) became `text-xs` (12px); the one 0.7rem in
+`globals.css` became 0.75rem. Ring values went 13px → `text-sm`, and the value /
+target now stack on two lines — at 12px+ the Steps line wrapped mid-string and
+misaligned the three columns.
+
+Checked the scorecard at iPhone 14 width on `:3789`. `npx tsc --noEmit` clean.

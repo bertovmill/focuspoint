@@ -169,7 +169,7 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
           <DumbbellIcon className="size-3.5 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">{dayLabel(date)}</span>
           {saved && (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <CheckIcon className="size-3" />
               saved
             </span>
@@ -200,7 +200,7 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
               type="button"
               variant="ghost"
               size="xs"
-              className="text-[11px] text-muted-foreground"
+              className="text-xs text-muted-foreground"
               onClick={() => setDate(todayISO())}
             >
               Today

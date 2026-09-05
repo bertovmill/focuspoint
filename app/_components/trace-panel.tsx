@@ -271,7 +271,7 @@ function StepBlock({ step }: { step: StepEntry }) {
         </span>
       </div>
       {step.usage ? (
-        <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
+        <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
           {step.usage.inputTokens !== undefined ? (
             <span className="rounded bg-background px-1.5 py-0.5">in {step.usage.inputTokens}</span>
           ) : null}
@@ -338,7 +338,7 @@ function ToolCallRow({ tool }: { tool: ToolCallEntry }) {
         <span className={cn("shrink-0", statusColor)}>{tool.status}</span>
       </button>
       {open ? (
-        <div className="space-y-1 border-t border-border px-1.5 py-1 text-[10px]">
+        <div className="space-y-1 border-t border-border px-1.5 py-1 text-xs">
           {tool.input !== undefined ? (
             <pre className="overflow-x-auto whitespace-pre-wrap text-muted-foreground">
               {JSON.stringify(tool.input, null, 2)}

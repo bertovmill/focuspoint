@@ -263,16 +263,16 @@ export function ScorecardCard() {
       {celebrating && <RecordConfetti onDone={() => setCelebrating(false)} />}
 
       <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
           Winning day
         </p>
         {googleConnected ? (
-          <Button variant="ghost" size="sm" onClick={sync} disabled={syncing} className="h-7 gap-1.5 text-[11px]">
+          <Button variant="ghost" size="sm" onClick={sync} disabled={syncing} className="h-7 gap-1.5 text-xs">
             {syncing ? <Loader2Icon className="size-3 animate-spin" /> : <RefreshCwIcon className="size-3" />}
             Sync
           </Button>
         ) : (
-          <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-[11px]">
+          <Button variant="outline" size="sm" asChild className="h-7 gap-1.5 text-xs">
             <a href="/api/health/connect">
               <ActivityIcon className="size-3" />
               Connect watch
@@ -302,10 +302,10 @@ export function ScorecardCard() {
               {Math.round(today.score)}
               <span className="ml-1 text-sm font-normal text-muted-foreground">/ {maxScore}</span>
             </p>
-            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <span
                 className={cn(
-                  "rounded-full px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wide",
+                  "rounded-full px-1.5 py-px text-xs font-semibold uppercase tracking-wide",
                   TIER_STYLES[tier.key],
                 )}
                 title={nextTier ? `${nextTier.points} pts to ${nextTier.tier.label}` : "Top tier — nothing above this"}
@@ -318,7 +318,7 @@ export function ScorecardCard() {
           </div>
 
           <div className="text-right">
-            <p className="flex items-center justify-end gap-1 text-[9.5px] font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="flex items-center justify-end gap-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               <TrophyIcon className="size-3 text-amber-500" />
               High score
             </p>
@@ -328,7 +328,7 @@ export function ScorecardCard() {
             >
               {best ? best.value.toLocaleString("en-CA") : "—"}
             </p>
-            <p className="text-[10px] text-muted-foreground">{best ? shortDate(best.date) : "not set yet"}</p>
+            <p className="text-xs text-muted-foreground">{best ? shortDate(best.date) : "not set yet"}</p>
           </div>
         </div>
 
@@ -349,7 +349,7 @@ export function ScorecardCard() {
           />
         </div>
 
-        <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
+        <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
           <p className={cn("font-medium", (beatingBest || closingIn) && "text-amber-600 dark:text-amber-400")}>
             {beatingBest
               ? `New high score — ${(today.score - best!.value).toLocaleString("en-CA")} clear of your best`
@@ -382,7 +382,7 @@ export function ScorecardCard() {
         <HabitRow />
 
         {/* How the number above was built, in one line. */}
-        <p className="mt-3 border-t border-dashed pt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+        <p className="mt-3 border-t border-dashed pt-2 text-xs leading-relaxed text-muted-foreground">
           <span className="font-medium text-foreground/70">100 is a perfect day.</span>{" "}
           {total} keys, worth {METRIC_WEIGHT.toFixed(1)} each. Hit a target and you bank the whole
           slice; get halfway and you bank half. Going past a target earns nothing extra — the
@@ -393,7 +393,7 @@ export function ScorecardCard() {
             separate verdicts — his ask. See score-chart.tsx for the colour choice. */}
         <div className="mt-3 border-t pt-3">
           <ScoreChart recent={recent} record={best?.value ?? null} total={total} recordsSince={recordsSince} />
-          <p className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+          <p className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
             <span>Last {recent.length} days · today on the right</span>
             {peak > 0 && <span className="text-amber-600 dark:text-amber-400">peak {peak.toLocaleString("en-CA")}</span>}
           </p>

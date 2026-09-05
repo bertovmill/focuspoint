@@ -94,7 +94,7 @@ export function HabitRow() {
             >
               {done ? <CheckIcon className="size-3.5" /> : <Icon className="size-3.5" />}
             </span>
-            <span className={cn("truncate text-[10.5px] font-medium leading-tight", done ? "text-emerald-600 dark:text-emerald-500" : "text-foreground")}>
+            <span className={cn("truncate text-xs font-medium leading-tight", done ? "text-emerald-600 dark:text-emerald-500" : "text-foreground")}>
               {def.label}
             </span>
           </button>

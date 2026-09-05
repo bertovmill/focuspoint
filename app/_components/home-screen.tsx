@@ -370,7 +370,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           </p>
           <p
             className={cn(
-              "text-[11px] leading-tight",
+              "text-xs leading-tight",
               onImage ? "text-white/75 drop-shadow-sm" : "text-muted-foreground",
             )}
           >
@@ -444,7 +444,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
         {todayMeal && (
           <div className="mb-6">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
               {todayMeal.slot ? `Today's ${todayMeal.slot}` : "Today's meal"}
             </p>
             <Card className="overflow-hidden py-0 gap-0 rounded-xl shadow-none">
@@ -498,7 +498,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* Training — the plain-text log of what was actually done each day, above the
             numeric chart. The note says what happened; the chart says how much. */}
         <div className="mb-6">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             Training log
           </p>
           <TrainingLog />
@@ -511,7 +511,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
         {workoutLogs.length > 0 && (
           <div className="mb-6">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
               Training
             </p>
             <Card className="rounded-xl px-5 py-4 shadow-none">

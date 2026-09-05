@@ -181,7 +181,7 @@ export function TracesView() {
                         <p className="truncate text-sm font-medium leading-snug">
                           {thread.title || "Untitled session"}
                         </p>
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                           <span className={statusColor(stats.status)}>●</span>
                           <span>{formatRelativeTime(thread.updated_at)}</span>
                           <span>·</span>
@@ -237,7 +237,7 @@ export function TracesView() {
                   <Stat label="eve" value={selected.stats.eveVersion ?? "—"} />
                 </div>
                 {selected.stats.gitSha && (
-                  <p className="mt-3 text-[11px] text-muted-foreground">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     Built from <code>{selected.stats.gitBranch}</code>@<code>{selected.stats.gitSha.slice(0, 7)}</code>
                   </p>
                 )}
@@ -263,11 +263,11 @@ export function TracesView() {
                           <span className="min-w-0 flex-1 leading-snug">
                             {summarizeEvent(event, toolCalls)}
                           </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
                             {event.meta?.at ? new Date(event.meta.at).toLocaleTimeString() : ""}
                           </span>
                         </summary>
-                        <pre className="overflow-x-auto whitespace-pre-wrap break-all border-t border-border/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-all border-t border-border/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                           {JSON.stringify(event, null, 2)}
                         </pre>
                       </details>
@@ -293,7 +293,7 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+      <p className="flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
         {Icon && <Icon className="size-3" />}
         {label}
       </p>

@@ -234,7 +234,7 @@ export function DailyJournal() {
 
   return (
     <div className="mb-6">
-      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
         Daily journal
       </p>
       <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
@@ -342,7 +342,7 @@ export function DailyJournal() {
               </div>
             )}
             <span
-              className="text-[11px] text-muted-foreground tabular-nums w-14 text-right"
+              className="text-xs text-muted-foreground tabular-nums w-14 text-right"
               aria-live="polite"
             >
               {error ? (

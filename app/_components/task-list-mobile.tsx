@@ -327,7 +327,7 @@ export function TaskListMobile({
                             className={cn("tap-target size-2.5 rounded-full", PRIORITY_DOT[todo.priority])}
                           />
                           {todo.recurrence && todo.recurrence !== "none" && (
-                            <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                               <RepeatIcon className="size-3" />
                               {todo.recurrence}
                             </span>
@@ -335,7 +335,7 @@ export function TaskListMobile({
                           {todo.category && (
                             <Badge
                               variant="outline"
-                              className={cn("h-5 px-1.5 text-[10px]", CATEGORY_BADGE_CLASS[todo.category])}
+                              className={cn("h-5 px-1.5 text-xs", CATEGORY_BADGE_CLASS[todo.category])}
                             >
                               {TASK_CATEGORY_LABELS[todo.category]}
                             </Badge>
@@ -343,7 +343,7 @@ export function TaskListMobile({
                           {todo.estimated_minutes ? (
                             <span
                               className={cn(
-                                "inline-flex items-center gap-0.5 text-[11px] tabular-nums",
+                                "inline-flex items-center gap-0.5 text-xs tabular-nums",
                                 running
                                   ? overdue
                                     ? "text-priority-urgent"
@@ -361,7 +361,7 @@ export function TaskListMobile({
 
                         {/* The newest note on this task — an agent's hand-off over MCP,
                             or one Berto posted from the board. */}
-                        <TaskLatestUpdate todo={todo} className="mt-1.5 text-[11px]" />
+                        <TaskLatestUpdate todo={todo} className="mt-1.5 text-xs" />
                       </div>
 
                       {/* Two controls only. The canvas card's right-click menu (colour,

@@ -35,8 +35,8 @@ export function NutritionToday() {
           <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
         )}
         <AppleIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
-        <span className="text-[10.5px] font-semibold uppercase tracking-wide">Nutrition</span>
-        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+        <span className="text-xs font-semibold uppercase tracking-wide">Nutrition</span>
+        <span className="ml-auto text-xs tabular-nums text-muted-foreground">
           {done}/{total}
         </span>
       </button>
@@ -79,10 +79,10 @@ export function NutritionToday() {
                   <span className="size-6 shrink-0 rounded bg-muted" />
                 )}
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[9.5px] uppercase tracking-wide text-muted-foreground leading-none">
+                  <span className="block text-xs uppercase tracking-wide text-muted-foreground leading-none">
                     {slot.label}
                   </span>
-                  <span className={cn("block truncate text-[11px] leading-tight", ate && "text-muted-foreground line-through")}>
+                  <span className={cn("block truncate text-xs leading-tight", ate && "text-muted-foreground line-through")}>
                     {rec?.name ?? "—"}
                   </span>
                 </span>
@@ -110,7 +110,7 @@ export function NutritionToday() {
                     {on && <CheckIcon className="size-2.5" />}
                   </span>
                   <RuleImage ruleKey={rule.key} className="size-6" />
-                  <span className={cn("min-w-0 flex-1 truncate text-[11px]", on && "text-muted-foreground")}>
+                  <span className={cn("min-w-0 flex-1 truncate text-xs", on && "text-muted-foreground")}>
                     {rule.label}
                   </span>
                 </button>

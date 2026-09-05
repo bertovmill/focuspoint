@@ -78,7 +78,7 @@ export const METRICS: MetricDef[] = [
     hint: "Mac · build the thing",
     source: "agent",
     kind: "count",
-    target: 100_000,
+    target: 50_000, // was 100k; Berto (2026-09-05): "key strokes 100% should be 50K"
   },
 ];
 

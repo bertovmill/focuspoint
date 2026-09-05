@@ -7269,3 +7269,23 @@ live card matches main.
 
 Files: `lib/habits.ts`, `app/_components/habit-row.tsx`, `app/api/habits/route.ts`,
 `app/_components/scorecard-card.tsx`.
+
+## 2026-09-05 — Keystrokes target to 50k; why the watch keeps asking to sign in
+
+- **Keystrokes 100% = 50,000** (was 100k). His words: *"key strokes 100% should be
+  50K"*. Only the default in `lib/scorecard.ts` changed; there's no `scorecard_targets`
+  override row in `app_settings`, so the default is what's live. Past days rescore
+  against the new target, so the history strip shifts up — that's expected.
+- **Watch sign-in doesn't persist.** Diagnosis, not a code change: the health grant
+  is stored fine (`app_settings.google_health_tokens`) and refreshes itself, but the
+  Google Cloud OAuth consent screen is in **Testing** publishing status (External +
+  test user, per the Aug setup). Google expires every refresh token issued by a
+  Testing-mode app after **7 days**, at which point `getAccessToken()` gets a 400,
+  drops the row, and the card falls back to "Connect watch". Fix is in the Cloud
+  console, not the repo: Google Auth Platform → Audience → **Publish app** (move to
+  "In production"). No verification needed at one user — the next consent shows an
+  "unverified app" warning once, then the token lasts indefinitely. After
+  publishing, hit Connect watch one more time so a non-expiring token replaces the
+  current one.
+
+Files: `lib/scorecard.ts`.

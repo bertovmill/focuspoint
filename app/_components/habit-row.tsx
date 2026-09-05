@@ -1,23 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpenIcon, CheckIcon, FlameIcon, NotebookPenIcon, SparklesIcon } from "lucide-react";
+import { BookOpenIcon, CheckIcon, NotebookPenIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { HABITS, type HabitKey, type HabitsToday } from "@/lib/habits";
 import { cn } from "@/lib/utils";
 
 /**
- * Second row on the scorecard: the four core habits (read, meditate, journal, fast
- * til noon) as a plain checklist — no points, just done/not done. Berto's ask
- * (2026-09-03): "a second row for core habits". Read and journal are derived from
- * data already logged elsewhere; meditate and fast are tapped here.
+ * Second row on the scorecard: the three core habits (read, meditate, journal) as a
+ * plain checklist — no points, just done/not done. Berto's ask (2026-09-03): "a
+ * second row for core habits"; fast-til-noon came off on 2026-09-05. Read and
+ * journal are derived from data already logged elsewhere; meditate is tapped here.
  */
 
 const ICONS: Record<HabitKey, typeof BookOpenIcon> = {
   read: BookOpenIcon,
   meditate: SparklesIcon,
   journal: NotebookPenIcon,
-  fast: FlameIcon,
 };
 
 export function HabitRow() {

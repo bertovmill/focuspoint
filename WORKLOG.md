@@ -7251,3 +7251,21 @@ reverted — no leftover test state. `npx tsc --noEmit` clean.
 Files: `lib/db.ts`, `lib/habits.ts` (new), `app/api/habits/route.ts` (new),
 `app/_components/activity-rings.tsx` (new), `app/_components/habit-row.tsx`
 (new), `app/_components/scorecard-card.tsx`.
+
+## 2026-09-05 — Fast til noon off the card
+
+His ask, with a screenshot of the live card: *"remove fast til noon from the main
+top of fold calculation … also remove notes and portfolio."*
+
+Notes written, Portfolio, and Eating window were already gone from `main` (the
+Sep 3 cut to three keys) — the screenshot was `cael-agent-seven` still running an
+older build. So the code change here is just the habit row: **Fast til noon** is
+dropped from `HABITS`, the `fast` PATCH field is no longer accepted, and the
+`daily_habits.fasted_til_noon` column is left alone (unused, harmless). The habit
+row is now Read · Meditate · Journal.
+
+Then redeployed to cael-agent-seven via `scripts/deploy-bertoaucctus.sh` so the
+live card matches main.
+
+Files: `lib/habits.ts`, `app/_components/habit-row.tsx`, `app/api/habits/route.ts`,
+`app/_components/scorecard-card.tsx`.

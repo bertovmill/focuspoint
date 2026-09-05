@@ -1,15 +1,19 @@
-// Core habits — read / meditate / journal / fast till noon.
+// Core habits — read / meditate / journal.
+//
+// "Fast til noon" was here until 2026-09-05; Berto asked for it to come off the
+// top-of-fold card. The `fasted_til_noon` column in daily_habits is left in place
+// (harmless, keeps old rows intact) but nothing reads or writes it any more.
 //
 // Deliberately separate from the scored 3-metric scorecard (lib/scorecard.ts):
 // Berto's call (2026-09-03) was that the rings stay the only scored thing — this is
 // a plain daily checklist underneath, worth nothing in points. Read and journal are
 // derived from things he already logs elsewhere (Kindle notes via reading_notes, the
-// daily journal page) so there's nothing new to tap for those two; meditation and
-// fasting have no existing tracker, so those two are a manual toggle in `daily_habits`.
+// daily journal page) so there's nothing new to tap for those two; meditation has no
+// existing tracker, so it is a manual toggle in `daily_habits`.
 
 import { dayKey } from "@/lib/streak";
 
-export type HabitKey = "read" | "meditate" | "journal" | "fast";
+export type HabitKey = "read" | "meditate" | "journal";
 
 export type HabitDef = {
   key: HabitKey;
@@ -23,7 +27,6 @@ export const HABITS: HabitDef[] = [
   { key: "read", label: "Read", hint: "A Kindle note today", manual: false },
   { key: "meditate", label: "Meditate", hint: "Tap when done", manual: true },
   { key: "journal", label: "Journal", hint: "Wrote in today's journal", manual: false },
-  { key: "fast", label: "Fast til noon", hint: "Tap when done", manual: true },
 ];
 
 export type HabitsToday = Record<HabitKey, boolean>;
@@ -36,7 +39,7 @@ export async function getHabitsToday(sql: Sql, date?: string): Promise<HabitsTod
   const [notes, journal, manualRows] = await Promise.all([
     sql`SELECT 1 FROM reading_notes WHERE note_date = ${today}::date LIMIT 1`,
     sql`SELECT 1 FROM daily_journal WHERE entry_date = ${today}::date AND length(trim(content)) > 0 LIMIT 1`,
-    sql`SELECT meditated, fasted_til_noon FROM daily_habits WHERE habit_date = ${today}::date`,
+    sql`SELECT meditated FROM daily_habits WHERE habit_date = ${today}::date`,
   ]);
 
   const manual = manualRows[0];
@@ -44,22 +47,15 @@ export async function getHabitsToday(sql: Sql, date?: string): Promise<HabitsTod
     read: notes.length > 0,
     journal: journal.length > 0,
     meditate: Boolean(manual?.meditated),
-    fast: Boolean(manual?.fasted_til_noon),
   };
 }
 
-/** Toggle one of the two manual habits. Read and journal aren't settable here — they follow their source table. */
-export async function setHabit(sql: Sql, key: "meditate" | "fast", value: boolean, date?: string): Promise<void> {
+/** Toggle the one manual habit. Read and journal aren't settable here — they follow their source table. */
+export async function setHabit(sql: Sql, key: "meditate", value: boolean, date?: string): Promise<void> {
   const today = date ?? dayKey(new Date());
-  if (key === "meditate") {
-    await sql`
-      INSERT INTO daily_habits (habit_date, meditated) VALUES (${today}::date, ${value})
-      ON CONFLICT (habit_date) DO UPDATE SET meditated = EXCLUDED.meditated, updated_at = NOW()
-    `;
-  } else {
-    await sql`
-      INSERT INTO daily_habits (habit_date, fasted_til_noon) VALUES (${today}::date, ${value})
-      ON CONFLICT (habit_date) DO UPDATE SET fasted_til_noon = EXCLUDED.fasted_til_noon, updated_at = NOW()
-    `;
-  }
+  if (key !== "meditate") return;
+  await sql`
+    INSERT INTO daily_habits (habit_date, meditated) VALUES (${today}::date, ${value})
+    ON CONFLICT (habit_date) DO UPDATE SET meditated = EXCLUDED.meditated, updated_at = NOW()
+  `;
 }

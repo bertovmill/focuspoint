@@ -162,4 +162,9 @@ export default middleware;
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image).*)"],
+  // Vercel services (which is how eve co-deploys alongside Next.js) reject Edge
+  // Function output, and middleware defaults to the Edge runtime. Middleware runs
+  // on Node.js now, so this is a runtime switch rather than a rewrite — and it's
+  // what unblocked deploys after the eve 0.18 → 0.49 upgrade.
+  runtime: "nodejs",
 };

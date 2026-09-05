@@ -14,7 +14,7 @@ import { syncHealthRange } from "../../lib/health-sync.js";
 // the specific hour/minute in a task's own cron is not honored, since we only get one tick.
 export default defineSchedule({
   cron: "0 13 * * *",
-  async run({ receive, waitUntil, appAuth }) {
+  async run({ to, waitUntil, appAuth }) {
     // Refresh the Luma mirror first. Vercel Hobby allows exactly one cron a day
     // across the whole project, so this tick is the only scheduled slot there is
     // and the sync has to share it. Deliberately above the phone-number guard —
@@ -108,11 +108,9 @@ export default defineSchedule({
       ].join("\n");
 
       waitUntil(
-        receive(twilio, {
-          message,
-          target: { phoneNumber },
-          auth: appAuth,
-        }),
+        // eve 0.49 replaced the schedule handler's `receive(channel, input)` with
+        // `to(channel, target).send(message, options)`.
+        to(twilio, { phoneNumber }).send(message, { auth: appAuth }),
       );
     }
   },

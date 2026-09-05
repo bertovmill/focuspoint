@@ -1,10 +1,10 @@
 "use client";
 
-import type { HandleMessageStreamEvent, SessionState } from "eve/client";
+import type { ClientSessionState, HandleMessageStreamEvent } from "eve/client";
 import { isCurrentTurnBoundaryEvent } from "eve/client";
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
 import { useThreads } from "@/app/_components/threads-provider";
-import { getEveClient } from "@/lib/eve-client";
+import { STREAM_RECONNECT_POLICY, getEveClient } from "@/lib/eve-client";
 
 /**
  * A thread whose saved events stop mid-turn was interrupted on *this* side: the
@@ -19,8 +19,8 @@ import { getEveClient } from "@/lib/eve-client";
  */
 function isResumable(
   events: readonly HandleMessageStreamEvent[] | undefined,
-  session: SessionState | undefined,
-): session is SessionState & { sessionId: string } {
+  session: ClientSessionState | undefined,
+): session is ClientSessionState {
   if (!session?.sessionId || !events?.length) return false;
   return !isCurrentTurnBoundaryEvent(events[events.length - 1]!);
 }
@@ -53,12 +53,15 @@ export function useResumeInterruptedTurn(threadId: string) {
     setResuming(true);
 
     void (async () => {
-      const session = getEveClient().session(saved);
+      const session = getEveClient().sessions.attach(saved.sessionId, {
+        streamIndex: saved.streamIndex,
+      });
       const recovered: HandleMessageStreamEvent[] = [];
       try {
         for await (const event of session.stream({
           signal: controller.signal,
           startIndex: saved.streamIndex,
+          streamReconnectPolicy: STREAM_RECONNECT_POLICY,
         })) {
           recovered.push(event);
           // The stream stays open between turns; stop at the end of this one.

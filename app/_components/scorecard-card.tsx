@@ -292,10 +292,12 @@ export function ScorecardCard() {
           <div>
             <p
               className={cn(
-                "text-[34px] font-semibold tabular-nums leading-none tracking-tight",
+                "text-[40px] font-bold tabular-nums leading-none tracking-tight",
                 today.perfect
                   ? "text-emerald-600 dark:text-emerald-500"
-                  : beatingBest && "text-amber-600 dark:text-amber-400",
+                  : beatingBest
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-primary",
               )}
               title={`${today.score} out of ${maxScore} — a perfect day is every target hit`}
             >
@@ -342,8 +344,8 @@ export function ScorecardCard() {
                 : closingIn
                   ? "bg-amber-500/70"
                   : today.perfect
-                    ? "bg-emerald-600"
-                    : "bg-foreground/45",
+                    ? "bg-emerald-500"
+                    : "bg-gradient-to-r from-sky-500 via-violet-500 to-emerald-500",
             )}
             style={{ width: `${beatingBest ? 100 : pctOfBar}%` }}
           />

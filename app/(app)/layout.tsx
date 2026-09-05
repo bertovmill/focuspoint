@@ -17,6 +17,8 @@ import { FloatingChatBar } from "@/app/_components/floating-chat-bar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
+import { KonstaApp } from "@/app/_components/konsta-app";
+import { Tabbar, TabbarLink } from "konsta/react";
 import { PIN_EVENT } from "@/app/_components/pin-button";
 import { PinView } from "@/app/_components/pin-view";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
@@ -105,6 +107,33 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
   { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
+
+// The five tabs on the phone bar, in order. The rest are behind "More".
+const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon }[] = [
+  { tab: "home", label: "Home", icon: HomeIcon },
+  { tab: "chat", label: "Chat", icon: MessageCircleIcon },
+  { tab: "tasks", label: "Tasks", icon: ListTodoIcon },
+  { tab: "notes", label: "Notes", icon: FileTextIcon },
+  { tab: "lists", label: "Lists", icon: ListChecksIcon },
+];
+
+// Konsta's defaults are iOS blue and Material purple; this is the app's terracotta
+// on the app's own surface, in both themes.
+// Background is painted on the bar itself (see the Tabbar className) rather than
+// through Konsta's own bg layer — the iOS one is a fade-to-transparent gradient
+// meant for content to scroll under, which read as a see-through bar here.
+const TABBAR_COLORS = {
+  bgIos: "",
+  bgMaterial: "",
+  tabbarHighlightBgMaterial: "bg-transparent",
+};
+const TABBAR_LINK_COLORS = {
+  textIos: "text-muted-foreground",
+  textActiveIos: "text-primary",
+  textMaterial: "text-muted-foreground",
+  textActiveMaterial: "text-primary",
+  iconBgActiveMaterial: "bg-primary/15",
+};
 
 const NAV_RAIL_STORAGE_KEY = "focuspoint:nav-rail-open";
 
@@ -226,6 +255,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   }
 
   return (
+    <KonstaApp>
     <main className="flex h-dvh overflow-hidden bg-background text-foreground">
       {/* Desktop nav rail — leftmost, always visible, collapsible to icons only */}
       <aside
@@ -414,59 +444,36 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         </div>
       </div>
 
-      {/* Mobile bottom navigation bar */}
-      {/* The bar keeps its 4rem of tappable height and pads *below* it for the home
-          indicator, so the icons don't creep down into the gesture area. */}
-      <nav className="fixed bottom-0 inset-x-0 h-[var(--mobile-nav-h)] pb-[var(--safe-bottom)] lg:hidden flex items-stretch border-t border-border bg-background/95 backdrop-blur-sm z-50">
-        <NavButton
-          label="Home"
-          icon={<HomeIcon className="size-5" />}
-          active={mobileTab === "home"}
-          onClick={() => setMobileTab("home")}
-          reduceMotion={reduceMotion}
-        />
-        <NavButton
-          label="Chat"
-          icon={<MessageCircleIcon className="size-5" />}
-          active={mobileTab === "chat"}
-          onClick={() => setMobileTab("chat")}
-          reduceMotion={reduceMotion}
-        />
-        <NavButton
-          label="Tasks"
-          icon={<ListTodoIcon className="size-5" />}
-          active={mobileTab === "tasks"}
-          onClick={() => setMobileTab("tasks")}
-          reduceMotion={reduceMotion}
-        />
-        <NavButton
-          label="Notes"
-          icon={<FileTextIcon className="size-5" />}
-          active={mobileTab === "notes"}
-          onClick={() => setMobileTab("notes")}
-          reduceMotion={reduceMotion}
-        />
-        <NavButton
-          label="Lists"
-          icon={<ListChecksIcon className="size-5" />}
-          active={mobileTab === "lists"}
-          onClick={() => setMobileTab("lists")}
-          reduceMotion={reduceMotion}
-        />
-        {/* Everything past the first five tabs lives in a bottom sheet — a
-            thumb-reachable icon grid instead of a desktop dropdown floating
-            mid-screen. vaul gives swipe-to-dismiss for free. */}
+      {/* Mobile bottom navigation bar — Konsta's Tabbar, so it renders as a native
+          iOS tab bar on the phone and a Material one elsewhere (his ask, 2026-09-05).
+          Colours are overridden to the app's own palette; the "More" sheet is still
+          vaul, opened from the last tab. */}
+      <Tabbar
+        labels
+        icons
+        className="fixed bottom-0 left-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden!"
+        colors={TABBAR_COLORS}
+      >
+        {MOBILE_TABS.map(({ tab, label, icon: Icon }) => (
+          <TabbarLink
+            key={tab}
+            active={mobileTab === tab}
+            onClick={() => setMobileTab(tab)}
+            icon={<Icon className="size-6" />}
+            label={label}
+            colors={TABBAR_LINK_COLORS}
+            className="min-w-0 flex-1 basis-0 px-0!"
+          />
+        ))}
         <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
           <DrawerTrigger asChild>
-            <button
-              className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors active:scale-95 active:transition-transform",
-                MORE_TABS.some((t) => t.tab === mobileTab) ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              <MoreHorizontalIcon className="size-5" />
-              <span className="text-xs font-medium">More</span>
-            </button>
+            <TabbarLink
+              active={MORE_TABS.some((t) => t.tab === mobileTab)}
+              icon={<MoreHorizontalIcon className="size-6" />}
+              label="More"
+              colors={TABBAR_LINK_COLORS}
+              className="min-w-0 flex-1 basis-0 px-0!"
+            />
           </DrawerTrigger>
           <DrawerContent aria-describedby={undefined}>
             <DrawerTitle className="sr-only">More sections</DrawerTitle>
@@ -490,7 +497,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             </div>
           </DrawerContent>
         </Drawer>
-      </nav>
+      </Tabbar>
 
       {/* Ever-present line to Cael — floats over every section except the chat
           page, which has its own composer. Sending rides the same path as
@@ -500,48 +507,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       {/* Section pages render nothing — the shell above owns the UI. */}
       {children}
     </main>
+    </KonstaApp>
   );
 }
 
-function NavButton({
-  label,
-  icon,
-  active,
-  onClick,
-  reduceMotion,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-  reduceMotion?: boolean | null;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative flex flex-1 flex-col items-center justify-center gap-1 h-full transition-colors active:scale-95 active:transition-transform",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40",
-        active ? "text-primary" : "text-muted-foreground",
-      )}
-    >
-      {/* Same travelling indicator as the desktop rail, sized for a thumb. */}
-      {active && (
-        <motion.span
-          layoutId="mobileNavActive"
-          transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
-          className="absolute inset-x-2 inset-y-1.5 rounded-xl bg-primary/10"
-        />
-      )}
-      <motion.span
-        className="relative"
-        animate={reduceMotion ? undefined : { y: active ? -1 : 0, scale: active ? 1.06 : 1 }}
-        transition={NAV_SPRING}
-      >
-        {icon}
-      </motion.span>
-      <span className="relative text-xs font-medium">{label}</span>
-    </button>
-  );
-}

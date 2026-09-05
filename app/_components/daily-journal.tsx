@@ -379,11 +379,11 @@ export function DailyJournal() {
           aria-valuemax={JOURNAL_WORD_GOAL}
           aria-valuenow={Math.min(words, JOURNAL_WORD_GOAL)}
         >
-          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+          <div className="h-1.5 flex-1 rounded-full bg-rose-500/15 overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full transition-[width] duration-300",
-                goalMet ? "bg-emerald-500" : "bg-foreground/60",
+                goalMet ? "bg-emerald-500" : "bg-rose-500",
               )}
               style={{ width: `${progress * 100}%` }}
             />
@@ -391,7 +391,7 @@ export function DailyJournal() {
           <span
             className={cn(
               "inline-flex items-center gap-1 text-xs tabular-nums shrink-0",
-              goalMet ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+              goalMet ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
             )}
           >
             {goalMet && <CheckIcon className="size-3" />}

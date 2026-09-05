@@ -1,7 +1,7 @@
 "use client";
 
-import type { ClientSessionState, HandleMessageStreamEvent } from "eve/client";
-import type { EveMessageData } from "eve/react";
+import { ClientError, type ClientSessionState, type HandleMessageStreamEvent } from "eve/client";
+import type { EveMessageData, PrepareSend } from "eve/react";
 import { useEveAgent } from "eve/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { deriveTitle, useThreads } from "@/app/_components/threads-provider";
@@ -54,7 +54,34 @@ function firstUserTextOf(data: EveMessageData): string | undefined {
  * session also lets us read the live session ID off the send response, which is
  * what `useResumeInterruptedTurn` needs to reattach to a run the browser lost.
  */
-export function useThreadAgent(threadId: string) {
+/**
+ * A message that failed because its thread's session had gone stale, waiting to
+ * be sent again once the chat has remounted on a fresh session. Keyed by thread
+ * so it survives the remount that `onSessionLost` triggers.
+ */
+const pendingResend = new Map<string, Parameters<PrepareSend>[0]>();
+
+/**
+ * eve answers a send to a session it no longer holds — expired (30 days by
+ * default), reset, or minted by another deployment — with 409
+ * `session_not_active`. Under 0.18 the server quietly opened a new session in
+ * that case; since 0.49 sessions are fixed IDs and the client has to do it.
+ */
+function isStaleSession(error: Error): boolean {
+  return error instanceof ClientError && error.code === "session_not_active";
+}
+
+export function useThreadAgent(
+  threadId: string,
+  options: {
+    /**
+     * The saved session is dead. The transcript has already been re-saved with
+     * no session; remount the chat so it starts a fresh one, and the message
+     * that failed goes out again on mount.
+     */
+    onSessionLost?: () => void;
+  } = {},
+) {
   const { getThread, saveSnapshot, rename } = useThreads();
   const thread = getThread(threadId);
 
@@ -83,8 +110,26 @@ export function useThreadAgent(threadId: string) {
     });
   }, []);
 
+  const sessionLostRef = useRef(false);
+  const lastSendRef = useRef<Parameters<PrepareSend>[0] | null>(null);
+  const onSessionLostRef = useRef(options.onSessionLost);
+  onSessionLostRef.current = options.onSessionLost;
+
   const agent = useEveAgent({
     initialEvents: initialRef.current.events,
+    prepareSend: (input) => {
+      lastSendRef.current = input;
+      return input;
+    },
+    onError: (error) => {
+      if (!isStaleSession(error) || sessionLostRef.current) return;
+      sessionLostRef.current = true;
+      const { agent: live, saveSnapshot: save, threadId: id } = latestRef.current;
+      // Keep every event we have; only the session pointer is wrong.
+      save(id, { events: live.events, firstUserText: firstUserTextOf(live.data), session: null });
+      if (lastSendRef.current) pendingResend.set(id, lastSendRef.current);
+      onSessionLostRef.current?.();
+    },
     // Threads saved under eve 0.18 can carry a session with no ID (only a
     // continuation token, which no longer exists). The store's `attach` throws
     // on an undefined ID, so such a thread starts a fresh session instead.
@@ -104,7 +149,8 @@ export function useThreadAgent(threadId: string) {
       saveSnapshot(threadId, {
         events: snapshot.events,
         firstUserText: firstUserTextOf(snapshot.data),
-        session: snapshot.session,
+        // A stale session must not be written back over the clear from onError.
+        session: sessionLostRef.current ? null : snapshot.session,
       });
     },
     session,
@@ -113,6 +159,18 @@ export function useThreadAgent(threadId: string) {
   // Latest values for the checkpoint timer, which fires outside of render.
   const latestRef = useRef({ agent, saveSnapshot, threadId });
   latestRef.current = { agent, saveSnapshot, threadId };
+
+  // Fresh mount after a stale session: send the message that failed, now that
+  // there is no session pinned and the store will create one.
+  useEffect(() => {
+    const pending = pendingResend.get(threadId);
+    if (!pending) return;
+    pendingResend.delete(threadId);
+    const { message, inputResponses: _ignored, ...rest } = pending;
+    if (message === undefined) return;
+    void latestRef.current.agent.send(message, rest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
   eventCountRef.current = agent.events.length;
 
   const savedCountRef = useRef(agent.events.length);
@@ -125,7 +183,9 @@ export function useThreadAgent(threadId: string) {
     save(id, {
       events: live.events,
       firstUserText: firstUserTextOf(live.data),
-      session: liveSession(turnRef.current, live.session, live.events.length),
+      session: sessionLostRef.current
+        ? null
+        : liveSession(turnRef.current, live.session, live.events.length),
     });
   }, []);
 

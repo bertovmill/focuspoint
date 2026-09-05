@@ -25,7 +25,8 @@ export type ThreadRecord = {
 };
 
 type Snapshot = {
-  session: EveSession;
+  /** `null` clears a saved session (the server no longer knows it); `undefined` also clears. */
+  session: EveSession | null;
   events: EveEvents;
   firstUserText?: string | undefined;
 };
@@ -192,11 +193,13 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
         if (t.id !== id) return t;
         const title =
           t.title || (snap.firstUserText ? deriveTitle(snap.firstUserText) : "");
-        const updated = { ...t, title, session: snap.session, events: snap.events, updatedAt: Date.now() };
+        const updated = { ...t, title, session: snap.session ?? undefined, events: snap.events, updatedAt: Date.now() };
         void fetch(`/api/threads/${id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ title: updated.title, session: snap.session, events: snap.events }),
+          // `undefined` would drop the key and the route would keep the old
+          // session; a cleared session has to land as an explicit null.
+          body: JSON.stringify({ title: updated.title, session: snap.session ?? null, events: snap.events }),
         });
         return updated;
       }),

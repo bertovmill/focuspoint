@@ -39,11 +39,16 @@ type AgentChatProps = {
  */
 export function AgentChat(props: AgentChatProps) {
   const { busy, generation, resuming } = useResumeInterruptedTurn(props.threadId);
+  // Ticks when the thread's saved session turns out to be dead on the server
+  // (expired or from another deployment). The remount starts a fresh session on
+  // the same transcript and resends the message that hit the wall.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   return (
     <ChatSession
-      key={`${props.threadId}:${generation}`}
+      key={`${props.threadId}:${generation}:${sessionEpoch}`}
       busyRef={busy}
       resuming={resuming}
+      onSessionLost={() => setSessionEpoch((n) => n + 1)}
       {...props}
     />
   );
@@ -60,14 +65,16 @@ function ChatSession({
   onToggleChatSidebar,
   initialMessage,
   onInitialMessageSent,
+  onSessionLost,
 }: AgentChatProps & {
   busyRef: MutableRefObject<boolean>;
   resuming: boolean;
+  onSessionLost: () => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
 
-  const agent = useThreadAgent(threadId);
+  const agent = useThreadAgent(threadId, { onSessionLost });
 
   // A resume that lands mid-answer must not remount us out from under a live turn.
   busyRef.current = agent.status === "submitted" || agent.status === "streaming";

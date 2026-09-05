@@ -7348,3 +7348,42 @@ target now stack on two lines — at 12px+ the Steps line wrapped mid-string and
 misaligned the three columns.
 
 Checked the scorecard at iPhone 14 width on `:3789`. `npx tsc --noEmit` clean.
+
+## 2026-09-05 — Konsta UI + a colourful home screen (Google Fit inspo)
+
+His ask: *"lets use the konsta, and also lets make the ui a bit more colorful and
+fun, think the google health app for inspo."* Decisions he confirmed first: home
+screen first (other tabs later), one colour per metric on soft pastel tiles, and
+Konsta's theme matched to the device.
+
+**Konsta UI (v5.4, `konsta` package):**
+- `app/globals.css` imports `konsta/theme.css` right after Tailwind, *before* the
+  app's own `@theme inline` so the app's tokens (`--color-primary` etc.) win. Konsta's
+  base paints `.dark` pure black; overridden back to the app palette in `@layer base`.
+- `app/_components/konsta-app.tsx` (new) wraps the app shell in Konsta's `<App>`.
+  Theme is picked on the client from the user agent — iOS on iPhone/iPad, Material
+  elsewhere — with a Material first render so hydration matches.
+- The mobile bottom nav in `app/(app)/layout.tsx` is now Konsta's `<Tabbar>` /
+  `<TabbarLink>` (the vaul "More" sheet is unchanged, opened from the last tab).
+  Konsta's own bar background is blanked and painted on the bar itself — the iOS
+  default is a fade-to-transparent gradient that read as a see-through bar. Links
+  get `flex-1 basis-0 min-w-0` so six fit at Pixel width. `--mobile-nav-h` is now
+  5rem (Material's bar is 80px). The old `NavButton` + its motion indicator are gone.
+
+**Colour:**
+- Rings (`activity-rings.tsx`): always in their colour now (Steps sky, Sleep violet,
+  Keystrokes emerald) on a matching pastel tile with a tinted track and a coloured
+  icon disc; the ring used to go grey until the target was hit.
+- Habits (`habit-row.tsx`): Read amber, Meditate teal, Journal rose, same tile idea;
+  done = stronger tint + ring.
+- Scorecard: headline number in terracotta and bumped to 40px; progress bar is a
+  sky→violet→emerald gradient. Journal word bar is rose (green at 250). Training log
+  gets an orange dumbbell disc.
+
+**Verified** on `:3789` with Playwright: iPhone 14 UA → `k-ios`, Pixel 7 UA →
+`k-material`, both bars opaque with all six tabs visible, More sheet opens, desktop
+unchanged apart from the colour. No page errors. `npx tsc --noEmit` clean.
+
+Files: `package.json`, `package-lock.json`, `app/globals.css`, `app/(app)/layout.tsx`,
+`app/_components/konsta-app.tsx` (new), `activity-rings.tsx`, `habit-row.tsx`,
+`scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`.

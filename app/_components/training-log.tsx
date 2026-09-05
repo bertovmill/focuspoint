@@ -166,7 +166,9 @@ export function TrainingLog({ onSaved }: { onSaved?: () => void }) {
     <Card className="rounded-xl px-5 py-4 shadow-none gap-0">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <DumbbellIcon className="size-3.5 text-muted-foreground shrink-0" />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
+            <DumbbellIcon className="size-4" />
+          </span>
           <span className="text-sm font-medium truncate">{dayLabel(date)}</span>
           {saved && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">

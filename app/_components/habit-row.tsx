@@ -19,6 +19,28 @@ const ICONS: Record<HabitKey, typeof BookOpenIcon> = {
   journal: NotebookPenIcon,
 };
 
+/** One colour per habit, like the rings above — amber, teal, rose. */
+const PALETTE: Record<HabitKey, { tile: string; doneTile: string; icon: string; text: string }> = {
+  read: {
+    tile: "bg-amber-500/[0.07]",
+    doneTile: "bg-amber-500/15 ring-1 ring-amber-500/40",
+    icon: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    text: "text-amber-700 dark:text-amber-400",
+  },
+  meditate: {
+    tile: "bg-teal-500/[0.07]",
+    doneTile: "bg-teal-500/15 ring-1 ring-teal-500/40",
+    icon: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+    text: "text-teal-700 dark:text-teal-400",
+  },
+  journal: {
+    tile: "bg-rose-500/[0.07]",
+    doneTile: "bg-rose-500/15 ring-1 ring-rose-500/40",
+    icon: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+    text: "text-rose-700 dark:text-rose-400",
+  },
+};
+
 export function HabitRow() {
   const [habits, setHabits] = useState<HabitsToday | null>(null);
   const [pending, setPending] = useState<HabitKey | null>(null);
@@ -73,6 +95,7 @@ export function HabitRow() {
       {HABITS.map((def) => {
         const done = habits[def.key];
         const Icon = ICONS[def.key];
+        const c = PALETTE[def.key];
         return (
           <button
             key={def.key}
@@ -81,20 +104,20 @@ export function HabitRow() {
             onClick={() => toggle(def)}
             title={def.hint}
             className={cn(
-              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2 transition-colors",
-              done ? "border-emerald-600/30 bg-emerald-600/[0.06]" : "border-border",
-              def.manual && !done && "hover:bg-muted",
+              "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-colors",
+              done ? c.doneTile : c.tile,
+              def.manual && !done && "active:scale-95",
             )}
           >
             <span
               className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-md",
-                done ? "bg-emerald-600/15 text-emerald-600 dark:text-emerald-500" : "bg-muted text-muted-foreground",
+                "flex size-8 shrink-0 items-center justify-center rounded-full",
+                c.icon,
               )}
             >
-              {done ? <CheckIcon className="size-3.5" /> : <Icon className="size-3.5" />}
+              {done ? <CheckIcon className="size-4" /> : <Icon className="size-4" />}
             </span>
-            <span className={cn("truncate text-xs font-medium leading-tight", done ? "text-emerald-600 dark:text-emerald-500" : "text-foreground")}>
+            <span className={cn("truncate text-xs font-semibold leading-tight", c.text)}>
               {def.label}
             </span>
           </button>

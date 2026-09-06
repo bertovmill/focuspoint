@@ -104,4 +104,15 @@ Type a few keys and you should see it post. Point `FOCUSPOINT_URL` at
 - The agent sends the day's *running total*, and the server keeps the **larger** of what
   it has and what arrives. So if the agent restarts and briefly loses its local tally, it
   can never walk the number backward — it just climbs back up and continues.
-- Today's total is cached to `~/.focuspoint-keystrokes.json` so a restart resumes.
+- Today's total is cached to `~/.focuspoint-keystrokes.json` so a restart resumes. The
+  file is written atomically (temp file + rename), so a crash mid-write can't leave it
+  empty or half-written.
+- **Recovery after a lost tally.** On startup the agent also asks the server for today's
+  total (`GET /api/keystrokes` with the same token) and resumes from whichever number is
+  higher. Without this, a wiped state file (say, after a hard crash and reboot) would
+  restart at 0, and because the server keeps the larger number, every key pressed until
+  the local tally climbed back past the server's total would be silently uncounted. If
+  the server can't be reached (it retries once after a few seconds — DNS is often still
+  down right after a reboot), it logs that and carries on with the local count; startup
+  never waits on the network. The menu bar picks the corrected number up from the same
+  file.

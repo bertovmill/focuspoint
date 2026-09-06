@@ -15,6 +15,12 @@ What it does:
     - Every FLUSH_SECONDS, POSTs {date, count} to $FOCUSPOINT_URL/api/keystrokes with a
       bearer $KEYSTROKE_TOKEN.
     - Persists today's total to STATE_PATH so a restart resumes instead of starting over.
+      The write is atomic (temp file + rename), so a crash mid-write can't leave an empty
+      or half-written file behind.
+    - On startup it also asks the server for today's total and resumes from whichever is
+      higher. This is the recovery path for a lost or wiped state file (e.g. after a hard
+      crash): the server keeps the larger of what it has and what arrives, so counting up
+      from zero would otherwise be silently ignored until the local tally caught up.
 
 Config (environment variables):
     KEYSTROKE_TOKEN   required — must match the server's KEYSTROKE_TOKEN.
@@ -55,6 +61,9 @@ FLUSH_SECONDS = int(os.environ.get("KEYSTROKE_FLUSH_SECONDS", "60"))
 # so it happens often, while the network POST stays at one a minute.
 STATE_SECONDS = int(os.environ.get("KEYSTROKE_STATE_SECONDS", "2"))
 STATE_PATH = Path(os.environ.get("KEYSTROKE_STATE", str(Path.home() / ".focuspoint-keystrokes.json")))
+# Backoff before the single retry of the startup GET (DNS is often still down right after
+# a reboot). Kept short so the listener starts within seconds even when offline.
+STARTUP_RETRY_SECONDS = float(os.environ.get("KEYSTROKE_STARTUP_RETRY_SECONDS", "5"))
 
 _tz = ZoneInfo(TIMEZONE) if ZoneInfo else None
 
@@ -82,10 +91,75 @@ def load_state() -> None:
 
 
 def save_state() -> None:
+    """Write today's tally atomically: temp file beside STATE_PATH, then os.replace().
+
+    A plain write_text() truncates first and fills second, so a crash (or a thermal
+    shutdown) in between leaves an empty file and the next start resumes at 0. The rename
+    is atomic on APFS, so readers — this process on restart, and the menu bar — only ever
+    see the old complete file or the new complete file.
+    """
+    tmp = STATE_PATH.with_name(STATE_PATH.name + ".tmp")
     try:
-        STATE_PATH.write_text(json.dumps({"date": _date, "count": _count}))
+        with open(tmp, "w") as f:
+            f.write(json.dumps({"date": _date, "count": _count}))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, STATE_PATH)
     except OSError:
-        pass
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def fetch_server_count(date: str) -> int | None:
+    """GET today's total from the server, or None if it can't be reached.
+
+    One retry with a short backoff: right after a reboot DNS can be down for a few minutes,
+    and this only runs once at startup. Never raises — a failed lookup means "trust the
+    local file", and startup must not block on the network.
+    """
+    req = urllib.request.Request(
+        f"{FOCUSPOINT_URL}/api/keystrokes",
+        method="GET",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            if data.get("today") != date:
+                # Server-side "today" disagrees (clock skew around midnight): don't adopt a
+                # number that belongs to a different day.
+                sys.stderr.write(
+                    f"[keystrokes] server says today is {data.get('today')!r}, "
+                    f"we say {date}; keeping local count\n"
+                )
+                return None
+            return int(data.get("todayCount", 0))
+        except Exception as e:  # noqa: BLE001 - startup must survive any network state
+            sys.stderr.write(f"[keystrokes] GET (attempt {attempt}) failed: {e}\n")
+            if attempt == 1:
+                time.sleep(STARTUP_RETRY_SECONDS)
+    return None
+
+
+def reconcile_with_server() -> None:
+    """After load_state(): if the server already has more for today, resume from there."""
+    global _count, _dirty
+    server = fetch_server_count(_date)
+    if server is None:
+        sys.stderr.write(f"[keystrokes] server unreachable at startup; using local count {_count}\n")
+        return
+    with _lock:
+        if server > _count:
+            sys.stderr.write(
+                f"[keystrokes] local count {_count} is behind server {server}; "
+                f"resuming from server\n"
+            )
+            _count = server
+            _dirty = True
+            save_state()
 
 
 def post(date: str, count: int) -> bool:
@@ -151,6 +225,7 @@ def main() -> None:
         sys.exit(1)
 
     load_state()
+    reconcile_with_server()
     sys.stderr.write(
         f"[keystrokes] counting to {FOCUSPOINT_URL} every {FLUSH_SECONDS}s "
         f"(resumed today at {_count})\n"

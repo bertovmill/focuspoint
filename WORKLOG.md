@@ -7595,3 +7595,35 @@ text contained today's note zero times outside the textarea. `npm run typecheck`
 Files: `lib/habits.ts`, `lib/db.ts`, `app/api/habits/route.ts`,
 `app/_components/habit-row.tsx`, `app/_components/training-log.tsx`,
 `app/_components/scorecard-card.tsx`, `WORKLOG.md`.
+
+## 2026-09-06 — Keystroke agent survives a lost state file
+
+Berto's Mac had a thermal-emergency crash and reboot on 2026-09-06. The counter came
+back with an empty `~/.focuspoint-keystrokes.json`, logged *"resumed today at 0"*, and
+because the server keeps `GREATEST(existing, incoming)`, every key pressed after the
+reboot was silently uncounted until the local tally climbed back past the server's 7039.
+The menu bar showed ~190 while the server had 7039.
+
+**What changed** (`keystroke-agent/count_keystrokes.py`, `keystroke-agent/README.md`):
+
+- `save_state()` is atomic: writes `~/.focuspoint-keystrokes.json.tmp` beside the real
+  file, fsyncs, then `os.replace()`s it into place. A crash mid-write can no longer leave
+  an empty or partial file. The temp file is cleaned up on failure.
+- New `reconcile_with_server()` runs right after `load_state()`: GETs
+  `$FOCUSPOINT_URL/api/keystrokes` with the bearer token (middleware already allow-lists
+  the token on any method) and, if the server's `todayCount` for the same `today` is
+  higher than the local count, resumes from the server number and saves it. A server
+  `today` that differs from ours (midnight skew) is ignored rather than adopted.
+- A failed GET (DNS down, timeout) means "use local": one retry after
+  `KEYSTROKE_STARTUP_RETRY_SECONDS` (default 5s, since DNS was down for minutes after the
+  reboot), 10s timeout each, then a log line and normal startup. Startup never blocks on
+  the network beyond that.
+- Still count-only (the key is never inspected), still urllib-only. The menu bar picks
+  the corrected number up from the same file it already reads.
+
+**Verified.** Wrote `{"count": 42}` to the state file, ran
+`launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes`; log shows
+*"local count 42 is behind server 8594; resuming from server"* then
+*"resumed today at 8594"*, no `.tmp` left behind. Ran by hand against
+`https://does-not-exist.invalid` with a throwaway state file: two failed GET attempts,
+*"server unreachable at startup; using local count 5"*, and the listener started.

@@ -36,6 +36,49 @@ import { cn } from "@/lib/utils";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
+// Cael's vision gets no benefit past ~1568px on the long edge, and phone
+// photos (3-8MB) sent inline as base64 blow past the chat function's request
+// body limit (FUNCTION_PAYLOAD_TOO_LARGE). Downscale + re-encode before the
+// image ever leaves the browser, for both the inline data URL Cael sees and
+// the Blob copy tools reference.
+const MAX_IMAGE_DIMENSION = 1568;
+const IMAGE_JPEG_QUALITY = 0.85;
+
+async function downscaleImageDataUrl(dataUrl: string, mediaType: string): Promise<{ url: string; mediaType: string }> {
+  // Only JPEG/PNG/WebP decode reliably via <img> + canvas; anything else
+  // (gif, unknown) rides through unchanged.
+  if (!/^image\/(jpeg|png|webp)$/.test(mediaType)) return { url: dataUrl, mediaType };
+
+  try {
+    const img = new Image();
+    const loaded = new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("image decode failed"));
+    });
+    img.src = dataUrl;
+    await loaded;
+
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height));
+    if (scale === 1) return { url: dataUrl, mediaType };
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { url: dataUrl, mediaType };
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Re-encode as JPEG regardless of source type (drops alpha, but this is
+    // for chat photos, not graphics) — much smaller than PNG for photos.
+    const resized = canvas.toDataURL("image/jpeg", IMAGE_JPEG_QUALITY);
+    return { url: resized, mediaType: "image/jpeg" };
+  } catch {
+    // Decode failed (e.g. corrupt file) — fall back to the original rather
+    // than dropping the image entirely.
+    return { url: dataUrl, mediaType };
+  }
+}
+
 async function uploadImageDataUrl(dataUrl: string): Promise<string | null> {
   try {
     const res = await fetch(dataUrl);
@@ -117,13 +160,17 @@ export function EveComposer({
         // PromptInput hands us data URLs on submit; anything else is unusable
         // once the composer clears, so skip it rather than send a dead link.
         if (!file.url?.startsWith("data:")) continue;
-        const mediaType = file.mediaType || "application/octet-stream";
+        let url = file.url;
+        let mediaType = file.mediaType || "application/octet-stream";
+        if (mediaType.startsWith("image/")) {
+          ({ url, mediaType } = await downscaleImageDataUrl(url, mediaType));
+        }
         // eve rejects type:"image" — images ride as file parts with the data URL.
-        parts.push({ type: "file", data: file.url, mediaType });
+        parts.push({ type: "file", data: url, mediaType });
         sent.push({ ...file, id: `sent-${Date.now()}-${i}` });
         if (mediaType.startsWith("image/")) {
           // Also park it in Blob so Cael can hand the picture to tools by URL.
-          const blobUrl = await uploadImageDataUrl(file.url);
+          const blobUrl = await uploadImageDataUrl(url);
           if (blobUrl) {
             parts.push({ type: "text", text: `[Image uploaded — public URL: ${blobUrl}]` });
           }

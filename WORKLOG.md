@@ -7665,3 +7665,26 @@ installed app renders correctly on launch.
 **Note**: "Continue with Google" on that sign-in page still hands off to
 `accounts.google.com` in the system browser, which is correct/expected — only the
 same-origin Clerk handshake needed to stay in-app.
+
+## 2026-09-07 — Chat photo uploads: FUNCTION_PAYLOAD_TOO_LARGE
+
+Uploading a phone photo in the chat (desktop app or web) failed with
+`Request failed — Request Entity Too Large FUNCTION_PAYLOAD_TOO_LARGE`. Cause:
+`components/chat/eve-composer.tsx` sends images to Cael as an inline base64 data
+URL (a `type: "file"` part, since eve rejects `type: "image"`) so the model can
+actually see the picture — separately from uploading the same image to Blob
+storage for tools to reference by URL. A full-resolution phone photo (often
+3-8MB) base64-encodes to 4-10MB+ and blew past the chat function's request body
+limit before any resizing ever happened.
+
+**Fix**: added `downscaleImageDataUrl()` — decodes the pasted/attached image via
+`<img>` + `<canvas>`, downscales to at most 1568px on the long edge (Claude's
+vision gets no benefit past that anyway) and re-encodes as JPEG at quality 0.85.
+Runs before both the inline data URL sent to eve and the Blob upload, so both
+copies are the smaller version. Non-JPEG/PNG/WebP types (gifs, etc.) and decode
+failures fall through unchanged rather than dropping the image.
+
+**Verified**: headless-browser test generating a worst-case 4032×3024 random-noise
+JPEG (12.4MB data URL — real photos compress far better than noise) through the
+same resize logic: output shrank to 1568×1176 and ~920KB, a 13x reduction, safely
+under any function payload limit. `npm run typecheck` passes.

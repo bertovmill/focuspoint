@@ -13,14 +13,14 @@ export default defineTool({
     const sql = getDb();
     const rows = tag
       ? await sql`
-          SELECT id, content, tags, created_at
+          SELECT id, content, tags, image_url, created_at
           FROM thoughts
           WHERE ${tag} = ANY(tags)
           ORDER BY created_at DESC
           LIMIT ${limit}
         `
       : await sql`
-          SELECT id, content, tags, created_at
+          SELECT id, content, tags, image_url, created_at
           FROM thoughts
           ORDER BY created_at DESC
           LIMIT ${limit}
@@ -29,6 +29,7 @@ export default defineTool({
       id: Number(r.id),
       content: String(r.content),
       tags: Array.isArray(r.tags) ? r.tags : [],
+      image_url: r.image_url ? String(r.image_url) : null,
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     }));
     return { notes, count: notes.length };
@@ -36,7 +37,7 @@ export default defineTool({
   toModelOutput(output) {
     if (output.count === 0) return { type: "text", value: "No notes found." };
     const lines = output.notes.map(
-      (n) => `• ${n.content}${n.tags.length ? ` [${n.tags.join(", ")}]` : ""}`,
+      (n) => `• ${n.content}${n.tags.length ? ` [${n.tags.join(", ")}]` : ""}${n.image_url ? ` (photo: ${n.image_url})` : ""}`,
     );
     return { type: "text", value: `${output.count} note${output.count !== 1 ? "s" : ""}:\n${lines.join("\n")}` };
   },

@@ -18,7 +18,7 @@ export default defineTool({
     try {
       const lit = toVectorLiteral(await embedText(query));
       const rows = await sql`
-        SELECT id, content, tags, created_at,
+        SELECT id, content, tags, image_url, created_at,
                1 - (embedding <=> ${lit}::vector) AS score
         FROM thoughts
         WHERE embedding IS NOT NULL
@@ -30,6 +30,7 @@ export default defineTool({
           id: Number(r.id),
           content: String(r.content),
           tags: Array.isArray(r.tags) ? r.tags : [],
+          image_url: r.image_url ? String(r.image_url) : null,
           created_at:
             r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
           score: Number(r.score),
@@ -44,7 +45,7 @@ export default defineTool({
     // Keyword fallback (ILIKE) — used when embeddings are unavailable or absent.
     const pattern = `%${query.replace(/[%_]/g, "\\$&")}%`;
     const rows = await sql`
-      SELECT id, content, tags, created_at
+      SELECT id, content, tags, image_url, created_at
       FROM thoughts
       WHERE content ILIKE ${pattern}
       ORDER BY created_at DESC
@@ -54,6 +55,7 @@ export default defineTool({
       id: Number(r.id),
       content: String(r.content),
       tags: Array.isArray(r.tags) ? r.tags : [],
+      image_url: r.image_url ? String(r.image_url) : null,
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     }));
     return { results, count: results.length };

@@ -7688,3 +7688,37 @@ failures fall through unchanged rather than dropping the image.
 JPEG (12.4MB data URL — real photos compress far better than noise) through the
 same resize logic: output shrank to 1568×1176 and ~920KB, a 13x reduction, safely
 under any function payload limit. `npm run typecheck` passes.
+
+## 2026-09-07 — Photos can be saved to memory (notes get an image_url)
+
+Berto asked whether images can be added to memory. They couldn't: `capture_thought`
+only ever wrote a `content` string to `thoughts`, so asking Cael to "save this photo to
+memory" (see the entry above) just filed a text note — at best a pasted blob URL, which
+the embedding can't do anything useful with. Separately, the Media tab's uploads
+(`app/_components/dashboard.tsx`) only lived in React state — gone on refresh, never
+written to the database at all.
+
+**What changed**:
+
+- `lib/db.ts`: `ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS image_url TEXT`. Notes now
+  optionally carry a photo, same table, same folders/tags/search — matches the pattern
+  already used by `thank_yous.image_url` (`log_thank_you`, Service wealth form).
+- `agent/tools/capture_thought.ts`: new optional `image_url` param, described as coming
+  from the '[Image uploaded — public URL: ...]' marker the chat composer already appends
+  after an image upload (`components/chat/eve-composer.tsx`, from the earlier
+  `FUNCTION_PAYLOAD_TOO_LARGE` fix). `agent/instructions.md` tells Cael to pass it
+  whenever the user shares a photo and wants it remembered (thank-you screenshots still
+  go to `log_thank_you`, unchanged).
+- `agent/tools/list_notes.ts`, `agent/tools/search_memory.ts`, `app/api/thoughts/route.ts`,
+  `app/api/thoughts/semantic-search/route.ts`: all select and return `image_url` now.
+- `app/_components/dashboard.tsx`: the Notes list renders a thumbnail above the note text
+  when `image_url` is present.
+- Deliberately out of scope (per Berto: image_url on `thoughts` was the ask, not a
+  rework of Media): the Media tab's uploads are still session-only, not written to
+  `thoughts` — a separate feature if he wants it persisted too.
+
+**Verified**: `npm run typecheck` passes. Ran the app's own dev server against the real
+Neon DB (`PORT=3789 npm run dev`, password-cookie login) and confirmed `information_schema`
+lists `image_url` on `thoughts` after `ensureSchema()` ran; inserted and read back a test
+row directly via `@neondatabase/serverless`; hit `GET /api/thoughts` and confirmed the
+JSON response includes `image_url`. Test rows deleted afterward.

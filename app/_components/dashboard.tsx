@@ -88,6 +88,7 @@ interface Thought {
   id: number;
   content: string;
   tags: string[];
+  image_url?: string | null;
   created_at: string;
   score?: number;
 }
@@ -1033,6 +1034,14 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                       </div>
                     ) : (
                       <>
+                        {thought.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={thought.image_url}
+                            alt=""
+                            className="mb-2 max-h-64 w-full rounded-md object-cover"
+                          />
+                        )}
                         <p className="text-sm leading-relaxed break-words">{thought.content}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-2">
                           <span className="text-xs text-muted-foreground shrink-0">

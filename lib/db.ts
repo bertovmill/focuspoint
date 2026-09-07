@@ -29,6 +29,10 @@ export async function ensureSchema() {
   `;
   // Semantic-search embedding column (pgvector). 1536 = text-embedding-3-small.
   await sql`ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS embedding vector(1536)`;
+  // A note can carry a photo (Blob URL) alongside or instead of text — chat
+  // uploads and the Media tab both land here so a saved image is a real,
+  // searchable note rather than session-only state.
+  await sql`ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS image_url TEXT`;
   await sql`
     CREATE TABLE IF NOT EXISTS todos (
       id SERIAL PRIMARY KEY,

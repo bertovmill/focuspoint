@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit") ?? 30), 1000);
     const sql = getDb();
     const rows = await sql`
-      SELECT id, content, tags, created_at
+      SELECT id, content, tags, image_url, created_at
       FROM thoughts
       ORDER BY created_at DESC
       LIMIT ${limit}

@@ -150,7 +150,12 @@ fn main() {
                 .initialization_script(INIT_SCRIPT)
                 .on_navigation(move |url| {
                     let host = url.host_str().unwrap_or("");
-                    if host == app_host || host == "localhost" || host == "127.0.0.1" {
+                    // Clerk's dev instance needs a cross-origin "handshake" redirect to set
+                    // its session cookie (it can't set first-party cookies on the app's own
+                    // host). Without this, the redirect gets treated as an external link and
+                    // bounces the whole login flow out to the system browser.
+                    let is_clerk_handshake = host.ends_with(".clerk.accounts.dev") || host.ends_with(".clerk.com");
+                    if host == app_host || host == "localhost" || host == "127.0.0.1" || is_clerk_handshake {
                         return true;
                     }
                     // External link: hand off to the default browser.

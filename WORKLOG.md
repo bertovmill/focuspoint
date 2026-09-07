@@ -7627,3 +7627,41 @@ The menu bar showed ~190 while the server had 7039.
 *"resumed today at 8594"*, no `.tmp` left behind. Ran by hand against
 `https://does-not-exist.invalid` with a throwaway state file: two failed GET attempts,
 *"server unreachable at startup; using local count 5"*, and the listener started.
+
+## 2026-09-07 — Cael Mac app: fix blank window bouncing to Chrome
+
+Berto reported the Cael desktop app "doesn't house our app anymore, it just opens our
+app in a chrome window." Diagnosed by launching `/Applications/Cael.app` and capturing
+`log stream` output for the `focuspoint-desktop` process: WebKit reported
+`FrameLoader::checkLoadCompleteForThisFrame: Failed provisional load ... errorCode = 102`
+(`FrameLoadInterruptedByPolicyDecision`) on the very first navigation — the app's
+`on_navigation` handler in `desktop/src-tauri/src/main.rs` only allowlists the app's own
+host (`cael-keystrokes.vercel.app`) plus localhost, so it rejected the load and handed it
+to the system browser via `open`.
+
+**Root cause**: the app's Clerk instance is a dev/test key (`pk_test_...`, confirmed via
+`.env.local`'s `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), which requires a cross-origin
+"dev browser" handshake redirect to `*.clerk.accounts.dev` to set its session cookie
+(dev instances can't set first-party cookies on the app's own host). That redirect isn't
+the app's own host, so it got treated as an external link and bounced the whole
+sign-in flow out to Chrome — which is why the native window stayed permanently blank
+and the "real" session ended up living in a Chrome tab instead.
+
+**Fix** (`desktop/src-tauri/src/main.rs`): `on_navigation` now also allows hosts ending
+in `.clerk.accounts.dev` or `.clerk.com`, so the Clerk handshake completes silently
+inside the native WebView instead of leaving the app.
+
+**Verified**: added temporary `eprintln!` logging to confirm the exact URL/host being
+rejected, then removed it once the fix was confirmed. Cleared
+`~/Library/WebKit/com.bertomill.focuspoint`, `~/Library/Caches/com.bertomill.focuspoint`,
+and `~/Library/HTTPStorages/com.bertomill.focuspoint*` to force the true first-run
+handshake path, then ran the release binary directly — the sign-in page ("Sign in to
+bertomill.com", Clerk dev-mode banner) now renders inside the Cael window instead of a
+blank screen. Rebuilt with `npx tauri build` (the `.dmg` packaging step failed on
+`bundle_dmg.sh`, unrelated — the `.app` bundle built fine) and reinstalled it to
+`/Applications/Cael.app` (ad-hoc re-signed, quarantine flag cleared). Confirmed the
+installed app renders correctly on launch.
+
+**Note**: "Continue with Google" on that sign-in page still hands off to
+`accounts.google.com` in the system browser, which is correct/expected — only the
+same-origin Clerk handshake needed to stay in-app.

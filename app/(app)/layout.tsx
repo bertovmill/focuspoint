@@ -7,7 +7,6 @@ import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
-import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
@@ -318,7 +317,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           {/* The identity that used to sit in the dashboard's top bar. */}
           {navRailOpen && (
             <div className="flex items-center gap-2 min-w-0">
-              <CaelAvatar size={24} />
               <span className="text-sm font-semibold tracking-tight truncate">Cael</span>
             </div>
           )}

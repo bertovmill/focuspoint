@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-07 (chat) — Cael's sketch reading gets spatial awareness
+
+Berto asked Cael mid-chat whether it just sees text from a sketch or gets
+positional info too. Cael's honest answer: text only — labels and arrow
+connections, no sense of where anything sits, so e.g. three diamonds with no
+label and no arrow binding were invisible beyond a raw count. Berto asked for
+a way to make that easier: read shape *position*, not just text.
+
+**What changed** — `lib/sketch-text.ts` (`readScene` / `formatReading`,
+used by `agent/tools/list_sketches.ts` and `agent/tools/read_sketch.ts`):
+
+- Added `SketchReading.layout`: every shape (labelled or not) and standalone
+  text element, bucketed into a 3x3 region grid over the sketch's bounding
+  box (`top-left` … `bottom-right`, `regionOf()`). Raw x/y floats aren't
+  useful to a model, so this coarsens position into something readable.
+- Added `SketchReading.clusters`: proximity-based grouping (union-find over
+  center-to-center distance, threshold scaled to the sketch's average
+  element size) independent of arrow connections. This is what surfaces
+  unlabelled/unconnected shapes that sit together — e.g. three diamonds in a
+  corner now read as "(unlabelled diamond), (unlabelled diamond),
+  (unlabelled diamond)" in one cluster, at `bottom-center`.
+- `formatReading()` prints two new sections when present: `Layout (by
+  region)` and `Nearby groups (physically close, not necessarily
+  arrow-connected)`.
+- `shapes`/`text`/`connections` outputs are unchanged, so nothing downstream
+  broke — verified with `npm run typecheck` and `npm run build`, plus a
+  synthetic scene (rectangle + 3 clustered diamonds + a distant text note)
+  run through `readScene`/`formatReading` directly to confirm the output
+  reads correctly.
+
+**Next steps.** None open — this was a self-contained tool improvement.
+
+---
+
 ## 2026-09-03 (chat) — scorecard cut back to three: Steps, Sleep, Keystrokes
 
 Berto, right after the reading-time/notes feature shipped: *"oh thats way too

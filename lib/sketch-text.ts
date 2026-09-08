@@ -6,8 +6,13 @@
 // joins (via `startBinding`/`endBinding`). This module resolves both, so a flowchart
 // reads as "A → B" instead of a pile of disconnected strings.
 //
-// Deliberately lossy: coordinates, colors, and stroke styles are dropped. Reading
-// order is top-to-bottom, then left-to-right, which is how a person scans a page.
+// Colors and stroke styles are dropped — they don't translate to text. Position is
+// kept, but coarsened: raw x/y floats are meaningless to a model, so elements are
+// bucketed into a 3x3 region grid ("top-left", "center", ...) and clustered by
+// proximity. That's what tells Cael, e.g., that three unlabelled, unconnected
+// diamonds are grouped together in a corner — something arrow/label reading alone
+// can't see. Reading order is top-to-bottom, then left-to-right, like a person scans
+// a page.
 
 type SceneElement = {
   id?: string;
@@ -42,7 +47,30 @@ export type SketchReading = {
   counts: Record<string, number>;
   /** Total non-deleted elements. */
   total: number;
+  /**
+   * Every shape (labelled or not) and standalone text, placed on a coarse 3x3 grid
+   * over the sketch's bounding box. Lets Cael reason about where things sit without
+   * needing raw coordinates.
+   */
+  layout: Array<{ region: Region; kind: "shape" | "text"; type: string; label: string }>;
+  /**
+   * Groups of shapes/text that sit physically close together, regardless of whether
+   * an arrow connects them. Each entry is a display label per member (unlabelled
+   * shapes show as e.g. "(unlabelled diamond)").
+   */
+  clusters: string[][];
 };
+
+export type Region =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 const CONTAINER_TYPES = new Set([
   "rectangle",
@@ -115,6 +143,87 @@ function endpointsOf(el: SceneElement): [[number, number], [number, number]] | n
 // How close a loose arrow endpoint must sit to something before we'll claim it points
 // there. Tight on purpose: a wrong connection misleads worse than a missing one does.
 const ENDPOINT_SNAP_PX = 24;
+
+const REGION_ORDER: Region[] = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+];
+
+/** Which cell of a 3x3 grid over `bbox` a point falls in. */
+function regionOf(point: [number, number], bbox: Box): Region {
+  const col = bbox.w > 0 ? Math.min(2, Math.floor(((point[0] - bbox.x) / bbox.w) * 3)) : 1;
+  const row = bbox.h > 0 ? Math.min(2, Math.floor(((point[1] - bbox.y) / bbox.h) * 3)) : 1;
+  if (row === 1 && col === 1) return "center";
+  const rows = ["top", "middle", "bottom"];
+  const cols = ["left", "center", "right"];
+  return `${rows[row]}-${cols[col]}` as Region;
+}
+
+/** Bounding box that contains every given box, or null if there are none. */
+function unionBox(boxes: Box[]): Box | null {
+  if (boxes.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const b of boxes) {
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w);
+    maxY = Math.max(maxY, b.y + b.h);
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Group items by physical proximity (union-find on center-to-center distance), using
+ * the average element size as the "close enough" threshold so it scales with how big
+ * the sketch's shapes actually are. Only groups of 2+ are returned.
+ */
+function clusterByProximity(
+  items: Array<{ label: string; center: [number, number]; size: number }>,
+): string[][] {
+  if (items.length < 2) return [];
+  const sizes = items.map((it) => it.size).filter((n) => n > 0);
+  const avgSize = sizes.length ? sizes.reduce((a, b) => a + b, 0) / sizes.length : 80;
+  const threshold = avgSize * 1.5;
+
+  const parent = items.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const d = Math.hypot(items[i].center[0] - items[j].center[0], items[i].center[1] - items[j].center[1]);
+      if (d <= threshold) {
+        const ri = find(i);
+        const rj = find(j);
+        if (ri !== rj) parent[ri] = rj;
+      }
+    }
+  }
+
+  const groups = new Map<number, number[]>();
+  items.forEach((_, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root)!.push(i);
+  });
+  return [...groups.values()]
+    .filter((g) => g.length > 1)
+    .map((g) => g.map((i) => items[i].label));
+}
 
 export function readScene(scene: SketchScene): SketchReading {
   const elements = (scene?.elements ?? []).filter((el) => el && !el.isDeleted);
@@ -226,7 +335,41 @@ export function readScene(scene: SketchScene): SketchReading {
     if (!connections.includes(line)) connections.push(line);
   }
 
-  return { text, shapes, connections, counts, total: elements.length };
+  // Spatial layer: every shape (labelled or not) plus standalone text, placed on the
+  // region grid and clustered by proximity. Unlabelled shapes are named by type so a
+  // cluster like three unconnected diamonds is still legible.
+  const allShapeEls = elements.filter((el) => CONTAINER_TYPES.has(el.type ?? ""));
+  const standaloneTextEls = elements.filter(
+    (el) => el.type === "text" && !boundLabelIds.has(el.id ?? "") && !adoptedTextIds.has(el.id ?? ""),
+  );
+  const sceneBox = unionBox([...allShapeEls, ...standaloneTextEls].map(boxOf));
+
+  const layout: SketchReading["layout"] = sceneBox
+    ? inReadingOrder([...allShapeEls, ...standaloneTextEls]).map((el) => {
+        const isShape = CONTAINER_TYPES.has(el.type ?? "");
+        return {
+          region: regionOf(centerOf(boxOf(el)), sceneBox),
+          kind: isShape ? ("shape" as const) : ("text" as const),
+          type: el.type ?? "shape",
+          label: isShape ? nameOf(el) : oneLine(textOf(el)),
+        };
+      })
+    : [];
+
+  const clusters = clusterByProximity(
+    [...allShapeEls, ...standaloneTextEls].map((el) => {
+      const box = boxOf(el);
+      const isShape = CONTAINER_TYPES.has(el.type ?? "");
+      const label = isShape ? nameOf(el) : oneLine(textOf(el));
+      return {
+        label: label || `(unlabelled ${el.type ?? "shape"})`,
+        center: centerOf(box),
+        size: Math.max(box.w, box.h),
+      };
+    }),
+  );
+
+  return { text, shapes, connections, counts, total: elements.length, layout, clusters };
 }
 
 /** Render a reading as the compact text block a tool hands the model. */
@@ -242,6 +385,27 @@ export function formatReading(reading: SketchReading): string {
   }
   if (reading.connections.length) {
     parts.push(`Connections:\n${reading.connections.map((c) => `  ${c}`).join("\n")}`);
+  }
+  if (reading.layout.length) {
+    const byRegion = new Map<Region, string[]>();
+    for (const item of reading.layout) {
+      const display =
+        item.kind === "shape" ? `[${item.type}] ${item.label || "(unlabelled)"}` : item.label;
+      if (!display) continue;
+      if (!byRegion.has(item.region)) byRegion.set(item.region, []);
+      byRegion.get(item.region)!.push(display);
+    }
+    const lines = REGION_ORDER.filter((r) => byRegion.has(r)).map(
+      (r) => `  ${r}: ${byRegion.get(r)!.join(", ")}`,
+    );
+    if (lines.length) parts.push(`Layout (by region):\n${lines.join("\n")}`);
+  }
+  if (reading.clusters.length) {
+    parts.push(
+      `Nearby groups (physically close, not necessarily arrow-connected):\n${reading.clusters
+        .map((c) => `  • ${c.join(", ")}`)
+        .join("\n")}`,
+    );
   }
   const breakdown = Object.entries(reading.counts)
     .sort((a, b) => b[1] - a[1])

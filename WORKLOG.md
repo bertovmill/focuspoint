@@ -7798,3 +7798,39 @@ unreliable because Gmail was full-screen on the main display at the time (menu b
 hidden). Reinstalled the real app with `install.sh` (launchd reloaded, new PID); today's
 count is ~13k so no confetti fired on install. Deployed to production so
 `/api/keystrokes` carries `target`.
+
+## 2026-09-13 — Eight celebrations, a different one each day
+
+Right after the confetti shipped, Berto: *"now to make it even more addicting, lets add
+variable surprises each day when the user gets to 30k clicks, maybe 5-10 variations"*.
+Asked which: all eight proposed visuals, no sound, no notification.
+
+**What changed** (`keystroke-agent/menubar/KeystrokeMenuBar.swift`):
+
+- `Confetti` became `enum Celebration: CaseIterable` + `build(kind, screen, anchor) -> Show`
+  + `CelebrationPlayer`. Every show is still one `CAEmitterLayer` in a transparent,
+  click-through `.popUpMenu`-level window, torn down after `total` seconds, so the cost
+  model didn't change. Sprites are drawn at 2x with `contentsScale = 2` so they're crisp.
+- The eight: **confetti** (unchanged) · **fireworks** (invisible shell cells with
+  `lifetime 0.06` pop at random points and emit ~130 one-colour sparks + white glints — the
+  nested-cell trick) · **gold rain** (four golds, slow, full screen height, 12s) · **emoji
+  shower** (🎉🔥⌨️💪🏆⚡️🚀✨ rendered as sprites) · **streamers** (3×34 ribbons, fast spin)
+  · **falling 30,000** (single digits + whole "30,000" glyphs tinted per colour) ·
+  **balloons** (the only one that rises — released along the bottom of the screen, drift
+  up the full height, 14s) · **starfield** (a 900pt band under the menu bar; stars pop in
+  via `scaleSpeed` and fade, no motion).
+- Pick: `Celebration.pick(avoiding: last)` — uniform random over the other seven.
+  `UserDefaults["celebration"]` remembers what fired so tomorrow can't repeat it and the
+  menu's goal row can say "🎉 Goal · 30,000 · 104% · Fireworks".
+- Menu: "Replay celebration" is now a submenu — *Surprise me* + one item per show.
+- Dev hooks: `KEYSTROKE_DEBUG_SHOW=<rawValue>` plays that show 0.5s after launch;
+  the daily fire's deferral went 0.5s → 1.0s because at 0.5s the status item's window frame
+  was still occasionally degenerate and the show fell back to the extras-area guess.
+
+**Verified**: compiled clean; drove all eight via `KEYSTROKE_DEBUG_SHOW` against a fake
+state file and captured one frame of each window by id (`screencapture -l`). All eight
+draw as intended; fireworks were too dense (spark birthRate 4500 → 2200, shell 0.7 → 0.5)
+and whole "30,000"s too rare (1.2 → 2.5) — tuned, recompiled, reinstalled with
+`install.sh`. Redeployed production after rebasing onto another session's
+"Remove daily schedule dispatcher" commit, since the first deploy had gone out from a tree
+without it.

@@ -16,8 +16,9 @@
 //     once a day, which is why it is polled slowly.
 //
 // The title is drawn, not typed: the number sits on a slim bar that fills toward the goal
-// through the day, and crossing the goal fires confetti out of the menu bar — once a day.
-// The bar is what you glance at a hundred times; the confetti is what you remember.
+// through the day, and crossing the goal fires a celebration out of the menu bar — once a
+// day, and a different one each day so it stays a surprise. The bar is what you glance at a
+// hundred times; the celebration is what you remember.
 //
 // Privacy is inherited: this reads a number the counter already wrote. It never sees keys.
 
@@ -45,9 +46,13 @@ let refreshLocal: TimeInterval = 2
 /// History changes at most once a day. Five minutes is already generous.
 let refreshRemote: TimeInterval = 300
 
-/// UserDefaults key holding the day (YYYY-MM-DD) the goal confetti last fired, so a
-/// relaunch — or the 2-second re-read — can't fire it twice in one day.
+/// UserDefaults keys. `celebratedDate` is the day (YYYY-MM-DD) the goal show last fired, so
+/// a relaunch — or the 2-second re-read — can't fire it twice in one day; `celebration` is
+/// which show it was, so the menu can say and tomorrow can avoid repeating it.
 let celebratedKey = "celebratedDate"
+let celebrationKey = "celebration"
+
+let debugging = ProcessInfo.processInfo.environment["KEYSTROKE_DEBUG_DUMP"] != nil
 
 // MARK: - Model
 
@@ -150,16 +155,365 @@ func titleImage(_ s: Summary) -> NSImage {
     return image
 }
 
-// MARK: - Confetti
+// MARK: - Celebrations
 
-/// A borderless, click-through, transparent window hung from the menu bar item, with a
-/// CAEmitterLayer pouring confetti down out of it for a few seconds. Its own window rather
-/// than a layer on the status button because the button is 22pt tall and the point is to
-/// spill *out* of the menu bar onto the screen.
-final class Confetti {
+/// The shows in the daily rotation. One is picked at random when the goal is hit, never the
+/// same as the last one, so the reward is variable — that is the whole point. Every show is
+/// a CAEmitterLayer in a borderless, click-through, transparent window: cheap, GPU-driven,
+/// and gone again in seconds, so a celebration never costs the day anything.
+enum Celebration: String, CaseIterable {
+    case confetti, fireworks, goldRain, emojiShower, streamers, digits, balloons, starfield
+
+    var title: String {
+        switch self {
+        case .confetti: return "Confetti"
+        case .fireworks: return "Fireworks"
+        case .goldRain: return "Gold rain"
+        case .emojiShower: return "Emoji shower"
+        case .streamers: return "Streamers"
+        case .digits: return "Falling 30,000"
+        case .balloons: return "Balloons"
+        case .starfield: return "Starfield"
+        }
+    }
+
+    /// Random, excluding whatever fired last time — the same surprise twice in a row isn't one.
+    static func pick(avoiding last: String?) -> Celebration {
+        let pool = allCases.filter { $0.rawValue != last }
+        return pool.randomElement() ?? .confetti
+    }
+}
+
+/// Where and for how long a show runs. `frame` is in screen coordinates; emission stops
+/// after `burst` seconds and the window is torn down after `total`.
+struct Show {
+    var frame: NSRect
+    var layers: [CAEmitterLayer]
+    var burst: TimeInterval
+    var total: TimeInterval
+}
+
+let palette: [NSColor] = [
+    .systemRed, .systemOrange, .systemYellow, .systemGreen,
+    .systemTeal, .systemBlue, .systemPurple, .systemPink,
+]
+
+// MARK: Sprites
+
+/// Every sprite is drawn at 2x and marked as such on the cell, so it is crisp on Retina.
+let spriteScale: CGFloat = 2
+
+/// White on transparent unless told otherwise; the cell's `color` tints it.
+func sprite(_ size: NSSize, _ draw: @escaping (NSRect) -> Void) -> CGImage? {
+    let px = NSSize(width: size.width * spriteScale, height: size.height * spriteScale)
+    let image = NSImage(size: px, flipped: false) { rect in
+        NSGraphicsContext.current?.cgContext.scaleBy(x: spriteScale, y: spriteScale)
+        draw(NSRect(origin: .zero, size: size))
+        return true
+    }
+    var rect = NSRect(origin: .zero, size: px)
+    return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+}
+
+func rectangleSprite(_ w: CGFloat, _ h: CGFloat) -> CGImage? {
+    sprite(NSSize(width: w, height: h)) { NSColor.white.setFill(); NSBezierPath(roundedRect: $0, xRadius: 1, yRadius: 1).fill() }
+}
+
+func circleSprite(_ d: CGFloat) -> CGImage? {
+    sprite(NSSize(width: d, height: d)) { NSColor.white.setFill(); NSBezierPath(ovalIn: $0).fill() }
+}
+
+func starSprite(_ d: CGFloat) -> CGImage? {
+    sprite(NSSize(width: d, height: d)) { rect in
+        let path = NSBezierPath()
+        let c = NSPoint(x: rect.midX, y: rect.midY)
+        let outer = d / 2, inner = d / 4.6
+        for i in 0..<10 {
+            let r = i.isMultiple(of: 2) ? outer : inner
+            let a = CGFloat(i) * .pi / 5 + .pi / 2
+            let p = NSPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r)
+            i == 0 ? path.move(to: p) : path.line(to: p)
+        }
+        path.close()
+        NSColor.white.setFill()
+        path.fill()
+    }
+}
+
+/// An oval body on a knot with a string hanging below; the body takes the cell's colour.
+func balloonSprite() -> CGImage? {
+    sprite(NSSize(width: 30, height: 56)) { rect in
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: NSRect(x: 1, y: 20, width: 28, height: 35)).fill()
+        let knot = NSBezierPath()
+        knot.move(to: NSPoint(x: 15, y: 21)); knot.line(to: NSPoint(x: 11, y: 15)); knot.line(to: NSPoint(x: 19, y: 15))
+        knot.close(); knot.fill()
+        let string = NSBezierPath()
+        string.move(to: NSPoint(x: 15, y: 15))
+        string.curve(to: NSPoint(x: 13, y: 0), controlPoint1: NSPoint(x: 20, y: 10), controlPoint2: NSPoint(x: 9, y: 5))
+        string.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.7).setStroke()
+        string.stroke()
+    }
+}
+
+/// Text as a sprite. Emoji keep their own colours; anything else is white for tinting.
+func glyphSprite(_ text: String, size: CGFloat, weight: NSFont.Weight = .bold) -> CGImage? {
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: size, weight: weight),
+        .foregroundColor: NSColor.white,
+    ]
+    let measured = (text as NSString).size(withAttributes: attrs)
+    let box = NSSize(width: ceil(measured.width) + 4, height: ceil(measured.height) + 4)
+    return sprite(box) { _ in (text as NSString).draw(at: NSPoint(x: 2, y: 2), withAttributes: attrs) }
+}
+
+// MARK: Cells
+
+func cell(_ contents: CGImage?, color: NSColor = .white) -> CAEmitterCell {
+    let c = CAEmitterCell()
+    c.contents = contents
+    c.contentsScale = spriteScale
+    c.color = color.cgColor
+    return c
+}
+
+func emitterLayer(in size: NSSize) -> CAEmitterLayer {
+    let e = CAEmitterLayer()
+    e.frame = CGRect(origin: .zero, size: size)
+    e.renderMode = .oldestFirst
+    e.beginTime = CACurrentMediaTime()
+    return e
+}
+
+// MARK: Shows
+
+/// Builds one show. `anchor` is the status item's frame on `screen`, both in screen coords;
+/// layer coords inside a show follow the unflipped view, so y grows upward and the top edge
+/// is `height`.
+func build(_ kind: Celebration, screen: NSScreen, anchor: NSRect) -> Show {
+    /// A window of `size` hung from the top of the screen, centred on the item and kept on
+    /// screen horizontally.
+    func hung(_ size: NSSize) -> NSRect {
+        let x = min(max(anchor.midX - size.width / 2, screen.frame.minX), screen.frame.maxX - size.width)
+        return NSRect(x: x, y: screen.frame.maxY - size.height, width: size.width, height: size.height)
+    }
+
+    switch kind {
+    case .confetti:
+        let size = NSSize(width: 520, height: 520)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 6)
+        e.emitterShape = .point
+        e.emitterCells = palette.flatMap { color in
+            [rectangleSprite(6, 10), rectangleSprite(8, 8), circleSprite(7)].map { shape in
+                let c = cell(shape, color: color)
+                c.birthRate = 14
+                c.lifetime = 4; c.lifetimeRange = 1
+                // Straight down, spread almost to horizontal either side, then gravity.
+                c.emissionLongitude = -.pi / 2; c.emissionRange = .pi / 2.2
+                c.velocity = 220; c.velocityRange = 120
+                c.yAcceleration = -320
+                c.spin = 3; c.spinRange = 5
+                c.scale = 1; c.scaleRange = 0.4
+                c.alphaSpeed = -0.25
+                return c
+            }
+        }
+        return Show(frame: hung(size), layers: [e], burst: 0.7, total: 5)
+
+    case .fireworks:
+        // Invisible "shells" pop at random points below the item, each throwing out a
+        // burst of one-colour sparks that arc and fade under gravity.
+        let size = NSSize(width: 760, height: 460)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height * 0.55)
+        e.emitterShape = .rectangle
+        e.emitterSize = CGSize(width: size.width * 0.8, height: size.height * 0.6)
+        e.emitterCells = palette.map { color in
+            let shell = CAEmitterCell()
+            shell.birthRate = 0.5
+            shell.lifetime = 0.06
+            shell.velocity = 0
+            let spark = cell(circleSprite(5), color: color)
+            spark.birthRate = 2200
+            spark.lifetime = 1.1; spark.lifetimeRange = 0.4
+            spark.emissionRange = .pi * 2
+            spark.velocity = 170; spark.velocityRange = 70
+            spark.yAcceleration = -140
+            spark.scale = 1; spark.scaleSpeed = -0.6
+            spark.alphaSpeed = -0.9
+            let glint = cell(starSprite(9), color: .white)
+            glint.birthRate = 160
+            glint.lifetime = 0.9
+            glint.emissionRange = .pi * 2
+            glint.velocity = 120; glint.velocityRange = 60
+            glint.yAcceleration = -120
+            glint.spin = 4
+            glint.scaleSpeed = -0.8
+            glint.alphaSpeed = -1
+            shell.emitterCells = [spark, glint]
+            return shell
+        }
+        return Show(frame: hung(size), layers: [e], burst: 3.2, total: 6)
+
+    case .goldRain:
+        // Slow, shimmering, and long: flakes in three golds and a highlight drift the height
+        // of the screen. The gentlest show in the set, on purpose.
+        let size = NSSize(width: 560, height: screen.frame.height)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 4)
+        e.emitterShape = .line
+        e.emitterSize = CGSize(width: size.width * 0.9, height: 1)
+        let golds: [NSColor] = [
+            NSColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1),
+            NSColor(red: 0.96, green: 0.77, blue: 0.26, alpha: 1),
+            NSColor(red: 0.85, green: 0.65, blue: 0.13, alpha: 1),
+            NSColor(red: 1.0, green: 0.95, blue: 0.7, alpha: 1),
+        ]
+        e.emitterCells = golds.flatMap { color in
+            [rectangleSprite(4, 7), circleSprite(5), starSprite(8)].map { shape in
+                let c = cell(shape, color: color)
+                c.birthRate = 12
+                c.lifetime = 9; c.lifetimeRange = 2
+                c.emissionLongitude = -.pi / 2; c.emissionRange = .pi / 10
+                c.velocity = 70; c.velocityRange = 40
+                c.yAcceleration = -45
+                c.spin = 1.5; c.spinRange = 2
+                c.scale = 0.9; c.scaleRange = 0.4
+                c.alphaSpeed = -0.1
+                return c
+            }
+        }
+        return Show(frame: hung(size), layers: [e], burst: 3.5, total: 12)
+
+    case .emojiShower:
+        let size = NSSize(width: 600, height: 600)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 10)
+        e.emitterShape = .point
+        e.emitterCells = ["🎉", "🔥", "⌨️", "💪", "🏆", "⚡️", "🚀", "✨"].map { emoji in
+            let c = cell(glyphSprite(emoji, size: 26))
+            c.birthRate = 9
+            c.lifetime = 4.5; c.lifetimeRange = 1
+            c.emissionLongitude = -.pi / 2; c.emissionRange = .pi / 2.4
+            c.velocity = 200; c.velocityRange = 110
+            c.yAcceleration = -260
+            c.spin = 0.6; c.spinRange = 1.6
+            c.scale = 1; c.scaleRange = 0.3
+            c.alphaSpeed = -0.2
+            return c
+        }
+        return Show(frame: hung(size), layers: [e], burst: 0.9, total: 6)
+
+    case .streamers:
+        // Long thin ribbons, thrown wide, tumbling fast, hanging in the air longer than
+        // confetti would.
+        let size = NSSize(width: 700, height: 560)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 6)
+        e.emitterShape = .point
+        e.emitterCells = palette.flatMap { color in
+            [rectangleSprite(3, 34), rectangleSprite(4, 24)].map { shape in
+                let c = cell(shape, color: color)
+                c.birthRate = 10
+                c.lifetime = 5.5; c.lifetimeRange = 1
+                c.emissionLongitude = -.pi / 2; c.emissionRange = .pi / 1.9
+                c.velocity = 260; c.velocityRange = 140
+                c.yAcceleration = -160
+                c.spin = 6; c.spinRange = 6
+                c.scale = 1; c.scaleRange = 0.3
+                c.alphaSpeed = -0.2
+                return c
+            }
+        }
+        return Show(frame: hung(size), layers: [e], burst: 0.8, total: 6.5)
+
+    case .digits:
+        // The number itself, raining: whole "30,000"s among a shower of single digits.
+        let size = NSSize(width: 620, height: 600)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 8)
+        e.emitterShape = .line
+        e.emitterSize = CGSize(width: 160, height: 1)
+        var cells: [CAEmitterCell] = []
+        for (i, color) in palette.enumerated() {
+            let digit = cell(glyphSprite(["3", "0", "0", "0", "0", ","][i % 6], size: 22), color: color)
+            digit.birthRate = 7
+            digit.lifetime = 4.5; digit.lifetimeRange = 1
+            digit.emissionLongitude = -.pi / 2; digit.emissionRange = .pi / 3
+            digit.velocity = 150; digit.velocityRange = 90
+            digit.yAcceleration = -240
+            digit.spin = 1; digit.spinRange = 3
+            digit.scale = 1; digit.scaleRange = 0.4
+            digit.alphaSpeed = -0.25
+            cells.append(digit)
+            let whole = cell(glyphSprite("30,000", size: 20, weight: .heavy), color: color)
+            whole.birthRate = 2.5
+            whole.lifetime = 5
+            whole.emissionLongitude = -.pi / 2; whole.emissionRange = .pi / 4
+            whole.velocity = 120; whole.velocityRange = 60
+            whole.yAcceleration = -200
+            whole.spin = 0.3; whole.spinRange = 1
+            whole.alphaSpeed = -0.2
+            cells.append(whole)
+        }
+        e.emitterCells = cells
+        return Show(frame: hung(size), layers: [e], burst: 1.2, total: 6.5)
+
+    case .balloons:
+        // The one show that comes *up*: released along the bottom of the screen under the
+        // item, drifting the full height to the menu bar and out.
+        let size = NSSize(width: 640, height: screen.frame.height)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: -30)
+        e.emitterShape = .line
+        e.emitterSize = CGSize(width: size.width * 0.8, height: 1)
+        e.emitterCells = palette.map { color in
+            let c = cell(balloonSprite(), color: color)
+            c.birthRate = 1.6
+            c.lifetime = 11; c.lifetimeRange = 2
+            c.emissionLongitude = .pi / 2; c.emissionRange = .pi / 14
+            c.velocity = 95; c.velocityRange = 45
+            c.yAcceleration = 8
+            c.spin = 0.1; c.spinRange = 0.5
+            c.scale = 1; c.scaleRange = 0.35
+            c.alphaSpeed = -0.06
+            return c
+        }
+        return Show(frame: hung(size), layers: [e], burst: 3, total: 14)
+
+    case .starfield:
+        // Stars pop in and fade across a wide band under the menu bar — twinkle, not fall.
+        let size = NSSize(width: 900, height: 300)
+        let e = emitterLayer(in: size)
+        e.emitterPosition = CGPoint(x: size.width / 2, y: size.height / 2)
+        e.emitterShape = .rectangle
+        e.emitterSize = CGSize(width: size.width * 0.95, height: size.height * 0.9)
+        let tints: [NSColor] = [.white, .systemYellow, NSColor(red: 0.8, green: 0.9, blue: 1, alpha: 1), .systemPink]
+        e.emitterCells = tints.flatMap { color in
+            [starSprite(14), starSprite(8), circleSprite(4)].map { shape in
+                let c = cell(shape, color: color)
+                c.birthRate = 9
+                c.lifetime = 1.4; c.lifetimeRange = 0.6
+                c.velocity = 0
+                c.scale = 0.1; c.scaleSpeed = 0.9
+                c.spin = 1.2; c.spinRange = 1
+                c.alphaSpeed = -0.75
+                return c
+            }
+        }
+        return Show(frame: hung(size), layers: [e], burst: 3.5, total: 6.5)
+    }
+}
+
+/// Runs one show at a time in a borderless, transparent, click-through window. Its own
+/// window rather than a layer on the status button because the button is 22pt tall and the
+/// point is to spill *out* of the menu bar onto the screen.
+final class CelebrationPlayer {
     private var window: NSWindow?
 
-    func fire(from anchor: NSRect?) {
+    func play(_ kind: Celebration, from anchor: NSRect?) {
         window?.orderOut(nil)
 
         // The status item's window frame is only trustworthy once it is actually on a screen;
@@ -172,14 +526,12 @@ final class Confetti {
             ? anchor!
             : NSRect(x: screen.frame.maxX - 300, y: screen.frame.maxY - 1, width: 1, height: 1)
 
-        let size = NSSize(width: 520, height: 520)
-        let frame = NSRect(x: anchor.midX - size.width / 2, y: anchor.maxY - size.height,
-                           width: size.width, height: size.height)
-
-        if ProcessInfo.processInfo.environment["KEYSTROKE_DEBUG_DUMP"] != nil {
-            FileHandle.standardError.write("confetti anchor=\(anchor) screen=\(screen.frame) window=\(frame)\n".data(using: .utf8)!)
+        let show = build(kind, screen: screen, anchor: anchor)
+        if debugging {
+            FileHandle.standardError.write("\(kind.rawValue) anchor=\(anchor) screen=\(screen.frame) window=\(show.frame)\n".data(using: .utf8)!)
         }
-        let win = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+
+        let win = NSWindow(contentRect: show.frame, styleMask: .borderless, backing: .buffered, defer: false)
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = false
@@ -187,81 +539,24 @@ final class Confetti {
         win.level = .popUpMenu
         win.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
 
-        let view = NSView(frame: NSRect(origin: .zero, size: size))
+        let view = NSView(frame: NSRect(origin: .zero, size: show.frame.size))
         view.wantsLayer = true
         win.contentView = view
-
-        let emitter = CAEmitterLayer()
-        emitter.frame = view.bounds
-        // Layer coords follow the (unflipped) view: y grows upward, so the top edge is `height`.
-        emitter.emitterPosition = CGPoint(x: size.width / 2, y: size.height - 6)
-        emitter.emitterShape = .point
-        emitter.renderMode = .oldestFirst
-        emitter.beginTime = CACurrentMediaTime()
-        emitter.emitterCells = Confetti.cells()
-        view.layer?.addSublayer(emitter)
+        for layer in show.layers { view.layer?.addSublayer(layer) }
 
         win.orderFrontRegardless()
         window = win
 
-        // A short, dense burst rather than a steady stream: it should read as an event.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { emitter.birthRate = 0 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        // Emission stops well before teardown so the last particles finish their fall
+        // instead of being cut off mid-air.
+        DispatchQueue.main.asyncAfter(deadline: .now() + show.burst) {
+            for layer in show.layers { layer.birthRate = 0 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + show.total) { [weak self] in
             guard self?.window === win else { return }
             win.orderOut(nil)
             self?.window = nil
         }
-    }
-
-    private static func cells() -> [CAEmitterCell] {
-        let colors: [NSColor] = [
-            .systemRed, .systemOrange, .systemYellow, .systemGreen,
-            .systemTeal, .systemBlue, .systemPurple, .systemPink,
-        ]
-        let shapes = [rectangle(6, 10), rectangle(8, 8), circle(7)]
-        var cells: [CAEmitterCell] = []
-        for color in colors {
-            for shape in shapes {
-                let c = CAEmitterCell()
-                c.contents = shape
-                c.color = color.cgColor
-                c.birthRate = 14
-                c.lifetime = 4
-                c.lifetimeRange = 1
-                // Straight down, spread almost to horizontal either side, then gravity.
-                c.emissionLongitude = -.pi / 2
-                c.emissionRange = .pi / 2.2
-                c.velocity = 220
-                c.velocityRange = 120
-                c.yAcceleration = -320
-                c.spin = 3
-                c.spinRange = 5
-                c.scale = 1
-                c.scaleRange = 0.4
-                c.alphaSpeed = -0.25
-                cells.append(c)
-            }
-        }
-        return cells
-    }
-
-    private static func rectangle(_ w: CGFloat, _ h: CGFloat) -> CGImage? {
-        shape(NSSize(width: w, height: h)) { NSBezierPath(roundedRect: $0, xRadius: 1, yRadius: 1) }
-    }
-
-    private static func circle(_ d: CGFloat) -> CGImage? {
-        shape(NSSize(width: d, height: d)) { NSBezierPath(ovalIn: $0) }
-    }
-
-    /// White on transparent; the cell's `color` tints it.
-    private static func shape(_ size: NSSize, _ path: @escaping (NSRect) -> NSBezierPath) -> CGImage? {
-        let image = NSImage(size: size, flipped: false) { rect in
-            NSColor.white.setFill()
-            path(rect).fill()
-            return true
-        }
-        var rect = NSRect(origin: .zero, size: size)
-        return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
     }
 }
 
@@ -269,7 +564,7 @@ final class Confetti {
 
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    private let confetti = Confetti()
+    private let player = CelebrationPlayer()
     private var summary = Summary()
     private var localTimer: Timer?
     private var remoteTimer: Timer?
@@ -286,6 +581,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         readLocal()
         fetchRemote()
         render()
+
+        // Dev only: KEYSTROKE_DEBUG_SHOW=fireworks plays that show once the item is placed.
+        if let raw = ProcessInfo.processInfo.environment["KEYSTROKE_DEBUG_SHOW"], let kind = Celebration(rawValue: raw) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self else { return }
+                self.player.play(kind, from: self.statusItem.button?.window?.frame)
+            }
+        }
 
         localTimer = Timer.scheduledTimer(withTimeInterval: refreshLocal, repeats: true) { [weak self] _ in
             self?.readLocal()
@@ -367,19 +670,29 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         celebrateIfDue()
     }
 
-    /// Fires the confetti the first time today's count is seen at or past the goal. Keyed on
-    /// the day, not on a crossing being *observed*, so hitting 30k while this app was down
-    /// still gets its moment at the next launch.
+    /// Today's show, if the goal has already been celebrated today.
+    private var todaysCelebration: Celebration? {
+        let d = UserDefaults.standard
+        guard d.string(forKey: celebratedKey) == todayKey() else { return nil }
+        return d.string(forKey: celebrationKey).flatMap(Celebration.init(rawValue:))
+    }
+
+    /// Fires a show the first time today's count is seen at or past the goal. Keyed on the
+    /// day, not on a crossing being *observed*, so hitting 30k while this app was down still
+    /// gets its moment at the next launch.
     private func celebrateIfDue() {
-        guard summary.goalMet else { return }
-        let today = todayKey()
-        guard UserDefaults.standard.string(forKey: celebratedKey) != today else { return }
-        UserDefaults.standard.set(today, forKey: celebratedKey)
+        guard summary.goalMet, todaysCelebration == nil else { return }
+        let d = UserDefaults.standard
+        let kind = Celebration.pick(avoiding: d.string(forKey: celebrationKey))
+        d.set(todayKey(), forKey: celebratedKey)
+        d.set(kind.rawValue, forKey: celebrationKey)
         // Deferred so a launch that lands already past the goal fires after the run loop has
-        // placed the item in the menu bar — synchronously in init, its window has no frame yet.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        // placed the item in the menu bar — synchronously in init, its window has no frame yet,
+        // and at half a second it still sometimes isn't.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self else { return }
-            self.confetti.fire(from: self.statusItem.button?.window?.frame)
+            self.player.play(kind, from: self.statusItem.button?.window?.frame)
+            self.rebuildMenu()
         }
     }
 
@@ -411,7 +724,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(row("Today", grouped(summary.todayCount), bold: true))
 
         if summary.goalMet {
-            menu.addItem(row("🎉 Goal", "\(grouped(summary.target)) · \(summary.percent)%"))
+            let show = todaysCelebration.map { " · \($0.title)" } ?? ""
+            menu.addItem(row("🎉 Goal", "\(grouped(summary.target)) · \(summary.percent)%\(show)"))
         } else {
             menu.addItem(row("Goal", "\(grouped(summary.target)) · \(summary.percent)%"))
         }
@@ -448,8 +762,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         open.target = self
         menu.addItem(open)
 
-        let replay = NSMenuItem(title: "Replay celebration", action: #selector(replayCelebration), keyEquivalent: "")
-        replay.target = self
+        // For the camera — and for checking each show works before the day it matters.
+        let replay = NSMenuItem(title: "Replay celebration", action: nil, keyEquivalent: "")
+        let shows = NSMenu()
+        let surprise = NSMenuItem(title: "Surprise me", action: #selector(replaySurprise), keyEquivalent: "")
+        surprise.target = self
+        shows.addItem(surprise)
+        shows.addItem(NSMenuItem.separator())
+        for kind in Celebration.allCases {
+            let mi = NSMenuItem(title: kind.title, action: #selector(replay(_:)), keyEquivalent: "")
+            mi.target = self
+            mi.representedObject = kind.rawValue
+            shows.addItem(mi)
+        }
+        replay.submenu = shows
         menu.addItem(replay)
 
         menu.addItem(NSMenuItem.separator())
@@ -475,9 +801,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if let url = URL(string: focuspointURL) { NSWorkspace.shared.open(url) }
     }
 
-    /// For the camera — and for checking the thing works before the day it matters.
-    @objc private func replayCelebration() {
-        confetti.fire(from: statusItem.button?.window?.frame)
+    @objc private func replaySurprise() {
+        player.play(Celebration.allCases.randomElement()!, from: statusItem.button?.window?.frame)
+    }
+
+    @objc private func replay(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let kind = Celebration(rawValue: raw) else { return }
+        player.play(kind, from: statusItem.button?.window?.frame)
     }
 }
 

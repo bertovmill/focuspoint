@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { isOnProtocol } from "../../lib/nutrition.js";
+import { getDb } from "../../lib/db";
+import { isOnProtocol } from "../../lib/nutrition";
 
 export default defineTool({
   description:

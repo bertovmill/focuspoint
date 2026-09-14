@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { formatReading, readScene } from "../../lib/sketch-text.js";
+import { getDb } from "../../lib/db";
+import { formatReading, readScene } from "../../lib/sketch-text";
 
 export default defineTool({
   description:

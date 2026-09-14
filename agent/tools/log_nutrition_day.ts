@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { PROTOCOL_RULES, isOnProtocol } from "../../lib/nutrition.js";
+import { getDb } from "../../lib/db";
+import { PROTOCOL_RULES, isOnProtocol } from "../../lib/nutrition";
 
 const RULE_KEYS = PROTOCOL_RULES.map((r) => r.key) as [string, ...string[]];
 

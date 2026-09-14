@@ -1,6 +1,6 @@
 import { defineDynamic, defineInstructions } from "eve/instructions";
 
-import { nowHuman, todayISO } from "../lib/now.js";
+import { nowHuman, todayISO } from "../lib/now";
 
 // The model doesn't know what day it is. Inject the real current date/time
 // every turn so Cael reasons about "today", "tomorrow", and date-relative

@@ -14,6 +14,7 @@ import {
 import { TASK_CATEGORIES, TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
 import { addTaskUpdate } from "@/lib/task-updates";
 import { WORKING_LIMIT } from "@/lib/working-now";
+import { agentTools } from "@/lib/agent-tool-registry";
 
 // An MCP server over the task list, so Claude — in Claude Code, on claude.ai, in
 // the desktop app — can see what Berto is actually working on and keep the board
@@ -26,9 +27,18 @@ import { WORKING_LIMIT } from "@/lib/working-now";
 // task scratchpad (TaskList/TaskCreate), and a session asked "what are my tasks"
 // will otherwise answer from that empty list instead of from this board.
 //
+// Since 2026-09-14 it also carries every tool Cael itself has (agent/tools/*.ts) —
+// notes, sketches, journal, dreams, measures, vision, nutrition, workouts, reading,
+// calendar, schedules, Luma, X/LinkedIn posting — bridged straight from their eve
+// definitions, so any MCP client is as capable as the in-app chat. The six task
+// tools above keep their hand-written descriptions; the eve equivalents that
+// would duplicate them are skipped.
+//
 // Connect with:
 //   claude mcp add --transport http --scope user cael \
 //     https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"
+//   codex mcp add cael --url https://cael.bertomill.com/api/mcp \
+//     --bearer-token-env-var CAEL_MCP_TOKEN        (with CAEL_MCP_TOKEN exported)
 
 export const maxDuration = 60;
 
@@ -91,6 +101,49 @@ function ok(text: string, structured?: Record<string, unknown>) {
 
 function fail(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
+}
+
+/**
+ * The shape of an eve `defineTool()` as the bridge uses it. eve's own types are
+ * heavily generic; only these four members matter here.
+ */
+type BridgedTool = {
+  description: string;
+  inputSchema: z.ZodObject<z.ZodRawShape>;
+  execute: (input: unknown, ctx: never) => unknown;
+  toModelOutput?: (output: unknown) => { type: string; value?: unknown } | Array<{ type: string; value?: unknown }>;
+};
+
+/** Task tools the hand-written six above already cover, and eve-session-only state. */
+const SKIPPED_AGENT_TOOLS = new Set(["list_todos", "add_todo", "complete_todo", "post_task_update", "set_focus"]);
+
+const READ_ONLY_PREFIXES = ["list_", "get_", "read_", "search_", "latest_", "ai_reading_list"];
+
+/**
+ * An eve tool's return value as an MCP result: its own `toModelOutput` text when it
+ * has one (that is the wording Cael's model sees, so it is already tuned to be read),
+ * else the value pretty-printed — and the raw object alongside as structuredContent.
+ */
+function bridgedResult(tool: BridgedTool, output: unknown) {
+  let text: string | null = null;
+  if (tool.toModelOutput) {
+    try {
+      const modelOutput = tool.toModelOutput(output);
+      const parts = Array.isArray(modelOutput) ? modelOutput : [modelOutput];
+      const texts = parts.filter((p) => p.type === "text").map((p) => String(p.value ?? ""));
+      if (texts.length) text = texts.join("\n");
+    } catch {
+      // Fall through to the JSON rendering below.
+    }
+  }
+  if (text === null) text = typeof output === "string" ? output : JSON.stringify(output, null, 2) ?? "Done.";
+  const structured =
+    output && typeof output === "object" && !Array.isArray(output)
+      ? (output as Record<string, unknown>)
+      : Array.isArray(output)
+        ? { items: output }
+        : undefined;
+  return ok(text, structured);
 }
 
 const handler = createMcpHandler(
@@ -298,9 +351,30 @@ const handler = createMcpHandler(
         });
       },
     );
+
+    for (const [name, def] of Object.entries(agentTools)) {
+      if (SKIPPED_AGENT_TOOLS.has(name)) continue;
+      const tool = def as unknown as BridgedTool;
+      server.registerTool(
+        name,
+        {
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          ...(READ_ONLY_PREFIXES.some((p) => name.startsWith(p)) ? { annotations: { readOnlyHint: true } } : {}),
+        },
+        async (input) => {
+          try {
+            const output = await tool.execute(input, {} as never);
+            return bridgedResult(tool, output);
+          } catch (err) {
+            return fail(`${name} failed: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        },
+      );
+    }
   },
   {
-    serverInfo: { name: "cael", version: "1.3.0" },
+    serverInfo: { name: "cael", version: "2.0.0" },
     instructions:
       "Cael — Berto's life agent. These tools read and move his REAL task board, the one he " +
       "works from every day; they are not Claude Code's per-session task scratchpad, and when " +
@@ -308,7 +382,14 @@ const handler = createMcpHandler(
       "in flight before starting work, create_task to add something he asks you to remember, " +
       "start_task when he begins something, stop_task to pause or hand it off, " +
       "post_task_update to leave a progress note on a task when you finish a step or need " +
-      "him to take the next one, and complete_task only when the work is genuinely done.",
+      "him to take the next one, and complete_task only when the work is genuinely done. " +
+      "Beyond tasks, this server carries everything Cael can do in the app: notes " +
+      "(list_folders, capture_thought, list_notes, search_memory), sketches (list_sketches, " +
+      "read_sketch), journal and dreams, the daily scorecard and measures (get_scorecard, " +
+      "log_metrics), vision items, nutrition and workouts, reading logs, Google Calendar, " +
+      "scheduled tasks, Luma events, and posting to X/LinkedIn. Tools named list_/get_/read_/" +
+      "search_ only read; the rest write to Berto's real data, so use them when he asks, " +
+      "not speculatively — and post_tweet/post_linkedin publish publicly.",
   },
 );
 

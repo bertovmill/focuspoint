@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { isValidCron, describeCron } from "../../lib/cron.js";
+import { getDb } from "../../lib/db";
+import { isValidCron, describeCron } from "../../lib/cron";
 
 export default defineTool({
   description:

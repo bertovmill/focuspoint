@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb, ensureSchema } from "../../lib/db.js";
+import { getDb, ensureSchema } from "../../lib/db";
 
 export default defineTool({
   description:

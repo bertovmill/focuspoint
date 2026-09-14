@@ -1,13 +1,13 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 import {
   METRIC_WEIGHT,
   formatMetric,
   formatTarget,
   getScorecardSummary,
   metricDef,
-} from "../../lib/scorecard.js";
+} from "../../lib/scorecard";
 
 export default defineTool({
   description:

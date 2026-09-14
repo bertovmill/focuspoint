@@ -1,7 +1,7 @@
 import { gateway } from "ai";
 import type { LanguageModel } from "ai";
-import { getDb } from "../lib/db.js";
-import { CHAT_MODEL_DEFAULT, getChatModel } from "../lib/chat-model.js";
+import { getDb } from "../lib/db";
+import { CHAT_MODEL_DEFAULT, getChatModel } from "../lib/chat-model";
 
 // eve fixes an agent's model at compile time, but the chat bar's picker needs it
 // to move at runtime. This wraps the default gateway model in a proxy that

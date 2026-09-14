@@ -1,8 +1,8 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { hasWorkingSlot, WORKING_LIMIT, workingLimitMessage } from "../../lib/working-now.js";
-import { TASK_CATEGORIES } from "../../lib/task-categories.js";
+import { getDb } from "../../lib/db";
+import { hasWorkingSlot, WORKING_LIMIT, workingLimitMessage } from "../../lib/working-now";
+import { TASK_CATEGORIES } from "../../lib/task-categories";
 
 export default defineTool({
   description:

@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { dayKey, recordMetrics } from "../../lib/scorecard.js";
+import { getDb } from "../../lib/db";
+import { dayKey, recordMetrics } from "../../lib/scorecard";
 
 export default defineTool({
   description:

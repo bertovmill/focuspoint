@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { lastLumaSync, syncLuma } from "../../lib/luma-sync.js";
+import { lastLumaSync, syncLuma } from "../../lib/luma-sync";
 
 /**
  * Refresh the Luma mirror on demand.

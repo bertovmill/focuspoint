@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { embedText, toVectorLiteral } from "../../lib/embeddings.js";
+import { getDb } from "../../lib/db";
+import { embedText, toVectorLiteral } from "../../lib/embeddings";
 
 export default defineTool({
   description:

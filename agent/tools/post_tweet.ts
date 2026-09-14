@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { postTweet } from "../../lib/x-api.js";
+import { postTweet } from "../../lib/x-api";
 
 export default defineTool({
   description:

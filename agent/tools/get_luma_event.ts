@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 /**
  * One event in full — including the description Berto wrote on Luma, which is

@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 const EXERCISES = ["squat", "deadlift", "bench", "chinups", "10k_run", "gym_hours"] as const;
 

@@ -1,5 +1,5 @@
 import { defineAgent } from "eve";
-import { dynamicChatModel } from "./model.js";
+import { dynamicChatModel } from "./model";
 
 export default defineAgent({
   // Picked at runtime from the chat bar's model picker (lib/chat-model.ts),

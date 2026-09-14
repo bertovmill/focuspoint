@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 /** The driver hands DATE columns back as a JS Date; format it locally rather than
  *  via toISOString(), which shifts the day in any timezone west of UTC. */

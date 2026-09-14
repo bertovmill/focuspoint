@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { generateMealImage } from "../../lib/nutrition-art.js";
+import { getDb } from "../../lib/db";
+import { generateMealImage } from "../../lib/nutrition-art";
 
 export default defineTool({
   description:

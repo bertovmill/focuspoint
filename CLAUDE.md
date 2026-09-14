@@ -75,9 +75,16 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
   `hasHealthScope()` gates the UI. Without it the scorecard still works; steps and sleep
   are just typed or told to Cael.
 - `MCP_TOKEN` — shared secret for the MCP server at `/api/mcp`, which exposes the task
-  list to Claude (Claude Code, claude.ai, desktop). Clients send it as
+  list **and every tool in `agent/tools/`** (bridged via `lib/agent-tool-registry.ts`) to
+  any MCP client — Claude Code, claude.ai, the desktop app, Codex. Clients send it as
   `Authorization: Bearer <token>`. Must be set in `.env.local` **and** in Vercel
-  production, or the endpoint 401s.
+  production, or the endpoint 401s. Connect with:
+  - Claude Code: `claude mcp add --transport http --scope user cael https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"`
+  - Codex: `codex mcp add cael --url https://cael.bertomill.com/api/mcp --bearer-token-env-var CAEL_MCP_TOKEN` (with `CAEL_MCP_TOKEN` exported in the shell)
+  - Adding a tool file to `agent/tools/` exposes it over MCP automatically; add its name
+    to `SKIPPED_AGENT_TOOLS` in `app/api/mcp/route.ts` only if it duplicates a task tool
+    or needs eve session state. Relative imports inside `agent/` must be extensionless
+    (no `.js`) — Turbopack can't remap `.js` → `.ts` and the MCP route bundles them.
 
 ## Content / podcast workflow
 

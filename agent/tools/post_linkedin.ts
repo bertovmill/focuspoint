@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { postToLinkedIn } from "../../lib/linkedin-api.js";
+import { postToLinkedIn } from "../../lib/linkedin-api";
 
 export default defineTool({
   description:

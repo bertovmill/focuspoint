@@ -6,7 +6,7 @@ import {
   CALENDAR_NOT_CONNECTED,
   createCalendarEvent,
   resolveGoogleToken,
-} from "../lib/google-calendar.js";
+} from "../lib/google-calendar";
 
 export default defineTool({
   description:

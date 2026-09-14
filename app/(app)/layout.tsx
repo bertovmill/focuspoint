@@ -62,24 +62,10 @@ const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
-  { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
-  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
-  { tab: "dreams", label: "Dreams", icon: BrainIcon },
-  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon },
-  { tab: "media", label: "Media", icon: ImageIcon },
-  { tab: "sketches", label: "Sketches", icon: BrushIcon },
-  { tab: "measures", label: "Measures", icon: GaugeIcon },
-  { tab: "vision", label: "Vision", icon: TelescopeIcon },
-  { tab: "family", label: "Family", icon: HeartIcon },
-  { tab: "nutrition", label: "Nutrition", icon: AppleIcon },
-  { tab: "manual", label: "Manual", icon: BookMarkedIcon },
-  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
-];
-
-// Home, Chat, Tasks, Notes, Lists — the same five the mobile bar promotes above
-// the "More" menu. The rail draws a rule after them to say the same thing.
-const PRIMARY_NAV_COUNT = 5;
+// The nav shows only Home, Chat and Sketches (Berto, 2026-09-14). Every other
+// section still exists at its URL and through Cael's tools; it just isn't a
+// destination in the shell any more, so there is no "More" menu on the phone.
+const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [];
 
 // The selected state is one element that travels between items rather than a
 // background that blinks on and off. Both navs share this spring so the rail and
@@ -90,21 +76,7 @@ const NAV_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass:
 const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "home", label: "Home", icon: HomeIcon },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
-  { tab: "tasks", label: "Tasks", icon: ListTodoIcon },
-  { tab: "notes", label: "Notes", icon: FileTextIcon },
-  { tab: "lists", label: "Lists", icon: ListChecksIcon },
-  { tab: "journal-templates", label: "Journal", icon: BookOpenIcon },
-  { tab: "dreams", label: "Dreams", icon: BrainIcon },
-  { tab: "schedule", label: "Schedule", icon: CalendarClockIcon },
-  { tab: "media", label: "Media", icon: ImageIcon },
-  { tab: "measures", label: "Measures", icon: GaugeIcon },
-  { tab: "vision", label: "Vision", icon: TelescopeIcon },
-  { tab: "family", label: "Family", icon: HeartIcon },
-  { tab: "nutrition", label: "Nutrition", icon: AppleIcon },
-  { tab: "manual", label: "Manual", icon: BookMarkedIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
-  { tab: "calendar", label: "Calendar", icon: CalendarDaysIcon },
-  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -115,9 +87,7 @@ type TabColor = { text: string; pill: string };
 const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color: TabColor }[] = [
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
-  { tab: "tasks", label: "Tasks", icon: ListTodoIcon, color: { text: "text-emerald-600 dark:text-emerald-400", pill: "bg-emerald-500/15" } },
-  { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },
-  { tab: "lists", label: "Lists", icon: ListChecksIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
+  { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 
@@ -322,16 +292,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           )}
         </div>
         <nav className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
-          {NAV_ITEMS.map(({ tab, label, icon: Icon }, i) => {
+          {NAV_ITEMS.map(({ tab, label, icon: Icon }) => {
             const active = mobileTab === tab;
             return (
               <Fragment key={tab}>
-              {/* The mobile bar already treats the first five as primary and
-                  buries the rest under "More". The rail says the same thing
-                  with a rule instead of a menu — same order, same hierarchy. */}
-              {i === PRIMARY_NAV_COUNT && (
-                <div aria-hidden className="mx-2.5 my-1.5 border-t border-border/70" />
-              )}
               <button
                 onClick={() => setMobileTab(tab)}
                 title={label}
@@ -509,7 +473,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             className="min-w-0 flex-1 basis-0 px-0!"
           />
         ))}
-        <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
+        {MORE_TABS.length > 0 && <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
           <DrawerTrigger asChild>
             <TabbarLink
               active={MORE_TABS.some((t) => t.tab === mobileTab)}
@@ -547,7 +511,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               ))}
             </div>
           </DrawerContent>
-        </Drawer>
+        </Drawer>}
       </Tabbar>
 
       {/* Ever-present line to Cael — floats over every section except the chat

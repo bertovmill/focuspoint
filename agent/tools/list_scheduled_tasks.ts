@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { describeCron } from "../../lib/cron.js";
+import { getDb } from "../../lib/db";
+import { describeCron } from "../../lib/cron";
 
 export default defineTool({
   description: "List all scheduled tasks — their cadence, whether they're enabled, and when each last ran. Call this before editing or deleting a task if you don't already know its id.",

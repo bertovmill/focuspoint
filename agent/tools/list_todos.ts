@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 export default defineTool({
   description: "List the user's todos. Use this when the user asks what they need to do, or before planning their day.",

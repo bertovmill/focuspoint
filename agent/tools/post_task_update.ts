@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { addTaskUpdate } from "../../lib/task-updates.js";
+import { addTaskUpdate } from "../../lib/task-updates";
 
 // Cael's side of the task update thread — the same notes Claude posts over MCP
 // (app/api/mcp/route.ts). The note lands on the task's card tagged as coming from

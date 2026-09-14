@@ -7834,3 +7834,47 @@ and whole "30,000"s too rare (1.2 → 2.5) — tuned, recompiled, reinstalled wi
 `install.sh`. Redeployed production after rebasing onto another session's
 "Remove daily schedule dispatcher" commit, since the first deploy had gone out from a tree
 without it.
+
+## 2026-09-14 — Sidebar down to Home · Chat · Sketches; the whole app over MCP
+
+Berto: *"can you remove everything from the sidebar except home, chat, and sketches? and
+can we make this app completely mcp connectable to claude or codex?"*
+
+**Sidebar** (`app/(app)/layout.tsx`): `NAV_ITEMS` and `MOBILE_TABS` are now just Home,
+Chat, Sketches; `MORE_TABS` is empty and the phone's "More" drawer only renders when it
+has entries, so it's gone. The primary/secondary rule in the rail went with it. Every
+other section still exists at its URL (`/tasks`, `/notes`, `/measures`…) and through
+Cael's tools — they're just not destinations in the shell. `home-screen.tsx`'s section
+tiles were left alone (the ask was the sidebar).
+
+**MCP** (`app/api/mcp/route.ts`, new `lib/agent-tool-registry.ts`): the server used to
+carry six hand-written task tools. It now also registers every eve tool in
+`agent/tools/*.ts` — 44 of them — straight from their `defineTool()` definitions
+(description, zod `inputSchema`, `execute`), so Claude Code / claude.ai / Codex get the
+same capabilities as the in-app chat: notes, folders, semantic memory search, sketches,
+journal, dreams, scorecard + measures, vision, nutrition, workouts, reading, Google
+Calendar, scheduled tasks, Luma, GitHub PRs, X/LinkedIn posting. 50 tools total.
+
+- Results use the tool's own `toModelOutput` text when it has one (that's the wording
+  tuned for Cael's model), else pretty JSON; the raw object rides along as
+  `structuredContent`. Names starting `list_/get_/read_/search_/latest_` get
+  `readOnlyHint`.
+- Skipped: `list_todos`, `add_todo`, `complete_todo`, `post_task_update` (the six task
+  tools cover them with better descriptions) and `set_focus` (eve-session-only state).
+  `capture_thought`'s session tally is now in a try/catch — over MCP there's no eve
+  session, and the note is already saved by then.
+- `execute` is called with an empty context; no tool in `agent/tools/` uses `ctx` today.
+- Server `instructions` and version (2.0.0) describe the wider surface and flag that
+  `post_tweet`/`post_linkedin` publish publicly.
+- **Gotcha**: Turbopack can't resolve the `.js` suffix on relative TS imports
+  (`../../lib/db.js` → module not found), which eve's own compiler handled fine. All
+  relative imports under `agent/` are now extensionless (51 files, mechanical sed).
+  Recorded in CLAUDE.md so the next tool file doesn't reintroduce it.
+- Codex connection line added to CLAUDE.md alongside the Claude Code one.
+
+**Verified**: `npm run typecheck` passes. Dev server on :3789 (3000 was ~/venice):
+`tools/list` returns 50 tools, all with object schemas; `list_sketches`, `get_scorecard`
+and `list_folders` execute with real data; `/` serves 200; Playwright reads the rail as
+`['Home','Chat','Sketches']` and finds no "More" button at phone width (screenshots
+checked). A sandboxed `npm run build` failed only on fetching Geist from Google Fonts
+(no network in the sandbox); rerun unsandboxed.

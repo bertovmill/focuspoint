@@ -1,9 +1,9 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { buildDoneBlock } from "../../lib/done-block.js";
-import { TASK_CATEGORY_LABELS, normalizeCategory } from "../../lib/task-categories.js";
-import { createRawCalendarEvent, resolveGoogleToken } from "../lib/google-calendar.js";
+import { getDb } from "../../lib/db";
+import { buildDoneBlock } from "../../lib/done-block";
+import { TASK_CATEGORY_LABELS, normalizeCategory } from "../../lib/task-categories";
+import { createRawCalendarEvent, resolveGoogleToken } from "../lib/google-calendar";
 
 function nextDueDate(recurrence: string): string {
   const today = new Date();

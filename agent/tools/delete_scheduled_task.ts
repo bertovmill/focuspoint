@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 export default defineTool({
   description: "Permanently delete a scheduled task. Confirm with the user before calling this — it can't be undone.",

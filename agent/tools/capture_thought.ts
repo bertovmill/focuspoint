@@ -1,8 +1,8 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { embedText, toVectorLiteral } from "../../lib/embeddings.js";
-import { sessionMemory } from "../lib/session-state.js";
+import { getDb } from "../../lib/db";
+import { embedText, toVectorLiteral } from "../../lib/embeddings";
+import { sessionMemory } from "../lib/session-state";
 
 export default defineTool({
   description:
@@ -29,7 +29,11 @@ export default defineTool({
     } catch (err) {
       console.error("capture_thought: embedding failed", err);
     }
-    sessionMemory.update((s) => ({ ...s, thoughtsCaptured: s.thoughtsCaptured + 1 }));
+    // Session memory only exists inside an eve session; over MCP there is none, and
+    // the note is already saved, so a missing tally must not turn into an error.
+    try {
+      sessionMemory.update((s) => ({ ...s, thoughtsCaptured: s.thoughtsCaptured + 1 }));
+    } catch {}
     return { id: Number(row.id), folder_id: row.folder_id != null ? Number(row.folder_id) : null, captured: true };
   },
   toModelOutput(output) {

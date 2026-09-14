@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 export default defineTool({
   description: "Delete a vision item (statement, goal, or image) by id. Confirm with the user first unless they explicitly asked to remove it.",

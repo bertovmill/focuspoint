@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { TASK_CATEGORIES } from "../../lib/task-categories.js";
+import { getDb } from "../../lib/db";
+import { TASK_CATEGORIES } from "../../lib/task-categories";
 
 export default defineTool({
   description: "Add a new todo task for the user.",

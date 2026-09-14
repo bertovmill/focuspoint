@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
-import { parseClippings } from "../../lib/kindle-clippings.js";
+import { getDb } from "../../lib/db";
+import { parseClippings } from "../../lib/kindle-clippings";
 
 export default defineTool({
   description:

@@ -1,4 +1,4 @@
-import { TIME_ZONE } from "./now.js";
+import { TIME_ZONE } from "./now";
 
 // Google Calendar auth for a single-user personal app.
 //

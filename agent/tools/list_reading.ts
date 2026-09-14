@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
 
 export default defineTool({
   description: "List the user's logged reading history (finished books, page counts, dates). Use this to answer questions about reading pace or what's been read recently.",

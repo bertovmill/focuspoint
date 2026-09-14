@@ -48,7 +48,10 @@ every minute after that.
 
 ## Menu bar (optional)
 
-Today's count, live in the Mac menu bar — click it for your high score and 7-day average.
+Today's count, live in the Mac menu bar, on a slim bar that fills toward the daily goal
+(30k, read from `/api/keystrokes` so it follows the scorecard). Crossing the goal turns the
+⌨ into a ★ and fires confetti out of the menu bar — once a day. Click it for your high score
+and 7-day average, or **Replay celebration** for the camera.
 
 ```bash
 cd keystroke-agent/menubar

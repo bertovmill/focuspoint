@@ -13,7 +13,7 @@
 // lib/scorecard.ts and lib/streak.ts, so client components can import the pure bits.
 
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
-import { shiftDay } from "@/lib/scorecard";
+import { metricDef, shiftDay } from "@/lib/scorecard";
 import type { Bucket } from "@/lib/chart-buckets";
 
 export { dayKey, STREAK_TIME_ZONE };
@@ -28,6 +28,9 @@ export type KeystrokeSummary = {
   today: string;
   /** Keystrokes counted so far today. */
   todayCount: number;
+  /** The daily goal (METRICS in lib/scorecard.ts), so the menu bar's progress bar and the
+   *  scorecard can never disagree about what 100% means. */
+  target: number;
   /** Total over the last KEYSTROKE_DAYS days. */
   windowTotal: number;
   /** Mean per day over the days that actually have any count (never divides by idle days). */
@@ -99,6 +102,7 @@ export async function getKeystrokeSummary(sql: Sql): Promise<KeystrokeSummary> {
   return {
     today,
     todayCount: byDate.get(today) ?? 0,
+    target: metricDef("keystrokes").target,
     windowTotal,
     dailyAverage: activeDays ? Math.round(windowTotal / activeDays) : 0,
     average7: active7 ? Math.round(total7 / active7) : 0,

@@ -7756,3 +7756,45 @@ Neon DB (`PORT=3789 npm run dev`, password-cookie login) and confirmed `informat
 lists `image_url` on `thoughts` after `ensureSchema()` ran; inserted and read back a test
 row directly via `@neondatabase/serverless`; hit `GET /api/thoughts` and confirmed the
 JSON response includes `image_url`. Test rows deleted afterward.
+
+## 2026-09-13 — Menu bar: progress bar to 30k + confetti at the goal
+
+Berto, looking at `⌨ 12,627` in his menu bar: *"not sure if there are any little
+animations we can do at the top of our mac menu bar, but i like mental conditioning to the
+progress of getting closer to that 30k goal"*. Asked how; his call: *"definitely confetti,
+and a bar under the number"*, plus the goal celebration.
+
+**What changed**:
+
+- `lib/keystrokes.ts`: `KeystrokeSummary` gains `target` (from `metricDef("keystrokes")`
+  in `lib/scorecard.ts`, currently 30,000) so the menu bar and the scorecard can never
+  disagree about what 100% means. `/api/keystrokes` returns it automatically.
+- `keystroke-agent/menubar/KeystrokeMenuBar.swift`:
+  - The title is now a single drawn template image — ⌨ + the count + a 2pt bar under
+    the digits filled to `count/target` (track is the same ink at 22% alpha, like the
+    system battery icon), so it tints correctly in light and dark menu bars. Past the
+    goal the ⌨ becomes `star.fill` and the bar stays full.
+  - `target` is read from the API poll, falling back to 30k until the server answers.
+  - Confetti: a borderless, click-through, transparent `.popUpMenu`-level window hung
+    from the status item's frame with a `CAEmitterLayer` (8 colours × 3 shapes, 0.7s
+    burst, gravity, spin, ~5s total). Fires the first time today's count is seen at or
+    past the goal; deduped per day via `UserDefaults["celebratedDate"]`, so a relaunch
+    doesn't refire but crossing 30k while the app was down still gets its moment at the
+    next launch. Menu gains a "Goal · 30,000 · 43%" row and a **Replay celebration**
+    item (for podcast footage).
+  - Gotcha found in testing: firing synchronously from `init` gives the status item a
+    degenerate window frame `(0,0,83,0)` — the run loop hasn't placed it yet. The
+    launch-time fire is deferred 0.5s, and any anchor not intersecting a screen falls
+    back to the primary display's menu-bar extras area.
+  - `KEYSTROKE_DEBUG_DUMP=/path.png` (dev only) writes the rendered title to disk.
+- `keystroke-agent/README.md`: menu bar section describes the bar, star and confetti.
+
+**Verified**: `swiftc` build clean; `npm run typecheck` passes. Drove a scratch build
+against fake state files: 13,000 renders `⌨ 13,000` with the bar 43% full; 30,100 renders
+`★ 30,100` with a full bar, and the confetti window appears anchored at the item
+(`anchor=(754,949,83,33)`), captured mid-burst via `screencapture -l <windowid>` — dense
+multicolour burst falling out of the menu bar, gone by ~5s. Screen-level screenshots were
+unreliable because Gmail was full-screen on the main display at the time (menu bar
+hidden). Reinstalled the real app with `install.sh` (launchd reloaded, new PID); today's
+count is ~13k so no confetti fired on install. Deployed to production so
+`/api/keystrokes` carries `target`.

@@ -15,7 +15,7 @@ import { useNutritionToday } from "@/app/_components/use-nutrition-today";
  * them, not a copy.
  */
 export function NutritionToday() {
-  const { rules, bySlot, eatenSlots, toggleRule, toggleAte } = useNutritionToday();
+  const { rules, bySlot, eatenSlots, toggleRule, toggleAte, proteinToday, proteinTarget } = useNutritionToday();
   const [open, setOpen] = useState(true);
   const live = currentSlot();
   const done = rules.length + eatenSlots.size;
@@ -36,7 +36,16 @@ export function NutritionToday() {
         )}
         <AppleIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
         <span className="text-xs font-semibold uppercase tracking-wide">Nutrition</span>
-        <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+        <span
+          className={cn(
+            "ml-auto text-xs tabular-nums",
+            proteinToday >= proteinTarget ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground",
+          )}
+          title="Protein eaten today vs target"
+        >
+          {proteinToday}g / {proteinTarget}g
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">
           {done}/{total}
         </span>
       </button>
@@ -57,7 +66,7 @@ export function NutritionToday() {
                 <button
                   type="button"
                   disabled={!rec}
-                  onClick={() => rec && toggleAte(slot.key, rec.name)}
+                  onClick={() => rec && toggleAte(slot.key, rec)}
                   aria-label={ate ? `Un-log ${slot.label}` : `Log ${slot.label}`}
                   className={cn(
                     "flex size-3.5 shrink-0 items-center justify-center rounded border",

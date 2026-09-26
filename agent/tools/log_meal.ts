@@ -13,27 +13,31 @@ export default defineTool({
       .optional()
       .describe("Which sitting it was. Set this when it's clear — it's how the Nutrition screen knows a sitting was eaten."),
     felt_good: z.boolean().optional().describe("Defaults to true"),
+    protein_g: z.number().optional().describe("Grams of protein in the meal, if known or estimable — this feeds the daily protein ring on /nutrition/plan"),
+    kcal: z.number().int().optional().describe("Calories, if known or estimable"),
     date: z.string().optional().describe("ISO date string, e.g. '2026-08-22'. Defaults to today."),
   }),
-  async execute({ name, notes, slot, felt_good, date }) {
+  async execute({ name, notes, slot, felt_good, date, protein_g, kcal }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO nutrition_meals (name, notes, slot, felt_good, eaten_date)
+      INSERT INTO nutrition_meals (name, notes, slot, felt_good, eaten_date, protein_g, kcal)
       VALUES (
         ${name},
         ${notes ?? null},
         ${slot ?? null},
         ${felt_good ?? true},
-        ${date ?? new Date().toISOString().slice(0, 10)}
+        ${date ?? new Date().toISOString().slice(0, 10)},
+        ${protein_g ?? null},
+        ${kcal ?? null}
       )
-      RETURNING id, name, slot, felt_good, eaten_date
+      RETURNING id, name, slot, felt_good, eaten_date, protein_g
     `;
     return row;
   },
   toModelOutput(output) {
     return {
       type: "text",
-      value: `Logged "${output.name}" on ${String(output.eaten_date).slice(0, 10)}${output.felt_good ? "" : " (felt off)"}.`,
+      value: `Logged "${output.name}" on ${String(output.eaten_date).slice(0, 10)}${output.protein_g ? ` (${output.protein_g} g protein)` : ""}${output.felt_good ? "" : " (felt off)"}.`,
     };
   },
 });

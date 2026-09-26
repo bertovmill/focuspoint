@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { CheckIcon, RefreshCwIcon, SparklesIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import Link from "next/link";
+import { CalendarDaysIcon, CheckIcon, RefreshCwIcon, SparklesIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { MEAL_SLOTS, currentSlot } from "@/lib/nutrition";
@@ -20,8 +21,17 @@ export function MealPlan() {
 
   return (
     <section>
-      <div className="flex items-baseline justify-between gap-2 mb-2">
-        <h2 className="text-sm font-semibold">Today&apos;s meals</h2>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-sm font-semibold">Today&apos;s meals</h2>
+          <Link
+            href="/nutrition/plan"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <CalendarDaysIcon className="size-3" />
+            This week
+          </Link>
+        </div>
         {missing.length > 0 && !loading && (
           <Button
             size="sm"
@@ -85,12 +95,19 @@ export function MealPlan() {
                     {rec.description && (
                       <p className="text-xs text-muted-foreground leading-snug">{rec.description}</p>
                     )}
+                    {(rec.protein_g !== null || rec.kcal !== null) && (
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {rec.protein_g !== null && <span className="font-medium text-foreground">{rec.protein_g} g protein</span>}
+                        {rec.protein_g !== null && rec.kcal !== null && " · "}
+                        {rec.kcal !== null && `${rec.kcal} kcal`}
+                      </p>
+                    )}
                     <div className="mt-auto flex items-center gap-1 pt-1.5">
                       <Button
                         size="sm"
                         variant={ate ? "default" : "outline"}
                         className={cn("h-7 flex-1 gap-1 text-xs", ate && "bg-emerald-600 hover:bg-emerald-600/90")}
-                        onClick={() => toggleAte(slotMeta.key, rec.name)}
+                        onClick={() => toggleAte(slotMeta.key, rec)}
                       >
                         <CheckIcon className="size-3" />
                         {ate ? "Ate it" : "Ate it?"}

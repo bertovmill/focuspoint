@@ -4,6 +4,70 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-26 (chat) — Meal plan: a week grid, a recipe library, and one number
+
+Berto asked for "a simple but effective meal plan UI" to optimise nutrition.
+Decided with him up front: plan the week + track against a target + a recipe
+library + a grocery list; **protein and calories only** (the existing section
+deliberately avoids macros, and this keeps it to the one number he cares about);
+keep the three sittings (lunch/snack/dinner — the fasted rule stands); manual
+picks *and* "Fill week with Cael"; a dedicated **`/nutrition/plan`** route.
+
+**Target.** 160 g protein a day by default — ~0.9 g/lb at 180 lb, set that high
+because he trains close to a 20k run or a full Hyrox nearly six days a week.
+Stored in `app_settings` (`nutrition.protein_target_g`), editable by clicking the
+number on the screen. The ring counts protein *eaten* (from `nutrition_meals`),
+not planned, so ticking "Ate it" on the Nutrition screen or the Tasks strip is
+what moves it. The Tasks strip header now shows `Xg / Yg` beside `done/7`.
+
+**One table for the plan.** `meal_recommendations` was already one row per
+(date, slot) and `suggestMeal` already took a date, so the week grid stores its
+cells there rather than in a parallel table — Today's cards, the Tasks strip and
+the grid are three windows onto the same rows. New columns: `protein_g`, `kcal`,
+`ingredients[]`, `recipe_id`. `nutrition_meals` gained `protein_g`/`kcal`, copied
+from the cell when a sitting is ticked. New `nutrition_recipes` is the library.
+`scripts/meal-plan-migrate.mjs` (run against live Neon; mirrored in `ensureSchema`).
+
+**The suggester now returns numbers and a shopping list.** `MealIdea` gained
+`protein_g`, `kcal`, `ingredients`; the prompt carries the target, what's already
+planned that day, and the saved recipes. `suggestMeal(slot, date, {withImage})` —
+photos default on for today and **off for any other day**, so filling a week is
+~12 fast text calls (three at a time from the client, cells filling as they land)
+instead of 21 image generations. `set_daily_meal` takes a `date` now and the
+numbers; `log_meal` takes `protein_g`/`kcal`; `list_nutrition` returns the target,
+today's total and the week's plan. Instructions updated so Cael estimates protein
+when Berto tells him what he ate.
+
+**Groceries.** "Week → Groceries" gathers every cell's ingredients, de-dupes
+case-insensitively, skips anything already open on the Lists → Groceries list,
+and creates the list if it's missing. Same one-way bridge the staples shelf uses.
+
+Files: `lib/{nutrition,nutrition-plan,meal-suggest,db}.ts`,
+`app/api/nutrition/{plan,recipes,recipes/[id],target,groceries,meals}/route.ts`,
+`app/_components/{week-plan-panel,recipe-picker,protein-ring,use-nutrition-today,nutrition-today,meal-plan}.tsx`,
+`app/(app)/nutrition/plan/page.tsx`, `app/(app)/layout.tsx` (new `nutrition-plan`
+tab, rendered like Newsletter outside `Dashboard`), agent tools
+`set_daily_meal`/`log_meal`/`list_nutrition`, `agent/instructions.md`,
+`scripts/meal-plan-migrate.mjs`.
+
+Caught in testing: `sql.query()` (the parameterised form, used for the range
+select) hands DATE columns back as JS `Date` objects, unlike the tagged template,
+so `String(d).slice(0,10)` gave "Fri Sep 25" and the grid's cell keys never
+matched. Fixed by `to_char(meal_date, 'YYYY-MM-DD')` in the SQL itself, in both
+the plan helpers and the suggester's RETURNING.
+
+Verified on a dev server (:3001) against the live DB: recipe saved from the form,
+picked into Friday dinner, a typed-in meal saved to the library and set on Saturday,
+the protein footer and "Planned today" line, "Week → Groceries" (6 items added,
+1 already there — checked server-side), an Ask-Cael suggestion for Sunday dinner
+(13 s, no photo, 48 g / 680 kcal with an ingredient list), logging a meal with
+protein moved `eaten_g` on `/api/nutrition/target`, and PUT target. Every test row
+deleted afterwards (recipes 0, this week's plan rows 0, Groceries back to 9 open,
+target setting removed). Typecheck clean.
+
+Next: a training plan screen (Berto asked mid-session — near-daily 20k runs / full
+Hyrox, six days a week; the protein default above already assumes that load).
+
 ## 2026-09-07 (chat) — Cael's sketch reading gets spatial awareness
 
 Berto asked Cael mid-chat whether it just sees text from a sketch or gets

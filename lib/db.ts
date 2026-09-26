@@ -487,6 +487,38 @@ export async function ensureSchema() {
     )
   `;
 
+  // ── Meal plan (2026-09-26) ───────────────────────────────────────────────
+  // The week grid on /nutrition/plan stores its cells in meal_recommendations,
+  // which was already one row per (date, slot). Protein and calories are the
+  // two numbers Berto chose to track; ingredients feed the Groceries button.
+  // recipe_id points back at the library entry a cell was picked from (NULL
+  // when Cael suggested it or it was typed in), so "save to library" and the
+  // picker can tell the two apart.
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS protein_g NUMERIC`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS kcal INTEGER`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS ingredients TEXT[] NOT NULL DEFAULT '{}'`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS recipe_id INTEGER`;
+  // What was actually eaten carries the same two numbers, copied from the plan
+  // cell when a sitting is ticked — the protein ring counts eaten, not planned.
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS protein_g NUMERIC`;
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS kcal INTEGER`;
+  // The recipe library: reusable meals with their numbers and shopping list.
+  // `slot` is a hint for the picker's ordering, not a restriction.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_recipes (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      slot TEXT,
+      protein_g NUMERIC,
+      kcal INTEGER,
+      ingredients TEXT[] NOT NULL DEFAULT '{}',
+      image_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   // The daily scorecard (lib/scorecard.ts) — one row per day, holding only the
   // numbers that have nowhere better to live. PRs come from github_prs and the
   // eating window from nutrition_days.rules, so neither is duplicated here.

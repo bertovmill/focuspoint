@@ -101,3 +101,68 @@ export function todayISO() {
 export function dateKey(value: string) {
   return value.slice(0, 10);
 }
+
+// ── Meal plan ─────────────────────────────────────────────────────────────
+// Protein is the one macro Berto tracks against a target (calories ride along
+// for context). 145 g is ~0.8 g per lb at 180 lb; the real number lives in
+// app_settings and is editable from /nutrition/plan.
+export const DEFAULT_PROTEIN_TARGET_G = 160;
+export const PROTEIN_TARGET_SETTING_KEY = "nutrition.protein_target_g";
+
+export function addDaysISO(iso: string, n: number) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d + n);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Monday of the week that contains `iso` — the grid runs Monday to Sunday. */
+export function weekStartISO(iso: string = todayISO()) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0 = Sunday
+  return addDaysISO(iso, dow === 0 ? -6 : 1 - dow);
+}
+
+export function weekDates(startISO: string) {
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(startISO, i));
+}
+
+export function shortDayLabel(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+}
+
+/** "Sep 28 – Oct 4" for the week header. */
+export function weekRangeLabel(startISO: string) {
+  const fmt = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  return `${fmt(startISO)} – ${fmt(addDaysISO(startISO, 6))}`;
+}
+
+/** Accepts an array, or one string split on newlines / commas; trims and de-duplicates. */
+export function normalizeIngredients(input: unknown): string[] {
+  const raw = Array.isArray(input)
+    ? input.map(String)
+    : typeof input === "string"
+      ? input.split(/[\n,]/)
+      : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const t = item.trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+/** Numeric or null — Neon hands NUMERIC back as a string. */
+export function num(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}

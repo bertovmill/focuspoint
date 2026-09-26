@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { dateKey, isOnProtocol, todayISO, type MealSlot } from "@/lib/nutrition";
+import { DEFAULT_PROTEIN_TARGET_G, dateKey, isOnProtocol, todayISO, type MealSlot } from "@/lib/nutrition";
 
 export interface MealRec {
   id: number;
@@ -13,6 +13,10 @@ export interface MealRec {
   cuisine: string | null;
   image_url: string | null;
   feedback: "up" | "down" | null;
+  protein_g: number | null;
+  kcal: number | null;
+  ingredients: string[];
+  recipe_id: number | null;
 }
 
 export interface LoggedMeal {
@@ -20,6 +24,8 @@ export interface LoggedMeal {
   name: string;
   slot: string | null;
   eaten_date: string;
+  protein_g?: number | string | null;
+  kcal?: number | string | null;
 }
 
 /**
@@ -36,14 +42,20 @@ export function useNutritionToday() {
   const [logged, setLogged] = useState<LoggedMeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [proteinTarget, setProteinTarget] = useState(DEFAULT_PROTEIN_TARGET_G);
 
   const load = useCallback(async () => {
     try {
-      const [d, p, m] = await Promise.all([
+      const [d, p, m, t] = await Promise.all([
         fetch("/api/nutrition/days?days=2"),
         fetch("/api/nutrition/plan"),
         fetch("/api/nutrition/meals?limit=60"),
+        fetch("/api/nutrition/target"),
       ]);
+      if (t.ok) {
+        const { target_g } = (await t.json()) as { target_g?: number };
+        if (target_g) setProteinTarget(target_g);
+      }
       if (d.ok) {
         const rows: { logged_date: string; rules: string[] }[] = await d.json();
         setRules(rows.find((r) => dateKey(r.logged_date) === today)?.rules ?? []);
@@ -85,9 +97,13 @@ export function useNutritionToday() {
     [rules, today],
   );
 
-  /** Ticking a sitting logs the suggested dish into the meal log; unticking removes it. */
+  /**
+   * Ticking a sitting logs the suggested dish into the meal log, carrying its
+   * protein and calories so the ring counts it; unticking removes it.
+   */
   const toggleAte = useCallback(
-    async (slot: MealSlot, name: string) => {
+    async (slot: MealSlot, rec: { name: string; protein_g?: number | null; kcal?: number | null }) => {
+      const name = rec.name;
       const existing = logged.find((l) => l.slot === slot);
       if (existing) {
         const prev = logged;
@@ -105,7 +121,7 @@ export function useNutritionToday() {
         const res = await fetch("/api/nutrition/meals", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, slot }),
+          body: JSON.stringify({ name, slot, protein_g: rec.protein_g ?? null, kcal: rec.kcal ?? null }),
         });
         if (!res.ok) throw new Error();
         const row = (await res.json()) as LoggedMeal;
@@ -167,5 +183,26 @@ export function useNutritionToday() {
 
   const eatenSlots = useMemo(() => new Set(logged.map((l) => l.slot).filter(Boolean) as string[]), [logged]);
 
-  return { today, rules, plan, bySlot, eatenSlots, loading, busySlot, toggleRule, toggleAte, setFeedback, suggest, reload: load };
+  /** Grams of protein eaten today — only meals that carry a number count. */
+  const proteinToday = useMemo(
+    () => Math.round(logged.reduce((sum, l) => sum + (Number(l.protein_g) || 0), 0)),
+    [logged],
+  );
+
+  return {
+    today,
+    rules,
+    plan,
+    bySlot,
+    eatenSlots,
+    loading,
+    busySlot,
+    proteinToday,
+    proteinTarget,
+    toggleRule,
+    toggleAte,
+    setFeedback,
+    suggest,
+    reload: load,
+  };
 }

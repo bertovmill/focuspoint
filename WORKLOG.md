@@ -7878,3 +7878,22 @@ and `list_folders` execute with real data; `/` serves 200; Playwright reads the 
 `['Home','Chat','Sketches']` and finds no "More" button at phone width (screenshots
 checked). A sandboxed `npm run build` failed only on fetching Geist from Google Fonts
 (no network in the sandbox); rerun unsandboxed.
+
+## 2026-09-26 — Apple touch icon actually 180×180 now
+
+**Bug.** `public/apple-icon.png` was a 1280×720 screenshot with the icon in the
+top-left corner, not the 180×180 render the 2026-08-25 entry claims. iOS squashed it
+into its square mask, so the home-screen icon showed a tiny tile in the corner of a
+white rectangle.
+
+**Fix.** Added `scripts/render-apple-icon.mjs`, which renders `public/icon.svg` with
+sharp into a real 180×180 PNG. Two deliberate changes from the browser-tab SVG:
+square corners (iOS applies its own superellipse mask, so baked-in rounding leaves
+wedges), and the artwork scaled up 18% so the orb fills the tile like a native icon.
+The halo still fades before the edge so the mask clips nothing. Comments are stripped
+before rendering because the SVG has a `-->` inside a comment that libxml rejects.
+
+**Files changed:** `public/apple-icon.png`, `scripts/render-apple-icon.mjs` (new).
+
+**Next steps:** re-run the script whenever `icon.svg` changes. Re-add to the home
+screen on the phone to see it — Safari caches the old touch icon per bookmark.

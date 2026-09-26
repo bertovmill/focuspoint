@@ -4,6 +4,74 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-26 (chat) — Training plan at /training, with Strava marking sessions done
+
+Asked for right after the meal plan: *"lets make a ui page for the training plan
+… close to a 20k run or ill do a full hyrox, almost 6 days a week."* Decided with
+him: plan the week + log what happened; sync Strava; session types long run /
+Hyrox-hybrid / strength (plus intervals, easy, rest); a Hyrox in a week and the
+real build toward a February Hyrox; six sessions a week by default.
+
+**Three tables.** `training_events` (races, with days-to-go on the screen),
+`training_sessions` (one row per planned session: type, title, target km/min,
+intensity, notes, done, actuals, `strava_activity_id`), `strava_activities` (a
+cache of what Strava returned). Separate from `workout_logs` (the six lift
+numbers) and `workout_notes` (the day's text) — those record what happened in the
+gym; this is what was planned and whether it happened. Seeded two races with
+**placeholder dates** (2026-10-03 and 2027-02-13) — Berto said "one in a week,
+then February" without dates; both are editable by clicking the chip.
+`scripts/training-migrate.mjs` (run on live Neon; mirrored in `ensureSchema`).
+
+**Strava** (`lib/strava.ts`) copies the Google Health shape exactly: tokens in
+`app_settings` under `strava_tokens`, `/api/strava/{connect,callback,status,sync}`,
+refresh with a 60s margin, a dead refresh token drops the grant so the button
+says Connect again. Needs `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` from
+strava.com/settings/api (callback domain `cael.bertomill.com`); until they exist
+the screen says so instead of showing a button that would 503. **Not yet
+connected** — Berto is creating the API app; the OAuth round-trip itself hasn't
+been exercised. Scope `read,activity:read_all`.
+
+**Matching** (`matchActivities` in `lib/training.ts`): each unlinked activity on a
+day is paired with the first undone session that day whose type accepts that
+sport — a Run takes a long run before an easy run, a WeightTraining takes strength
+before Hyrox (most specific accepted-sport list wins) — and copies km, minutes and
+relative effort onto it. Walks and anything under 15 min / 2 km never match; they
+show under the day in grey. Manual ticks are never overwritten. Sync runs from the
+button, quietly on open when the cache is over 30 min old, from the callback
+(28-day backfill), and from Cael via `sync_strava`.
+
+**Draft week with Cael** (`draftWeek`): one `generateObject` call with the races
+and days-to-go, the last four weeks from Strava (sessions / km / summed relative
+effort), recently planned sessions, done-this-week sessions (kept, and the plan
+is written around them) and the last ten training notes. Replaces undone
+sessions only. Told to taper when a race is within the week or the next; the
+first real draft for the placeholder race week came back as a sensible taper
+(easy 8k, last lift Tue, 4×1k Wed, rest Thu, activation Fri, race Sat, rest Sun).
+
+**Screen** (`training-plan-panel.tsx`): race chips with countdown (red inside a
+week), week summary (done/planned, km planned, km done, minutes, effort), Draft /
+Sync / Connect, seven day columns (stacked on phones) with session cards — tick,
+click to edit in `session-editor.tsx`, + per day — and unmatched Strava activity
+chips. Rendered from the layout shell like Newsletter and the meal plan (new
+`training` tab → `/training`). Reads the Strava return params from
+`window.location` rather than `useSearchParams`, which would force a Suspense
+boundary on the whole shell.
+
+Agent: `list_training_plan`, `set_training_session` (add / edit / complete /
+delete), `sync_strava`; registered in `lib/agent-tool-registry.ts` for MCP;
+instructions updated.
+
+Verified on :3001 against the live DB: the screen, Draft week (the taper above),
+tick / untick, add a session from the + and delete it from the editor; matching
+through a throwaway route on a 2021 date (run → long run 18.2 km / 83 min / RE
+113, WeightTraining → strength, Walk ignored; rows deleted, route removed).
+Typecheck clean. The drafted race week is left in place — redraft once the real
+race date is set.
+
+Next: Berto adds the Strava keys (both `.env.local` and Vercel production), clicks
+Connect on /training, and the real sync gets its first run. Then the February
+build proper: a multi-week view and volume ramp toward that date.
+
 ## 2026-09-26 (chat) — Meal plan: a week grid, a recipe library, and one number
 
 Berto asked for "a simple but effective meal plan UI" to optimise nutrition.

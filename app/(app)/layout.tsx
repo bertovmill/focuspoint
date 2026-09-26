@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ActivityIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
@@ -81,6 +81,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "home", label: "Home", icon: HomeIcon },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
+  { tab: "training", label: "Training", icon: DumbbellIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -92,6 +93,7 @@ const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
   { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
+  { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-rose-600 dark:text-rose-400", pill: "bg-rose-500/15" } },
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 

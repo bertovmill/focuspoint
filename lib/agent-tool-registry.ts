@@ -49,6 +49,7 @@ import search_memory from "@/agent/tools/search_memory";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
 import set_training_session from "@/agent/tools/set_training_session";
 import sync_strava from "@/agent/tools/sync_strava";
+import training_plan_doc from "@/agent/tools/training_plan_doc";
 import set_focus from "@/agent/tools/set_focus";
 import sync_luma from "@/agent/tools/sync_luma";
 import update_scheduled_task from "@/agent/tools/update_scheduled_task";
@@ -103,6 +104,7 @@ export const agentTools = {
   set_daily_meal,
   set_training_session,
   sync_strava,
+  training_plan_doc,
   set_focus,
   sync_luma,
   update_scheduled_task,

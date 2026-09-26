@@ -7924,3 +7924,33 @@ public LinkedIn profile as the source.
 Decisions Berto made: single column over keeping the two-column layout; no
 stats row on home. Verified locally at `site.localhost:3001` on desktop and
 mobile; typecheck clean.
+
+## 2026-09-26 — Glass sculpture (vgpu, WebGPU) on the homepage
+
+Berto wanted the vgpu "Glass Sculpture" example on bertomill.com. Pulled with
+`npx vgpu examples pull glass-sculpture` and integrated as a homepage panel
+between the intro and "What I do" (his choice over a hero backdrop or a
+separate page).
+
+**Files** — `app/site/_components/glass-sculpture/` holds the example's
+`renderer.ts`, `scene.ts`, `camera.ts`, `pointer-input.ts` and the four `.wgsl`
+shaders, plus a new `glass-sculpture.tsx` client component. `next.config.ts`
+registers `@vgpu/wgsl/loader-webpack` for `.wgsl` under both `turbopack.rules`
+and the `webpack` hook; `wgsl.d.ts` at the root types the imports. `vgpu` added
+to dependencies.
+
+**Adaptations, and what stayed:**
+
+- No `lil-gui` settings panel. The site renders fixed controls (knot, clear
+  glass, studio rig, dispersion on, turntable on, 75% render scale) passed from
+  the component. Everything else in `renderer.ts` — the ordered cleanup stack,
+  the dispose-on-frame-failure paths, `gpu.dispose()` last — is the example's.
+- The wheel-to-dolly handler in `pointer-input.ts` is removed: it called
+  `preventDefault` on wheel, which would freeze page scrolling whenever the
+  cursor crossed the panel. Drag-to-orbit and hover-steered light remain.
+- WebGPU-only: the component renders nothing until it sees `navigator.gpu`,
+  and falls back to nothing if `renderer.ready` rejects. Firefox, most in-app
+  browsers and the server see the page exactly as before.
+
+Verified: typecheck, `next build` (Turbopack) and a live render at
+`site.localhost:3001`.

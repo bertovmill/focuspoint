@@ -4,6 +4,7 @@ import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
+import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -114,6 +115,9 @@ export default async function SiteHomePage() {
           </SiteLink>
         </div>
       </RevealOnView>
+
+      {/* A glass sculpture, rendered live in WebGPU. Renders nothing where it can't run. */}
+      <GlassSculpture className="mb-14 h-[60vh] min-h-80 max-h-[38rem]" />
 
       {/* What I do */}
       <section className="border-t border-border/60 py-14">

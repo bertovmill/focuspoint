@@ -4,6 +4,39 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-26 (chat, later) — Training in the nav, and the written plan
+
+Two follow-ups: *"can we make it its own sidebar? and also lets add a markdown
+training plan thats editable."* Confirmed: a nav entry for Training only (not the
+meal plan), and the document as a section on /training rather than its own route.
+
+**Nav.** `training` joins Home / Chat / Sketches in both `NAV_ITEMS` (the rail)
+and `MOBILE_TABS` (the phone bar, rose, `DumbbellIcon`). First addition since the
+nav was cut to three on 2026-09-14.
+
+**The plan document** (`training-plan-doc.tsx`): one markdown document under the
+week grid, the daily journal's Tiptap setup (StarterKit + task lists +
+tiptap-markdown, `journal-prose`), a seven-button toolbar, 900 ms autosave,
+`sendBeacon` flush on unload *and* on unmount (switching sections mid-debounce
+must not lose the edit). Stored in `app_settings` under `training.plan_markdown`
+(`getPlanDoc` / `setPlanDoc` in `lib/training.ts`, `/api/training/doc` GET/PUT,
+POST as the beacon alias). One document, not one per race — that was offered and
+declined.
+
+**It steers the drafts.** `draftWeek` puts the document at the top of the prompt,
+marked as outranking the default six-session shape, capped at 6000 chars. So the
+February build written in his words is what each "Draft week with Cael" follows.
+Cael reads and rewrites it with the new `training_plan_doc` tool (read with no
+args; writing replaces the whole document, and the description says to read
+first — same failure mode as `log_workout_note`).
+
+Verified on :3001: nav entry active state on desktop and the phone bar; typing
+into the editor saved server-side (`GET /api/training/doc` returned it); real
+keystrokes turn `# ` into a heading and `- ` into a bullet (the browser tool's
+paste-style `type` action doesn't fire input rules, which is the automation, not
+the editor — the daily journal has the same behaviour). Test content cleared.
+Typecheck clean.
+
 ## 2026-09-26 (chat) — Training plan at /training, with Strava marking sessions done
 
 Asked for right after the meal plan: *"lets make a ui page for the training plan

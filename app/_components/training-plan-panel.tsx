@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { SessionEditor, type SessionDraft } from "@/app/_components/session-editor";
+import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import type { StravaActivity } from "@/lib/strava";
 import { daysUntil, sessionMeta, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
@@ -401,6 +402,8 @@ export function TrainingPlanPanel() {
         Tick a session or let Strava do it: a run marks the day&apos;s long run, a workout marks Hyrox or strength. Unmatched
         activities show under the day in grey. Lift numbers and the day&apos;s note still live on the Home screen&apos;s Training card.
       </p>
+
+      <TrainingPlanDoc />
 
       <SessionEditor target={editor} saving={saving} onClose={() => setEditor(null)} onSave={saveSession} onDelete={removeSession} />
     </div>

@@ -201,6 +201,27 @@ export async function clearWeek(from: string, to: string, onlyUndone = true) {
   else await sql`DELETE FROM training_sessions WHERE session_date BETWEEN ${from} AND ${to}`;
 }
 
+// ── the written plan ──────────────────────────────────────────────────────
+// One markdown document — the long-form plan (blocks, weekly structure, the
+// February build) that the weekly drafts are written against. Lives in
+// app_settings; Cael reads and edits it through the training_plan_doc tool.
+const PLAN_DOC_KEY = "training.plan_markdown";
+
+export async function getPlanDoc(): Promise<{ content: string; updated_at: string | null }> {
+  const sql = getDb();
+  const [row] = await sql`SELECT value, updated_at FROM app_settings WHERE key = ${PLAN_DOC_KEY}`;
+  return { content: row ? String(row.value) : "", updated_at: row?.updated_at ? String(row.updated_at) : null };
+}
+
+export async function setPlanDoc(content: string) {
+  const sql = getDb();
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at) VALUES (${PLAN_DOC_KEY}, ${content}, NOW())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+  return getPlanDoc();
+}
+
 // ── Strava sync + matching ────────────────────────────────────────────────
 
 /** Walks and rides under this are background movement, not a session. */
@@ -291,12 +312,13 @@ const DraftWeek = z.object({
 export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
   const to = addDaysISO(weekStart, 6);
   const sql = getDb();
-  const [events, recentSessions, recentActivities, notes, kept] = await Promise.all([
+  const [events, recentSessions, recentActivities, notes, kept, doc] = await Promise.all([
     getEvents(),
     getSessions(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     getActivities(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     sql`SELECT to_char(logged_date, 'YYYY-MM-DD') AS d, note FROM workout_notes ORDER BY logged_date DESC LIMIT 10`,
     getSessions(weekStart, to).then((s) => s.filter((x) => x.done)),
+    getPlanDoc(),
   ]);
   const weekly = new Map<string, { km: number; n: number; effort: number }>();
   for (const a of recentActivities) {
@@ -313,6 +335,9 @@ export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
     `WEEK: Monday ${weekStart} to Sunday ${to}. Today is ${todayISO()}.`,
     `TARGET: ${sessionsPerWeek} sessions and ${7 - sessionsPerWeek} rest day(s). Mix long runs, Hyrox/hybrid work and strength. He runs close to 20k when he runs long and does full Hyrox simulations.`,
     "",
+    ...(doc.content.trim()
+      ? ["HIS WRITTEN TRAINING PLAN (follow its structure and any week-specific instructions; this outranks the defaults above):", doc.content.trim().slice(0, 6000), ""]
+      : []),
     upcoming.length
       ? "RACES AHEAD:\n" + upcoming.map((e) => `- ${e.name} on ${e.event_date} (${daysBetween(weekStart, e.event_date)} days after this Monday)${e.notes ? ` — ${e.notes}` : ""}`).join("\n")
       : "No races on the calendar.",

@@ -7967,3 +7967,13 @@ Berto: the black box didn't fit the site, and it spun too fast.
 - New `spinSpeed` control in `scene.ts` (default 1 = example pace); the site
   passes 0.35. Container lost its black background/ring; height is now a fixed
   26–30rem rather than 60vh.
+
+## 2026-09-26 — Sculpture moves into the hero
+
+Berto: the sculpture "kind of doesn't make sense" as its own panel, and the
+"build my own agents on the side" clause in the bio should go.
+
+- Hero is now a two-column grid on `lg` (text left, `GlassSculpture` right,
+  stacked below the text on smaller screens) at `max-w-5xl`; the sections
+  below stay at `max-w-3xl`. The standalone sculpture panel is gone.
+- Bio trimmed to Aucctus, MakersLounge, then KPMG/CIBC.

@@ -57,9 +57,6 @@ export function GlassSculpture({ className }: Props) {
       aria-hidden
     >
       <canvas ref={canvasRef} className="block h-full w-full touch-none" />
-      <p className="pointer-events-none absolute bottom-4 left-5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
-        Drag to orbit · WebGPU
-      </p>
     </div>
   );
 }

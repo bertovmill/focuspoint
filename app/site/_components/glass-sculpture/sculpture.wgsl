@@ -233,25 +233,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     let rim_half = normalize(normalize(params.rim.xyz) - ray);
     color += params.key_color.rgb * pow(clamp(dot(normal, key_half), 0.0, 1.0), 400.0) * params.key.w * 0.4;
     color += params.rim_color.rgb * pow(clamp(dot(normal, rim_half), 0.0, 1.0), 300.0) * params.rim.w * 0.25;
-  } else if (floor_hit > 0.0) {
-    let floor_point = camera_position + ray * floor_hit;
-    let reflected_ray = reflect(ray, vec3f(0.0, 1.0, 0.0));
-    let reflection_hit = march_surface(floor_point + vec3f(0.0, 0.002, 0.0), reflected_ray, 1.0, 8.0, 70);
-    var floor_color = shade_floor(floor_point, ray);
-    if (reflection_hit > 0.0) {
-      let reflection_point = floor_point + reflected_ray * reflection_hit;
-      let reflection_normal = sculpture_normal(reflection_point);
-      let reflection_weight = fresnel_schlick(-dot(reflected_ray, reflection_normal));
-      let ghost = mix(
-        studio_radiance(refract(reflected_ray, reflection_normal, 1.0 / GLASS_IOR)) * 0.6,
-        studio_radiance(reflect(reflected_ray, reflection_normal)),
-        reflection_weight
-      );
-      floor_color = mix(floor_color, ghost, clamp(fresnel_schlick(-ray.y) * 1.5, 0.0, 0.85));
-    }
-    color = mix(floor_color, studio_radiance(ray), smoothstep(3.0, 8.0, length(floor_point.xz)));
   } else {
-    color = studio_radiance(ray);
+    // Site adaptation: no painted floor or backdrop. Anything that isn't glass
+    // is written with alpha 0 so the page shows through (the canvas surface is
+    // premultiplied). The studio environment still exists for what the glass
+    // reflects and refracts — that is what keeps it reading as glass.
+    return vec4f(0.0);
   }
 
   return vec4f(color, 1.0);

@@ -12,6 +12,8 @@ const SITE_CONTROLS: SculptureControls = {
   light: "studio",
   dispersion: true,
   spin: true,
+  // The example turns at a demo pace; on a page it should drift.
+  spinSpeed: 0.35,
   renderScale: 0.75,
 };
 
@@ -51,11 +53,11 @@ export function GlassSculpture({ className }: Props) {
 
   return (
     <div
-      className={cn("relative overflow-hidden rounded-3xl bg-black ring-1 ring-border", className)}
+      className={cn("relative overflow-hidden", className)}
       aria-hidden
     >
       <canvas ref={canvasRef} className="block h-full w-full touch-none" />
-      <p className="pointer-events-none absolute bottom-4 left-5 font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">
+      <p className="pointer-events-none absolute bottom-4 left-5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
         Drag to orbit · WebGPU
       </p>
     </div>

@@ -7954,3 +7954,16 @@ to dependencies.
 
 Verified: typecheck, `next build` (Turbopack) and a live render at
 `site.localhost:3001`.
+
+## 2026-09-26 — Sculpture: transparent, slower
+
+Berto: the black box didn't fit the site, and it spun too fast.
+
+- `sculpture.wgsl` writes alpha 0 for every non-glass pixel (floor and backdrop
+  gone); the studio environment still exists for reflections/refraction.
+- `present.wgsl` carries alpha through, premultiplies, drops the vignette,
+  and lets bloom bleed faintly past the glass edge. `renderer.ts` opens the
+  surface with `alphaMode: 'premultiplied'`.
+- New `spinSpeed` control in `scene.ts` (default 1 = example pace); the site
+  passes 0.35. Container lost its black background/ring; height is now a fixed
+  26–30rem rather than 60vh.

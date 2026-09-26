@@ -48,7 +48,8 @@ export function createRenderer(
       return;
     }
     gpu = context;
-    const output = surface(context, canvas, { dpr: [1, 2] });
+    // Premultiplied alpha so the page shows through everywhere the shader isn't glass.
+    const output = surface(context, canvas, { dpr: [1, 2], alphaMode: 'premultiplied' });
     const scene = createScene(context, output, controls);
     browserCleanups.push(() => scene.destroy());
     await scene.prepare(output);
@@ -76,7 +77,7 @@ export function createRenderer(
     frameLoop(context, (currentFrame) => {
       try {
         input.advance(time.deltaTime);
-        if (controls.spin) sculptureTime += time.deltaTime;
+        if (controls.spin) sculptureTime += time.deltaTime * controls.spinSpeed;
         scene.render(currentFrame, output, input.camera, controls, {
           sculptureTime,
           clockTime: time.time,

@@ -33,6 +33,8 @@ export interface SculptureControls {
   light: LightRigName;
   dispersion: boolean;
   spin: boolean;
+  /** Multiplier on the turntable and shape animation. 1 is the example's pace. */
+  spinSpeed: number;
   renderScale: RenderScale;
 }
 
@@ -42,6 +44,7 @@ export const DEFAULT_CONTROLS: SculptureControls = {
   light: 'studio',
   dispersion: true,
   spin: true,
+  spinSpeed: 1,
   renderScale: 0.75,
 };
 
@@ -329,6 +332,10 @@ export function normalizeControls(controls: Readonly<SculptureControls>): Sculpt
     light: LIGHT_RIG_NAMES.includes(controls.light) ? controls.light : DEFAULT_CONTROLS.light,
     dispersion: controls.dispersion === true,
     spin: controls.spin !== false,
+    spinSpeed:
+      Number.isFinite(controls.spinSpeed) && controls.spinSpeed > 0
+        ? controls.spinSpeed
+        : DEFAULT_CONTROLS.spinSpeed,
     renderScale: RENDER_SCALES.includes(controls.renderScale)
       ? controls.renderScale
       : DEFAULT_CONTROLS.renderScale,

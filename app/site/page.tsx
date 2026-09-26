@@ -117,7 +117,7 @@ export default async function SiteHomePage() {
       </RevealOnView>
 
       {/* A glass sculpture, rendered live in WebGPU. Renders nothing where it can't run. */}
-      <GlassSculpture className="mb-14 h-[60vh] min-h-80 max-h-[38rem]" />
+      <GlassSculpture className="mb-10 h-[26rem] sm:h-[30rem]" />
 
       {/* What I do */}
       <section className="border-t border-border/60 py-14">

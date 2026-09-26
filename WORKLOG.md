@@ -7897,3 +7897,30 @@ before rendering because the SVG has a `-->` inside a comment that libxml reject
 
 **Next steps:** re-run the script whenever `icon.svg` changes. Re-add to the home
 screen on the phone to see it — Safari caches the old touch icon per bookmark.
+
+## 2026-09-26 — Homepage simplified into a summary of what Berto does
+
+The bertomill.com front page was a tour of Cael: a pinned pitch card
+("I build AI agents, and I let one run my life"), live database stats, and
+four full-height art panels (Cael, Building, Writing, Podcast). Berto asked
+for something simpler that reads as a summary of what he does, using his
+public LinkedIn profile as the source.
+
+**What changed** — `app/site/page.tsx` rewritten as one centred column:
+
+- Intro: headshot, "I help enterprises put AI to work", a three-line bio
+  (GTM Lead at Aucctus, founder of MakersLounge, agents on the side, prior
+  AI strategy at KPMG and CIBC), LinkedIn + "Ask Cael about me" buttons.
+- "What I do": four items — Aucctus, MakersLounge (external links),
+  Cael (`/chat`) and Writing/Podcast (`/writing`).
+- "Latest": newest post and episode from `listContent`.
+- "Experience": six-row timeline from LinkedIn, with a "full history on
+  LinkedIn" link, plus Ivey as the education line.
+- Live stats (`getPublicStats`) dropped from the homepage; they still live on
+  `/building`. `StoryCard` deleted as nothing used it any more. The
+  `public/site-art/*.webp` panels are now unused but left in place.
+- `app/site/layout.tsx` site description updated to match.
+
+Decisions Berto made: single column over keeping the two-column layout; no
+stats row on home. Verified locally at `site.localhost:3001` on desktop and
+mobile; typecheck clean.

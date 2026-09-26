@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { MenuIcon, XIcon } from "lucide-react";
@@ -26,15 +25,7 @@ export function SiteNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
-        <SiteLink href="/" className="group flex items-center gap-2.5 font-medium tracking-tight">
-          <Image
-            src="/berto-headshot.jpg"
-            alt=""
-            width={28}
-            height={28}
-            priority
-            className="size-7 rounded-full object-cover ring-1 ring-border"
-          />
+        <SiteLink href="/" className="group font-medium tracking-tight">
           <span className="transition-colors group-hover:text-primary">Berto Mill</span>
         </SiteLink>
 

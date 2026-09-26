@@ -87,15 +87,15 @@ export default async function SiteHomePage() {
         className="mx-auto grid max-w-5xl items-center gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14"
       >
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Image
               src="/berto-headshot.jpg"
               alt="Berto Mill"
               width={800}
               height={800}
               priority
-              sizes="56px"
-              className="size-14 rounded-full object-cover ring-1 ring-border"
+              sizes="80px"
+              className="size-20 rounded-full object-cover ring-1 ring-border"
             />
             <div>
               <p className="font-medium tracking-tight">Berto Mill</p>

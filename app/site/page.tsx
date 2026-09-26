@@ -1,213 +1,225 @@
 import Image from "next/image";
-import { ArrowRightIcon } from "lucide-react";
-import { SurfaceTexture, AmbientBloom } from "./_components/grain";
-import { getPublicStats } from "@/lib/public-data";
+import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
-import { StoryCard } from "./_components/story-card";
 
-// The numbers come from a live database; five minutes of staleness is plenty.
+// Writing and podcast lists come from the filesystem, but keep the page fresh
+// on the same cadence as the rest of the site.
 export const revalidate = 300;
 
-/** Height of one full-bleed panel: the viewport, less the sticky nav and the gutters. */
-const PANEL_HEIGHT = "lg:h-[calc(100svh-5.5rem)]";
+const LINKEDIN_URL = "https://www.linkedin.com/in/bertomill";
+const AUCCTUS_URL = "https://aucctus.com";
+const MAKERSLOUNGE_URL = "https://makerslounge.ca";
 
-/**
- * The card stays put on every desktop screen — that's the whole idea of the
- * layout, so it is never traded away for a short viewport. Instead the card's
- * own content is sized to fit a panel (see the `short` variant, which tightens
- * the type and spacing below 880px tall), with `overflow-y-auto` on the card as
- * the last-resort backstop so nothing can ever be cut off unreachably.
- */
-const HERO_PIN = "lg:sticky lg:top-20 lg:h-[calc(100svh-5.5rem)]";
+/** The things I spend my weeks on, in the order I'd explain them to a stranger. */
+const WORK = [
+  {
+    eyebrow: "Now",
+    title: "Go-to-Market Lead, Aucctus",
+    description:
+      "Aucctus helps Fortune 500 innovation teams find, test and launch new ideas with AI agents. I run enterprise pipeline and discovery, and carry what customers say back into the product.",
+    href: AUCCTUS_URL,
+    external: true,
+  },
+  {
+    eyebrow: "Community",
+    title: "Founder, MakersLounge",
+    description:
+      "A Toronto community of founders and builders using AI in their businesses. Monthly demo nights, online workshops, and a matching app for finding collaborators.",
+    href: MAKERSLOUNGE_URL,
+    external: true,
+  },
+  {
+    eyebrow: "Building",
+    title: "Cael, a personal agent",
+    description:
+      "A side project that runs parts of my life: goals, reading, training and calendar in one place. You can ask it about my work directly.",
+    href: "/chat",
+    external: false,
+  },
+  {
+    eyebrow: "Sharing",
+    title: "Writing and a podcast",
+    description:
+      "Notes on building AI agents that actually get used, plus recorded conversations about what to build next.",
+    href: "/writing",
+    external: false,
+  },
+] as const;
 
-function StatTile({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="font-mono text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl short:sm:text-2xl">
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs leading-snug text-muted-foreground">{label}</div>
-    </div>
-  );
-}
+/** Where I've worked, most recent first. Roles shorter than a few months are folded in. */
+const EXPERIENCE = [
+  { years: "2026 –", role: "Go-to-Market Lead", org: "Aucctus" },
+  { years: "2025 – 2026", role: "AI Solutions & GTM Consultant", org: "KPMG" },
+  { years: "2025 – 2026", role: "Teaching Assistant, MMA capstones", org: "Ivey Business School" },
+  { years: "2025 – 2026", role: "AI Coach", org: "Leland" },
+  { years: "2023 – 2025", role: "Innovation Strategy Consultant", org: "CIBC" },
+  { years: "2022 – 2023", role: "Technology Consultant", org: "Scelta Design & Build" },
+] as const;
 
 export default async function SiteHomePage() {
-  // A database hiccup should degrade the numbers, not take down the front page.
-  const [stats, writing, episodes] = await Promise.all([
-    getPublicStats().catch(() => null),
-    listContent("writing"),
-    listContent("podcast"),
-  ]);
-
+  const [writing, episodes] = await Promise.all([listContent("writing"), listContent("podcast")]);
   const latestWriting = writing[0];
   const latestEpisode = episodes[0];
 
   return (
-    <div className="px-4 pt-4 pb-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        {/* LEFT: the pitch. Pinned on desktop while the panels scroll past it. */}
-        <aside className={HERO_PIN}>
-          <RevealOnView
-            as="div"
-            intensity="hero"
-            staggerChildren
-            className="relative flex flex-col justify-between gap-10 overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 lg:h-full short:gap-6"
-          >
-            {/* Both texture layers live one level down on purpose. `RevealOnView`
-                with `staggerChildren` writes an inline `opacity` onto each direct
-                child as it animates it in, and an inline style beats a class — put
-                these at the top level and they render at full strength, which
-                turns the card grey and the corner light into a flare. */}
-            <div className="pointer-events-none absolute inset-0">
-              {/* Warm light in the corner, so the card reads as lit rather than
-                  filled. Broad and masked to one corner: a tight radius on a dark
-                  surface reads as a lens flare, not as light. */}
-              <AmbientBloom className="absolute inset-0 opacity-70 blur-3xl [mask-image:radial-gradient(130%_80%_at_0%_0%,white,transparent_65%)] dark:opacity-100" />
-
-              {/* Pressed-paper grain across the whole surface. Even coverage, no
-                  mask — real grain doesn't stop halfway. This replaced a dot grid,
-                  which is the one texture that reads instantly as "generated". */}
-              <SurfaceTexture className="absolute inset-0 opacity-5 mix-blend-multiply dark:opacity-10 dark:mix-blend-overlay" />
-            </div>
-
-            <div className="relative">
-              <div className="mb-8 flex items-center gap-2.5 short:mb-5">
-                <Image
-                  src="/berto-headshot.jpg"
-                  alt="Berto Mill"
-                  width={800}
-                  height={800}
-                  priority
-                  sizes="44px"
-                  className="size-11 rounded-full object-cover ring-1 ring-border"
-                />
-                <span className="text-lg font-extrabold tracking-tight">Berto Mill</span>
-                <span className="size-1.5 rounded-full bg-primary" aria-hidden />
-              </div>
-
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                Toronto · building in public
-              </p>
-
-              <AnimatedHeading
-                // font-black is the template's signature — Geist at 900 is what
-                // makes the headline read as a wordmark rather than body copy.
-                // 2.5rem, not 2.75: at 900 weight "I build AI agents," measures
-                // 354px against 350px of card, so the wider cut has to come down
-                // a step or the first line breaks and strands a word.
-                className="mt-4 text-4xl font-black leading-[1.05] tracking-tight sm:text-[2.5rem] short:mt-3 short:sm:text-[2.25rem]"
-                lines={["I build AI agents,", "and I let one run my life."]}
-              />
-
-              <p className="mt-5 max-w-[46ch] leading-relaxed text-muted-foreground short:mt-4 short:text-sm">
-                For the past while I&apos;ve been building <span className="text-foreground">Cael</span> — a personal
-                agent that holds my goals, my reading, my training and my calendar, and nudges me toward the life I
-                said I wanted. This site is the window into that.
-              </p>
-
-              <div className="mt-7 flex flex-wrap items-center gap-3 short:mt-5">
-                <SiteLink
-                  href="/building"
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-                >
-                  See the numbers
-                  <ArrowRightIcon className="size-4" />
-                </SiteLink>
-                <SiteLink
-                  href="/chat"
-                  className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-                >
-                  Ask Cael about me
-                </SiteLink>
-              </div>
-            </div>
-
-            {/* The stats take the slot a portfolio would give to client logos. */}
-            {stats && (
-              <div className="relative">
-                <p className="mb-4 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground short:mb-3">
-                  Live from Cael&apos;s database
-                </p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 lg:grid-cols-2 short:gap-y-3">
-                  <StatTile value={String(stats.booksRead)} label="Books finished" />
-                  <StatTile value={String(stats.tasksShipped)} label="Tasks completed" />
-                  <StatTile value={String(stats.shippedLast30Days)} label="Shipped, 30 days" />
-                  <StatTile value={String(stats.trips)} label="Trips taken" />
-                </div>
-              </div>
-            )}
-          </RevealOnView>
-        </aside>
-
-        {/* RIGHT: the four ways in, one panel each. */}
-        <div className="space-y-4">
-          <StoryCard
-            eyebrow="01 · The agent"
-            title="Cael"
-            description="The agent that runs my days. Ask it about my work, my reading or what I'm building — it answers from the same data I use."
-            tags={["Live", "Ask anything"]}
-            href="/chat"
-            imageSrc="/site-art/cael.webp"
-            gradientFrom="#5c2f1f"
-            gradientTo="#a85c3e"
+    <div className="mx-auto max-w-3xl px-6">
+      {/* Intro */}
+      <RevealOnView as="section" intensity="hero" staggerChildren className="py-16 sm:py-20">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/berto-headshot.jpg"
+            alt="Berto Mill"
+            width={800}
+            height={800}
             priority
-            className={PANEL_HEIGHT}
+            sizes="56px"
+            className="size-14 rounded-full object-cover ring-1 ring-border"
           />
-          <StoryCard
-            eyebrow="02 · In public"
-            title="Building in public"
-            description="Eight forms of wealth, tracked against real targets. Books read, hours trained, trips taken — pulled live, nothing rounded up."
-            tags={
-              stats
-                ? [`${stats.booksRead} books`, `${stats.tasksShipped} tasks shipped`]
-                : ["Live numbers"]
-            }
-            href="/building"
-            imageSrc="/site-art/building.webp"
-            gradientFrom="#0c4a6e"
-            gradientTo="#0891b2"
-            revealDelay={0.06}
-            className={PANEL_HEIGHT}
-          />
-          <StoryCard
-            eyebrow="03 · Writing"
-            title="Notes from the build"
-            description={
-              latestWriting?.summary ??
-              "What I'm learning building agents that actually get used — the parts that worked and the parts that didn't."
-            }
-            tags={latestWriting ? [latestWriting.title, formatDate(latestWriting.date)] : ["Essays"]}
-            href="/writing"
-            imageSrc="/site-art/writing.webp"
-            gradientFrom="#78350f"
-            gradientTo="#a16207"
-            revealDelay={0.12}
-            className={PANEL_HEIGHT}
-          />
-          <StoryCard
-            eyebrow="04 · Podcast"
-            title="Conversations with Cael"
-            description={
-              latestEpisode?.summary ??
-              "Recorded conversations with the agent — thinking out loud about goals, systems and what to build next."
-            }
-            tags={
-              latestEpisode
-                ? [latestEpisode.title, latestEpisode.duration ?? formatDate(latestEpisode.date)]
-                : ["Episodes"]
-            }
-            href="/podcast"
-            imageSrc="/site-art/podcast.webp"
-            gradientFrom="#312e81"
-            gradientTo="#7c3aed"
-            revealDelay={0.18}
-            className={PANEL_HEIGHT}
-          />
+          <div>
+            <p className="font-medium tracking-tight">Berto Mill</p>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Toronto</p>
+          </div>
         </div>
-      </div>
+
+        <AnimatedHeading
+          className="mt-8 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl"
+          lines={["I help enterprises", "put AI to work."]}
+        />
+
+        <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
+          I lead go-to-market at <span className="text-foreground">Aucctus</span>, run{" "}
+          <span className="text-foreground">MakersLounge</span>, a community of founders building
+          with AI, and build my own agents on the side. Before this I spent three years in AI
+          strategy at KPMG and CIBC.
+        </p>
+
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <a
+            href={LINKEDIN_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            LinkedIn
+            <ArrowUpRightIcon className="size-4" />
+          </a>
+          <SiteLink
+            href="/chat"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            Ask Cael about me
+          </SiteLink>
+        </div>
+      </RevealOnView>
+
+      {/* What I do */}
+      <section className="border-t border-border/60 py-14">
+        <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">What I do</h2>
+        <ul className="mt-8 grid gap-x-10 gap-y-10 sm:grid-cols-2">
+          {WORK.map((item, i) => {
+            const inner = (
+              <>
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">{item.eyebrow}</p>
+                <h3 className="mt-2 flex items-center gap-1.5 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                  {item.title}
+                  {item.external ? (
+                    <ArrowUpRightIcon className="size-4 opacity-60" />
+                  ) : (
+                    <ArrowRightIcon className="size-4 opacity-60" />
+                  )}
+                </h3>
+                <p className="mt-2 leading-relaxed text-muted-foreground">{item.description}</p>
+              </>
+            );
+            return (
+              <RevealOnView as="li" delay={i * 0.06} key={item.title}>
+                {item.external ? (
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="group block">
+                    {inner}
+                  </a>
+                ) : (
+                  <SiteLink href={item.href} className="group block">
+                    {inner}
+                  </SiteLink>
+                )}
+              </RevealOnView>
+            );
+          })}
+        </ul>
+      </section>
+
+      {/* Latest */}
+      {(latestWriting || latestEpisode) && (
+        <section className="border-t border-border/60 py-14">
+          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Latest</h2>
+          <ul className="mt-6 divide-y divide-border/60">
+            {latestWriting && (
+              <li>
+                <SiteLink href={`/writing/${latestWriting.slug}`} className="group block py-5">
+                  <div className="flex items-baseline gap-4">
+                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Writing</span>
+                    <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
+                      {formatDate(latestWriting.date)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                    {latestWriting.title}
+                  </p>
+                  {latestWriting.summary && (
+                    <p className="mt-1.5 leading-relaxed text-muted-foreground">{latestWriting.summary}</p>
+                  )}
+                </SiteLink>
+              </li>
+            )}
+            {latestEpisode && (
+              <li>
+                <SiteLink href={`/podcast/${latestEpisode.slug}`} className="group block py-5">
+                  <div className="flex items-baseline gap-4">
+                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Podcast</span>
+                    <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
+                      {latestEpisode.duration ?? formatDate(latestEpisode.date)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                    {latestEpisode.title}
+                  </p>
+                  {latestEpisode.summary && (
+                    <p className="mt-1.5 leading-relaxed text-muted-foreground">{latestEpisode.summary}</p>
+                  )}
+                </SiteLink>
+              </li>
+            )}
+          </ul>
+        </section>
+      )}
+
+      {/* Experience */}
+      <section className="border-t border-border/60 py-14">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Experience</h2>
+          <a
+            href={LINKEDIN_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Full history on LinkedIn ↗
+          </a>
+        </div>
+        <ul className="mt-6 divide-y divide-border/60">
+          {EXPERIENCE.map((row) => (
+            <li key={`${row.org}-${row.role}`} className="flex flex-col gap-1 py-3.5 sm:flex-row sm:items-baseline sm:gap-6">
+              <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">{row.years}</span>
+              <span className="font-medium tracking-tight">{row.role}</span>
+              <span className="text-muted-foreground sm:ml-auto sm:text-right">{row.org}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 text-sm text-muted-foreground">Ivey Business School at Western University.</p>
+      </section>
     </div>
   );
 }

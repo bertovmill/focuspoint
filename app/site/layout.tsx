@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     template: "%s · Berto Mill",
   },
   description:
-    "I build AI agents and write about it. Currently building Cael, a personal life agent — in public, with the numbers showing.",
+    "Go-to-market lead at Aucctus, founder of MakersLounge, and builder of AI agents. Writing and a podcast on putting AI to work.",
   openGraph: {
     siteName: "Berto Mill",
     type: "website",

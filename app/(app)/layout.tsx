@@ -14,6 +14,7 @@ import { NEW_CHAT_EVENT } from "@/app/_components/new-chat-event";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { FloatingChatBar } from "@/app/_components/floating-chat-bar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
+import { WeekPlanPanel } from "@/app/_components/week-plan-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { KonstaApp } from "@/app/_components/konsta-app";
@@ -33,7 +34,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "nutrition-plan";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -56,6 +57,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   manual: "/manual",
   newsletter: "/newsletter",
   nutrition: "/nutrition",
+  "nutrition-plan": "/nutrition/plan",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -387,6 +389,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           {mobileTab === "newsletter" ? (
             <NewsletterPanel />
+          ) : mobileTab === "nutrition-plan" ? (
+            <div className="h-full overflow-y-auto px-5 py-4">
+              <WeekPlanPanel />
+            </div>
           ) : (
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "nutrition" ? "nutrition" : mobileTab === "manual" ? "manual" : "todos"}

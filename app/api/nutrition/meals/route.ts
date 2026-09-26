@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(searchParams.get("limit") ?? 120), 500);
     const sql = getDb();
     const rows = await sql`
-      SELECT id, name, notes, felt_good, slot, eaten_date, created_at
+      SELECT id, name, notes, felt_good, slot, eaten_date, created_at, protein_g, kcal
       FROM nutrition_meals
       ORDER BY eaten_date DESC, created_at DESC
       LIMIT ${limit}
@@ -20,19 +20,23 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { name, notes, felt_good, slot, eaten_date } = await req.json();
+    const { name, notes, felt_good, slot, eaten_date, protein_g, kcal } = await req.json();
+    const protein = protein_g === undefined || protein_g === null || protein_g === "" ? null : Number(protein_g);
+    const calories = kcal === undefined || kcal === null || kcal === "" ? null : Math.round(Number(kcal));
     if (!name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO nutrition_meals (name, notes, felt_good, slot, eaten_date)
+      INSERT INTO nutrition_meals (name, notes, felt_good, slot, eaten_date, protein_g, kcal)
       VALUES (
         ${name.trim()},
         ${notes?.trim() || null},
         ${felt_good === false ? false : true},
         ${slot?.trim() || null},
-        ${eaten_date?.trim() || new Date().toISOString().slice(0, 10)}
+        ${eaten_date?.trim() || new Date().toISOString().slice(0, 10)},
+        ${Number.isFinite(protein) ? protein : null},
+        ${Number.isFinite(calories) ? calories : null}
       )
-      RETURNING id, name, notes, felt_good, slot, eaten_date, created_at
+      RETURNING id, name, notes, felt_good, slot, eaten_date, created_at, protein_g, kcal
     `;
     return NextResponse.json(row);
   } catch {

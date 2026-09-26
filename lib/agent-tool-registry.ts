@@ -25,6 +25,7 @@ import list_luma_events from "@/agent/tools/list_luma_events";
 import list_meal_history from "@/agent/tools/list_meal_history";
 import list_notes from "@/agent/tools/list_notes";
 import list_nutrition from "@/agent/tools/list_nutrition";
+import list_training_plan from "@/agent/tools/list_training_plan";
 import list_reading from "@/agent/tools/list_reading";
 import list_scheduled_tasks from "@/agent/tools/list_scheduled_tasks";
 import list_sketches from "@/agent/tools/list_sketches";
@@ -46,6 +47,8 @@ import read_sketch from "@/agent/tools/read_sketch";
 import save_dream from "@/agent/tools/save_dream";
 import search_memory from "@/agent/tools/search_memory";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
+import set_training_session from "@/agent/tools/set_training_session";
+import sync_strava from "@/agent/tools/sync_strava";
 import set_focus from "@/agent/tools/set_focus";
 import sync_luma from "@/agent/tools/sync_luma";
 import update_scheduled_task from "@/agent/tools/update_scheduled_task";
@@ -76,6 +79,7 @@ export const agentTools = {
   list_meal_history,
   list_notes,
   list_nutrition,
+  list_training_plan,
   list_reading,
   list_scheduled_tasks,
   list_sketches,
@@ -97,6 +101,8 @@ export const agentTools = {
   save_dream,
   search_memory,
   set_daily_meal,
+  set_training_session,
+  sync_strava,
   set_focus,
   sync_luma,
   update_scheduled_task,

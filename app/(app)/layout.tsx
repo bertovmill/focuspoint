@@ -15,6 +15,7 @@ import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { FloatingChatBar } from "@/app/_components/floating-chat-bar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { WeekPlanPanel } from "@/app/_components/week-plan-panel";
+import { TrainingPlanPanel } from "@/app/_components/training-plan-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { KonstaApp } from "@/app/_components/konsta-app";
@@ -34,7 +35,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "nutrition-plan";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "nutrition-plan" | "training";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -58,6 +59,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   newsletter: "/newsletter",
   nutrition: "/nutrition",
   "nutrition-plan": "/nutrition/plan",
+  training: "/training",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -392,6 +394,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           ) : mobileTab === "nutrition-plan" ? (
             <div className="h-full overflow-y-auto px-5 py-4">
               <WeekPlanPanel />
+            </div>
+          ) : mobileTab === "training" ? (
+            <div className="h-full overflow-y-auto px-5 py-4">
+              <TrainingPlanPanel />
             </div>
           ) : (
           <Dashboard

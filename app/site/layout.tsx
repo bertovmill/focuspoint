@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     default: "Berto Mill",
     template: "%s · Berto Mill",
   },
+  // The public site gets its own mark; Cael's orb stays on cael.bertomill.com.
+  icons: {
+    icon: "/bm-icon.svg",
+    // Safari ignores SVG for apple-touch-icon; the PNG is rendered from the same
+    // source by scripts/render-bm-apple-icon.mjs.
+    apple: "/bm-apple-icon.png",
+  },
   description:
     "Go-to-market lead at Aucctus, founder of MakersLounge, and builder of AI agents. Writing and a podcast on putting AI to work.",
   openGraph: {

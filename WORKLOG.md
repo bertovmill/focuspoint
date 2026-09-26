@@ -8109,3 +8109,22 @@ Berto: the sculpture "kind of doesn't make sense" as its own panel, and the
   stacked below the text on smaller screens) at `max-w-5xl`; the sections
   below stay at `max-w-3xl`. The standalone sculpture panel is gone.
 - Bio trimmed to Aucctus, MakersLounge, then KPMG/CIBC.
+
+## 2026-09-26 — bertomill.com gets its own BM favicon
+
+Berto: "can we add a nice little bm icon for my name" — a browser tab titled
+Berto Mill was showing the generic globe, and the public site had no mark of
+its own (it inherited Cael's orb from the root layout).
+
+- `public/bm-icon.svg` (new): a terracotta disc in the same primary gradient as
+  Cael's orb, with a bold white BM monogram. Reads at 16px; the two sites look
+  like siblings in a tab strip without sharing a mark.
+- `public/bm-apple-icon.png` (new, 180×180): full-bleed square version for the
+  iOS home screen, rendered by the new `scripts/render-bm-apple-icon.mjs`
+  (mirrors `render-apple-icon.mjs`). Re-run it after editing the SVG.
+- `app/site/layout.tsx`: `metadata.icons` now points at the two files, so the
+  `/site` tree overrides the root layout's Cael icons.
+- No middleware change: both files are top-level `public/` images, which
+  `isPublicAsset` already passes through on both hosts.
+
+Verified: typecheck, and sharp renders of the SVG at 512px and 32px.

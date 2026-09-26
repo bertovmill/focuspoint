@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Same terracotta as Cael's orb (the primary token), lit top-left, so the two
+         sites read as siblings in a tab strip without sharing a mark. -->
+    <radialGradient id="disc" cx="0.32" cy="0.26" r="0.95">
+      <stop offset="0%" stop-color="#e8926f"/>
+      <stop offset="55%" stop-color="#d8734f"/>
+      <stop offset="100%" stop-color="#a94e31"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="248" fill="url(#disc)"/>
+  <!-- Thin inner rim keeps the disc crisp against light tab strips. -->
+  <circle cx="256" cy="256" r="244" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6"/>
+  <ellipse cx="256" cy="150" rx="200" ry="120" fill="url(#gloss)"/>
+
+  <!-- Monogram. Bold sans so it survives at 16px; tight tracking so the pair
+       reads as one mark rather than two letters. -->
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="central"
+        font-family="Geist, Inter, -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="700" font-size="236" letter-spacing="-14" fill="#ffffff">BM</text>
+</svg>

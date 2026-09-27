@@ -4,6 +4,14 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Menu channels: Instagram, LinkedIn, X, YouTube
+
+Berto asked for Koto-style channels in the menu. `site-nav.tsx`: CHANNELS now
+lists Instagram (@bertomill), LinkedIn, X (@bertomill1) and YouTube
+(@BertoVMill; the @Bertomill1 handle in my-portfolio 404s). They open in a new
+tab. Sign in moved out of Channels to sit beside "Book a meeting", since the
+mobile menu is its only entry point.
+
 ## 2026-09-27 — Hero headline as clear CSS glass
 
 Berto: *"for the text at the bottom, can we make it liquid glass simple?"* The

@@ -18,9 +18,12 @@ const NAV = [
   { href: "/chat", label: "Ask Cael" },
 ];
 
+// Social profiles, shown under "Channels" in the menu like koto.com's.
 const CHANNELS = [
+  { href: "https://www.instagram.com/bertomill/", label: "Instagram" },
   { href: "https://www.linkedin.com/in/bertomill", label: "LinkedIn" },
-  { href: CAEL_SIGN_IN_URL, label: "Sign in" },
+  { href: "https://x.com/bertomill1", label: "X" },
+  { href: "https://www.youtube.com/@BertoVMill", label: "YouTube" },
 ];
 
 /* Small uppercase mono label, used for the desktop links and the menu eyebrows. */
@@ -118,6 +121,14 @@ export function SiteNav() {
               >
                 Book a meeting
               </a>
+              {/* Accounts live on the private host, so this leaves the site. */}
+              <a
+                href={CAEL_SIGN_IN_URL}
+                onClick={() => setOpen(false)}
+                className={cn(LABEL, "mt-10 ml-6 inline-flex text-muted-foreground transition-colors hover:text-foreground")}
+              >
+                Sign in
+              </a>
             </div>
 
             <div className="border-t border-border/60 px-6 py-6">
@@ -127,6 +138,8 @@ export function SiteNav() {
                   <li key={item.href}>
                     <a
                       href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
                       onClick={() => setOpen(false)}
                       className={cn(
                         LABEL,

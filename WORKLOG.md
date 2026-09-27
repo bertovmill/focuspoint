@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — About page at /about, subscribe forms hand off to Substack
+
+Berto: *"lets add an about section - similar to this one but for berto"* with a
+screenshot of koto.com/about. Confirmed with him: a new page (not a homepage
+block), a neutral placeholder band where Koto runs its collage, and **all copy
+handwritten by him** — nothing generated. He gave the tagline: **"Community
+builder, system implementer, innovation driver."** Then: *"we dont need the top
+bar"* — the tall empty hero block, not the nav — so the hero is just the text.
+
+**About page** (`app/site/about/page.tsx`): "About" left, tagline right (word-
+by-word reveal via `AnimatedHeading`, which now takes `as` so it can render a
+`p` beside a real `h1`), a jump-to row and anchored sections driven by a
+`SECTIONS` array. The array is **empty on purpose** — the row and sections stay
+hidden until Berto sends section names and copy. Placeholder band under the
+hero. Added to the header nav, footer and sitemap.
+
+**Subscribe → Substack.** Berto: *"for the subscribe section - could we make
+that towards my substack?"* `SubscribeForm` is now a plain GET form to
+`robertmillwriting.substack.com/subscribe` (opens in a new tab with the email
+carried along), so Substack owns the list, confirmation and unsubscribes.
+Nothing is stored here any more. The Resend gating on the footer form and the
+popup is gone; both always show. The `/api/site/subscribe` and `unsubscribe`
+routes are now unused but left in place.
+
+Verified in the browser: page renders with no console errors; form action,
+method and target checked via JS. Also on this branch from a concurrent
+session: the Aucctus case study, the Substack-backed Writing page, and the
+glass-sculpture removal from the homepage hero.
+
+**Next:** Berto to send section names and copy for the About page; swap the
+placeholder band for real photos (three usable ones exist in `~/my-portfolio/public`).
+
+---
+
 ## 2026-09-27 — New hero headline, set in Manrope
 
 Berto: *"i think my title is not right - can you read my linkedin and suggest a

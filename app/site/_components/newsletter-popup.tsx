@@ -21,15 +21,11 @@ const STORAGE_KEY = "bertomill.newsletter";
 const DELAY_MS = 30_000;
 const SCROLL_FRACTION = 0.5;
 
-export function NewsletterPopup({ enabled }: { enabled: boolean }) {
+export function NewsletterPopup() {
   const [open, setOpen] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
-    // Don't interrupt anyone with a form that can't submit — the server only
-    // reports enabled once Resend's credentials are actually present.
-    if (!enabled) return;
-
     // Never re-ask someone who already subscribed or closed it.
     try {
       if (localStorage.getItem(STORAGE_KEY)) return;
@@ -57,7 +53,7 @@ export function NewsletterPopup({ enabled }: { enabled: boolean }) {
       window.removeEventListener("scroll", onScroll);
     }
     return cleanup;
-  }, [enabled]);
+  }, []);
 
   const remember = (value: string) => {
     try {
@@ -81,9 +77,9 @@ export function NewsletterPopup({ enabled }: { enabled: boolean }) {
             <div className="mx-auto grid size-11 place-items-center rounded-full bg-primary/10">
               <CheckIcon className="size-5 text-primary" />
             </div>
-            <DialogTitle className="mt-4 text-lg">You&apos;re in.</DialogTitle>
+            <DialogTitle className="mt-4 text-lg">Almost there.</DialogTitle>
             <DialogDescription className="mt-2">
-              I&apos;ll send the next one straight to your inbox.
+              Finish signing up in the Substack tab that just opened.
             </DialogDescription>
           </div>
         ) : (

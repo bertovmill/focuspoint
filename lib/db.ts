@@ -488,7 +488,7 @@ export async function ensureSchema() {
   `;
 
   // ── Meal plan (2026-09-26) ───────────────────────────────────────────────
-  // The week grid on /nutrition/plan stores its cells in meal_recommendations,
+  // The week grid on /meals stores its cells in meal_recommendations,
   // which was already one row per (date, slot). Protein and calories are the
   // two numbers Berto chose to track; ingredients feed the Groceries button.
   // recipe_id points back at the library entry a cell was picked from (NULL

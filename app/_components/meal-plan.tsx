@@ -25,7 +25,7 @@ export function MealPlan() {
         <div className="flex items-baseline gap-3">
           <h2 className="text-sm font-semibold">Today&apos;s meals</h2>
           <Link
-            href="/nutrition/plan"
+            href="/meals"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <CalendarDaysIcon className="size-3" />

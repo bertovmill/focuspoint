@@ -1,4 +1,4 @@
-// Server-side helpers for the week plan on /nutrition/plan. The grid's cells are
+// Server-side helpers for the week plan on /meals. The grid's cells are
 // rows in meal_recommendations (one per date and slot — the same rows the
 // morning tick fills for today), the library is nutrition_recipes, and the
 // protein target is one app_settings key.

@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
@@ -35,7 +35,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "nutrition-plan" | "training";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -58,7 +58,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   manual: "/manual",
   newsletter: "/newsletter",
   nutrition: "/nutrition",
-  "nutrition-plan": "/nutrition/plan",
+  meals: "/meals",
   training: "/training",
 };
 
@@ -66,7 +66,7 @@ const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat and Sketches (Berto, 2026-09-14). Every other
+// The nav shows only Home, Chat, Sketches, Training and Meals (Berto, 2026-09-14; Meals added 2026-09-27). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more, so there is no "More" menu on the phone.
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [];
@@ -82,6 +82,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "training", label: "Training", icon: DumbbellIcon },
+  { tab: "meals", label: "Meals", icon: UtensilsIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -94,6 +95,7 @@ const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
   { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
   { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-rose-600 dark:text-rose-400", pill: "bg-rose-500/15" } },
+  { tab: "meals", label: "Meals", icon: UtensilsIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 
@@ -393,7 +395,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         <div className={cn("flex flex-col flex-1 h-full", mobileTab === "chat" && "lg:w-[380px] xl:w-[420px] lg:shrink-0")}>
           {mobileTab === "newsletter" ? (
             <NewsletterPanel />
-          ) : mobileTab === "nutrition-plan" ? (
+          ) : mobileTab === "meals" ? (
             <div className="h-full overflow-y-auto px-5 py-4">
               <WeekPlanPanel />
             </div>

@@ -108,8 +108,8 @@ export function TrainingPlanDoc() {
     <section>
       <div className="mb-2 flex items-center gap-2">
         <div>
-          <h2 className="text-sm font-semibold">The plan</h2>
-          <p className="text-xs text-muted-foreground">Written in your words. Each week&apos;s draft is built against it.</p>
+          <h2 className="text-lg font-semibold">The plan</h2>
+          <p className="text-sm text-muted-foreground">Cael drafts each week from this.</p>
         </div>
         <span className="ml-auto text-xs text-muted-foreground">
           {error ? <span className="text-destructive">Not saved</span> : saving ? "Saving…" : savedAt ? `Saved ${savedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}

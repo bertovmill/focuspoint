@@ -105,7 +105,7 @@ export function dateKey(value: string) {
 // ── Meal plan ─────────────────────────────────────────────────────────────
 // Protein is the one macro Berto tracks against a target (calories ride along
 // for context). 145 g is ~0.8 g per lb at 180 lb; the real number lives in
-// app_settings and is editable from /nutrition/plan.
+// app_settings and is editable from /meals.
 export const DEFAULT_PROTEIN_TARGET_G = 160;
 export const PROTEIN_TARGET_SETTING_KEY = "nutrition.protein_target_g";
 

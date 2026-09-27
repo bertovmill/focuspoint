@@ -222,6 +222,26 @@ export async function setPlanDoc(content: string) {
   return getPlanDoc();
 }
 
+// ── the goal ──────────────────────────────────────────────────────────────
+// One sentence shown under the Training title and handed to every weekly draft.
+const GOAL_KEY = "training.goal";
+export const DEFAULT_GOAL = "Train optimally to reach my potential in Hyrox.";
+
+export async function getGoal(): Promise<string> {
+  const sql = getDb();
+  const [row] = await sql`SELECT value FROM app_settings WHERE key = ${GOAL_KEY}`;
+  return row && String(row.value).trim() ? String(row.value) : DEFAULT_GOAL;
+}
+
+export async function setGoal(goal: string) {
+  const sql = getDb();
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at) VALUES (${GOAL_KEY}, ${goal}, NOW())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+  return getGoal();
+}
+
 // ── Strava sync + matching ────────────────────────────────────────────────
 
 /** Walks and rides under this are background movement, not a session. */
@@ -312,13 +332,14 @@ const DraftWeek = z.object({
 export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
   const to = addDaysISO(weekStart, 6);
   const sql = getDb();
-  const [events, recentSessions, recentActivities, notes, kept, doc] = await Promise.all([
+  const [events, recentSessions, recentActivities, notes, kept, doc, goal] = await Promise.all([
     getEvents(),
     getSessions(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     getActivities(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     sql`SELECT to_char(logged_date, 'YYYY-MM-DD') AS d, note FROM workout_notes ORDER BY logged_date DESC LIMIT 10`,
     getSessions(weekStart, to).then((s) => s.filter((x) => x.done)),
     getPlanDoc(),
+    getGoal(),
   ]);
   const weekly = new Map<string, { km: number; n: number; effort: number }>();
   for (const a of recentActivities) {
@@ -333,6 +354,7 @@ export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
   const upcoming = events.filter((e) => e.event_date >= weekStart);
   const context = [
     `WEEK: Monday ${weekStart} to Sunday ${to}. Today is ${todayISO()}.`,
+    `HIS GOAL: ${goal}`,
     `TARGET: ${sessionsPerWeek} sessions and ${7 - sessionsPerWeek} rest day(s). Mix long runs, Hyrox/hybrid work and strength. He runs close to 20k when he runs long and does full Hyrox simulations.`,
     "",
     ...(doc.content.trim()

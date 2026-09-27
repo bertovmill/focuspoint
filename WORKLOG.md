@@ -8480,3 +8480,24 @@ viewport, so it drifted relative to the headline as the width changed. Now the
 SVG is `xMinYMid slice` and the drawing is shifted left so its outer wall lines
 up with the headline's left edge. Checked at 1787px and 375px: within 10px of
 the headline at both.
+
+## 2026-09-27 — Training made bigger and simpler; Meals gets its own tab
+
+Berto: "everything should be a bit easier and bigger", separate the meal plan
+into its own menu page, and put the goal at the top of Training.
+
+- Training (`app/_components/training-plan-panel.tsx`): 3xl title with a goal
+  line under it ("Train optimally to reach my potential in Hyrox." by default;
+  tap to edit). A big Today card with 36px checkboxes sits above the week. The
+  week nav, race chips, day "+" buttons and session cards are larger.
+  "Draft this week" is now the primary button. Removed: the explainer
+  paragraph and the "Strava needs API keys" note (Connect/Sync show once keys
+  exist). The written plan is folded into a "Your written plan" disclosure.
+- Goal: stored in `app_settings` under `training.goal`, served from
+  `app/api/training/goal`, and passed to `draftWeek` as HIS GOAL.
+- Meals: new nav tab (UtensilsIcon, amber) at `/meals`. The tab id changed
+  from `nutrition-plan` to `meals`. `/nutrition/plan` redirects there. The
+  panel header now reads "Meals", with no back link.
+
+Verified: typecheck; local dev at /training and /meals; /nutrition/plan
+redirects to /meals.

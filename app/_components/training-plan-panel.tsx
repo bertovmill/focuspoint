@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIcon,
@@ -268,101 +267,123 @@ export function TrainingPlanPanel() {
     );
   }
 
+  const todayList = byDay.get(today) ?? [];
+  const todayActs = (activitiesByDay.get(today) ?? []).filter((a) => !linked.has(a.id));
+  const todayRace = events.find((e) => e.event_date === today);
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-8">
-      {/* Header */}
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-base font-semibold">Training</h1>
-        <Link href="/nutrition/plan" className="text-xs text-muted-foreground hover:text-foreground">
-          Meal plan →
-        </Link>
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="tap-target rounded-md border p-1.5 text-muted-foreground hover:text-foreground" aria-label="Previous week">
-            <ChevronLeftIcon className="size-3.5" />
+    <div className="mx-auto max-w-6xl space-y-6 pb-10">
+      {/* Title + goal */}
+      <header className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Training</h1>
+        <GoalLine />
+      </header>
+
+      {/* Races */}
+      <div className="flex flex-wrap items-center gap-2">
+        {upcoming.map((e) =>
+          editingEvent === e.id ? (
+            <EventForm key={e.id} initial={e} onSave={(n, d) => saveEvent(e.id, n, d)} onCancel={() => setEditingEvent(null)} onDelete={() => removeEvent(e.id)} />
+          ) : (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => setEditingEvent(e.id)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm",
+                daysUntil(e.event_date) <= 7 ? "border-rose-500/60 bg-rose-500/5 text-rose-600 dark:text-rose-400" : "text-foreground",
+              )}
+              title={`${e.event_date}${e.notes ? ` — ${e.notes}` : ""} · tap to edit`}
+            >
+              <FlagIcon className="size-4" />
+              <span className="font-semibold">{e.name}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {daysUntil(e.event_date) === 0 ? "today" : `${daysUntil(e.event_date)} days`}
+              </span>
+            </button>
+          ),
+        )}
+        {editingEvent === "new" ? (
+          <EventForm onSave={(n, d) => saveEvent("new", n, d)} onCancel={() => setEditingEvent(null)} />
+        ) : (
+          <button type="button" onClick={() => setEditingEvent("new")} className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+            <PlusIcon className="size-4" /> Race
           </button>
-          <span className="min-w-28 text-center text-xs tabular-nums">{weekRangeLabel(weekStart)}</span>
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="tap-target rounded-md border p-1.5 text-muted-foreground hover:text-foreground" aria-label="Next week">
-            <ChevronRightIcon className="size-3.5" />
+        )}
+      </div>
+
+      {/* Today, front and centre */}
+      {isCurrentWeek && (
+        <section className={cn("rounded-2xl border-2 p-5", todayRace ? "border-rose-500/60" : "border-foreground/20")}>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
+              <p className="text-xl font-semibold">{shortDayLabel(today)}</p>
+            </div>
+            <Button variant="outline" className="h-11 gap-1.5 px-4 text-base" onClick={() => setEditor({ date: today })}>
+              <PlusIcon className="size-5" /> Add
+            </Button>
+          </div>
+          {todayRace && (
+            <p className="mb-3 flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
+              <FlagIcon className="size-5" /> Race day: {todayRace.name}
+            </p>
+          )}
+          <div className="space-y-3">
+            {todayList.length === 0 && todayActs.length === 0 && !todayRace && (
+              <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
+            )}
+            {todayList.map((s) => (
+              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => setEditor(s)} />
+            ))}
+            {todayActs.map((a) => (
+              <ActivityChip key={a.id} a={a} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Week controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Previous week">
+            <ChevronLeftIcon className="size-5" />
+          </button>
+          <span className="min-w-36 text-center text-base font-medium tabular-nums">{weekRangeLabel(weekStart)}</span>
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Next week">
+            <ChevronRightIcon className="size-5" />
           </button>
           {!isCurrentWeek && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setWeekStart(weekStartISO(today))}>
+            <Button variant="ghost" className="h-11 text-base" onClick={() => setWeekStart(weekStartISO(today))}>
               This week
             </Button>
           )}
         </div>
-      </div>
-
-      {/* Races + week summary + actions */}
-      <section className="grid gap-3 rounded-lg border p-3 md:grid-cols-[1fr_auto]">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {upcoming.map((e) =>
-              editingEvent === e.id ? (
-                <EventForm key={e.id} initial={e} onSave={(n, d) => saveEvent(e.id, n, d)} onCancel={() => setEditingEvent(null)} onDelete={() => removeEvent(e.id)} />
-              ) : (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => setEditingEvent(e.id)}
-                  className={cn(
-                    "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
-                    daysUntil(e.event_date) <= 7 ? "border-rose-500/60 text-rose-600 dark:text-rose-400" : "text-foreground",
-                  )}
-                  title={`${e.event_date}${e.notes ? ` — ${e.notes}` : ""} · click to edit`}
-                >
-                  <FlagIcon className="size-3" />
-                  <span className="font-medium">{e.name}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {daysUntil(e.event_date) === 0 ? "today" : `${daysUntil(e.event_date)}d`}
-                  </span>
-                  <PencilIcon className="size-2.5 opacity-0 group-hover:opacity-60" />
-                </button>
-              ),
-            )}
-            {editingEvent === "new" ? (
-              <EventForm onSave={(n, d) => saveEvent("new", n, d)} onCancel={() => setEditingEvent(null)} />
-            ) : (
-              <button type="button" onClick={() => setEditingEvent("new")} className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground">
-                <PlusIcon className="size-3" /> race
-              </button>
-            )}
-          </div>
-          <p className="text-xs tabular-nums text-muted-foreground">
-            <span className={cn("font-medium", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-foreground")}>
-              {week.done}/{week.planned} sessions
-            </span>
-            {week.plannedKm > 0 && ` · ${week.plannedKm.toFixed(0)} km planned`}
-            {week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km done`}
-            {week.minutes > 0 && ` · ${Math.round(week.minutes)} min`}
-            {week.effort > 0 && ` · effort ${week.effort}`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-2">
-          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={drafting} onClick={draft}>
-            {drafting ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
-            {drafting ? "Drafting…" : "Draft week with Cael"}
+        <span className={cn("text-base font-medium tabular-nums", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-muted-foreground")}>
+          {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
+        </span>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <Button className="h-11 gap-2 px-5 text-base" disabled={drafting} onClick={draft}>
+            {drafting ? <Spinner className="size-4" /> : <SparklesIcon className="size-4" />}
+            {drafting ? "Drafting…" : "Draft this week"}
           </Button>
           {strava.connected ? (
-            <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={syncing} onClick={() => sync()} title={strava.last_synced_at ? `Last synced ${new Date(strava.last_synced_at).toLocaleString()}` : undefined}>
-              {syncing ? <Spinner className="size-3" /> : <RefreshCwIcon className="size-3" />}
-              Sync Strava
+            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={strava.last_synced_at ? `Last synced ${new Date(strava.last_synced_at).toLocaleString()}` : undefined}>
+              {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}
+              Sync
             </Button>
           ) : strava.configured ? (
-            <Button size="sm" className="h-8 gap-1 bg-[#fc4c02] text-xs text-white hover:bg-[#fc4c02]/90" asChild>
+            <Button className="h-11 gap-2 bg-[#fc4c02] px-4 text-base text-white hover:bg-[#fc4c02]/90" asChild>
               <a href="/api/strava/connect">
-                <ActivityIcon className="size-3" /> Connect Strava
+                <ActivityIcon className="size-4" /> Connect Strava
               </a>
             </Button>
-          ) : (
-            <span className="max-w-56 text-xs text-muted-foreground" title="Set STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET (strava.com/settings/api) in .env.local and on Vercel">
-              Strava needs API keys before it can connect.
-            </span>
-          )}
+          ) : null}
         </div>
-      </section>
+      </div>
 
-      {/* Week — columns on wide screens, stacked on phones */}
-      <section className="grid gap-2 md:grid-cols-7">
+      {/* Week — stacked rows on phones, columns on wide screens */}
+      <section className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
           const list = byDay.get(d) ?? [];
           const acts = activitiesByDay.get(d) ?? [];
@@ -370,21 +391,21 @@ export function TrainingPlanPanel() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <div key={d} className={cn("flex flex-col rounded-lg border", isToday && "border-foreground/40", race && "border-rose-500/60")}>
-              <div className={cn("flex items-center justify-between border-b px-2 py-1.5", isToday && "bg-foreground text-background")}>
-                <span className={cn("text-xs font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
-                <button type="button" onClick={() => setEditor({ date: d })} className={cn("tap-target rounded p-0.5", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
-                  <PlusIcon className="size-3.5" />
+            <div key={d} className={cn("flex flex-col rounded-xl border", isToday && "border-foreground/40", race && "border-rose-500/60")}>
+              <div className={cn("flex items-center justify-between border-b px-3 py-2", isToday && "bg-foreground text-background")}>
+                <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
+                <button type="button" onClick={() => setEditor({ date: d })} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
+                  <PlusIcon className="size-5" />
                 </button>
               </div>
               {race && (
-                <div className="flex items-center gap-1 border-b bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-600 dark:text-rose-400">
-                  <FlagIcon className="size-3" /> {race.name}
+                <div className="flex items-center gap-1.5 border-b bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-600 dark:text-rose-400">
+                  <FlagIcon className="size-4" /> {race.name}
                 </div>
               )}
-              <div className="flex flex-1 flex-col gap-1.5 p-1.5">
+              <div className="flex flex-1 flex-col gap-2 p-2">
                 {list.length === 0 && acts.length === 0 && (
-                  <p className={cn("py-3 text-center text-xs text-muted-foreground/60", past && "opacity-60")}>—</p>
+                  <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
                 )}
                 {list.map((s) => (
                   <SessionCard key={s.id} s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => setEditor(s)} />
@@ -398,50 +419,117 @@ export function TrainingPlanPanel() {
         })}
       </section>
 
-      <p className="text-xs text-muted-foreground">
-        Tick a session or let Strava do it: a run marks the day&apos;s long run, a workout marks Hyrox or strength. Unmatched
-        activities show under the day in grey. Lift numbers and the day&apos;s note still live on the Home screen&apos;s Training card.
-      </p>
-
-      <TrainingPlanDoc />
+      {/* The long-form plan, tucked away until it's wanted */}
+      <details className="group rounded-xl border p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold">
+          Your written plan
+          <ChevronRightIcon className="size-5 text-muted-foreground transition-transform group-open:rotate-90" />
+        </summary>
+        <div className="mt-4">
+          <TrainingPlanDoc />
+        </div>
+      </details>
 
       <SessionEditor target={editor} saving={saving} onClose={() => setEditor(null)} onSave={saveSession} onDelete={removeSession} />
     </div>
   );
 }
 
-function SessionCard({ s, past, onToggle, onEdit }: { s: TrainingSession; past: boolean; onToggle: () => void; onEdit: () => void }) {
+/** The one-sentence goal under the title; tap to rewrite it. Cael drafts every week toward it. */
+function GoalLine() {
+  const [goal, setGoal] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    fetch("/api/training/goal")
+      .then((r) => r.json())
+      .then((r: { goal: string }) => setGoal(r.goal))
+      .catch(() => setGoal(""));
+  }, []);
+
+  const save = async () => {
+    const next = text.trim();
+    setEditing(false);
+    if (!next || next === goal) return;
+    const prev = goal;
+    setGoal(next);
+    try {
+      const res = await fetch("/api/training/goal", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal: next }) });
+      if (!res.ok) throw new Error();
+    } catch {
+      setGoal(prev);
+      toast.error("Couldn't save the goal.");
+    }
+  };
+
+  if (goal === null) return <Skeleton className="h-6 w-80" />;
+  if (editing) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <Input autoFocus className="h-11 text-base" value={text} onChange={(e) => setText(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Escape" && setEditing(false)} />
+      </form>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setText(goal);
+        setEditing(true);
+      }}
+      className="group flex items-center gap-2 text-left text-lg text-muted-foreground hover:text-foreground"
+    >
+      <span>
+        <span className="font-semibold text-foreground">Goal:</span> {goal}
+      </span>
+      <PencilIcon className="size-4 shrink-0 opacity-40 group-hover:opacity-80" />
+    </button>
+  );
+}
+
+function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   return (
-    <div className={cn("group relative rounded-md border p-2", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
-      <div className="flex items-start gap-1.5">
+    <div className={cn("group relative rounded-lg border", big ? "p-4" : "p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
+      <div className={cn("flex items-start", big ? "gap-4" : "gap-2.5")}>
         {!rest && (
           <button
             type="button"
             onClick={onToggle}
             aria-label={s.done ? "Mark not done" : "Mark done"}
-            className={cn("mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border", s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}
+            className={cn(
+              "flex shrink-0 items-center justify-center rounded-md border-2",
+              big ? "size-9" : "size-6",
+              s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40",
+            )}
           >
-            {s.done && <CheckIcon className="size-3" />}
+            {s.done && <CheckIcon className={big ? "size-6" : "size-4"} />}
           </button>
         )}
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
-          <span className="flex items-center gap-1">
-            <span className={cn("size-1.5 shrink-0 rounded-full", meta.color)} />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{meta.short}</span>
-            {s.intensity === "hard" && <span className="text-[10px] text-rose-500">hard</span>}
+          <span className="flex items-center gap-1.5">
+            <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
+            <span className={cn("font-semibold uppercase tracking-wide text-muted-foreground", big ? "text-sm" : "text-xs")}>{meta.short}</span>
+            {s.intensity === "hard" && <span className={cn("text-rose-500", big ? "text-sm" : "text-xs")}>hard</span>}
           </span>
-          <span className={cn("block text-xs font-medium leading-snug", s.done && "line-through text-muted-foreground")}>{s.title}</span>
+          <span className={cn("block font-medium leading-snug", big ? "text-xl" : "text-sm", s.done && "line-through text-muted-foreground")}>{s.title}</span>
           {(s.target_km !== null || s.target_minutes !== null) && (
-            <span className="block text-[11px] tabular-nums text-muted-foreground">
+            <span className={cn("block tabular-nums text-muted-foreground", big ? "text-base" : "text-xs")}>
               {s.target_km !== null && `${s.target_km} km`}
               {s.target_km !== null && s.target_minutes !== null && " · "}
               {s.target_minutes !== null && `${s.target_minutes} min`}
             </span>
           )}
+          {big && s.notes && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}
           {s.done && (s.actual_km !== null || s.actual_minutes !== null) && (
-            <span className="block text-[11px] tabular-nums text-emerald-700 dark:text-emerald-400">
+            <span className={cn("block tabular-nums text-emerald-700 dark:text-emerald-400", big ? "text-base" : "text-xs")}>
               {s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`}
               {s.actual_km !== null && s.actual_km > 0 && s.actual_minutes !== null && " · "}
               {s.actual_minutes !== null && `${s.actual_minutes} min`}
@@ -458,7 +546,7 @@ function SessionCard({ s, past, onToggle, onEdit }: { s: TrainingSession; past: 
 function ActivityChip({ a }: { a: StravaActivity }) {
   const km = a.distance_m / 1000;
   return (
-    <div className="rounded-md bg-muted/60 px-2 py-1 text-[11px] leading-snug text-muted-foreground" title={a.name}>
+    <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={a.name}>
       <span className="font-medium">{a.sport_type}</span>
       {km >= 0.5 && ` ${km.toFixed(1)} km`}
       {a.moving_time_s >= 60 && ` · ${Math.round(a.moving_time_s / 60)} min`}
@@ -478,12 +566,12 @@ function EventForm({ initial, onSave, onCancel, onDelete }: { initial?: Training
         if (name.trim() && date) onSave(name.trim(), date);
       }}
     >
-      <Input autoFocus className="h-7 w-32 text-xs" value={name} onChange={(e) => setName(e.target.value)} placeholder="Race" />
-      <Input type="date" className="h-7 w-36 text-xs" value={date} onChange={(e) => setDate(e.target.value)} />
-      <Button type="submit" size="sm" className="h-7 text-xs" disabled={!name.trim() || !date}>
+      <Input autoFocus className="h-10 w-36 text-base" value={name} onChange={(e) => setName(e.target.value)} placeholder="Race" />
+      <Input type="date" className="h-10 w-40 text-base" value={date} onChange={(e) => setDate(e.target.value)} />
+      <Button type="submit" size="sm" className="h-10 text-base" disabled={!name.trim() || !date}>
         Save
       </Button>
-      <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
+      <Button type="button" size="sm" variant="ghost" className="h-10 text-base" onClick={onCancel}>
         Cancel
       </Button>
       {onDelete && (

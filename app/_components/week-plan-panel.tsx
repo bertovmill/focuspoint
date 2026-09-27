@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeftIcon,
   BookmarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -39,7 +37,7 @@ type Cells = Map<string, PlannedMeal>;
 const key = (date: string, slot: string) => `${date}:${slot}`;
 
 /**
- * /nutrition/plan — the week: seven days by three sittings, the protein ring
+ * /meals — the week: seven days by three sittings, the protein ring
  * for today, the recipe library underneath, and one button that turns the
  * week's ingredients into the Groceries list. Cells are the same
  * meal_recommendations rows the Today cards and the Tasks strip read.
@@ -366,14 +364,7 @@ export function WeekPlanPanel() {
     <div className="mx-auto max-w-6xl space-y-6 pb-8">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href="/nutrition"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-3" />
-          Nutrition
-        </Link>
-        <h1 className="text-base font-semibold">Meal plan</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Meals</h1>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"

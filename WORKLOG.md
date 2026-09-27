@@ -8449,3 +8449,11 @@ sections per project; answers save to the page's own store under
 
 Verified: /work lists both projects; /work/makerslounge and /work/aucctus
 return 200; an unknown slug returns 404.
+
+## 2026-09-27 — Chalk blueprint aligned left with the headline
+
+Berto: "to the left of the screen like our title?". The plan was centred on the
+viewport, so it drifted relative to the headline as the width changed. Now the
+SVG is `xMinYMid slice` and the drawing is shifted left so its outer wall lines
+up with the headline's left edge. Checked at 1787px and 375px: within 10px of
+the headline at both.

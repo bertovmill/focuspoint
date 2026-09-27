@@ -8,8 +8,8 @@
  * both the WebGPU and CSS walls, under the hero content, and is deliberately
  * low-contrast so the headline still owns the frame.
  *
- * The drawing keeps to the middle and right of the hero, away from the avatar
- * (top-left) and the headline (bottom-left).
+ * The drawing is pinned to the left edge (`xMinYMid`) and shifted so the plan's
+ * left wall lines up with the headline at any viewport width.
  */
 export function ChalkBlueprint() {
   return (
@@ -17,7 +17,7 @@ export function ChalkBlueprint() {
       aria-hidden
       className="absolute inset-0 h-full w-full text-[#5f5a52] opacity-[0.16] mix-blend-multiply dark:text-[#b5afa5] dark:opacity-[0.11] dark:mix-blend-screen"
       viewBox="0 0 1600 900"
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio="xMinYMid slice"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
@@ -40,6 +40,7 @@ export function ChalkBlueprint() {
       </defs>
 
       <g mask="url(#chalk-mask)" filter="url(#chalk-wobble)">
+        <g transform="translate(-610 0)">
         {/* Footprint of the plan. */}
         <g strokeWidth="2.2">
           <path d="M640 210 H1330 V690 H640 Z" />
@@ -86,6 +87,7 @@ export function ChalkBlueprint() {
           <text x="1055" y="720">A</text>
           <text x="1055" y="200">A</text>
           <text x="1350" y="720">r = 0.6</text>
+        </g>
         </g>
       </g>
     </svg>

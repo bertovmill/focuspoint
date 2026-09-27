@@ -23,7 +23,7 @@ const CHANNELS = [
 ];
 
 /* Small uppercase mono label, used for the desktop links and the menu eyebrows. */
-const LABEL = "font-mono text-xs uppercase tracking-[0.18em]";
+const LABEL = "font-mono text-sm uppercase tracking-[0.18em]";
 
 export function SiteNav() {
   const pathname = usePathname();
@@ -174,7 +174,7 @@ export function SiteNav() {
       {/* No bar behind the links: the header is transparent and sits over the
           homepage wall, full-width with everything flush left, like koto.com. */}
       <nav className="flex h-16 items-center gap-10 px-6">
-        <SiteLink href="/" className="group font-medium tracking-tight">
+        <SiteLink href="/" className="group text-lg font-medium tracking-tight">
           <span className="transition-colors group-hover:text-primary">
             Berto Mill
           </span>
@@ -212,7 +212,7 @@ export function SiteNav() {
             href={BOOKING_URL}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="rounded-full bg-primary px-5 py-2.5 text-base font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Book a meeting
           </a>

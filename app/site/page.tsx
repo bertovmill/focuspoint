@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Manrope } from "next/font/google";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
+import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
@@ -80,7 +81,7 @@ const EXPERIENCE = [
 
 export default async function SiteHomePage() {
   const [writing, episodes] = await Promise.all([
-    listContent("writing"),
+    listSubstackPosts(),
     listContent("podcast"),
   ]);
   const latestWriting = writing[0];
@@ -212,7 +213,7 @@ export default async function SiteHomePage() {
               {latestWriting && (
                 <li>
                   <SiteLink
-                    href={`/writing/${latestWriting.slug}`}
+                    href={latestWriting.url}
                     className="group block py-5"
                   >
                     <div className="flex items-baseline gap-4">

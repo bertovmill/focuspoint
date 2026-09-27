@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
-import { listContent, formatDate } from "@/lib/content";
+import { ArrowUpRightIcon } from "lucide-react";
+import { formatDate } from "@/lib/content";
+import { listSubstackPosts, SUBSTACK_URL } from "@/lib/substack";
 import { SiteLink } from "../_components/site-link";
+
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Writing",
@@ -8,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function WritingIndexPage() {
-  const posts = await listContent("writing");
+  const posts = await listSubstackPosts();
 
   return (
     <div className="mx-auto max-w-3xl px-6">
@@ -16,8 +20,15 @@ export default async function WritingIndexPage() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Writing</h1>
         <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
           Notes on building AI agents, shipping software, and what it&apos;s actually like to hand
-          parts of your life to one.
+          parts of your life to one. Published on Substack.
         </p>
+        <SiteLink
+          href={SUBSTACK_URL}
+          className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-primary transition-colors hover:text-foreground"
+        >
+          Subscribe on Substack
+          <ArrowUpRightIcon className="size-3.5" />
+        </SiteLink>
       </section>
 
       <section className="py-8">
@@ -26,8 +37,8 @@ export default async function WritingIndexPage() {
         ) : (
           <ul className="divide-y divide-border/60">
             {posts.map((post) => (
-              <li key={post.slug}>
-                <SiteLink href={`/writing/${post.slug}`} className="group block py-6">
+              <li key={post.url}>
+                <SiteLink href={post.url} className="group block py-6">
                   <div className="flex items-baseline gap-4">
                     <h2 className="text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
                       {post.title}
@@ -42,6 +53,7 @@ export default async function WritingIndexPage() {
                   <p className="mt-3 font-mono text-xs text-muted-foreground">
                     {post.readingMinutes} min read
                     {post.tags.length > 0 ? ` · ${post.tags.join(" · ")}` : ""}
+                    {" · Substack"}
                   </p>
                 </SiteLink>
               </li>

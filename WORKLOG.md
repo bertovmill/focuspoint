@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Inner pages get Koto's compact nav box
+
+Berto, with a crop of koto.com/about's nav (logo, "ABOUT", a dot): *"on each
+specific page - can we please have the specific about it?"* He chose: the
+homepage keeps the full link row; every other page shows a compact box in the
+top-left with "Berto Mill", the current page name (from `NAV`, else the last
+path segment), and a dot that opens the full-screen menu. `site-nav.tsx`: the
+menu sheet is now a shared `menuSheet` const and no longer `sm:hidden`, so the
+dot opens it on desktop too.
+
+---
+
 ## 2026-09-27 — About band: full-bleed linocut collage
 
 Berto asked for the about page image to span the whole page like koto.com/about,

@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Homepage hero: headline pinned bottom-left, names the Aucctus role
+
+Berto, with a screenshot of koto.com's homepage: *"lets change the title to I
+lead go-to-market for Aucctus - a fast-scaling AI startup - and put it in the
+bottom left corner like koto"*.
+
+`app/site/page.tsx`: the hero over the concrete wall is now full-viewport
+(`min-h-[calc(100svh-4rem)]`, the 4rem being the sticky nav), a flex column with
+the headshot/name at the top and the two-line headline pushed to the bottom via
+`mt-auto`. Headline copy: "I lead go-to-market for Aucctus," / "a fast-scaling
+AI startup." The intro paragraph and the LinkedIn / Ask Cael buttons moved out
+of the hero into the section directly beneath it so the corner holds only the
+headline, as on Koto.
+
+Landed on `main` twice over: cherry-picked straight there from a scratch
+worktree (the main checkout was on `feat/about-page` at the time), and again via
+that branch's merge. Deployed to production by hand when no git-triggered deploy
+appeared after the push.
+
+---
+
 ## 2026-09-27 — About page at /about, subscribe forms hand off to Substack
 
 Berto: *"lets add an about section - similar to this one but for berto"* with a

@@ -19,15 +19,6 @@ export const metadata: Metadata = {
 type Section = { id: string; label: string; body: ReactNode };
 const SECTIONS: readonly Section[] = [];
 
-/** The values line: a bright lead-in, then each value as its own short sentence. */
-const VALUES_LEAD = "Our values.";
-const VALUES = [
-  "Built on optimism.",
-  "Powered by teamwork.",
-  "Driven by excellence.",
-  "Defined by craft.",
-];
-
 /* Small uppercase mono label, the same one the nav and homepage use. */
 const LABEL = "font-mono text-xs uppercase tracking-[0.18em]";
 
@@ -80,17 +71,6 @@ export default function AboutPage() {
           aria-hidden
           className="h-56 rounded-xl border border-border/60 bg-muted sm:h-72 lg:h-80"
         />
-      </RevealOnView>
-
-      {/* Values, one statement in the style of a big editorial line. */}
-      <RevealOnView as="section" className="mx-auto max-w-6xl py-20 sm:py-28">
-        <h2
-          id="values"
-          className="scroll-mt-24 max-w-5xl text-3xl leading-tight tracking-tight sm:text-5xl"
-        >
-          <span className="text-foreground">{VALUES_LEAD}</span>{" "}
-          <span className="text-muted-foreground">{VALUES.join(" ")}</span>
-        </h2>
       </RevealOnView>
 
       {SECTIONS.length > 0 && (

@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Career section (/career)
+
+Berto asked for a Career section that triangulates what AI companies want from
+GTM hires (GTM strategy, RevOps, marketing ops). A research agent read 20 live
+postings (Anthropic x3, OpenAI, Vercel, Perplexity, Cursor, Harvey, ElevenLabs,
+Sierra, Scale AI, Databricks, Cohere). The results are a static snapshot in
+`lib/career-research.ts`: the archetype, recurring themes with counts, the tool
+stack, gaps that get candidates cut, and role cards filterable by track. Panel:
+`app/_components/career-panel.tsx`; route `app/(app)/career`; added to the desktop
+rail and the phone bar (Briefcase, emerald). No DB yet. Next step could be a
+personal gap-scoring plan, or a scheduled refresh of the postings.
+
+---
+
 ## 2026-09-27 — Hero headline back to plain text
 
 Berto: *"the glass stands out too much actually, too bevelled - i would just

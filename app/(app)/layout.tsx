@@ -97,7 +97,7 @@ const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 
-// Konsta's defaults are iOS blue and Material purple; this is the app's terracotta
+// Konsta's defaults are iOS blue and Material purple; this is the app's forest green
 // on the app's own surface, in both themes.
 // Background is painted on the bar itself (see the Tabbar className) rather than
 // through Konsta's own bg layer — the iOS one is a fade-to-transparent gradient

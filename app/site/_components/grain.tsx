@@ -95,9 +95,9 @@ export function AmbientBloom({ className }: { className?: string }) {
       <StaticRadialGradient
         style={FILL}
         colorBack="#00000000"
-        // Pulled off the neon orange to sit with the terracotta accent — the
-        // same clay hue, opened up in lightness so it still reads as light.
-        colors={["#c9714c", "#dfa285", "#f2d8c8"]}
+        // Tinted to sit with the forest-green accent — the same hue, opened
+        // up in lightness so it still reads as light.
+        colors={["#4f8a68", "#9cc4ad", "#dcebe2"]}
         // Broad and slow-falling, spread over the whole surface rather than
         // concentrated. A tight radius reads as a lens flare on a dark card; the
         // job here is a lift you notice only if you look for it, so the gradient

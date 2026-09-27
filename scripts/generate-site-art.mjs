@@ -44,7 +44,9 @@ const ART = [
   {
     // The full-bleed band on /site/about. A different language from the cards:
     // a flat printed collage, like Koto's about page, rather than a 3D render.
-    key: "about-band",
+    // Written as about-band-green.webp: renamed on 2026-09-27 when it went green,
+    // so cached optimizer copies of the old orange file were not served.
+    key: "about-band-green",
     size: "1536x1024",
     width: 1920,
     quality: 82,
@@ -52,7 +54,7 @@ const ART = [
       "A wide horizontal collage of overlapping hand-carved linocut and woodblock prints, " +
       "like a wall of torn posters, stickers and vintage matchbox labels pasted edge to edge. " +
       "Bold chunky relief-print shapes with rough ink texture and visible carving marks. " +
-      "Strictly limited palette: signal yellow, vermilion red, ink black, warm cream and a muted clay brown. " +
+      "Strictly limited palette, mostly green: deep forest green, leaf green, olive and lime, with ink black and warm cream. " +
       "Motifs: a rising sun, a hand holding a tool, a running figure, gears, a mountain, " +
       "abstract organic swirls and branches. Flat graphic printmaking, no gradients, no 3D, " +
       "no photographs, no text, no letters, no logos. Fill the entire frame, no borders.",

@@ -67,7 +67,7 @@ export default function AboutPage() {
       <RevealOnView as="div" className="-mx-6">
         <div className="relative h-56 w-full overflow-hidden sm:h-72 lg:h-96">
           <Image
-            src="/site-art/about-band.webp"
+            src="/site-art/about-band-green.webp"
             alt=""
             fill
             priority

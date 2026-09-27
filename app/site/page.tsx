@@ -99,7 +99,7 @@ export default async function SiteHomePage() {
         >
           <div className="mt-auto pt-16">
             <AnimatedHeading
-              className={`${headline.className} glass-text text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
+              className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
             />
           </div>

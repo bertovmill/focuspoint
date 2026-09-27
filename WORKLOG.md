@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Hero headline back to plain text
+
+Berto: *"the glass stands out too much actually, too bevelled - i would just
+make it plain text"*. Reverted both glass commits: the WebGPU glass in the wall
+shader (7bbee85) and the CSS `.glass-text` before it (14cdbff). The headline is
+plain solid Manrope again, still bottom-left at 2x with the word-by-word reveal,
+and the wall shader is back to the wall alone.
+
+---
+
 ## 2026-09-27 — About: "My story" in Berto's words
 
 Berto supplied the about copy verbatim; it is the first SECTIONS entry

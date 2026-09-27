@@ -4,6 +4,32 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — New hero headline, set in Manrope
+
+Berto: *"i think my title is not right - can you read my linkedin and suggest a
+better more encompassing title?"* Read the LinkedIn profile (About, Experience,
+recent posts). The old line, "I help enterprises put AI to work", covered the
+Aucctus sales motion but dropped the corporate-innovation domain, the building,
+and the teaching/community side. Offered four options; he picked
+**"I help enterprises innovate with AI."**
+
+Then: *"can you also show me some font options? i want to hand-pick."* Built a
+comparison artifact (thirteen faces, same copy at hero size, Geist subtitle under
+each). He picked **Manrope**.
+
+**Change** (`app/site/page.tsx` only): Manrope 800 loaded via `next/font/google`
+in the page and applied to the headline's `className`; `font-black` → 
+`font-extrabold` to match the loaded weight. Body and labels stay on Geist /
+Geist Mono from the root layout. Copy swapped to the new two lines.
+
+**Not changed, flagged to Berto:** the subtitle still says "three years in AI
+strategy at KPMG and CIBC" (LinkedIn adds up to ~2y4m) and "run MakersLounge"
+(LinkedIn marks the founder role ended Jul 2026). He hasn't answered on those.
+
+**Note:** a concurrent session was mid-build on a WebGPU liquid-glass heading in
+this checkout (`_components/liquid-glass-heading/`, uncommitted). This commit
+was staged as a patch against HEAD so it carries only the headline/font hunks.
+
 ## 2026-09-26 (chat, later) — Training in the nav, and the written plan
 
 Two follow-ups: *"can we make it its own sidebar? and also lets add a markdown

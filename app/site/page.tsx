@@ -1,10 +1,15 @@
 import Image from "next/image";
+import { Manrope } from "next/font/google";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
+
+// The hero headline gets its own face. Manrope was hand-picked over Geist for the
+// headline only; body and labels stay on Geist / Geist Mono from the root layout.
+const headline = Manrope({ subsets: ["latin"], weight: "800", display: "swap" });
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -106,8 +111,8 @@ export default async function SiteHomePage() {
           </div>
 
           <AnimatedHeading
-            className="mt-8 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl"
-            lines={["I help enterprises", "put AI to work."]}
+            className={`${headline.className} mt-8 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
+            lines={["I help enterprises", "innovate with AI."]}
           />
 
           <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted-foreground">

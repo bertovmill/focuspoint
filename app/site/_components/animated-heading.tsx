@@ -61,7 +61,7 @@ export function AnimatedHeading({ className, lines, startDelay = 0 }: AnimatedHe
     <h1 ref={ref} className={cn(className)} aria-label={lines.join(" ")}>
       <span aria-hidden>
         {tokensPerLine.map((tokens, lineIndex) => (
-          <span key={lines[lineIndex]} className="block">
+          <span key={lines[lineIndex]} data-line className="block">
             {tokens.map((token, tokenIndex) =>
               /^\s+$/.test(token) ? (
                 <span key={`space-${lineIndex}-${tokenIndex}`}>{" "}</span>

@@ -4,7 +4,7 @@ import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
-import { AnimatedHeading } from "./_components/animated-heading";
+import { LiquidGlassHeading } from "./_components/liquid-glass-heading/liquid-glass-heading";
 import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
 
 // The hero headline gets its own face. Manrope was hand-picked over Geist for the
@@ -110,7 +110,7 @@ export default async function SiteHomePage() {
             </div>
           </div>
 
-          <AnimatedHeading
+          <LiquidGlassHeading
             className={`${headline.className} mt-8 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
             lines={["I help enterprises", "innovate with AI."]}
           />

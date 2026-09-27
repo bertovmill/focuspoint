@@ -8205,3 +8205,54 @@ grouped on the left, a MENU button on mobile that opens a full-screen sheet).
     containing block, which trapped the `fixed` overlay inside the 64px bar.
 
 Verified: typecheck, and the dev server at 375px and desktop widths.
+
+## 2026-09-27 — Homepage headline as liquid glass (vgpu TypeGPU example)
+
+Berto: "can we make the text of my title look like this liquid glass?", with
+the vgpu "TypeGPU Liquid Glass" example (`npx vgpu examples pull
+typegpu-liquid-glass`). Choices he made: transparent letters on the page's
+own background (not the example's dark panel), and a plain fade-in rather
+than keeping the word-by-word reveal under the glass.
+
+**Files** — `app/site/_components/liquid-glass-heading/`: `renderer.ts`
+(adapted from the example), three hand-written WGSL ports of its TypeGPU
+shaders (`field-blur.wgsl`, `gradient.wgsl`, `liquid-glass.wgsl`) and a
+`liquid-glass-heading.tsx` client component. `page.tsx` renders
+`LiquidGlassHeading` where `AnimatedHeading` was; `animated-heading.tsx`
+gained a `data-line` attribute on its line spans so the raster can find
+each line's box and text.
+
+**Why WGSL and not TypeGPU** — the example writes shaders as TypeScript
+`'use gpu'` functions, which typegpu 0.12 can only resolve with its
+`unplugin-typegpu` build plugin. That plugin has webpack/vite/rollup/esbuild
+entry points and nothing for Turbopack, which `next dev` uses here. The
+shaders are ported one to one (same taps, weights, stream maths, tonemap)
+and loaded by the `.wgsl` loader the glass sculpture already set up.
+typegpu was installed to read the example and uninstalled again.
+
+**Adaptations, and what stayed:**
+
+- The shape is the heading's text, not the logo. The component paints the
+  `h1`'s lines onto a 2D canvas using its computed font, letter-spacing and
+  each line span's box (baseline placed where CSS centres the content area
+  in the line box), and the renderer uploads that as an `rgba8unorm`
+  texture (`copyExternalImageToTexture`; Dawn needs `render_attachment`
+  usage on the destination too). A few blur passes turn coverage into the
+  field the rim and glow read; the example's gradient pass and 16 blur
+  passes over it are unchanged.
+- The field textures are the canvas's size, not a fixed 1024². Bakes are
+  re-run on surface resize, on `document.fonts.ready`, and on a
+  `ResizeObserver` of the heading, always on a macrotask so a bake never
+  runs inside vgpu's frame hook. Each bake disposes the previous scene and
+  coverage texture; `createScene` destroys what it made on any failure.
+- Output is transparent and premultiplied; the backdrop, vignette and drop
+  shadow are gone. Alpha is the letter mask plus a faint rim just outside
+  it (0.3 — 0.6 read as a smudge on the light theme).
+- The real `h1` stays in the document (a11y, SEO, layout). Once the first
+  frame draws, its ink transitions to transparent while the canvas fades in.
+  No WebGPU, `prefers-reduced-motion`, or a renderer failure leaves the
+  page as the animated heading it was.
+
+Verified: typecheck, `next build` (into `.next-verify` so the running dev
+server was undisturbed), and a live look at `site.localhost:3000` in light
+and dark themes and at phone width (reflow re-baked; no console errors).

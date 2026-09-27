@@ -8256,3 +8256,23 @@ typegpu was installed to read the example and uninstalled again.
 Verified: typecheck, `next build` (into `.next-verify` so the running dev
 server was undisturbed), and a live look at `site.localhost:3000` in light
 and dark themes and at phone width (reflow re-baked; no console errors).
+
+## 2026-09-27 — Concrete wall behind the hero
+
+Berto: "can we use this really nice concrete looking background from
+vgpu.sh?" Theirs is a live WebGPU render of a lit wall, so this recreates the
+look rather than lifting an asset.
+
+- `app/site/_components/concrete-wall.tsx` (new): full-bleed backdrop for the
+  hero. A warm grey base, a `PaperTexture` at `speed: 0` (roughness up, fibres
+  off) multiplied over it for plaster mottle, two blurred window-light patches
+  and one diagonal light band in CSS, and a fade into `bg-background` at the
+  bottom. Dark mode keeps the same layers at low strength.
+- `app/site/page.tsx`: the hero `RevealOnView` is wrapped in a
+  `relative isolate` div holding the wall. `isolate` matters: the wall sits at
+  `-z-10`, and without a stacking context it dropped behind the layout's
+  page background and vanished.
+- Full-bleed via `left-1/2 w-screen -translate-x-1/2`, since the hero lives
+  inside the page's `px-6` column.
+
+Verified: typecheck, and the dev server in light and dark.

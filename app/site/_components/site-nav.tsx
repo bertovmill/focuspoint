@@ -10,6 +10,7 @@ import { SiteLink, useSiteHref } from "./site-link";
 
 // Building stays reachable at /building; it left the header when Work arrived.
 const NAV = [
+  { href: "/about", label: "About" },
   { href: "/work", label: "Work" },
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },

@@ -72,6 +72,9 @@ export default async function SiteLayout({ children }: { readonly children: Reac
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} Berto Mill</p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <SiteLink href="/about" className="transition-colors hover:text-foreground">
+                About
+              </SiteLink>
               <SiteLink href="/writing" className="transition-colors hover:text-foreground">
                 Writing
               </SiteLink>

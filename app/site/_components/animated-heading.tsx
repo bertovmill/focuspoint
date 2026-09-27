@@ -5,6 +5,8 @@ import { animate, stagger } from "motion";
 import { cn } from "@/lib/utils";
 
 type AnimatedHeadingProps = {
+  /** Which element to render. An `h1` by default; a `p` for a tagline beside a real heading. */
+  as?: "h1" | "h2" | "p";
   className?: string;
   /** One string per rendered line. Lines resolve one after another. */
   lines: string[];
@@ -19,8 +21,9 @@ type AnimatedHeadingProps = {
  * `aria-label`, so assistive tech reads one clean sentence rather than a pile of
  * spans. If motion is turned off the words are simply already there.
  */
-export function AnimatedHeading({ className, lines, startDelay = 0 }: AnimatedHeadingProps) {
-  const ref = useRef<HTMLHeadingElement | null>(null);
+export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay = 0 }: AnimatedHeadingProps) {
+  // The intersection satisfies whichever element `as` picks.
+  const ref = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
 
   // Keep the whitespace as its own token so words stay separable but the line
   // still wraps and spaces the way the browser would do it normally.
@@ -58,7 +61,7 @@ export function AnimatedHeading({ className, lines, startDelay = 0 }: AnimatedHe
   }, [startDelay, tokensPerLine]);
 
   return (
-    <h1 ref={ref} className={cn(className)} aria-label={lines.join(" ")}>
+    <Tag ref={ref} className={cn(className)} aria-label={lines.join(" ")}>
       <span aria-hidden>
         {tokensPerLine.map((tokens, lineIndex) => (
           <span key={lines[lineIndex]} className="block">
@@ -79,6 +82,6 @@ export function AnimatedHeading({ className, lines, startDelay = 0 }: AnimatedHe
           </span>
         ))}
       </span>
-    </h1>
+    </Tag>
   );
 }

@@ -8283,3 +8283,28 @@ Berto saw it live and didn't like it. `liquid-glass-heading/` is deleted,
 `page.tsx` renders `AnimatedHeading` again, and the `data-line` attribute is
 gone from `animated-heading.tsx`. The entry above stays as the record of how
 it was done (the WGSL port and the text-raster bake) should it come back.
+
+## 2026-09-27 — The concrete wall moves to WebGPU
+
+Berto asked why the wall wasn't WebGPU; offered the choice, he picked a
+WebGPU wall with a moving light. Also restores the wall on the homepage: the
+"Remove the liquid glass headline" commit had dropped the `ConcreteWall`
+lines from `page.tsx` along with the heading.
+
+- `app/site/_components/concrete-wall/` (the old single file moved in here):
+  - `wall.wgsl`: one fullscreen pass. A five-octave value-noise height field
+    for the plaster, a normal from central differences, a soft key light with
+    inverse-square falloff, two soft-edged window panes and a diagonal band
+    that drift with a slow phase, plus 1/255 dither. Dark mode is a uniform,
+    not a second shader: same wall, darker base, less window light.
+  - `renderer.ts`: `init` → `surface` → `effect` → `frameLoop`, the sculpture's
+    shape. The light rests on a slow figure of eight in the upper left and is
+    pulled 45% toward the pointer while it's over the wall. Reduced motion
+    freezes the drift.
+  - `concrete-wall.tsx`: the CSS wall is always rendered underneath; the
+    canvas mounts only when `navigator.gpu` exists and fades in over it once
+    the renderer's `ready` resolves. A failed start logs and keeps the CSS
+    wall — the hero never goes blank.
+
+Verified: typecheck; dev server at 1440px in light and dark, and with the
+pointer over the wall.

@@ -4,12 +4,17 @@ import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
-import { LiquidGlassHeading } from "./_components/liquid-glass-heading/liquid-glass-heading";
+import { AnimatedHeading } from "./_components/animated-heading";
 import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
+import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 
 // The hero headline gets its own face. Manrope was hand-picked over Geist for the
 // headline only; body and labels stay on Geist / Geist Mono from the root layout.
-const headline = Manrope({ subsets: ["latin"], weight: "800", display: "swap" });
+const headline = Manrope({
+  subsets: ["latin"],
+  weight: "800",
+  display: "swap",
+});
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -85,66 +90,69 @@ export default async function SiteHomePage() {
     <div className="px-6">
       {/* Intro: the pitch on the left, the glass sculpture on the right. Wider
           than the rest of the page so the two sit side by side on desktop. */}
-      <RevealOnView
-        as="section"
-        intensity="hero"
-        staggerChildren
-        className="mx-auto grid max-w-5xl items-center gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14"
-      >
-        <div>
-          <div className="flex items-center gap-4">
-            <Image
-              src="/berto-headshot.jpg"
-              alt="Berto Mill"
-              width={800}
-              height={800}
-              priority
-              sizes="80px"
-              className="size-20 rounded-full object-cover ring-1 ring-border"
+      <div className="relative isolate">
+        <ConcreteWall />
+        <RevealOnView
+          as="section"
+          intensity="hero"
+          staggerChildren
+          className="mx-auto grid max-w-5xl items-center gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14"
+        >
+          <div>
+            <div className="flex items-center gap-4">
+              <Image
+                src="/berto-headshot.jpg"
+                alt="Berto Mill"
+                width={800}
+                height={800}
+                priority
+                sizes="80px"
+                className="size-20 rounded-full object-cover ring-1 ring-border"
+              />
+              <div>
+                <p className="font-medium tracking-tight">Berto Mill</p>
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
+                  Toronto
+                </p>
+              </div>
+            </div>
+
+            <AnimatedHeading
+              className={`${headline.className} mt-8 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
+              lines={["I help enterprises", "innovate with AI."]}
             />
-            <div>
-              <p className="font-medium tracking-tight">Berto Mill</p>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                Toronto
-              </p>
+
+            <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
+              I lead go-to-market at{" "}
+              <span className="text-foreground">Aucctus</span>, run{" "}
+              <span className="text-foreground">MakersLounge</span>, a community
+              of founders building with AI. Before this I spent three years in
+              AI strategy at KPMG and CIBC.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                LinkedIn
+                <ArrowUpRightIcon className="size-4" />
+              </a>
+              <SiteLink
+                href="/chat"
+                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Ask Cael about me
+              </SiteLink>
             </div>
           </div>
 
-          <LiquidGlassHeading
-            className={`${headline.className} mt-8 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
-            lines={["I help enterprises", "innovate with AI."]}
-          />
-
-          <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
-            I lead go-to-market at{" "}
-            <span className="text-foreground">Aucctus</span>, run{" "}
-            <span className="text-foreground">MakersLounge</span>, a community
-            of founders building with AI. Before this I spent three years in AI
-            strategy at KPMG and CIBC.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a
-              href={LINKEDIN_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              LinkedIn
-              <ArrowUpRightIcon className="size-4" />
-            </a>
-            <SiteLink
-              href="/chat"
-              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-            >
-              Ask Cael about me
-            </SiteLink>
-          </div>
-        </div>
-
-        {/* Live WebGPU glass, transparent over the page. Renders nothing where it can't run. */}
-        <GlassSculpture className="h-72 sm:h-96 lg:h-[30rem]" />
-      </RevealOnView>
+          {/* Live WebGPU glass, transparent over the page. Renders nothing where it can't run. */}
+          <GlassSculpture className="h-72 sm:h-96 lg:h-[30rem]" />
+        </RevealOnView>
+      </div>
 
       <div className="mx-auto max-w-3xl">
         {/* What I do */}

@@ -40,9 +40,6 @@ export default async function SiteLayout({ children }: { readonly children: Reac
   // On bertomill.com the rewrite makes `/site` invisible, so links are already clean.
   // Anywhere else the prefix is part of the real URL and every link has to carry it.
   const host = (await headers()).get("host");
-  // Resend is provisioned through the Vercel Marketplace; until its env vars land
-  // the signup form can't submit, so the popup stays hidden rather than erroring.
-  const newsletterEnabled = Boolean(process.env.RESEND_API_KEY && process.env.RESEND_AUDIENCE_ID);
   const basePath = isPublicHost(host) ? "" : SITE_PREFIX;
 
   return (
@@ -51,24 +48,22 @@ export default async function SiteLayout({ children }: { readonly children: Reac
         <PageGrain />
         <SiteNav />
         <main className="flex-1">{children}</main>
-        <NewsletterPopup enabled={newsletterEnabled} />
+        <NewsletterPopup />
         <footer className="border-t border-border/60">
           {/* The always-available way to subscribe. The popup asks once and is gone
               for good; this is here on every page, for everyone who dismissed it. */}
-          {newsletterEnabled && (
-            <div className="border-b border-border/60">
-              <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-                <div className="max-w-md">
-                  <h2 className="font-medium tracking-tight text-foreground">Get what I&apos;m learning</h2>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    Occasional notes on building AI agents and running a life with one. No spam, one
-                    click to leave.
-                  </p>
-                </div>
-                <SubscribeForm className="sm:max-w-sm" />
+          <div className="border-b border-border/60">
+            <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-md">
+                <h2 className="font-medium tracking-tight text-foreground">Get what I&apos;m learning</h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  Occasional notes on building AI agents and running a life with one. No spam, one
+                  click to leave.
+                </p>
               </div>
+              <SubscribeForm className="sm:max-w-sm" />
             </div>
-          )}
+          </div>
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} Berto Mill</p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

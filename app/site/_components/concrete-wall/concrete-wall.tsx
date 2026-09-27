@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PaperTexture } from "@paper-design/shaders-react";
 import { cn } from "@/lib/utils";
 import { createWallRenderer } from "./renderer";
+import { ChalkBlueprint } from "./chalk-blueprint";
 
 /**
  * A lit concrete wall behind the hero, after the backdrop on vgpu.sh.
@@ -120,6 +121,9 @@ export function ConcreteWall({ className }: { className?: string }) {
           )}
         />
       )}
+
+      {/* Chalk plan on the wall, over whichever wall is showing. */}
+      <ChalkBlueprint />
 
       {/* The fade into the page below. */}
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />

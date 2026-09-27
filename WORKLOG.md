@@ -8391,3 +8391,22 @@ Empty until the first project lands; the index says "Nothing published yet."
 
 Verified: typecheck; dev server at 1440px and 375px with three placeholder
 projects (deleted before commit).
+
+## 2026-09-27 — Chalk blueprint on the concrete wall
+
+Berto: "what if on that concrete wall we had a blueprint-style thing written on
+the concrete in grey chalk". Asked what it depicts, how loud, whether it
+animates: abstract architect's plan, barely there, static.
+
+- `app/site/_components/concrete-wall/chalk-blueprint.tsx`: a pure SVG layer,
+  1600×900 viewBox, `slice`-fitted. Plan footprint, partitions, door swings,
+  columns, dimension lines with tick ends, a dashed section cut, a north
+  arrow, a ghost grid and a few mono figures. Two filters make it chalk: a
+  turbulence displacement bends every stroke, and a grainy turbulence mask
+  knocks holes in them. Multiply-blended at 0.16 in light, screen at 0.11 in
+  dark. Drawn in the middle/right of the hero, clear of the avatar and the
+  headline.
+- `concrete-wall.tsx`: renders `<ChalkBlueprint />` above the WebGPU canvas
+  and below the bottom fade, so it shows on both the shader and CSS walls.
+
+Verified: typecheck; dev server in light and dark, no console errors.

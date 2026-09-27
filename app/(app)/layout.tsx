@@ -68,7 +68,7 @@ const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals and Career added 2026-09-27). Every other
+// The nav shows only Home, Chat, Notes, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more, so there is no "More" menu on the phone.
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [];
@@ -82,6 +82,7 @@ const NAV_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass:
 const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "home", label: "Home", icon: HomeIcon },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
+  { tab: "notes", label: "Notes", icon: FileTextIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "training", label: "Training", icon: DumbbellIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
@@ -96,6 +97,7 @@ type TabColor = { text: string; pill: string };
 const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color: TabColor }[] = [
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
+  { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-yellow-600 dark:text-yellow-400", pill: "bg-yellow-500/15" } },
   { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
   { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-rose-600 dark:text-rose-400", pill: "bg-rose-500/15" } },
   { tab: "meals", label: "Meals", icon: UtensilsIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },

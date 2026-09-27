@@ -8161,3 +8161,21 @@ its own (it inherited Cael's orb from the root layout).
   `isPublicAsset` already passes through on both hosts.
 
 Verified: typecheck, and sharp renders of the SVG at 512px and 32px.
+
+## 2026-09-27 — Site header: one headshot, no rule, Koto-style nav
+
+Berto, over three asks: don't show the headshot twice and make it bigger; drop
+the line under the header; and lay the nav out like koto.com (name and links
+grouped on the left, a MENU button on mobile that opens a full-screen sheet).
+
+- `app/site/page.tsx`: hero headshot 56px → 80px. The nav avatar is gone.
+- `app/site/_components/site-nav.tsx`, rewritten:
+  - Desktop: uppercase mono links sit right beside the name; Sign in, Book a
+    meeting and the theme toggle stay on the right. No bottom border.
+  - Mobile: a boxed MENU button opens a full-screen sheet — EXPLORE eyebrow,
+    big link list, Book a meeting, then a CHANNELS footer (LinkedIn, Sign in)
+    and the theme toggle. Escape and route changes close it; body scroll locks.
+  - The sheet is portaled to `<body>`: the header's `backdrop-blur` makes it a
+    containing block, which trapped the `fixed` overlay inside the 64px bar.
+
+Verified: typecheck, and the dev server at 375px and desktop widths.

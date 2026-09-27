@@ -61,11 +61,11 @@ export function EtchedSketches() {
         {/* Groove: dark core, shadow up-left, highlight down-right. */}
         <filter id="etch" x="-5%" y="-5%" width="110%" height="110%">
           <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" result="cut" />
-          <feOffset in="cut" dx="1.6" dy="2" result="lowOff" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G" result="cut" />
+          <feOffset in="cut" dx="0.9" dy="1.1" result="lowOff" />
           <feFlood floodColor="#ffffff" floodOpacity="0.95" />
           <feComposite in2="lowOff" operator="in" result="highlight" />
-          <feOffset in="cut" dx="-1" dy="-1.2" result="highOff" />
+          <feOffset in="cut" dx="-0.6" dy="-0.7" result="highOff" />
           <feFlood floodColor="#000000" floodOpacity="0.55" />
           <feComposite in2="highOff" operator="in" result="shadow" />
           <feMerge>
@@ -87,22 +87,22 @@ export function EtchedSketches() {
       <g mask="url(#etch-mask)">
         <g filter="url(#etch)">
           {/* Running paces, a rough tally scratched down the wall. */}
-          <g className="font-mono" fill="currentColor" stroke="none" fontSize="17" letterSpacing="0.08em">
-            <text x="1002" y="140" fontSize="13" letterSpacing="0.3em">MIN / KM</text>
+          <g className="font-mono" fill="currentColor" stroke="none" fontSize="13" letterSpacing="0.08em">
+            <text x="1002" y="140" fontSize="10" letterSpacing="0.3em">MIN / KM</text>
             {PACES.map(([pace, note], i) => (
               <g key={pace} transform={`translate(${1004 + (i % 2) * 3} ${178 + i * 38}) rotate(${(i % 3) - 1})`}>
                 <text x="0" y="0" textDecoration={i < PACES.length - 1 ? "line-through" : undefined}>
                   {pace}
                 </text>
                 {note && (
-                  <text x="62" y="0" fontSize="12" opacity="0.8">
+                  <text x="62" y="0" fontSize="9" opacity="0.8">
                     {note}
                   </text>
                 )}
               </g>
             ))}
           </g>
-          <g strokeWidth="1.6">
+          <g strokeWidth="0.96">
             {/* Strike-throughs on all but the last, and a ring round 3:20. */}
             {PACES.slice(0, -1).map((_, i) => (
               <path key={i} d={`M${1000 + (i % 2) * 3} ${172 + i * 38} l52 ${(i % 3) - 1}`} />
@@ -114,7 +114,7 @@ export function EtchedSketches() {
           </g>
 
           {/* Code diagrams: a little request flow and a bracketed snippet. */}
-          <g strokeWidth="1.6">
+          <g strokeWidth="0.96">
             <rect x="1230" y="150" width="96" height="46" rx="4" />
             <rect x="1400" y="150" width="96" height="46" rx="4" />
             <rect x="1315" y="268" width="96" height="46" rx="4" />
@@ -124,27 +124,27 @@ export function EtchedSketches() {
             <circle cx="1540" cy="173" r="16" />
             <path d="M1496 173 H1524" />
           </g>
-          <g className="font-mono" fill="currentColor" stroke="none" fontSize="13" letterSpacing="0.1em">
+          <g className="font-mono" fill="currentColor" stroke="none" fontSize="10" letterSpacing="0.1em">
             <text x="1250" y="178">client</text>
             <text x="1424" y="178">api</text>
             <text x="1338" y="296">agent</text>
             <text x="1533" y="178">db</text>
-            <text x="1236" y="360" fontSize="14">{"{ ship → learn → repeat }"}</text>
-            <text x="1236" y="386" fontSize="12" opacity="0.8">{"while (!done) iterate();"}</text>
-            <text x="1236" y="410" fontSize="12" opacity="0.8">{"f(x) = small · daily"}</text>
+            <text x="1236" y="360" fontSize="10">{"{ ship → learn → repeat }"}</text>
+            <text x="1236" y="386" fontSize="9" opacity="0.8">{"while (!done) iterate();"}</text>
+            <text x="1236" y="410" fontSize="9" opacity="0.8">{"f(x) = small · daily"}</text>
           </g>
 
           {/* A shelf of books, spines out, titles cut sideways. */}
-          <g strokeWidth="1.6">
-            <path d={`M1204 ${shelfY} H${x + 20}`} strokeWidth="2.2" />
+          <g strokeWidth="0.96">
+            <path d={`M1204 ${shelfY} H${x + 20}`} strokeWidth="1.32" />
             {books.map((b) => (
               <g key={b.title} transform={`rotate(${b.tilt} ${b.x} ${shelfY})`}>
                 <rect x={b.x} y={shelfY - b.h} width={b.w} height={b.h} rx="2" />
-                <path d={`M${b.x + 3} ${shelfY - b.h + 16} h${b.w - 6} M${b.x + 3} ${shelfY - 16} h${b.w - 6}`} strokeWidth="1" />
+                <path d={`M${b.x + 3} ${shelfY - b.h + 16} h${b.w - 6} M${b.x + 3} ${shelfY - 16} h${b.w - 6}`} strokeWidth="0.6" />
               </g>
             ))}
           </g>
-          <g className="font-mono" fill="currentColor" stroke="none" fontSize="11" letterSpacing="0.14em">
+          <g className="font-mono" fill="currentColor" stroke="none" fontSize="8" letterSpacing="0.14em">
             {books.map((b) => {
               const cx = b.x + b.w / 2 + 4;
               const cy = shelfY - 26;

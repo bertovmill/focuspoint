@@ -8523,3 +8523,9 @@ into its own menu page, and put the goal at the top of Training.
 
 Verified: typecheck; local dev at /training and /meals; /nutrition/plan
 redirects to /meals.
+
+## 2026-09-27 — Etched sketches on the hero wall
+
+- New `app/site/_components/concrete-wall/etched-sketches.tsx`: running paces (5:20 → 3:20 min/km), code diagrams, and a bookshelf (Antifragile, The Talent Code, The Alchemist, …) carved into the wall via an SVG groove filter (shadow + highlight offsets). Kept small and fine so the headline owns the frame.
+- `concrete-wall.tsx`: gallery window light (skewed six-pane soft-light patch) and an inset edge shadow for depth.
+- Next: at narrow widths only the paces column is visible; consider repositioning for mobile.

@@ -272,7 +272,7 @@ export function TrainingPlanPanel() {
   const todayRace = events.find((e) => e.event_date === today);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-10">
+    <div className="space-y-6 pb-10">
       {/* Title + goal */}
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Training</h1>

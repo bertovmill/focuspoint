@@ -396,11 +396,11 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           {mobileTab === "newsletter" ? (
             <NewsletterPanel />
           ) : mobileTab === "meals" ? (
-            <div className="h-full overflow-y-auto px-5 py-4">
+            <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <WeekPlanPanel />
             </div>
           ) : mobileTab === "training" ? (
-            <div className="h-full overflow-y-auto px-5 py-4">
+            <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <TrainingPlanPanel />
             </div>
           ) : (

@@ -8529,3 +8529,9 @@ redirects to /meals.
 - New `app/site/_components/concrete-wall/etched-sketches.tsx`: running paces (5:20 → 3:20 min/km), code diagrams, and a bookshelf (Antifragile, The Talent Code, The Alchemist, …) carved into the wall via an SVG groove filter (shadow + highlight offsets). Kept small and fine so the headline owns the frame.
 - `concrete-wall.tsx`: gallery window light (skewed six-pane soft-light patch) and an inset edge shadow for depth.
 - Next: at narrow widths only the paces column is visible; consider repositioning for mobile.
+
+## 2026-09-27 — Training and Meals fill the width
+
+Berto: "less margin on the sides". Dropped `max-w-6xl` from both panels, and
+cut the shell padding for those tabs from px-5 to px-3 (sm:px-4). Also moved
+the first Hyrox to Fri 2026-10-02 (data only).

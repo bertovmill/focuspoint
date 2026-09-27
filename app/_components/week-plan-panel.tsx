@@ -361,7 +361,7 @@ export function WeekPlanPanel() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-8">
+    <div className="space-y-6 pb-8">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Meals</h1>

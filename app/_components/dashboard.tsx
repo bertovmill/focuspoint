@@ -221,6 +221,8 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [runningDream, setRunningDream] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // Notes list is compact: each note clamps to two lines until clicked open.
+  const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   // The hand-written note composer at the top of the Notes tab. Manual notes land
   // in the same table as the ones Cael captures — one list, one search index.
@@ -1007,9 +1009,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-border">
                 {displayedThoughts.map((thought) => (
-                  <Card key={thought.id} className="gap-0 rounded-lg px-3 py-2.5 shadow-none group overflow-hidden">
+                  <div key={thought.id} className="group py-2.5">
                     {editingId === thought.id ? (
                       <div>
                         <Textarea
@@ -1042,8 +1044,16 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                             className="mb-2 max-h-64 w-full rounded-md object-cover"
                           />
                         )}
-                        <p className="text-sm leading-relaxed break-words">{thought.content}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <p
+                          onClick={() => setExpandedNoteId(expandedNoteId === thought.id ? null : thought.id)}
+                          className={cn(
+                            "text-sm leading-relaxed break-words cursor-pointer",
+                            expandedNoteId !== thought.id && "line-clamp-2",
+                          )}
+                        >
+                          {thought.content}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           <span className="text-xs text-muted-foreground shrink-0">
                             {formatRelativeTime(thought.created_at)}
                           </span>
@@ -1100,7 +1110,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                         </div>
                       </>
                     )}
-                  </Card>
+                  </div>
                 ))}
               </div>
             )}

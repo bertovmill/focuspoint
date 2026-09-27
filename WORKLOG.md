@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Hero headline as clear CSS glass
+
+Berto: *"for the text at the bottom, can we make it liquid glass simple?"* The
+WebGPU vgpu liquid-glass heading was tried this morning and removed, so this
+time he chose plain **"glass no color"**. `globals.css` adds `.glass-text`: each
+word is a transparent fill with a white-to-grey sheen clipped to the text and a
+faint dark rim, and the heading carries a light top edge plus soft drop
+shadows. It's CSS only, so no shader and every browser gets it. The
+shadows sit on the heading rather than the words because the word-by-word
+reveal writes its own `filter` onto each word. White-only glass vanished
+on the light wall; the grey rim and firmer shadow are what make it read.
+
+---
+
 ## 2026-09-27 — Inner pages get Koto's compact nav box
 
 Berto, with a crop of koto.com/about's nav (logo, "ABOUT", a dot): *"on each

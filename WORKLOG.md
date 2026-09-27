@@ -8276,3 +8276,10 @@ look rather than lifting an asset.
   inside the page's `px-6` column.
 
 Verified: typecheck, and the dev server in light and dark.
+
+## 2026-09-27 — Liquid glass headline removed
+
+Berto saw it live and didn't like it. `liquid-glass-heading/` is deleted,
+`page.tsx` renders `AnimatedHeading` again, and the `data-line` attribute is
+gone from `animated-heading.tsx`. The entry above stays as the record of how
+it was done (the WGSL port and the text-raster bake) should it come back.

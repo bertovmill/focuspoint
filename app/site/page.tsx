@@ -6,7 +6,6 @@ import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { LiquidGlassHeading } from "./_components/liquid-glass-heading/liquid-glass-heading";
 import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
-import { ConcreteWall } from "./_components/concrete-wall";
 
 // The hero headline gets its own face. Manrope was hand-picked over Geist for the
 // headline only; body and labels stay on Geist / Geist Mono from the root layout.
@@ -86,8 +85,6 @@ export default async function SiteHomePage() {
     <div className="px-6">
       {/* Intro: the pitch on the left, the glass sculpture on the right. Wider
           than the rest of the page so the two sit side by side on desktop. */}
-      <div className="relative isolate">
-        <ConcreteWall />
       <RevealOnView
         as="section"
         intensity="hero"
@@ -148,7 +145,6 @@ export default async function SiteHomePage() {
         {/* Live WebGPU glass, transparent over the page. Renders nothing where it can't run. */}
         <GlassSculpture className="h-72 sm:h-96 lg:h-[30rem]" />
       </RevealOnView>
-      </div>
 
       <div className="mx-auto max-w-3xl">
         {/* What I do */}

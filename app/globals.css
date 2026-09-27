@@ -591,13 +591,3 @@
   filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.3))
     drop-shadow(0 14px 24px rgb(0 0 0 / 0.5));
 }
-
-/* Once the wall renders the headline as real glass, the CSS letters fade out
-   as the glass fades in, but stay in the document for layout, selection and
-   screen readers. */
-.glass-text {
-  transition: opacity 1.2s ease;
-}
-.glass-text.glass-live {
-  opacity: 0;
-}

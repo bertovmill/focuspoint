@@ -12,8 +12,6 @@ type AnimatedHeadingProps = {
   lines: string[];
   /** Seconds before the first word starts. */
   startDelay?: number;
-  /** Lets a backdrop (the homepage wall's glass) find this heading. */
-  id?: string;
 };
 
 /**
@@ -23,7 +21,7 @@ type AnimatedHeadingProps = {
  * `aria-label`, so assistive tech reads one clean sentence rather than a pile of
  * spans. If motion is turned off the words are simply already there.
  */
-export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay = 0, id }: AnimatedHeadingProps) {
+export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay = 0 }: AnimatedHeadingProps) {
   // The intersection satisfies whichever element `as` picks.
   const ref = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
 
@@ -63,10 +61,10 @@ export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay =
   }, [startDelay, tokensPerLine]);
 
   return (
-    <Tag ref={ref} id={id} className={cn(className)} aria-label={lines.join(" ")}>
+    <Tag ref={ref} className={cn(className)} aria-label={lines.join(" ")}>
       <span aria-hidden>
         {tokensPerLine.map((tokens, lineIndex) => (
-          <span key={lines[lineIndex]} data-line className="block">
+          <span key={lines[lineIndex]} className="block">
             {tokens.map((token, tokenIndex) =>
               /^\s+$/.test(token) ? (
                 <span key={`space-${lineIndex}-${tokenIndex}`}>{" "}</span>

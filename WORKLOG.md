@@ -8421,3 +8421,19 @@ animates: abstract architect's plan, barely there, static.
   and below the bottom fade, so it shows on both the shader and CSS walls.
 
 Verified: typecheck; dev server in light and dark, no console errors.
+
+## 2026-09-27 — Work: MakersLounge case study, from the interview page
+
+Case studies now come from an interview page (a Claude artifact, private to
+Berto: https://claude.ai/artifact/Qv7gvcSvPpiJCoeUoC9wRi). He answers six
+sections per project; answers save to the page's own store under
+`interviews/<slug>`; Claude reads them and writes `content/work/<slug>.md`.
+
+- `content/work/makerslounge.md`: published. Mandate, the unglamorous work
+  (venues, invites, itinerary, signage, pizza), 1,500 builders and hundreds of
+  connections, the "very welcoming environment" line, and the hindsight about
+  loud, busy nights.
+- Role set to Founder, matching the homepage. No year yet; Berto left it blank.
+
+Verified: /work lists both projects; /work/makerslounge and /work/aucctus
+return 200; an unknown slug returns 404.

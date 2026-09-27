@@ -90,7 +90,7 @@ export default async function SiteHomePage() {
       {/* Intro: the pitch over the concrete wall. Full-viewport, headline pinned
           bottom-left the way koto.com does it. */}
       <div className="relative isolate -mt-16">
-        <ConcreteWall />
+        <ConcreteWall glassHeadingId="hero-headline" />
         <RevealOnView
           as="section"
           intensity="hero"
@@ -99,6 +99,7 @@ export default async function SiteHomePage() {
         >
           <div className="mt-auto pt-16">
             <AnimatedHeading
+              id="hero-headline"
               className={`${headline.className} glass-text text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
             />

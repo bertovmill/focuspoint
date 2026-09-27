@@ -1,4 +1,4 @@
-import { clock, effect, frameLoop, init, surface, type Gpu } from "vgpu";
+import { clock, effect, frameLoop, init, sampler, surface, texture, type Gpu, type Texture } from "vgpu";
 import wallWgsl from "./wall.wgsl";
 
 export interface WallRendererOptions {
@@ -8,6 +8,8 @@ export interface WallRendererOptions {
   readonly pointer: () => readonly [number, number] | null;
   /** Read each frame: freeze the drift for people who asked for less motion. */
   readonly reducedMotion: () => boolean;
+  /** Called (on a macrotask, outside the frame) after the drawing buffer resizes. */
+  readonly onResize?: () => void;
 }
 
 /**
@@ -21,11 +23,44 @@ export function createWallRenderer(
 ) {
   let disposed = false;
   let gpu: Gpu | undefined;
+  let wallEffect: ReturnType<typeof effect> | undefined;
+  let mask: Texture | undefined;
+  let maskTexel: [number, number] = [1, 1];
+  // Seconds since the current mask arrived; drives the glass fade-in.
+  let maskAge = -1;
 
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    mask?.destroy();
+    mask = undefined;
     gpu?.dispose();
+  };
+
+  /** Uploads a 2D canvas as the glass mask (r: letters, g: blurred letters). */
+  const uploadMask = (source: HTMLCanvasElement, fadeIn: boolean): boolean => {
+    if (disposed || !gpu || !wallEffect) return false;
+    const size: [number, number] = [Math.max(1, source.width), Math.max(1, source.height)];
+    const next = texture(gpu, {
+      kind: "2d",
+      size,
+      format: "rgba8unorm",
+      // copyExternalImageToTexture needs RENDER_ATTACHMENT on the destination too.
+      usage: ["texture_binding", "copy_dst", "render_attachment"],
+      label: "headline-glass-mask",
+    });
+    try {
+      gpu.device.gpu.queue.copyExternalImageToTexture({ source }, { texture: next.gpu }, size);
+      wallEffect.set({ glass_mask: next });
+    } catch (error) {
+      next.destroy();
+      throw error;
+    }
+    mask?.destroy();
+    mask = next;
+    maskTexel = [1 / size[0], 1 / size[1]];
+    if (fadeIn && maskAge < 0) maskAge = 0;
+    return true;
   };
 
   const ready = (async () => {
@@ -36,7 +71,34 @@ export function createWallRenderer(
     }
     gpu = context;
     const output = surface(context, canvas, { dpr: [1, 1.5] });
-    const wall = effect(context, wallWgsl, { label: "concrete-wall" });
+    // The mask is painted at the drawing buffer's size, so repaint when it changes.
+    // Deferred: this callback runs inside vgpu's frame hook.
+    output.onResize(() => {
+      if (options.onResize) setTimeout(options.onResize, 0);
+    });
+    // Until the page sends the headline, the mask is one empty texel: no glass.
+    const blank = document.createElement("canvas");
+    blank.width = 1;
+    blank.height = 1;
+    // copyExternalImageToTexture refuses a canvas that has no rendering context.
+    const blankCtx = blank.getContext("2d");
+    if (blankCtx) {
+      blankCtx.fillStyle = "#000";
+      blankCtx.fillRect(0, 0, 1, 1);
+    }
+    const wall = effect(context, wallWgsl, {
+      label: "concrete-wall",
+      set: {
+        glass_sampler: sampler(context, {
+          minFilter: "linear",
+          magFilter: "linear",
+          addressModeU: "clamp-to-edge",
+          addressModeV: "clamp-to-edge",
+        }),
+      },
+    });
+    wallEffect = wall;
+    uploadMask(blank, false);
     const time = clock(context);
 
     // The light's resting path is a slow figure of eight across the upper left,
@@ -48,6 +110,9 @@ export function createWallRenderer(
     frameLoop(context, (frame) => {
       try {
         if (!options.reducedMotion()) drift += time.deltaTime;
+        if (maskAge >= 0) maskAge += time.deltaTime;
+        // Ease the glass in over about a second once the headline arrives.
+        const reveal = maskAge < 0 ? 0 : options.reducedMotion() ? 1 : 1 - Math.pow(1 - Math.min(maskAge / 1.2, 1), 3);
         const restX = 0.3 + Math.sin(drift * 0.11) * 0.16;
         const restY = 0.3 + Math.sin(drift * 0.17 + 1.3) * 0.12;
         const pointer = options.pointer();
@@ -68,6 +133,7 @@ export function createWallRenderer(
               options.isDark() ? 1 : 0,
             ],
             light: [light[0], light[1], Math.cos(drift * 0.07), 0],
+            glass: [reveal, 0, maskTexel[0], maskTexel[1]],
           },
         });
         frame.pass(output, wall);
@@ -81,5 +147,12 @@ export function createWallRenderer(
     throw error;
   });
 
-  return { ready, dispose };
+  return {
+    ready,
+    dispose,
+    /** Hands the renderer a new headline mask; the first one fades the glass in. */
+    setGlassMask: (source: HTMLCanvasElement) => uploadMask(source, true),
+    /** The drawing buffer's size, so the mask can be painted to match. */
+    size: () => [canvas.width, canvas.height] as const,
+  };
 }

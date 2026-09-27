@@ -4,6 +4,36 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Hero headline as real WebGPU glass inside the wall
+
+Berto: *"lets use webgpu and vgpu.sh to make it real glass"*. This morning's
+version drew glass on its own transparent canvas and couldn't bend anything
+behind it. This one lives **inside the concrete wall's own shader**, after vgpu's
+Transmission example, so the letters actually refract the lit plaster.
+
+- `wall.wgsl`: the wall is now `fn wall(uv)`. `fs_main` samples a glass mask
+  (r: sharp letters, g: blurred letters as bevel height), builds a normal from
+  the bevel's slope, and shows the wall at a refracted offset through each
+  letter, darkened slightly. A Fresnel rim darkens the steep edges and brightens
+  the ones facing the moving key light, plus a sharp specular. Colorless. In
+  dark mode the body and rim get a small lift so it doesn't sink.
+- `renderer.ts`: a sampler and a mask texture bound from the start (a 1×1 black
+  canvas until the page sends one; it needs a 2D context or
+  `copyExternalImageToTexture` rejects it), `setGlassMask()` to upload, a
+  `glass` uniform with the fade-in and texel size, and an `onResize` hook.
+- `concrete-wall.tsx`: `glassHeadingId` prop. `paintGlassMask()` paints the
+  heading's `[data-line]` boxes at the drawing buffer's size; the blur is
+  downscale-then-upscale (no `ctx.filter`). The first bake waits for fonts and
+  for the hero's entrance animations to finish, or three seconds at most,
+  because a raster taken mid-entrance landed about 13px off. Rebakes on
+  wall resize and heading reflow.
+- The real `h1` stays for layout and screen readers; `.glass-live` fades it to
+  opacity 0 as the glass fades in. No WebGPU means the CSS glass stays.
+- Known: the chalk blueprint, etchings and window-light overlays are DOM layers
+  above the canvas, so they are not refracted by the glass.
+
+---
+
 ## 2026-09-27 — Menu channels: Instagram, LinkedIn, X, YouTube
 
 Berto asked for Koto-style channels in the menu. `site-nav.tsx`: CHANNELS now

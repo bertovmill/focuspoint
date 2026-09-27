@@ -8308,3 +8308,31 @@ lines from `page.tsx` along with the heading.
 
 Verified: typecheck; dev server at 1440px in light and dark, and with the
 pointer over the wall.
+
+## 2026-09-27 — Work: a case-study section, laid out like koto.com/work
+
+Berto: "for the header lets add a 'work' option - similar to koto". Then, asked
+what fills it: go project by project, from a template he'll fill in; typographic
+tiles until there are images; Work replaces Building in the header.
+
+- `lib/content.ts`: a third `ContentKind`, `work`, on the same markdown-on-disk
+  pipeline as writing and podcast. Work frontmatter adds `org`, `role`, `year`,
+  `outcome`, `color` (tile background) and an optional `image`.
+- `content/work/_template.md`: the template, `published: false` so it never
+  ships. Sections: The challenge / What I did / What happened / What I'd do
+  differently.
+- `app/site/work/page.tsx`: sticky sidebar (eyebrow, title, section list) and
+  a tile grid; the first project spans both columns. Stacks on a phone.
+- `app/site/work/work-tile.tsx`: the org name set large on the project's
+  colour, caption with role, year and title over a gradient at the foot. An
+  `image` replaces the typography when one exists. The name area stops above
+  the caption so the two never collide on narrow tiles.
+- `app/site/work/[slug]/page.tsx`: the tile as hero, title, outcome, a
+  For / As / When fact row, then the markdown story in `Prose`.
+- `site-nav.tsx`: `/work` first in NAV; `/building` is out of the header but
+  still routable.
+
+Empty until the first project lands; the index says "Nothing published yet."
+
+Verified: typecheck; dev server at 1440px and 375px with three placeholder
+projects (deleted before commit).

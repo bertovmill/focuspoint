@@ -8,10 +8,11 @@ import { BOOKING_URL, CAEL_SIGN_IN_URL } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 
+// Building stays reachable at /building; it left the header when Work arrived.
 const NAV = [
+  { href: "/work", label: "Work" },
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
-  { href: "/building", label: "Building" },
   { href: "/chat", label: "Ask Cael" },
 ];
 

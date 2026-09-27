@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Manrope } from "next/font/google";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
@@ -98,24 +97,6 @@ export default async function SiteHomePage() {
           staggerChildren
           className="flex min-h-svh flex-col pt-26 pb-6 sm:pt-30 sm:pb-8"
         >
-          <div className="mx-auto flex w-full max-w-3xl items-center gap-4">
-            <Image
-              src="/berto-headshot.jpg"
-              alt="Berto Mill"
-              width={800}
-              height={800}
-              priority
-              sizes="80px"
-              className="size-20 rounded-full object-cover ring-1 ring-border"
-            />
-            <div>
-              <p className="font-medium tracking-tight">Berto Mill</p>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                Toronto
-              </p>
-            </div>
-          </div>
-
           <div className="mt-auto pt-16">
             <AnimatedHeading
               className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}

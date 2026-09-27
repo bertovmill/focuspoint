@@ -4,6 +4,23 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Career pipeline tracker
+
+/career now opens with a Pipeline: a `career_targets` table (added to
+`ensureSchema`), `app/api/career` GET/POST plus `[id]` PATCH/DELETE, and
+`app/_components/career-tracker.tsx`. Each row has status (target → reached out →
+applied → screen → onsite → offer / closed), next step and date. Below it are 19
+suggested targets (`TARGETS` in `lib/career-research.ts`), each with one GTM/RevOps
+leader from an Apollo people search. Surnames are masked by Apollo; clicking a name
+runs a LinkedIn search. Suggestions are added by clicking "Track", not seeded,
+because a direct write to the production DB was blocked; nothing is auto-contacted.
+Plan agreed with Berto: lead with RevOps / GTM-analyst roles and take stretch shots
+at Anthropic and Vercel, at a light pace (1 warm reach + 1 application a week)
+because Aucctus stays the priority. Cael tasks #504–507 were created for the TN
+check, the LinkedIn rewrite, two case studies, and the weekly reach.
+
+---
+
 ## 2026-09-27 — Career section (/career)
 
 Berto asked for a Career section that triangulates what AI companies want from

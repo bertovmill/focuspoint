@@ -190,6 +190,23 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS career_targets (
+      id SERIAL PRIMARY KEY,
+      company TEXT NOT NULL,
+      role TEXT,
+      url TEXT,
+      contact_name TEXT,
+      contact_title TEXT,
+      contact_url TEXT,
+      status TEXT NOT NULL DEFAULT 'target',
+      next_step TEXT,
+      next_date DATE,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS vision_items (
       id SERIAL PRIMARY KEY,
       kind TEXT NOT NULL,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { CareerTracker } from "@/app/_components/career-tracker";
 import { ARCHETYPE, GAPS, RESEARCHED_ON, ROLES, THEMES, TOOLS, type CareerRole } from "@/lib/career-research";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,11 @@ export function CareerPanel() {
           GTM roles at AI companies: {ROLES.length} postings across {new Set(ROLES.map((r) => r.company)).size} companies, researched {RESEARCHED_ON}.
         </p>
       </header>
+
+      <section id="pipeline">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pipeline</h2>
+        <CareerTracker />
+      </section>
 
       <section id="the-archetype">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">The person they want</h2>

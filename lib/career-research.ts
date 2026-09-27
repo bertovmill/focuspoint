@@ -81,3 +81,37 @@ export const ROLES: CareerRole[] = [
   { company: "Databricks", title: "Manager, Strategy & Operations (Field Eng)", url: "https://databricks.com/company/careers/open-positions/job?gh_jid=8482368002", location: "India", comp: null, yearsExp: "7+", track: "gtm-strategy", mustHaves: ["Annual, headcount and capacity planning", "Board and QBR materials", "SQL, Excel, dashboards"] },
   { company: "Cohere", title: "Senior Sales Operations Specialist", url: "https://jobs.ashbyhq.com/cohere/e49063ea-b829-4718-be74-02f36fa3d983", location: "New York", comp: "$135K–$250K", yearsExp: "8+", track: "revops", mustHaves: ["Sales ops in AI or SaaS", "Salesforce and process optimization", "Board-level decks"] },
 ];
+
+// GTM / RevOps leaders at target companies, from an Apollo people search on
+// 2026-09-27. Apollo masks surnames in search results, so these are enough to
+// find each person on LinkedIn, not to email them. Tier A fits today, B is a stretch.
+export interface CareerTarget {
+  company: string;
+  role: string | null;
+  url: string | null;
+  contact_name: string | null;
+  contact_title: string | null;
+  tier: string;
+}
+
+export const TARGETS: CareerTarget[] = [
+  { company: "Perplexity", role: "Revenue Operations Analyst", url: "https://jobs.ashbyhq.com/perplexity/03f8f956-1cb3-4945-81d1-73b7ff048d4e", contact_name: null, contact_title: null, tier: "A · fits now" },
+  { company: "ElevenLabs", role: "Marketing Operations", url: "https://jobs.ashbyhq.com/elevenlabs/1c1f4cc9-08f7-4fbb-867f-7e87e7fa19d9", contact_name: null, contact_title: null, tier: "A · fits now" },
+  { company: "Cursor", role: "Full Stack Analyst, GTM", url: "https://jobs.ashbyhq.com/cursor/7bc441a4-9bb6-45cb-a9e0-5ae1b9c7ac5b", contact_name: "Chelane O'***n", contact_title: "Sales Strategy & Operations Manager", tier: "A · fits now" },
+  { company: "Cohere", role: null, url: null, contact_name: "Mei Hu***g", contact_title: "Head of Marketing Operations and Strategy", tier: "A · Toronto HQ, no visa" },
+  { company: "Anthropic", role: "Strategy & Operations, Office of the CCO", url: "https://job-boards.greenhouse.io/anthropic/jobs/5432995008", contact_name: "Thomas Ma***z", contact_title: "Head of Revenue Operations & Sales Development", tier: "B · stretch, needs referral" },
+  { company: "Vercel", role: "Marketing Operations Manager", url: "https://vercel.com/careers/marketing-operations-manager-6144467004", contact_name: "Renee Ke***y", contact_title: "Sr. Director, Head of Sales Strategy & Operations", tier: "B · lead with Venice" },
+  { company: "OpenAI", role: null, url: null, contact_name: "Luke Sl***e", contact_title: "Revenue Strategy & Ops Manager", tier: "B · stretch" },
+  { company: "Harvey", role: null, url: null, contact_name: "Vivian Ye", contact_title: "GTM Strategy and Analytics Manager", tier: "B" },
+  { company: "Sierra", role: null, url: null, contact_name: "Haley Ma***l", contact_title: "Head of Revenue Operations", tier: "B" },
+  { company: "Scale AI", role: null, url: null, contact_name: "Nadine Uy", contact_title: "Head of Revenue Operations", tier: "B" },
+  { company: "Glean", role: null, url: null, contact_name: "Dylan No***s", contact_title: "Senior Revenue Operations Manager", tier: "B" },
+  { company: "Notion", role: null, url: null, contact_name: "Amy Wa***g", contact_title: "Sales Strategy and Ops Manager", tier: "B" },
+  { company: "Retool", role: null, url: null, contact_name: "Raj Kh***a", contact_title: "Global Head of Revenue Strategy & Operations", tier: "B" },
+  { company: "Replit", role: null, url: null, contact_name: "Mark Ma***i", contact_title: "Director of Revenue Operations", tier: "B" },
+  { company: "WRITER", role: null, url: null, contact_name: "Luke Ba***n", contact_title: "Senior Manager, Revenue Operations and Strategy", tier: "B" },
+  { company: "Hebbia", role: null, url: null, contact_name: "Jillian Liu", contact_title: "Senior Director, Global Revenue Operations", tier: "B" },
+  { company: "Mistral", role: null, url: null, contact_name: "Alice Liu", contact_title: "RevOps Manager", tier: "B" },
+  { company: "Lovable", role: null, url: null, contact_name: "Morgan Ja***n", contact_title: "Head of GTM Strategy & Enablement", tier: "B" },
+  { company: "Databricks", role: null, url: null, contact_name: "Cheryl Fr***a", contact_title: "Director, Revenue Operations", tier: "C" },
+];

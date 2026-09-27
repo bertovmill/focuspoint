@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — About band: full-bleed linocut collage
+
+Berto asked for the about page image to span the whole page like koto.com/about,
+with AI art in the same style. The band in `app/site/about/page.tsx` now breaks
+out of the `px-6` gutter (`-mx-6`) and fills the viewport width with
+`public/site-art/about-band.webp`. The art is a linocut and woodblock print
+collage in a limited yellow, vermilion, black, cream and clay palette. It comes
+from a new `about-band` entry in `scripts/generate-site-art.mjs`, which now takes
+a per-entry size, width and quality. Regenerate with
+`node --env-file=.env.local scripts/generate-site-art.mjs about-band`.
+
 ## 2026-09-27 — Nav flush left, no header bar
 
 Berto: *"put the menu items to the left as well - and remove the header banner

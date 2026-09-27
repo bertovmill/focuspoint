@@ -41,6 +41,22 @@ const ART = [
     key: "podcast",
     prompt: `${BASE} Dominant colours: deep indigo and violet with an orange core. Concentric rings of glass rippling outward from a bright centre, like a sound wave frozen mid-air.`,
   },
+  {
+    // The full-bleed band on /site/about. A different language from the cards:
+    // a flat printed collage, like Koto's about page, rather than a 3D render.
+    key: "about-band",
+    size: "1536x1024",
+    width: 1920,
+    quality: 82,
+    prompt:
+      "A wide horizontal collage of overlapping hand-carved linocut and woodblock prints, " +
+      "like a wall of torn posters, stickers and vintage matchbox labels pasted edge to edge. " +
+      "Bold chunky relief-print shapes with rough ink texture and visible carving marks. " +
+      "Strictly limited palette: signal yellow, vermilion red, ink black, warm cream and a muted clay brown. " +
+      "Motifs: a rising sun, a hand holding a tool, a running figure, gears, a mountain, " +
+      "abstract organic swirls and branches. Flat graphic printmaking, no gradients, no 3D, " +
+      "no photographs, no text, no letters, no logos. Fill the entire frame, no borders.",
+  },
 ];
 
 const outDir = path.join(process.cwd(), "public", "site-art");
@@ -54,15 +70,15 @@ for (const art of targets) {
   const { image } = await generateImage({
     model: MODEL,
     prompt: art.prompt,
-    size: "1024x1536",
+    size: art.size ?? "1024x1536",
     providerOptions: { openai: { quality: "high", output_format: "webp" } },
   });
   // The model returns ~1.5 MB per image. These are near-black renders behind a
   // dark overlay, so they survive hard compression — 1024px wide at q76 lands
   // under 80 KB with no visible loss.
   const compressed = await sharp(image.uint8Array)
-    .resize({ width: 1024, withoutEnlargement: true })
-    .webp({ quality: 76, effort: 6 })
+    .resize({ width: art.width ?? 1024, withoutEnlargement: true })
+    .webp({ quality: art.quality ?? 76, effort: 6 })
     .toBuffer();
 
   const file = path.join(outDir, `${art.key}.webp`);

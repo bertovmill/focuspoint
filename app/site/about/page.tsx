@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { RevealOnView } from "../_components/reveal-on-view";
 import { AnimatedHeading } from "../_components/animated-heading";
@@ -61,16 +62,19 @@ export default function AboutPage() {
         )}
       </RevealOnView>
 
-      {/* The band. Koto runs a collage here; ours is a neutral placeholder
-          until real photos are picked, the same width as the hero above. */}
-      <RevealOnView
-        as="div"
-        className="mx-auto max-w-6xl"
-      >
-        <div
-          aria-hidden
-          className="h-56 rounded-xl border border-border/60 bg-muted sm:h-72 lg:h-80"
-        />
+      {/* The band, full bleed like koto.com/about: a linocut collage that runs
+          edge to edge past the page gutters. Art from scripts/generate-site-art.mjs. */}
+      <RevealOnView as="div" className="-mx-6">
+        <div className="relative h-56 w-full overflow-hidden sm:h-72 lg:h-96">
+          <Image
+            src="/site-art/about-band.webp"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+        </div>
       </RevealOnView>
 
       {SECTIONS.length > 0 && (

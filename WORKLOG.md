@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Hero headline to the page corner, 2x size
+
+Berto: *"lets move our title all the way to the left - and lets make the font
+2x"*, pointing at koto.com where the headline sits right in the corner. He chose
+headline-only for the size bump. `app/site/page.tsx`: the hero section is no
+longer capped at `max-w-3xl`, so the headline sits on the page's `px-6` gutter at
+bottom-left; the headshot row keeps its centred column. Headline goes from
+`text-4xl sm:text-5xl` to `text-5xl sm:text-7xl lg:text-8xl` (48px → 96px on desktop).
+
+---
+
 ## 2026-09-27 — Homepage hero: headline pinned bottom-left, names the Aucctus role
 
 Berto, with a screenshot of koto.com's homepage: *"lets change the title to I

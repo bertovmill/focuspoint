@@ -96,9 +96,9 @@ export default async function SiteHomePage() {
           as="section"
           intensity="hero"
           staggerChildren
-          className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-3xl flex-col py-10 sm:py-14"
+          className="flex min-h-[calc(100svh-4rem)] flex-col pt-10 pb-6 sm:pt-14 sm:pb-8"
         >
-          <div className="flex items-center gap-4">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-4">
             <Image
               src="/berto-headshot.jpg"
               alt="Berto Mill"
@@ -118,7 +118,7 @@ export default async function SiteHomePage() {
 
           <div className="mt-auto pt-16">
             <AnimatedHeading
-              className={`${headline.className} text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
+              className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
             />
           </div>

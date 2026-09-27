@@ -23,7 +23,7 @@ export function SiteNav() {
   const isActive = (href: string) => pathname.startsWith(siteHref(href));
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-6">
         <SiteLink href="/" className="group font-medium tracking-tight">
           <span className="transition-colors group-hover:text-primary">Berto Mill</span>

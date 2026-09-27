@@ -88,64 +88,69 @@ export default async function SiteHomePage() {
 
   return (
     <div className="px-6">
-      {/* Intro: the pitch over the concrete wall. */}
+      {/* Intro: the pitch over the concrete wall. Full-viewport, headline pinned
+          bottom-left the way koto.com does it. */}
       <div className="relative isolate">
         <ConcreteWall />
         <RevealOnView
           as="section"
           intensity="hero"
           staggerChildren
-          className="mx-auto max-w-3xl py-16 sm:py-20"
+          className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-3xl flex-col py-10 sm:py-14"
         >
-          <div>
-            <div className="flex items-center gap-4">
-              <Image
-                src="/berto-headshot.jpg"
-                alt="Berto Mill"
-                width={800}
-                height={800}
-                priority
-                sizes="80px"
-                className="size-20 rounded-full object-cover ring-1 ring-border"
-              />
-              <div>
-                <p className="font-medium tracking-tight">Berto Mill</p>
-                <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                  Toronto
-                </p>
-              </div>
-            </div>
-
-            <AnimatedHeading
-              className={`${headline.className} mt-8 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
-              lines={["I help enterprises", "innovate with AI."]}
+          <div className="flex items-center gap-4">
+            <Image
+              src="/berto-headshot.jpg"
+              alt="Berto Mill"
+              width={800}
+              height={800}
+              priority
+              sizes="80px"
+              className="size-20 rounded-full object-cover ring-1 ring-border"
             />
-
-            <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
-              I lead go-to-market at{" "}
-              <span className="text-foreground">Aucctus</span>, run{" "}
-              <span className="text-foreground">MakersLounge</span>, a community
-              of founders building with AI. Before this I spent three years in
-              AI strategy at KPMG and CIBC.
-            </p>
-
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href={LINKEDIN_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                LinkedIn
-                <ArrowUpRightIcon className="size-4" />
-              </a>
-              <SiteLink
-                href="/chat"
-                className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-              >
-                Ask Cael about me
-              </SiteLink>
+            <div>
+              <p className="font-medium tracking-tight">Berto Mill</p>
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
+                Toronto
+              </p>
             </div>
+          </div>
+
+          <div className="mt-auto pt-16">
+            <AnimatedHeading
+              className={`${headline.className} text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl`}
+              lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
+            />
+          </div>
+        </RevealOnView>
+      </div>
+
+      <div className="mx-auto max-w-3xl">
+        <RevealOnView as="section" className="py-14">
+          <p className="max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
+            I lead go-to-market at{" "}
+            <span className="text-foreground">Aucctus</span>, run{" "}
+            <span className="text-foreground">MakersLounge</span>, a community
+            of founders building with AI. Before this I spent three years in
+            AI strategy at KPMG and CIBC.
+          </p>
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <a
+              href={LINKEDIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              LinkedIn
+              <ArrowUpRightIcon className="size-4" />
+            </a>
+            <SiteLink
+              href="/chat"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              Ask Cael about me
+            </SiteLink>
           </div>
         </RevealOnView>
       </div>

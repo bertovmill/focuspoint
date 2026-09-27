@@ -31,7 +31,7 @@ export default function AboutPage() {
         as="section"
         intensity="hero"
         staggerChildren
-        className="mx-auto flex min-h-[60dvh] max-w-6xl flex-col justify-between py-16 sm:py-20"
+        className="mx-auto max-w-6xl py-12 sm:py-16"
       >
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
           <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
@@ -45,7 +45,7 @@ export default function AboutPage() {
         {SECTIONS.length > 0 && (
           <nav
             aria-label="Jump to"
-            className="mt-16 flex flex-wrap items-baseline gap-x-8 gap-y-3 lg:ml-auto lg:w-1/2 lg:pl-0"
+            className="mt-10 flex flex-wrap items-baseline gap-x-8 gap-y-3 lg:ml-auto lg:w-1/2 lg:pl-0"
           >
             <span className={`${LABEL} text-muted-foreground`}>(Jump to)</span>
             {SECTIONS.map((s) => (

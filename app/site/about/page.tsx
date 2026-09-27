@@ -18,7 +18,30 @@ export const metadata: Metadata = {
  * by Berto; nothing here is generated. An empty list hides the jump-to row.
  */
 type Section = { id: string; label: string; body: ReactNode };
-const SECTIONS: readonly Section[] = [];
+const SECTIONS: readonly Section[] = [
+  {
+    id: "my-story",
+    label: "My story",
+    body: (
+      <div className="space-y-6">
+        <p>
+          I grew up playing competitive sports. I went on to play at Western University where I
+          won two national football championships.
+        </p>
+        <p>
+          I then joined Ivey Business School and started my career in corporate innovation. I
+          then joined Aucctus, an AI start up that builds AI innovation systems for enterprises.
+        </p>
+        <p>
+          I&apos;ve always been fascinated by digital creativity, spending hours on the paint tool
+          when Microsoft first released it, and making blog pages when I was 12 years old.
+          I&apos;m passionate about building the best possible products and solving information
+          that way.
+        </p>
+      </div>
+    ),
+  },
+];
 
 /* Small uppercase mono label, the same one the nav and homepage use. */
 const LABEL = "font-mono text-xs uppercase tracking-[0.18em]";

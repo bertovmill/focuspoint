@@ -4,6 +4,12 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — About: "My story" in Berto's words
+
+Berto supplied the about copy verbatim; it is the first SECTIONS entry
+(`#my-story`) in `app/site/about/page.tsx`, split into three paragraphs. Only
+changes: the "informaiton" typo, and capitals on Aucctus and Microsoft.
+
 ## 2026-09-27 — Hero headline as real WebGPU glass inside the wall
 
 Berto: *"lets use webgpu and vgpu.sh to make it real glass"*. This morning's

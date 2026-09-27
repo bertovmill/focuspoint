@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
+import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
@@ -33,6 +33,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TimerCompleteCelebration } from "@/app/_components/timer-complete-celebration";
@@ -239,6 +241,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // Which task's queue-number badge is currently an open input.
   // Set by Escape so the blur it triggers discards instead of saving.
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [semanticResults, setSemanticResults] = useState<Thought[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -793,11 +796,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
     const byCount = (tagCounts.get(b) ?? 0) - (tagCounts.get(a) ?? 0);
     return byCount !== 0 ? byCount : a.localeCompare(b);
   });
-  // Whichever tag is filtering leads the strip, so it stays on screen as the
-  // thing you can tap to undo rather than scrolling away with the rest.
-  const orderedTags = tagFilter
-    ? [tagFilter, ...allTags.filter((t) => t !== tagFilter)]
-    : allTags;
   const searchActive = query.trim().length > 0;
   const displayedThoughts = searchActive
     ? semanticResults ?? []
@@ -939,27 +937,49 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
             )}
 
             {!loading && allTags.length > 0 && (
-              // One line that scrolls sideways on a phone, the full wrapped cloud
-              // from `lg` up. Sixty tags wrapped to nineteen rows at 390px and
-              // pushed every note below the fold; as a single row it costs one.
-              <div className="scroll-row-x -mx-5 mb-4 flex gap-1.5 overflow-x-auto px-5 lg:mx-0 lg:flex-wrap lg:overflow-x-visible lg:px-0">
-                <Badge
-                  asChild
-                  variant={tagFilter === null ? "default" : "outline"}
-                  className="tap-target shrink-0 cursor-pointer"
-                >
-                  <button onClick={() => setTagFilter(null)}>All</button>
-                </Badge>
-                {orderedTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    asChild
-                    variant={tagFilter === tag ? "default" : "outline"}
-                    className="tap-target shrink-0 cursor-pointer"
-                  >
-                    <button onClick={() => setTagFilter(tag)}>{tag}</button>
-                  </Badge>
-                ))}
+              // One "Tags" picker, Evernote-style: a searchable list with counts
+              // instead of a cloud of sixty pills above the notes.
+              <div className="mb-3 flex items-center gap-2">
+                <Popover open={tagPickerOpen} onOpenChange={setTagPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant={tagFilter ? "secondary" : "outline"} size="sm" className="gap-1.5">
+                      <TagIcon className="size-3.5" />
+                      {tagFilter ?? "Tags"}
+                      <ChevronDownIcon className="size-3.5 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 p-0">
+                    <Command>
+                      <CommandInput placeholder="Find a tag…" />
+                      <CommandList>
+                        <CommandEmpty>No tags found.</CommandEmpty>
+                        <CommandItem
+                          value="__all__"
+                          onSelect={() => { setTagFilter(null); setTagPickerOpen(false); }}
+                        >
+                          All notes
+                          {tagFilter === null && <CheckIcon className="ml-auto size-4" />}
+                        </CommandItem>
+                        {allTags.map((tag) => (
+                          <CommandItem
+                            key={tag}
+                            value={tag}
+                            onSelect={() => { setTagFilter(tag); setTagPickerOpen(false); }}
+                          >
+                            {tag}
+                            <span className="ml-auto text-xs text-muted-foreground">{tagCounts.get(tag)}</span>
+                            {tagFilter === tag && <CheckIcon className="size-4" />}
+                          </CommandItem>
+                        ))}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {tagFilter && (
+                  <Button variant="ghost" size="sm" onClick={() => setTagFilter(null)} className="text-muted-foreground">
+                    Clear
+                  </Button>
+                )}
               </div>
             )}
 

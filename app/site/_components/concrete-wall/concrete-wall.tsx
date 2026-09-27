@@ -5,6 +5,7 @@ import { PaperTexture } from "@paper-design/shaders-react";
 import { cn } from "@/lib/utils";
 import { createWallRenderer } from "./renderer";
 import { ChalkBlueprint } from "./chalk-blueprint";
+import { EtchedSketches } from "./etched-sketches";
 
 /**
  * A lit concrete wall behind the hero, after the backdrop on vgpu.sh.
@@ -124,6 +125,20 @@ export function ConcreteWall({ className }: { className?: string }) {
 
       {/* Chalk plan on the wall, over whichever wall is showing. */}
       <ChalkBlueprint />
+      <EtchedSketches />
+
+      {/* Gallery window light: a skewed pane of sun with mullion shadows,
+          falling across the wall from the upper left. */}
+      <div className="absolute left-[4%] top-[-12%] h-[95%] w-[46%] -skew-x-[18deg] opacity-60 mix-blend-soft-light blur-[14px] dark:opacity-20">
+        <div className="grid h-full w-full grid-cols-3 grid-rows-2 gap-[5%]">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="bg-white" />
+          ))}
+        </div>
+      </div>
+
+      {/* Depth: the wall falls off into shadow at its edges, like a lit room. */}
+      <div className="absolute inset-0 shadow-[inset_0_0_180px_40px_rgba(40,34,26,0.28)] dark:shadow-[inset_0_0_180px_40px_rgba(0,0,0,0.6)]" />
 
       {/* The fade into the page below. */}
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />

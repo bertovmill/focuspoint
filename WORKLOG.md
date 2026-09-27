@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-27 — Nav flush left, no header bar
+
+Berto: *"put the menu items to the left as well - and remove the header banner
+behind them"*. `site-nav.tsx`: the header drops its `bg-background/80` blur bar
+and the `max-w-5xl` centring, so the name, links and actions span the full width
+with the links flush left on the `px-6` gutter, like koto.com. Because it has no
+background it is no longer sticky (it would sit over scrolled text). On the
+homepage the wall wrapper takes `-mt-16` and the hero is a full `min-h-svh`, so
+the wall runs up behind the nav.
+
+---
+
 ## 2026-09-27 — Hero headline to the page corner, 2x size
 
 Berto: *"lets move our title all the way to the left - and lets make the font

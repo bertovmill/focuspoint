@@ -47,8 +47,10 @@ export function SiteNav() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-      <nav className="mx-auto flex h-16 max-w-5xl items-center gap-10 px-6">
+    <header className="relative z-50">
+      {/* No bar behind the links: the header is transparent and sits over the
+          homepage wall, full-width with everything flush left, like koto.com. */}
+      <nav className="flex h-16 items-center gap-10 px-6">
         <SiteLink href="/" className="group font-medium tracking-tight">
           <span className="transition-colors group-hover:text-primary">
             Berto Mill

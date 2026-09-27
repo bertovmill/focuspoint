@@ -90,13 +90,13 @@ export default async function SiteHomePage() {
     <div className="px-6">
       {/* Intro: the pitch over the concrete wall. Full-viewport, headline pinned
           bottom-left the way koto.com does it. */}
-      <div className="relative isolate">
+      <div className="relative isolate -mt-16">
         <ConcreteWall />
         <RevealOnView
           as="section"
           intensity="hero"
           staggerChildren
-          className="flex min-h-[calc(100svh-4rem)] flex-col pt-10 pb-6 sm:pt-14 sm:pb-8"
+          className="flex min-h-svh flex-col pt-26 pb-6 sm:pt-30 sm:pb-8"
         >
           <div className="mx-auto flex w-full max-w-3xl items-center gap-4">
             <Image

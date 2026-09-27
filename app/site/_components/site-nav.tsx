@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -174,7 +175,15 @@ export function SiteNav() {
       {/* No bar behind the links: the header is transparent and sits over the
           homepage wall, full-width with everything flush left, like koto.com. */}
       <nav className="flex h-16 items-center gap-10 px-6">
-        <SiteLink href="/" className="group text-lg font-medium tracking-tight">
+        <SiteLink href="/" className="group flex items-center gap-3 text-lg font-medium tracking-tight">
+          <Image
+            src="/berto-headshot.jpg"
+            alt="Berto Mill"
+            width={36}
+            height={36}
+            priority
+            className="size-9 rounded-full object-cover"
+          />
           <span className="transition-colors group-hover:text-primary">
             Berto Mill
           </span>

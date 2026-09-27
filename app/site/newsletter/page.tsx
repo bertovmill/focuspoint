@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { listContent, formatDate } from "@/lib/content";
+import { formatDate } from "@/lib/content";
+import { listSubstackPosts } from "@/lib/substack";
 import { SubscribeForm } from "../_components/subscribe-form";
 import { SiteLink } from "../_components/site-link";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default async function NewsletterPage() {
   // Show what actually gets written rather than describing it — the archive is
   // the honest answer to "what am I signing up for?".
-  const writing = await listContent("writing");
+  const writing = await listSubstackPosts();
 
   return (
     <div className="mx-auto max-w-3xl px-6">
@@ -40,8 +41,8 @@ export default async function NewsletterPage() {
         ) : (
           <ul className="mt-5 divide-y divide-border/60">
             {writing.map((post) => (
-              <li key={post.slug}>
-                <SiteLink href={`/writing/${post.slug}`} className="group block py-4">
+              <li key={post.url}>
+                <SiteLink href={post.url} className="group block py-4">
                   <div className="flex items-baseline gap-4">
                     <h3 className="font-medium tracking-tight transition-colors group-hover:text-primary">
                       {post.title}

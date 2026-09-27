@@ -6,7 +6,6 @@ import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
-import { GlassSculpture } from "./_components/glass-sculpture/glass-sculpture";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 
 // The hero headline gets its own face. Manrope was hand-picked over Geist for the
@@ -89,15 +88,14 @@ export default async function SiteHomePage() {
 
   return (
     <div className="px-6">
-      {/* Intro: the pitch on the left, the glass sculpture on the right. Wider
-          than the rest of the page so the two sit side by side on desktop. */}
+      {/* Intro: the pitch over the concrete wall. */}
       <div className="relative isolate">
         <ConcreteWall />
         <RevealOnView
           as="section"
           intensity="hero"
           staggerChildren
-          className="mx-auto grid max-w-5xl items-center gap-10 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-14"
+          className="mx-auto max-w-3xl py-16 sm:py-20"
         >
           <div>
             <div className="flex items-center gap-4">
@@ -149,9 +147,6 @@ export default async function SiteHomePage() {
               </SiteLink>
             </div>
           </div>
-
-          {/* Live WebGPU glass, transparent over the page. Renders nothing where it can't run. */}
-          <GlassSculpture className="h-72 sm:h-96 lg:h-[30rem]" />
         </RevealOnView>
       </div>
 

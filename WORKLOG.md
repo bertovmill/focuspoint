@@ -8644,3 +8644,45 @@ redirects to /meals.
 Berto: "less margin on the sides". Dropped `max-w-6xl` from both panels, and
 cut the shell padding for those tabs from px-5 to px-3 (sm:px-4). Also moved
 the first Hyrox to Fri 2026-10-02 (data only).
+
+## 2026-09-29 — Principles: a Notion-style page under the Home dashboard
+
+Berto: "under the main dashboard things, like a notion text editor? i want to add
+some principles there". Asked three things: full Notion feel vs. the existing
+toolbar editor (Notion feel), whether Cael can read/edit it (read + edit), and
+what happens to the hardcoded "Today that means: save · improve the service · …"
+line (seed it into the doc).
+
+- `app/_components/notion-editor.tsx`: reusable Tiptap editor with no box or
+  toolbar. "/" opens a block menu (text, H1–H3, bulleted/numbered/to-do lists,
+  toggle, quote, divider, code), filtered as you type, arrow keys + Enter, Esc
+  closes; positioned by `@tiptap/suggestion`'s own `mount()`. Selecting text
+  shows a bubble with bold/italic/strike/code/link (inline link field). Markdown
+  in and out via tiptap-markdown; toggles (`@tiptap/extension-details`) have no
+  markdown form, so they round-trip as `<details>` HTML. Choosing Toggle on a
+  list line lifts it out of the list first — inside a list item the caret lands
+  in the fold button. Only reports a change when the markdown actually moves
+  (Tiptap's trailing-line transaction on load was autosaving every page view).
+  Placeholders are decided from the node alone plus CSS, because the Placeholder
+  extension builds them while the editor still holds the previous state.
+- `app/_components/principles-doc.tsx`: the Home section (`#principles`), after
+  the training chart, replacing the mantra line. Loads `/api/principles`,
+  autosaves after 900ms, flushes with sendBeacon on unload. If the load fails it
+  shows "Couldn't load" and no editor, so a blank page can't overwrite it.
+- `lib/principles.ts` + `app/api/principles/route.ts`: one markdown doc in
+  `app_settings` under `principles.markdown`; opens on the four mantra
+  behaviours until first saved (the row now exists in the DB with them).
+- `agent/tools/principles_doc.ts` (registered in `lib/agent-tool-registry.ts`,
+  so it's on MCP too): read, or rewrite with the full markdown. Instructions tell
+  Cael to treat them as canon next to Key lessons and to add ones Berto states.
+- New deps: `@tiptap/suggestion`, `@tiptap/extension-details` (3.31.0, matching).
+- CSS: `.notion-prose` in globals.css (heading scale, placeholders, toggles).
+
+Verified: typecheck; local dev at 1280px and 375px, light and dark — slash menu
+(filter, flip above caret, Esc), toggle top-level and from a list line, markdown
+round-trip after reload, bubble + link saves `[text](https://…)`, no save on
+load, no console errors. Test edits were reverted to the four seed lines.
+
+Next: the "Money — be different, own the outcomes" lesson is still hardcoded in
+`agent/instructions.md` under Key lessons; could move into the doc if he wants
+one home for principles.

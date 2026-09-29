@@ -43,6 +43,7 @@ import log_workout_note from "@/agent/tools/log_workout_note";
 import post_linkedin from "@/agent/tools/post_linkedin";
 import post_task_update from "@/agent/tools/post_task_update";
 import post_tweet from "@/agent/tools/post_tweet";
+import principles_doc from "@/agent/tools/principles_doc";
 import read_sketch from "@/agent/tools/read_sketch";
 import save_dream from "@/agent/tools/save_dream";
 import search_memory from "@/agent/tools/search_memory";
@@ -98,6 +99,7 @@ export const agentTools = {
   post_linkedin,
   post_task_update,
   post_tweet,
+  principles_doc,
   read_sketch,
   save_dream,
   search_memory,

@@ -41,6 +41,7 @@ import { TrainingLog } from "@/app/_components/training-log";
 import { DailyJournal } from "@/app/_components/daily-journal";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
+import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -523,14 +524,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       </div>
 
       <div className="mx-auto max-w-6xl px-6">
-        {/* Daily behaviors mantra */}
-        <p className="text-xs text-muted-foreground mb-10 leading-relaxed">
-          Today that means: <span className="text-foreground">save</span> ·{" "}
-          <span className="text-foreground">improve the service</span> ·{" "}
-          <span className="text-foreground">go above and beyond</span> ·{" "}
-          <span className="text-foreground">skip the AI noise</span>
-        </p>
-
+        {/* Principles — his own Notion-style page under the dashboard. It opens
+            on the four behaviours that used to be a hardcoded mantra line here. */}
+        <PrinciplesDoc />
       </div>
       </div>
     </div>

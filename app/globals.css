@@ -558,3 +558,108 @@
   height: 0;
   pointer-events: none;
 }
+
+/*
+ * The Notion-style editor (app/_components/notion-editor.tsx), layered on
+ * .journal-prose. Headings get a real scale here because this is a page you
+ * read back, not a notebook; toggles are Tiptap's details node view.
+ */
+.notion-prose h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.4em;
+}
+.notion-prose h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.2em;
+}
+.notion-prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1em;
+}
+.notion-prose > :first-child {
+  margin-top: 0;
+}
+.notion-prose blockquote {
+  border-left: 3px solid var(--foreground);
+  color: inherit;
+}
+.notion-prose hr {
+  margin: 1.1em 0;
+}
+.notion-prose a {
+  color: var(--primary);
+  cursor: pointer;
+}
+/* Placeholders: on the line you're on (only while typing), and on an empty page. */
+.notion-prose.ProseMirror-focused :is(p, h1, h2, h3, summary).is-empty::before,
+.notion-prose :is(p, h1, h2, h3).is-editor-empty:first-child::before,
+.notion-prose summary.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.65;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.notion-prose.ProseMirror-focused li > p.is-empty::before {
+  content: "List";
+}
+.notion-prose.ProseMirror-focused li[data-checked] > div > p.is-empty::before {
+  content: "To-do";
+}
+.notion-prose p.is-editor-empty:first-child::before {
+  content: var(--notion-empty-placeholder);
+}
+/* Toggles: a triangle button beside the summary line, content folds below. */
+.notion-prose [data-type="details"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.2rem;
+  margin-left: -0.2rem;
+}
+.notion-prose [data-type="details"] > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.75em;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.notion-prose [data-type="details"] > button:hover {
+  background: var(--muted);
+}
+.notion-prose [data-type="details"] > button::before {
+  content: "";
+  border-style: solid;
+  border-width: 0.3rem 0 0.3rem 0.45rem;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform 0.15s ease;
+}
+.notion-prose [data-type="details"].is-open > button::before {
+  transform: rotate(90deg);
+}
+.notion-prose [data-type="details"] > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.notion-prose [data-type="details"] summary {
+  display: block;
+  list-style: none;
+  font-weight: 500;
+  cursor: text;
+}
+.notion-prose [data-type="details"] summary::-webkit-details-marker {
+  display: none;
+}
+.notion-prose [data-type="detailsContent"] > * + * {
+  margin-top: 0.4em;
+}

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
@@ -38,8 +39,8 @@ const key = (date: string, slot: string) => `${date}:${slot}`;
 
 /**
  * /meals — the week: seven days by three sittings, the protein ring
- * for today, the recipe library underneath, and one button that turns the
- * week's ingredients into the Groceries list. Cells are the same
+ * for today, a Notion-style Notes page and the recipe library underneath, and
+ * one button that turns the week's ingredients into the Groceries list. Cells are the same
  * meal_recommendations rows the Today cards and the Tasks strip read.
  */
 export function WeekPlanPanel() {
@@ -550,6 +551,22 @@ export function WeekPlanPanel() {
           );
         })}
       </section>
+
+      {/* Notes — his Notion-style page for what isn't tied to one week: the
+          typical grocery list, staples, go-to meals (lib/meal-notes.ts). */}
+      <MarkdownDoc
+        id="meal-notes"
+        endpoint="/api/meals/notes"
+        heading={
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">Notes</h2>
+            <p className="text-xs text-muted-foreground">
+              Typical grocery list, staples, go-to meals — anything not tied to one week. Cael reads it when planning.
+            </p>
+          </div>
+        }
+        placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
+      />
 
       <RecipeLibrary recipes={recipes} onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))} onDelete={deleteRecipe} />
 

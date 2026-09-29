@@ -8686,3 +8686,34 @@ load, no console errors. Test edits were reverted to the four seed lines.
 Next: the "Money — be different, own the outcomes" lesson is still hardcoded in
 `agent/instructions.md` under Key lessons; could move into the doc if he wants
 one home for principles.
+
+## 2026-09-29 — Meals: a Notion-style Notes page under the week
+
+Berto: "for the meals section as well under the calendar we should just have a
+notion like page where we can just add things like typical grocery list etc."
+Asked three things: placement (right under the week grid, above the Recipe
+library), whether Cael can read/edit it (read + edit), and starting content
+(blank with a hint).
+
+- `app/_components/markdown-doc.tsx`: the load/autosave/sendBeacon shell from
+  the Principles doc, pulled out as `MarkdownDoc` (anchor id, endpoint, heading,
+  placeholder). `principles-doc.tsx` is now a thin wrapper on it, unchanged in
+  behaviour.
+- `/meals` gets a Notes section (`#meal-notes`) between the week grid and the
+  Recipe library, headed like the library ("Notes" + one-line hint).
+- `lib/settings-doc.ts`: get/set a whole markdown doc under one app_settings key;
+  `lib/principles.ts` and the new `lib/meal-notes.ts` (`meals.notes.markdown`,
+  blank by default) both use it. API: `app/api/meals/notes/route.ts`
+  (GET/PUT, POST alias for sendBeacon).
+- `agent/tools/meals_doc.ts` (registered, so on MCP too): read, or rewrite with
+  the full markdown. Instructions tell Cael it's the standing grocery list, not
+  the week's Groceries list in Lists. Also fixed the stale `/nutrition/plan`
+  mention there to `/meals`.
+- `lib/meal-suggest.ts`: daily/planned meal suggestions now include the notes
+  (capped at 3000 chars) so picks lean on what he already buys.
+
+Verified: typecheck; local dev at desktop and 375px — "/" menu → Heading 2 and
+to-do list, autosave ("Saved"), markdown `## …` / `- [ ] …` round-trips after
+reload, no horizontal scroll, no console errors; Principles on Home still loads
+with its old saved time (no save on load). Test text was cleared; the doc is
+blank.

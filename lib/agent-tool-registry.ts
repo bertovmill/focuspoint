@@ -40,6 +40,7 @@ import log_reading from "@/agent/tools/log_reading";
 import log_thank_you from "@/agent/tools/log_thank_you";
 import log_workout from "@/agent/tools/log_workout";
 import log_workout_note from "@/agent/tools/log_workout_note";
+import meals_doc from "@/agent/tools/meals_doc";
 import post_linkedin from "@/agent/tools/post_linkedin";
 import post_task_update from "@/agent/tools/post_task_update";
 import post_tweet from "@/agent/tools/post_tweet";
@@ -96,6 +97,7 @@ export const agentTools = {
   log_thank_you,
   log_workout,
   log_workout_note,
+  meals_doc,
   post_linkedin,
   post_task_update,
   post_tweet,

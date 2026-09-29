@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "./db";
 import { generateMealImage } from "./nutrition-art";
 import { MEAL_SLOTS, NUTRITION_TAGS, normalizeIngredients, type MealSlot } from "./nutrition";
+import { getMealNotes } from "./meal-notes";
 import { getProteinTarget, type PlannedMeal } from "./nutrition-plan";
 
 const TEXT_MODEL = "anthropic/claude-sonnet-4.6";
@@ -24,19 +25,21 @@ export type SuggestedMeal = PlannedMeal;
 
 /**
  * Everything the model needs to suggest food Berto will actually eat: the shelf
- * of staples he keeps, the principles he's written down, the recipes he's saved,
- * his protein target, and what he's eaten lately (so it doesn't hand him the
- * same dinner three days running).
+ * of staples he keeps, the principles he's written down, his Notes page on
+ * /meals (usual grocery list, go-to meals), the recipes he's saved, his protein
+ * target, and what he's eaten lately (so it doesn't hand him the same dinner
+ * three days running).
  */
 async function gatherContext(date: string) {
   const sql = getDb();
-  const [staples, principles, recent, feedback, recipes, sameDay, target] = await Promise.all([
+  const [staples, principles, notes, recent, feedback, recipes, sameDay, target] = await Promise.all([
     sql`SELECT name, why FROM nutrition_staples ORDER BY sort_order ASC`,
     sql`
       SELECT content FROM thoughts
       WHERE tags && ${[...NUTRITION_TAGS]}::text[]
       ORDER BY created_at DESC LIMIT 25
     `,
+    getMealNotes().then((d) => d.content.trim()),
     sql`
       SELECT name, slot, eaten_date, felt_good FROM nutrition_meals
       WHERE eaten_date >= CURRENT_DATE - 10 ORDER BY eaten_date DESC LIMIT 30
@@ -63,6 +66,9 @@ async function gatherContext(date: string) {
     "HIS OWN FOOD PRINCIPLES (these are rules, not suggestions):",
     ...principles.map((p) => `- ${String(p.content).replace(/\s+/g, " ").slice(0, 300)}`),
     "",
+    ...(notes
+      ? ["HIS MEAL NOTES (usual grocery list, go-to meals — lean on what he already buys):", notes.slice(0, 3000), ""]
+      : []),
     ...(recipes.length
       ? [
           "RECIPES HE HAS SAVED (favour variations on these; don't repeat one planned that week):",

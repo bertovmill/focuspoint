@@ -25,6 +25,11 @@ export default defineTool({
             created_at DESC
           LIMIT ${limit}
         `;
-    return { todos: rows, count: rows.length };
+    // Timestamp columns come back as Date objects, which eve rejects as non-JSON —
+    // flatten them to ISO strings (same as list_notes).
+    const todos = rows.map((r) =>
+      Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : v])),
+    );
+    return { todos, count: todos.length };
   },
 });

@@ -8717,3 +8717,24 @@ to-do list, autosave ("Saved"), markdown `## …` / `- [ ] …` round-trips afte
 reload, no horizontal scroll, no console errors; Principles on Home still loads
 with its old saved time (no save on load). Test text was cleared; the doc is
 blank.
+
+## 2026-09-29 — Scorecard: high-score markers + top-5 per metric; list_todos fix
+
+Berto: "add a little high score marker if today is the day i've hit a high score
+in a certain area", then "when we click on each of the main things — show a top 5
+high score for each". Picked "trophy pill + 'to best'" over pill-only.
+
+- `app/_components/activity-rings.tsx`: the tiny ⚡ record dot is now a 🏆 badge
+  on the ring plus a gold "High score" pill under the points; when no record,
+  a quiet "N to best" line (formatted per metric — "1h 39m to best" for sleep).
+  The ring itself is now a button that opens a popover with that metric's top 5
+  days, today highlighted. The value below the ring is still the editor.
+  (File got a full prettier reflow — kept on purpose.)
+- `lib/scorecard.ts`: `computeLeaderboards` + `leaderboards` on the summary —
+  top 5 per metric since `recordsSince`, today included, ties to the earlier day.
+- `agent/tools/list_todos.ts`: `SELECT *` returned Date objects and eve rejected
+  the result as non-JSON ("list todos · Error" in chat). Dates → ISO strings,
+  same as list_notes.
+
+Verified: typecheck; local dev — "to best" lines render, keystrokes popover
+shows 42,680 (Aug 31) / 40,738 today at #2; list_todos completes in chat.

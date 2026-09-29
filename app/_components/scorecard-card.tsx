@@ -377,7 +377,7 @@ export function ScorecardCard() {
 
         {/* Three rings, left to right — Steps · Sleep · Keystrokes. */}
         <div className="mt-3 border-t pt-3">
-          <ActivityRings metrics={today.metrics} broken={broken} onEdit={handleEdit} />
+          <ActivityRings metrics={today.metrics} broken={broken} bests={records.metrics} leaderboards={summary.leaderboards} today={today.date} onEdit={handleEdit} />
         </div>
 
         {/* Second row, unscored — the core habits. */}

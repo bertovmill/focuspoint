@@ -271,7 +271,38 @@ export type ScorecardSummary = {
   maxScore: number;
   /** The first day records are counted from — when keystroke tracking began. */
   recordsSince: string;
+  /** Top days per metric, best first — today included, so it can place live. */
+  leaderboards: Record<MetricKey, PersonalBest[]>;
 };
+
+/** How many days each metric's leaderboard shows. */
+export const LEADERBOARD_SIZE = 5;
+
+/**
+ * The best `size` days for each metric since `since`, best first. Same rule as
+ * `computeRecords`: only real, positive numbers count. Ties go to the earlier day —
+ * whoever got there first keeps the spot.
+ */
+export function computeLeaderboards(
+  byDate: Map<string, ScorecardDay>,
+  since: string,
+  size = LEADERBOARD_SIZE,
+): Record<MetricKey, PersonalBest[]> {
+  const boards = Object.fromEntries(METRICS.map((m) => [m.key, [] as PersonalBest[]])) as Record<MetricKey, PersonalBest[]>;
+  for (const [date, day] of byDate) {
+    if (date < since) continue;
+    for (const m of day.metrics) {
+      if (m.value === null || m.value <= 0) continue;
+      boards[m.key].push({ value: m.value, date });
+    }
+  }
+  for (const key of Object.keys(boards) as MetricKey[]) {
+    boards[key] = boards[key]
+      .sort((a, b) => b.value - a.value || a.date.localeCompare(b.date))
+      .slice(0, size);
+  }
+  return boards;
+}
 
 /** Did this value clear its bar? A null (never logged) is never a hit. */
 export function isHit(value: number | null, target: number): boolean {
@@ -511,6 +542,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     broken: brokenRecords(today, records),
     maxScore: MAX_DAY_SCORE,
     recordsSince: trackingSince,
+    leaderboards: computeLeaderboards(byDate, trackingSince),
   };
 }
 

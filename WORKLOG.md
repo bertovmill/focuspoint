@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-29 — Concrete wall follows the visitor's sky; wall on About and Work
+
+The homepage wall now lights itself from the visitor's own day. `app/api/site/weather`
+reads Vercel's IP geo headers (no permission prompt; city-level) and asks Open-Meteo
+for current weather plus sunrise/sunset, falling back to Toronto locally.
+`concrete-wall/sky.ts` turns that plus the browser clock into sun height, day
+progress, golden-hour warmth, night, cloud and rain, shared by the wall and a new
+`WallClock` label ("TORONTO · 4:12 PM · RAIN", mono, above the headline). In
+`wall.wgsl` the window panes slide and stretch with the sun, turn gold near
+sunrise/sunset, dim under cloud, become a weak sodium street light at night, and
+when it rains, drops bead and slide down the glass so their shadows (with lensed
+bright cores) run through the window light. The CSS fallback gets a cool wash for
+night/overcast. Test any look with `?weather=rain|drizzle|storm|snow|fog|cloudy|clear`
+and `?hour=21.5`. About's linocut banner is gone; its hero and the top of /work now
+sit on the same wall via `<ConcreteWall sketches={false} />` (no chalk drawings).
+Decisions (Berto): IP geolocation over a browser prompt, small mono label, plain
+wall on inner pages. Snow has no visual of its own yet (reads as overcast).
+
+---
+
 ## 2026-09-27 — Career pipeline tracker
 
 /career now opens with a Pipeline: a `career_targets` table (added to

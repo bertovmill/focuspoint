@@ -6,6 +6,7 @@ import { SiteLink } from "./_components/site-link";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
+import { WallClock } from "./_components/concrete-wall/wall-clock";
 
 // The hero headline gets its own face. Manrope was hand-picked over Geist for the
 // headline only; body and labels stay on Geist / Geist Mono from the root layout.
@@ -98,6 +99,7 @@ export default async function SiteHomePage() {
           className="flex min-h-svh flex-col pt-26 pb-6 sm:pt-30 sm:pb-8"
         >
           <div className="mt-auto pt-16">
+            <WallClock className="mb-5" />
             <AnimatedHeading
               className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}

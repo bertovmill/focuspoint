@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import type { ReactNode } from "react";
 import { RevealOnView } from "../_components/reveal-on-view";
 import { AnimatedHeading } from "../_components/animated-heading";
+import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
 /** The line beside "About". Berto's words, verbatim. */
 const TAGLINE = ["Community builder, system implementer,", "innovation driver."];
@@ -50,55 +50,44 @@ export default function AboutPage() {
   return (
     <div className="px-6">
       {/* Hero, laid out like koto.com/about: the title on the left, the tagline
-          on the right, and the jump-to row along the bottom edge. */}
-      <RevealOnView
-        as="section"
-        intensity="hero"
-        staggerChildren
-        className="mx-auto max-w-6xl py-12 sm:py-16"
-      >
-        <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
-          <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
-          <AnimatedHeading
-            as="p"
-            className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"
-            lines={TAGLINE}
-          />
-        </div>
+          on the right, and the jump-to row along the bottom edge. It sits on the
+          same lit concrete wall as the homepage, without the chalk drawings. */}
+      <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
+        <ConcreteWall sketches={false} />
+        <RevealOnView
+          as="section"
+          intensity="hero"
+          staggerChildren
+          className="mx-auto max-w-6xl py-16 sm:py-24"
+        >
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
+            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
+            <AnimatedHeading
+              as="p"
+              className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"
+              lines={TAGLINE}
+            />
+          </div>
 
-        {SECTIONS.length > 0 && (
-          <nav
-            aria-label="Jump to"
-            className="mt-10 flex flex-wrap items-baseline gap-x-8 gap-y-3 lg:ml-auto lg:w-1/2 lg:pl-0"
-          >
-            <span className={`${LABEL} text-muted-foreground`}>(Jump to)</span>
-            {SECTIONS.map((s) => (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                className={`${LABEL} text-foreground transition-colors hover:text-primary`}
-              >
-                {s.label}
-              </a>
-            ))}
-          </nav>
-        )}
-      </RevealOnView>
-
-      {/* The band, full bleed like koto.com/about: a linocut collage that runs
-          edge to edge past the page gutters. Art from scripts/generate-site-art.mjs. */}
-      <RevealOnView as="div" className="-mx-6">
-        <div className="relative h-56 w-full overflow-hidden sm:h-72 lg:h-96">
-          <Image
-            src="/site-art/about-band-green.webp"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        </div>
-      </RevealOnView>
+          {SECTIONS.length > 0 && (
+            <nav
+              aria-label="Jump to"
+              className="mt-10 flex flex-wrap items-baseline gap-x-8 gap-y-3 lg:ml-auto lg:w-1/2 lg:pl-0"
+            >
+              <span className={`${LABEL} text-muted-foreground`}>(Jump to)</span>
+              {SECTIONS.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  className={`${LABEL} text-foreground transition-colors hover:text-primary`}
+                >
+                  {s.label}
+                </a>
+              ))}
+            </nav>
+          )}
+        </RevealOnView>
+      </div>
 
       {SECTIONS.length > 0 && (
         <div className="mx-auto max-w-6xl">

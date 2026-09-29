@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { createWallRenderer } from "./renderer";
 import { ChalkBlueprint } from "./chalk-blueprint";
 import { EtchedSketches } from "./etched-sketches";
+import { skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
 
 /**
  * A lit concrete wall behind the hero, after the backdrop on vgpu.sh.
@@ -20,14 +21,38 @@ import { EtchedSketches } from "./etched-sketches";
  *   without WebGPU (Firefox, most in-app browsers) get the same picture, and
  *   the canvas fades in over it once its first frame is ready.
  *
+ * Both follow the visitor's sky (`sky.ts`): the window light moves and warms
+ * with the sun in their time zone, dims under cloud and at night, and when it
+ * is raining where they are, drops slide down the window and their shadows
+ * run through the light on the wall (WebGPU only).
+ *
  * Full-bleed: the hero lives inside the page's `px-6` column, so this escapes
  * it with the `w-screen` centring trick rather than moving the hero out.
+ *
+ * `sketches` draws the chalk plan and etched drawings; the homepage has them,
+ * inner pages get the bare wall so their text stays readable.
  */
-export function ConcreteWall({ className }: { className?: string }) {
+export function ConcreteWall({ className, sketches = true }: { className?: string; sketches?: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [supported, setSupported] = useState(false);
   const [live, setLive] = useState(false);
+
+  // The sky, recomputed every half minute so the light keeps up with the clock.
+  // The renderer reads it through a ref each frame.
+  const weather = useSiteWeather();
+  const [sky, setSky] = useState<Sky>(() => skyAt(new Date(), null));
+  const skyRef = useRef(sky);
+  useEffect(() => {
+    const update = () => {
+      const next = skyAt(wallNow(), weather);
+      skyRef.current = next;
+      setSky(next);
+    };
+    update();
+    const id = window.setInterval(update, 30_000);
+    return () => window.clearInterval(id);
+  }, [weather]);
 
   useEffect(() => {
     setSupported(typeof navigator !== "undefined" && "gpu" in navigator);
@@ -60,6 +85,7 @@ export function ConcreteWall({ className }: { className?: string }) {
       isDark: () => html.classList.contains("dark"),
       pointer: () => pointer,
       reducedMotion: () => motion.matches,
+      sky: () => skyRef.current,
     });
     renderer.ready
       .then(() => setLive(true))
@@ -123,13 +149,28 @@ export function ConcreteWall({ className }: { className?: string }) {
         />
       )}
 
+      {/* Evening and overcast: the CSS wall has no sky of its own, so it gets
+          a cool wash instead. Over the WebGPU wall too, but lightly, since the
+          shader already dims itself. */}
+      <div
+        className="absolute inset-0 bg-[#3a4150] mix-blend-multiply transition-opacity duration-1000"
+        style={{ opacity: (live ? 0.06 : 0.16) * Math.max(sky.night, sky.cloudCover * 0.6) }}
+      />
+
       {/* Chalk plan on the wall, over whichever wall is showing. */}
-      <ChalkBlueprint />
-      <EtchedSketches />
+      {sketches && (
+        <>
+          <ChalkBlueprint />
+          <EtchedSketches />
+        </>
+      )}
 
       {/* Gallery window light: a skewed pane of sun with mullion shadows,
-          falling across the wall from the upper left. */}
-      <div className="absolute left-[4%] top-[-12%] h-[95%] w-[46%] -skew-x-[18deg] opacity-60 mix-blend-soft-light blur-[14px] dark:opacity-20">
+          falling across the wall from the upper left. Fades with the daylight. */}
+      <div
+        className="absolute left-[4%] top-[-12%] h-[95%] w-[46%] -skew-x-[18deg] mix-blend-soft-light blur-[14px] transition-opacity duration-1000 [--pane:0.6] dark:[--pane:0.2]"
+        style={{ opacity: `calc(var(--pane) * ${(1 - sky.night * 0.85) * (1 - sky.cloudCover * 0.55)})` }}
+      >
         <div className="grid h-full w-full grid-cols-3 grid-rows-2 gap-[5%]">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="bg-white" />

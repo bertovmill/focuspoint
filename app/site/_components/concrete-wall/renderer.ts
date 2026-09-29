@@ -1,5 +1,6 @@
 import { clock, effect, frameLoop, init, surface, type Gpu } from "vgpu";
 import wallWgsl from "./wall.wgsl";
+import type { Sky } from "./sky";
 
 export interface WallRendererOptions {
   /** Read each frame: 1 in dark mode, 0 in light. */
@@ -8,6 +9,8 @@ export interface WallRendererOptions {
   readonly pointer: () => readonly [number, number] | null;
   /** Read each frame: freeze the drift for people who asked for less motion. */
   readonly reducedMotion: () => boolean;
+  /** Read each frame: the visitor's sun and weather. */
+  readonly sky: () => Sky;
 }
 
 /**
@@ -48,6 +51,7 @@ export function createWallRenderer(
     frameLoop(context, (frame) => {
       try {
         if (!options.reducedMotion()) drift += time.deltaTime;
+        const sky = options.sky();
         const restX = 0.3 + Math.sin(drift * 0.11) * 0.16;
         const restY = 0.3 + Math.sin(drift * 0.17 + 1.3) * 0.12;
         const pointer = options.pointer();
@@ -68,6 +72,8 @@ export function createWallRenderer(
               options.isDark() ? 1 : 0,
             ],
             light: [light[0], light[1], Math.cos(drift * 0.07), 0],
+            sky: [sky.sunHeight, sky.sunProgress, sky.warmth, sky.night],
+            weather: [sky.cloudCover, sky.rain, 0, 0],
           },
         });
         frame.pass(output, wall);

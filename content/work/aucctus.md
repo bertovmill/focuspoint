@@ -6,6 +6,8 @@ year: 2026 –
 outcome: A full corporate pipeline in six months, built on an events motion and a go-to-market system that didn't exist when I started.
 color: "#8f5a3c"
 tags: [go-to-market, events, enterprise, ai-agents]
+# Order on /work only; not shown on the site.
+date: 2026-06-01
 published: true
 ---
 

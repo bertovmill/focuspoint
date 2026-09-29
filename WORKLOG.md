@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-29 — Wall on Writing; AI Coaching case study
+
+/writing's header now sits on the lit concrete wall (`sketches={false}`), like
+About and Work. New work entry `content/work/ai-coaching.md` (/work/ai-coaching):
+Berto's passion for helping people get more effective at work with AI tools, the
+Leland profile (https://www.joinleland.com/robert-mill), and its public facts
+(5.0 across 9 reviews; coaching areas). Work entries had no dates so ordering was
+filename order, which would have made the new one the featured tile; added
+`date` to all three (Aucctus, MakersLounge, AI Coaching) purely for ordering.
+
+---
+
 ## 2026-09-29 — Concrete wall follows the visitor's sky; wall on About and Work
 
 The homepage wall now lights itself from the visitor's own day. `app/api/site/weather`

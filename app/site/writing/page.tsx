@@ -3,12 +3,14 @@ import { ArrowUpRightIcon } from "lucide-react";
 import { formatDate } from "@/lib/content";
 import { listSubstackPosts, SUBSTACK_URL } from "@/lib/substack";
 import { SiteLink } from "../_components/site-link";
+import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Writing",
-  description: "Notes on building AI agents, shipping software, and running a life with one.",
+  description:
+    "Notes on building AI agents, shipping software, and running a life with one.",
 };
 
 export default async function WritingIndexPage() {
@@ -16,20 +18,28 @@ export default async function WritingIndexPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6">
-      <section className="border-b border-border/60 py-16">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Writing</h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-          Notes on building AI agents, shipping software, and what it&apos;s actually like to hand
-          parts of your life to one. Published on Substack.
-        </p>
-        <SiteLink
-          href={SUBSTACK_URL}
-          className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-primary transition-colors hover:text-foreground"
-        >
-          Subscribe on Substack
-          <ArrowUpRightIcon className="size-3.5" />
-        </SiteLink>
-      </section>
+      {/* The header sits on the homepage's lit concrete wall, without its chalk
+          drawings, like About and Work. */}
+      <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
+        <ConcreteWall sketches={false} />
+        <section className="py-16 sm:py-24">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Writing
+          </h1>
+          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+            Notes on building AI agents, shipping software, and what it&apos;s
+            actually like to hand parts of your life to one. Published on
+            Substack.
+          </p>
+          <SiteLink
+            href={SUBSTACK_URL}
+            className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-primary transition-colors hover:text-foreground"
+          >
+            Subscribe on Substack
+            <ArrowUpRightIcon className="size-3.5" />
+          </SiteLink>
+        </section>
+      </div>
 
       <section className="py-8">
         {posts.length === 0 ? (
@@ -48,7 +58,9 @@ export default async function WritingIndexPage() {
                     </span>
                   </div>
                   {post.summary && (
-                    <p className="mt-2 leading-relaxed text-muted-foreground">{post.summary}</p>
+                    <p className="mt-2 leading-relaxed text-muted-foreground">
+                      {post.summary}
+                    </p>
                   )}
                   <p className="mt-3 font-mono text-xs text-muted-foreground">
                     {post.readingMinutes} min read

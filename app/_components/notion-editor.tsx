@@ -30,6 +30,7 @@ import {
   MinusIcon,
   PilcrowIcon,
   QuoteIcon,
+  SparklesIcon,
   SquareCodeIcon,
   StrikethroughIcon,
   XIcon,
@@ -299,7 +300,7 @@ const SlashCommand = Extension.create({
 
 // ── the selection bubble ───────────────────────────────────────────────────
 
-function FormatBubble({ editor }: { editor: Editor }) {
+function FormatBubble({ editor, onAsk }: { editor: Editor; onAsk?: (selection: string) => void }) {
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState("");
   // Stable, because every new options object is pushed into the plugin as a transaction.
@@ -377,6 +378,23 @@ function FormatBubble({ editor }: { editor: Editor }) {
               setLinking(true);
             }}
           />
+          {onAsk && (
+            <>
+              <span className="mx-0.5 h-5 w-px bg-border" />
+              <button
+                type="button"
+                onClick={() => {
+                  const { from, to } = editor.state.selection;
+                  const text = editor.state.doc.textBetween(from, to, "\n\n").trim();
+                  if (text) onAsk(text);
+                }}
+                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <SparklesIcon className="size-3.5" />
+                Ask Cael
+              </button>
+            </>
+          )}
         </>
       )}
     </BubbleMenu>
@@ -415,11 +433,17 @@ export function NotionEditor({
   placeholder,
   className,
   uploadImage,
+  editable = true,
+  onAskAboutSelection,
 }: {
   initialContent: string;
   onChange: (markdown: string) => void;
   /** Turns on adding images ("/image", paste, drop); returns the uploaded file's public URL. */
   uploadImage?: (file: File) => Promise<string>;
+  /** False locks the page (e.g. while Cael is rewriting it). */
+  editable?: boolean;
+  /** Adds "Ask Cael" to the selection bubble; called with the selected text. */
+  onAskAboutSelection?: (selection: string) => void;
   /** Shown while the whole document is empty. */
   placeholder: string;
   className?: string;
@@ -497,10 +521,14 @@ export function NotionEditor({
     (editor.storage as unknown as { imageUpload: { upload: typeof uploadImage | null } }).imageUpload.upload = uploadImage ?? null;
   }, [editor, uploadImage]);
 
+  useEffect(() => {
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable);
+  }, [editor, editable]);
+
   if (!editor) return null;
   return (
     <>
-      <FormatBubble editor={editor} />
+      <FormatBubble editor={editor} onAsk={onAskAboutSelection} />
       <EditorContent editor={editor} />
     </>
   );

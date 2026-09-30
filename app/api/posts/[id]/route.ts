@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPost, getPostById, postUrl, setPostStatus, slugify, updatePost } from "@/lib/posts";
+import { getPost, getPostById, postUrl, setPostChatThread, setPostStatus, slugify, updatePost } from "@/lib/posts";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,7 +10,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 }
 
 /**
- * PATCH any of { title, summary, body, tags, coverUrl, coverAlt, slug, status }.
+ * PATCH any of { title, summary, body, tags, coverUrl, coverAlt, slug, status, chatThreadId }.
  * Only the fields sent change. POST is an alias so the editor can flush with
  * sendBeacon on the way out.
  */
@@ -19,6 +19,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const current = await getPostById(Number((await params).id));
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const b = await req.json();
+    if (typeof b.chatThreadId === "string" && b.chatThreadId) await setPostChatThread(current.id, b.chatThreadId);
 
     let slug: string | undefined;
     if (typeof b.slug === "string" && slugify(b.slug) && slugify(b.slug) !== current.slug) {

@@ -43,6 +43,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { CalendarTool, type CalendarResult } from "@/components/chat/calendar-tool";
+import { stripChatContext } from "@/lib/chat-context";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,7 +69,7 @@ const WELCOME_SUGGESTIONS = [
 // eve's summarizeUserContent appends [file: ...] and [image: ...] markers to
 // user message text. Strip them so they don't leak into the rendered bubble.
 function stripEveAttachmentMarkers(text: string): string {
-  return text.replace(/\n?\[file:[^\]]*\]/g, "").replace(/\n?\[image:[^\]]*\]/g, "").trim();
+  return stripChatContext(text).replace(/\n?\[file:[^\]]*\]/g, "").replace(/\n?\[image:[^\]]*\]/g, "").trim();
 }
 
 function textOf(message: EveMessage): string {
@@ -101,11 +102,17 @@ export function EveThread({
   agent,
   sentFiles,
   welcome,
+  suggestions = WELCOME_SUGGESTIONS,
+  className,
 }: {
   agent: EveAgent;
   /** Message index → files the composer attached, for previews after send. */
   sentFiles: ReadonlyMap<number, readonly SentFile[]>;
   welcome: React.ReactNode;
+  /** Ready-to-send starters for an empty thread. */
+  suggestions?: readonly string[];
+  /** Replaces the wide-chat padding and width, for a narrow side panel. */
+  className?: string;
 }) {
   const messages = agent.data.messages;
   const isRunning = agent.status === "submitted" || agent.status === "streaming";
@@ -119,7 +126,7 @@ export function EveThread({
       <div className="flex h-full flex-col items-center justify-center gap-6 px-4">
         {welcome}
         <Suggestions className="justify-center">
-          {WELCOME_SUGGESTIONS.map((prompt) => (
+          {suggestions.map((prompt) => (
             <Suggestion
               key={prompt}
               suggestion={prompt}
@@ -133,7 +140,7 @@ export function EveThread({
 
   return (
     <Conversation className="h-full">
-      <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 pt-4 pb-6">
+      <ConversationContent className={className ?? "mx-auto w-full max-w-3xl gap-6 px-4 pt-4 pb-6"}>
         {messages.map((message, index) =>
           message.role === "user" ? (
             <UserMessage

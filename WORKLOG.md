@@ -8877,3 +8877,46 @@ Verified in local dev: training shows today's Speed session and "Hyrox · 2 days
 Training link goes to /training; meals are empty in real data (nothing planned since Sep 13),
 so the populated state was checked by pointing the fetch at Sep 13 in the browser.
 Checked at phone width too.
+
+## 2026-09-30 — Writing editor: Cael in a side chat next to the document
+
+Berto: "having a right side agent chat next to the document would be great".
+Picked (asked): **one ongoing chat per article**, **update the document in
+place** when Cael saves, and both extras — **Ask Cael on a selection** and
+**quick actions**.
+
+- `app/_components/post-chat.tsx`: the panel. Thread per post stored in
+  `posts.chat_thread_id` (new column, migrated live), created as
+  "Writing: <title>" so it also shows in Chat history; falls back to a new
+  thread if that one was deleted. Every send is wrapped (Proxy over the eve
+  agent) to flush the editor first and prepend a hidden
+  `[[Context: Writing editor — … slug …]]` line (`lib/chat-context.ts`), which
+  the thread view strips. Watches the transcript for finished
+  `save_post` / `generate_post_image` / `publish_post` calls and reloads the post.
+  Quick-action chips (Tighten it, Suggest titles, Make a cover, Proofread).
+  Shows `turn.failed` events — a server-side failure never sets agent.error,
+  so without this a failed turn just sat there silently.
+- `writing-panel.tsx`: editor is now two columns (chat 400/440px on lg+, full
+  screen over the doc on phones); "Work on this with Cael" became a Cael toggle
+  (open state remembered per browser, default open on wide screens). While Cael
+  answers, title/summary/body are read-only ("Cael is editing…") so his save
+  and your typing can't cross; after a save the NotionEditor remounts
+  (`key={revision}`) on his version. `WritingPanel` no longer takes
+  `onWorkWithCael`.
+- `notion-editor.tsx`: `editable` prop; "Ask Cael" in the selection bubble
+  quotes the passage (`> …`) into the side chat's composer and focuses it.
+- `eve-thread.tsx` (`suggestions`, `className`, strips the context line),
+  `eve-composer.tsx` (`placeholder`, `autoFocus`, `globalDrop` — off beside the
+  doc so a dropped photo goes into the article), `threads-provider.tsx`
+  (`createThread(title?)`), `/api/posts/[id]` accepts `chatThreadId`.
+- `agent/instructions.md`: what the context line means; edit with save_post
+  rather than pasting rewrites; keep replies short.
+
+Verified locally (test draft only): panel opens beside the doc; thread created,
+titled and linked on the post; conversation restored after reload; "Ask Cael"
+quoted the selection into a focused composer; the context line is hidden in
+bubbles; error banner; phone layout. **Not verified: Cael actually editing and
+the live reload** — every model call returned 402 from the Vercel AI Gateway
+("A positive credit balance is required", insufficient_funds), which blocks all
+of Cael, not just this panel. Re-test the edit → reload loop once credits are
+topped up.

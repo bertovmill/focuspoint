@@ -30,6 +30,8 @@ export interface Post {
   /** The last tweet sharing this post, if it has been shared to X. */
   tweetUrl: string | null;
   tweetedAt: string | null;
+  /** The editor's side-chat thread for this post (threads.id), once one exists. */
+  chatThreadId: string | null;
 }
 
 export const PUBLIC_SITE_URL = "https://bertomill.com";
@@ -79,6 +81,7 @@ function toPost(row: Record<string, unknown>): Post {
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     readingMinutes: Math.max(1, Math.round(words / 220)),
     tweetUrl: (row.tweet_url as string | null) ?? null,
+    chatThreadId: (row.chat_thread_id as string | null) ?? null,
     tweetedAt: row.tweeted_at instanceof Date ? row.tweeted_at.toISOString() : ((row.tweeted_at as string | null) ?? null),
   };
 }
@@ -189,4 +192,9 @@ export async function markPostTweeted(id: number, tweetUrl: string): Promise<Pos
     UPDATE posts SET tweet_url = ${tweetUrl}, tweeted_at = NOW() WHERE id = ${id} RETURNING *
   `;
   return row ? toPost(row) : null;
+}
+
+/** Remember which chat thread sits beside this post in the Writing editor. */
+export async function setPostChatThread(id: number, threadId: string): Promise<void> {
+  await getDb()`UPDATE posts SET chat_thread_id = ${threadId} WHERE id = ${id}`;
 }

@@ -702,6 +702,9 @@ export async function ensureSchema() {
   // The last time the post was shared to X from the editor (2026-09-30).
   await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tweet_url TEXT`;
   await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tweeted_at TIMESTAMPTZ`;
+  // The chat thread beside the post in the Writing editor — one ongoing
+  // conversation with Cael per article (2026-09-30).
+  await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS chat_thread_id TEXT`;
 
   // Every tweet Cael posts, from any path (the Writing page, the agent, MCP, the
   // daily-tweet task), shown on /writing?tab=tweets (lib/tweets.ts).

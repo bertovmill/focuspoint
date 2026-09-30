@@ -134,6 +134,9 @@ export function EveComposer({
   agent,
   onSend,
   className,
+  placeholder = "Message Cael…",
+  autoFocus = true,
+  globalDrop = true,
 }: {
   agent: EveAgent;
   /**
@@ -142,6 +145,13 @@ export function EveComposer({
    */
   onSend?: (messageIndex: number, files: readonly SentFile[]) => void;
   className?: string;
+  placeholder?: string;
+  autoFocus?: boolean;
+  /**
+   * Take files dropped anywhere on the page. Off beside a document, where a
+   * dropped photo belongs in the document, not the chat.
+   */
+  globalDrop?: boolean;
 }) {
   const status = toChatStatus(agent.status);
   const busy = status === "submitted" || status === "streaming";
@@ -192,16 +202,16 @@ export function EveComposer({
     <PromptInput
       onSubmit={handleSubmit}
       multiple
-      globalDrop
+      globalDrop={globalDrop}
       maxFileSize={MAX_FILE_BYTES}
       className={cn("w-full", className)}
     >
       <PendingAttachments />
       <PromptInputBody>
         <PromptInputTextarea
-          placeholder="Message Cael…"
+          placeholder={placeholder}
           aria-label="Message input"
-          autoFocus
+          autoFocus={autoFocus}
           className="text-base"
         />
       </PromptInputBody>

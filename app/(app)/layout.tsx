@@ -415,7 +415,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               <TrainingPlanPanel />
             </div>
           ) : mobileTab === "writing" ? (
-            <WritingPanel onWorkWithCael={handleRunJobWithChat} />
+            <WritingPanel />
           ) : mobileTab === "career" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <CareerPanel />

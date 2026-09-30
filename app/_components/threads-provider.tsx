@@ -37,7 +37,7 @@ type ThreadsContextValue = {
   activeId: string;
   getThread: (id: string) => ThreadRecord | undefined;
   /** Creates and persists a thread without switching the main chat view to it. */
-  createThread: () => string;
+  createThread: (title?: string) => string;
   newThread: () => void;
   switchTo: (id: string) => void;
   rename: (id: string, title: string) => void;
@@ -74,9 +74,9 @@ function rowToRecord(row: ApiRow): ThreadRecord {
   };
 }
 
-function freshThread(): ThreadRecord {
+function freshThread(title = ""): ThreadRecord {
   const now = Date.now();
-  return { id: newId(), title: "", createdAt: now, updatedAt: now };
+  return { id: newId(), title, createdAt: now, updatedAt: now };
 }
 
 export function ThreadsProvider({ children }: { children: ReactNode }) {
@@ -131,8 +131,8 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
   // Deleting a just-created thread must not race its create POST.
   const createRequests = useRef(new Map<string, Promise<unknown>>());
 
-  const createThread = useCallback((): string => {
-    const fresh = freshThread();
+  const createThread = useCallback((title?: string): string => {
+    const fresh = freshThread(title);
     createRequests.current.set(
       fresh.id,
       fetch("/api/threads", {

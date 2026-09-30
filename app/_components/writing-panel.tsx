@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { NotionEditor } from "@/app/_components/notion-editor";
+import { PostChat } from "@/app/_components/post-chat";
 import { cn } from "@/lib/utils";
 
 type PostSummary = {
@@ -51,6 +52,7 @@ type PostSummary = {
   url: string;
   tweetUrl: string | null;
   tweetedAt: string | null;
+  chatThreadId: string | null;
 };
 type Post = PostSummary & { body: string };
 
@@ -151,7 +153,7 @@ function StatusBadge({ status }: { status: Post["status"] }) {
  * published posts; open one to write it here, or hand it to Cael, who edits the
  * same rows with save_post. Substack posts aren't here — they're written there.
  */
-export function WritingPanel({ onWorkWithCael }: { onWorkWithCael: (message: string) => void }) {
+export function WritingPanel() {
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
 
@@ -184,7 +186,6 @@ export function WritingPanel({ onWorkWithCael }: { onWorkWithCael: (message: str
       onSlugChange={(s) => {
         setUrlSlug(s, "replace");
       }}
-      onWorkWithCael={onWorkWithCael}
     />
   ) : tab === "tweets" ? (
     <TweetList tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
@@ -461,12 +462,10 @@ function PostEditor({
   slug,
   onBack,
   onSlugChange,
-  onWorkWithCael,
 }: {
   slug: string;
   onBack: () => void;
   onSlugChange: (slug: string) => void;
-  onWorkWithCael: (message: string) => void;
 }) {
   const [post, setPost] = useState<Post | null>(null);
   const [missing, setMissing] = useState(false);
@@ -483,6 +482,25 @@ function PostEditor({
   const postRef = useRef<Post | null>(null);
   postRef.current = post;
   const coverInput = useRef<HTMLInputElement>(null);
+  // The chat beside the document. Open by default on a wide screen; the choice
+  // sticks per browser.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [caelBusy, setCaelBusy] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [askDraft, setAskDraft] = useState<{ text: string; n: number } | null>(null);
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("writing.chatOpen");
+    } catch {}
+    setChatOpen(stored ? stored === "1" : window.matchMedia("(min-width: 1024px)").matches);
+  }, []);
+  const toggleChat = (open: boolean) => {
+    setChatOpen(open);
+    try {
+      localStorage.setItem("writing.chatOpen", open ? "1" : "0");
+    } catch {}
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -574,6 +592,22 @@ function PostEditor({
     };
   }, []);
 
+  // Cael saved the post from the chat: load its version into the editor. The
+  // editor is locked while Cael works and was saved before the message went
+  // out, so there's nothing local to lose.
+  const reloadFromCael = useCallback(async () => {
+    const current = postRef.current;
+    if (!current) return;
+    try {
+      const fresh: Post = await fetch(`/api/posts/${current.id}`).then((r) => r.json());
+      if (!fresh?.id) return;
+      setPost(fresh);
+      setTagsText(fresh.tags.join(", "));
+      setRevision((n) => n + 1);
+      if (fresh.slug !== current.slug) onSlugChange(fresh.slug);
+    } catch {}
+  }, [onSlugChange]);
+
   const pickCover = async (file: File | undefined) => {
     if (!file) return;
     setUploadingCover(true);
@@ -642,7 +676,8 @@ function PostEditor({
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex h-full">
+    <div className="min-w-0 flex-1 overflow-y-auto">
       {/* Toolbar */}
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4">
         <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
@@ -651,7 +686,7 @@ function PostEditor({
         </Button>
         {post && <StatusBadge status={post.status} />}
         <span className="text-xs text-muted-foreground">
-          {error ? <span className="text-destructive">Not saved</span> : saving ? "Saving…" : savedAt ? "Saved" : ""}
+          {caelBusy ? "Cael is editing…" : error ? <span className="text-destructive">Not saved</span> : saving ? "Saving…" : savedAt ? "Saved" : ""}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {post && (
@@ -663,18 +698,13 @@ function PostEditor({
                 </a>
               </Button>
               <Button
-                variant="outline"
+                variant={chatOpen ? "secondary" : "outline"}
                 size="sm"
-                onClick={async () => {
-                  await flush();
-                  onWorkWithCael(
-                    `Let's work on my article "${post.title}" (slug: ${post.slug}). Read it with get_post first, then ask me what I want to change.`,
-                  );
-                }}
+                onClick={() => toggleChat(!chatOpen)}
+                aria-pressed={chatOpen}
               >
                 <SparklesIcon />
-                <span className="hidden sm:inline">Work on this with Cael</span>
-                <span className="sm:hidden">Cael</span>
+                Cael
               </Button>
               <Button
                 variant="outline"
@@ -764,6 +794,7 @@ function PostEditor({
             value={post.title === "Untitled" ? "" : post.title}
             onChange={(e) => change({ title: e.target.value.replace(/\n/g, " ") || "Untitled" })}
             placeholder="Title"
+            readOnly={caelBusy}
             rows={1}
             className="field-sizing-content resize-none bg-transparent text-3xl font-semibold leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50"
           />
@@ -771,6 +802,7 @@ function PostEditor({
             value={post.summary}
             onChange={(e) => change({ summary: e.target.value })}
             placeholder="A sentence or two that sells it — shown under the title and on the index"
+            readOnly={caelBusy}
             rows={1}
             className="field-sizing-content resize-none bg-transparent text-base leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/50 sm:text-lg"
           />
@@ -787,6 +819,12 @@ function PostEditor({
           <hr className="border-border" />
 
           <NotionEditor
+            key={revision}
+            editable={!caelBusy}
+            onAskAboutSelection={(text) => {
+              toggleChat(true);
+              setAskDraft((d) => ({ text, n: (d?.n ?? 0) + 1 }));
+            }}
             initialContent={post.body}
             onChange={(body) => change({ body })}
             uploadImage={uploadImage}
@@ -857,6 +895,21 @@ function PostEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+
+      {/* Cael, beside the document on desktop; full screen over it on a phone. */}
+      {chatOpen && post && (
+        <aside className="fixed inset-0 z-[60] flex flex-col bg-background lg:static lg:z-auto lg:w-[400px] lg:shrink-0 lg:border-l xl:w-[440px]">
+          <PostChat
+            post={post}
+            beforeSend={flush}
+            onPostChanged={() => void reloadFromCael()}
+            onBusyChange={setCaelBusy}
+            draft={askDraft}
+            onClose={() => toggleChat(false)}
+          />
+        </aside>
+      )}
     </div>
   );
 }

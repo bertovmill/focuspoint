@@ -55,20 +55,27 @@ async function gatherContext(date: string) {
   ]);
   const planned = sameDay.reduce((sum, r) => sum + (Number(r.protein_g) || 0), 0);
   return [
+    // The Notes page on /meals is where he writes his current rules, so it
+    // leads and outranks everything else, including older tagged thoughts.
+    ...(notes
+      ? [
+          "HIS MEAL NOTES — his current rules. Anything under a Principles heading is a hard rule that overrides",
+          "everything else here; the Staples are what he actually buys, so build from them first:",
+          notes.slice(0, 3000),
+          "",
+        ]
+      : []),
     `PROTEIN TARGET: about ${target} g over the day across lunch, snack and dinner. Dinner carries the most.`,
     sameDay.length
       ? `ALREADY PLANNED THAT DAY (${planned} g so far): ${sameDay.map((r) => `${r.slot}: ${r.name} (${r.protein_g ?? "?"} g)`).join("; ")}`
       : "Nothing else planned for that day yet.",
     "",
-    "STAPLES HE KEEPS (build from these first):",
+    "OTHER STAPLES ON FILE:",
     ...staples.map((s) => `- ${s.name}${s.why ? ` — ${s.why}` : ""}`),
     "",
-    "HIS OWN FOOD PRINCIPLES (these are rules, not suggestions):",
+    "OLDER FOOD THOUGHTS HE'S CAPTURED (background — where they conflict with his Notes, the Notes win):",
     ...principles.map((p) => `- ${String(p.content).replace(/\s+/g, " ").slice(0, 300)}`),
     "",
-    ...(notes
-      ? ["HIS MEAL NOTES (usual grocery list, go-to meals — lean on what he already buys):", notes.slice(0, 3000), ""]
-      : []),
     ...(recipes.length
       ? [
           "RECIPES HE HAS SAVED (favour variations on these; don't repeat one planned that week):",
@@ -115,8 +122,7 @@ export async function suggestMeal(slot: MealSlot, date?: string, opts: SuggestOp
       "",
       `WHAT THIS SITTING IS: ${meta.guidance}`,
       "",
-      "Whole-food vegetarian by default: no dairy, no added sugar. Keep it simple enough to actually make.",
-      "Give honest protein and calorie estimates for the serving described, and a real shopping list.",
+      "Keep it simple enough to actually make. Give honest protein and calorie estimates for the serving described, and a real shopping list.",
       "",
       context,
     ].join("\n"),

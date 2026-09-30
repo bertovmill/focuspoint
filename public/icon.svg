@@ -9,7 +9,7 @@
 
     <!-- Cael's orb. Same top-left-to-bottom-right light as the in-app avatar,
          recoloured from the old green to the terracotta primary:
-         --primary dark oklch(0.68 0.13 40) -> light oklch(0.55 0.13 38). -->
+         primary token: dark oklch(0.68 0.13 40) -> light oklch(0.55 0.13 38). -->
     <radialGradient id="orb" cx="0.34" cy="0.28" r="0.85">
       <stop offset="0%" stop-color="#e8926f"/>
       <stop offset="52%" stop-color="#db7a58"/>

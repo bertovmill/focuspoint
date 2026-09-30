@@ -34,7 +34,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ModeToggle } from "@/app/_components/mode-toggle";
-import { CaelAvatar } from "@/app/_components/cael-avatar";
 import { PinButton } from "@/app/_components/pin-button";
 import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
 import { TrainingLog } from "@/app/_components/training-log";
@@ -356,10 +355,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     <>
       <button
         onClick={() => onNavigate("chat")}
-        className="flex items-center gap-2.5 group"
+        className="flex items-center group"
         aria-label="Open chat with Cael"
       >
-        <CaelAvatar size={36} />
         <div className="text-left">
           <p
             className={cn(

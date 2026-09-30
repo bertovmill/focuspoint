@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from "crypto";
+import { recordTweet } from "./tweets";
 
 function percentEncode(s: string): string {
   return encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
@@ -46,7 +47,11 @@ function buildAuthHeader(
     .join(", ")}`;
 }
 
-export async function postTweet(text: string): Promise<{ id: string; url: string }> {
+/**
+ * Post to X as Berto. Every tweet is also saved to the `tweets` table so the
+ * Writing page can list it; `postId` links it to the article it shares.
+ */
+export async function postTweet(text: string, opts: { postId?: number } = {}): Promise<{ id: string; url: string }> {
   const consumerKey = process.env.X_API_KEY;
   const consumerSecret = process.env.X_API_KEY_SECRET;
   const accessToken = process.env.X_ACCESS_TOKEN;
@@ -72,5 +77,10 @@ export async function postTweet(text: string): Promise<{ id: string; url: string
     throw new Error(json.errors?.map((e) => e.message).join("; ") ?? `HTTP ${res.status}`);
   }
 
-  return { id: json.data!.id, url: `https://x.com/i/web/status/${json.data!.id}` };
+  const tweet = { id: json.data!.id, url: `https://x.com/i/web/status/${json.data!.id}` };
+  // The tweet is already public; a failed save must not report it as failed.
+  await recordTweet({ tweetId: tweet.id, text, url: tweet.url, postId: opts.postId }).catch((err) =>
+    console.error("couldn't save tweet:", err),
+  );
+  return tweet;
 }

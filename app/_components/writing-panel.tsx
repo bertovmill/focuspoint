@@ -67,6 +67,15 @@ function tweetLength(text: string) {
 function slugFromUrl() {
   return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("post");
 }
+// The list shows articles, or `?tab=tweets` for the tweet composer and history.
+type Tab = "posts" | "tweets";
+function tabFromUrl(): Tab {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "tweets" ? "tweets" : "posts";
+}
+function setUrlTab(tab: Tab) {
+  window.history.pushState(null, "", tab === "tweets" ? "/writing?tab=tweets" : "/writing");
+}
+
 function setUrlSlug(slug: string | null, mode: "push" | "replace" = "push") {
   const url = slug ? `/writing?post=${encodeURIComponent(slug)}` : "/writing";
   if (mode === "push") window.history.pushState(null, "", url);
@@ -144,10 +153,15 @@ function StatusBadge({ status }: { status: Post["status"] }) {
  */
 export function WritingPanel({ onWorkWithCael }: { onWorkWithCael: (message: string) => void }) {
   const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("posts");
 
   useEffect(() => {
-    setOpenSlug(slugFromUrl());
-    const onPop = () => setOpenSlug(slugFromUrl());
+    const sync = () => {
+      setOpenSlug(slugFromUrl());
+      setTab(tabFromUrl());
+    };
+    sync();
+    const onPop = sync;
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -155,6 +169,11 @@ export function WritingPanel({ onWorkWithCael }: { onWorkWithCael: (message: str
   const open = (slug: string | null) => {
     setUrlSlug(slug);
     setOpenSlug(slug);
+    setTab("posts");
+  };
+  const switchTab = (next: Tab) => {
+    setUrlTab(next);
+    setTab(next);
   };
 
   return openSlug ? (
@@ -167,14 +186,179 @@ export function WritingPanel({ onWorkWithCael }: { onWorkWithCael: (message: str
       }}
       onWorkWithCael={onWorkWithCael}
     />
+  ) : tab === "tweets" ? (
+    <TweetList tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
   ) : (
-    <PostList onOpen={open} />
+    <PostList onOpen={open} tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
+  );
+}
+
+function WritingTabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
+  return (
+    <div role="tablist" className="inline-flex w-fit gap-1 rounded-lg bg-muted p-1">
+      {(["posts", "tweets"] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="tab"
+          aria-selected={tab === t}
+          onClick={() => onChange(t)}
+          className={cn(
+            "rounded-md px-3 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+            tab === t && "bg-background text-foreground shadow-sm",
+          )}
+        >
+          {t === "posts" ? "Posts" : "Tweets"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── tweets ─────────────────────────────────────────────────────────────────
+
+type TweetRow = {
+  id: number;
+  tweetId: string;
+  text: string;
+  url: string;
+  postId: number | null;
+  postTitle: string | null;
+  createdAt: string;
+};
+
+/**
+ * /writing?tab=tweets — write a tweet and post it as @berto_vmill, and every
+ * tweet Cael has posted (from here, a post's Tweet button, the agent, or the
+ * daily-tweet task). Tweets written on X itself aren't here.
+ */
+function TweetList({ tabs }: { tabs: React.ReactNode }) {
+  const [tweets, setTweets] = useState<TweetRow[] | null>(null);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/tweets")
+      .then((r) => r.json())
+      .then((rows) => setTweets(Array.isArray(rows) ? rows : []))
+      .catch(() => setTweets([]));
+  }, []);
+  useEffect(load, [load]);
+
+  const length = tweetLength(text);
+  const post = async () => {
+    setPosting(true);
+    try {
+      const res = await fetch("/api/tweets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const tweet = await res.json();
+      if (!res.ok) throw new Error(tweet.error);
+      setText("");
+      load();
+      toast.success("Posted to X.", {
+        action: { label: "View", onClick: () => window.open(tweet.url, "_blank", "noreferrer") },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't post to X.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  return (
+    <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+        <header>
+          <h1 className="text-xl font-semibold">Writing</h1>
+          <p className="text-sm text-muted-foreground">
+            Tweets posted as{" "}
+            <a href="https://x.com/berto_vmill" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+              @berto_vmill
+            </a>{" "}
+            from Cael: here, a post&apos;s Tweet button, or by asking Cael.
+          </p>
+        </header>
+
+        {tabs}
+
+        <div className="flex flex-col gap-2 rounded-lg border p-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && length <= TWEET_LIMIT) setConfirming(true);
+            }}
+            placeholder="What's happening?"
+            rows={3}
+            className="field-sizing-content min-h-20 resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground/60"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className={cn("text-xs tabular-nums text-muted-foreground", length > TWEET_LIMIT && "text-destructive")}>
+              {TWEET_LIMIT - length} left
+            </span>
+            <Button size="sm" onClick={() => setConfirming(true)} disabled={posting || !text.trim() || length > TWEET_LIMIT}>
+              {posting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
+              Post to X
+            </Button>
+          </div>
+        </div>
+
+        {tweets === null ? (
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        ) : tweets.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No tweets from Cael yet. New ones show up here.</p>
+        ) : (
+          <ul className="divide-y divide-border rounded-lg border">
+            {tweets.map((t) => (
+              <li key={t.id} className="flex flex-col gap-1.5 px-3 py-3">
+                <p className="whitespace-pre-wrap break-words text-sm">{t.text}</p>
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  <span>{formatMoment(t.createdAt)}</span>
+                  {t.postTitle && <span>· shared “{t.postTitle}”</span>}
+                  <a href={t.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
+                    · View on X <ExternalLinkIcon className="size-3" />
+                  </a>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Post this to X?</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-wrap break-words">{text}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirming(false);
+                void post();
+              }}
+            >
+              Post publicly
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
 // ── the list ───────────────────────────────────────────────────────────────
 
-function PostList({ onOpen }: { onOpen: (slug: string) => void }) {
+function PostList({ onOpen, tabs }: { onOpen: (slug: string) => void; tabs: React.ReactNode }) {
   const [posts, setPosts] = useState<PostSummary[] | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -221,6 +405,8 @@ function PostList({ onOpen }: { onOpen: (slug: string) => void }) {
             New post
           </Button>
         </header>
+
+        {tabs}
 
         {posts === null ? (
           <div className="flex flex-col gap-3">
@@ -490,17 +676,19 @@ function PostEditor({
                 <span className="hidden sm:inline">Work on this with Cael</span>
                 <span className="sm:hidden">Cael</span>
               </Button>
-              {post.status === "published" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTweetText(`${post.title}\n\n${post.url}`)}
-                  title={post.tweetedAt ? `Tweeted ${formatMoment(post.tweetedAt)}` : undefined}
-                >
-                  <SendIcon />
-                  <span className="hidden sm:inline">{post.tweetedAt ? "Tweet again" : "Tweet"}</span>
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  post.status === "published"
+                    ? setTweetText(`${post.title}\n\n${post.url}`)
+                    : toast("Publish the post first", { description: "Until then its link is a private preview." })
+                }
+                title={post.tweetedAt ? `Tweeted ${formatMoment(post.tweetedAt)}` : undefined}
+              >
+                <SendIcon />
+                <span className="hidden sm:inline">{post.tweetedAt ? "Tweet again" : "Tweet"}</span>
+              </Button>
               <Button size="sm" variant={post.status === "published" ? "outline" : "default"} onClick={() => setConfirm(post.status === "published" ? "unpublish" : "publish")}>
                 {post.status === "published" ? "Unpublish" : "Publish"}
               </Button>

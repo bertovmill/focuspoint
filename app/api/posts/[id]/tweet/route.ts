@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   try {
-    const tweet = await postTweet(text.trim());
+    const tweet = await postTweet(text.trim(), { postId: post.id });
     const saved = await markPostTweeted(post.id, tweet.url);
     return NextResponse.json({ ...(saved ?? post), url: postUrl(saved ?? post) });
   } catch (err) {

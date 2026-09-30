@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { RecordConfetti } from "@/app/_components/record-confetti";
 import { ScoreChart } from "@/app/_components/score-chart";
 import { ActivityRings } from "@/app/_components/activity-rings";
-import { HabitRow } from "@/app/_components/habit-row";
 import {
   METRIC_WEIGHT,
   formatMetric,
@@ -37,8 +36,8 @@ import { cn } from "@/lib/utils";
  * from an API or an always-on background agent, so the card never waits on him.
  *
  * Drawn as three Fitbit/Google-Fit-style progress rings (2026-09-03, his ask) rather
- * than the old stacked boxes, with a second unscored row of core habits — read,
- * meditate, journal, 12–8 window — underneath (see ActivityRings and HabitRow).
+ * than the old stacked boxes (see ActivityRings). The unscored habit row that sat
+ * underneath (read, meditate, journal, 12–8 window) was removed 2026-09-30, his ask.
  */
 
 /** How each tier reads at a glance — cold is quiet, legendary is loud. */
@@ -379,9 +378,6 @@ export function ScorecardCard() {
         <div className="mt-3 border-t pt-3">
           <ActivityRings metrics={today.metrics} broken={broken} bests={records.metrics} leaderboards={summary.leaderboards} today={today.date} onEdit={handleEdit} />
         </div>
-
-        {/* Second row, unscored — the core habits. */}
-        <HabitRow />
 
         {/* How the number above was built, in one line. */}
         <p className="mt-3 border-t border-dashed pt-2 text-xs leading-relaxed text-muted-foreground">

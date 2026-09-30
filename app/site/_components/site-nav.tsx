@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { BOOKING_URL, CAEL_SIGN_IN_URL, CHANNELS } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
+import { SocialIcons } from "./social-icons";
 
 // Building stays reachable at /building; it left the header when Work arrived.
 const NAV = [
@@ -212,6 +213,8 @@ export function SiteNav() {
         </div>
 
         <div className="ml-auto hidden items-center gap-4 sm:flex">
+          {/* Icons only from lg up: at sm/md they'd crowd the links row. */}
+          <SocialIcons className="hidden lg:flex" />
           {/* Accounts live on the private host, so this leaves the site. */}
           <a
             href={CAEL_SIGN_IN_URL}

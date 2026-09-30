@@ -4,12 +4,12 @@ import path from "node:path";
 import matter from "gray-matter";
 
 /**
- * Writing and podcast episodes for bertomill.com.
+ * Podcast episodes and work entries for bertomill.com.
  *
- * These are markdown files on disk (`content/writing`, `content/podcast`,
- * `content/work`) rather
+ * These are markdown files on disk (`content/podcast`, `content/work`) rather
  * than database rows: published work is versioned with the code, reviewable in a
- * diff, and needs no auth path to edit. Cael's database stays private data only.
+ * diff, and needs no auth path to edit. Writing moved to the database
+ * (lib/posts.ts) so Cael can draft and edit articles without a deploy.
  */
 
 export type ContentKind = "writing" | "podcast" | "work";

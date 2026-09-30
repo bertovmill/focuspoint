@@ -678,4 +678,25 @@ export async function ensureSchema() {
   // 12–8 eating window (2026-09-05). Not the old fasted_til_noon: that was the
   // morning half only; this is the whole window, so it is its own flag.
   await sql`ALTER TABLE daily_habits ADD COLUMN IF NOT EXISTS ate_in_window BOOLEAN NOT NULL DEFAULT FALSE`;
+
+  // Articles for bertomill.com/writing that Cael drafts and edits (lib/posts.ts).
+  // They sit alongside the Substack feed on the Writing index. A draft is only
+  // reachable with its preview_token; `published_at` is the visible dateline.
+  await sql`
+    CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      cover_url TEXT,
+      cover_alt TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      published_at DATE,
+      preview_token TEXT NOT NULL DEFAULT md5(random()::text || clock_timestamp()::text),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

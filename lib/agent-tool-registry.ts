@@ -57,6 +57,11 @@ import sync_luma from "@/agent/tools/sync_luma";
 import update_scheduled_task from "@/agent/tools/update_scheduled_task";
 import update_todo from "@/agent/tools/update_todo";
 import update_vision_item from "@/agent/tools/update_vision_item";
+import generate_post_image from "@/agent/tools/generate_post_image";
+import get_post from "@/agent/tools/get_post";
+import list_posts from "@/agent/tools/list_posts";
+import publish_post from "@/agent/tools/publish_post";
+import save_post from "@/agent/tools/save_post";
 
 export const agentTools = {
   add_calendar_event,
@@ -114,4 +119,9 @@ export const agentTools = {
   update_scheduled_task,
   update_todo,
   update_vision_item,
+  generate_post_image,
+  get_post,
+  list_posts,
+  publish_post,
+  save_post,
 };

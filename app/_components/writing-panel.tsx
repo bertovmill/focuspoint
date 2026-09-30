@@ -8,6 +8,7 @@ import {
   Loader2Icon,
   PenLineIcon,
   PlusIcon,
+  SendIcon,
   SparklesIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -24,6 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { NotionEditor } from "@/app/_components/notion-editor";
 import { cn } from "@/lib/utils";
 
@@ -40,10 +49,18 @@ type PostSummary = {
   updatedAt: string;
   readingMinutes: number;
   url: string;
+  tweetUrl: string | null;
+  tweetedAt: string | null;
 };
 type Post = PostSummary & { body: string };
 
 const AUTOSAVE_MS = 900;
+
+// X counts every link as 23 characters, however long it really is.
+const TWEET_LIMIT = 280;
+function tweetLength(text: string) {
+  return text.replace(/https?:\/\/\S+/g, "x".repeat(23)).length;
+}
 
 // The open post is `?post=<slug>`, read from the URL directly rather than with
 // useSearchParams, which would force a Suspense boundary on the whole shell.
@@ -95,6 +112,11 @@ async function uploadImage(file: File): Promise<string> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
   return data.url as string;
+}
+
+// A timestamp, not a dateline: show it in local time.
+function formatMoment(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatDay(iso: string | null) {
@@ -268,6 +290,8 @@ function PostEditor({
   const [tagsText, setTagsText] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [confirm, setConfirm] = useState<null | "publish" | "unpublish">(null);
+  const [tweetText, setTweetText] = useState<string | null>(null);
+  const [tweeting, setTweeting] = useState(false);
   const pending = useRef<Pending>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const postRef = useRef<Post | null>(null);
@@ -396,6 +420,30 @@ function PostEditor({
     }
   };
 
+  const sendTweet = async () => {
+    const current = postRef.current;
+    if (!current || !tweetText) return;
+    setTweeting(true);
+    try {
+      const res = await fetch(`/api/posts/${current.id}/tweet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: tweetText }),
+      });
+      const saved = await res.json();
+      if (!res.ok) throw new Error(saved.error);
+      setPost((p) => (p ? { ...p, tweetUrl: saved.tweetUrl, tweetedAt: saved.tweetedAt } : p));
+      setTweetText(null);
+      toast.success("Posted to X.", {
+        action: { label: "View", onClick: () => window.open(saved.tweetUrl, "_blank", "noreferrer") },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't post to X.");
+    } finally {
+      setTweeting(false);
+    }
+  };
+
   if (missing) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
@@ -442,6 +490,17 @@ function PostEditor({
                 <span className="hidden sm:inline">Work on this with Cael</span>
                 <span className="sm:hidden">Cael</span>
               </Button>
+              {post.status === "published" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTweetText(`${post.title}\n\n${post.url}`)}
+                  title={post.tweetedAt ? `Tweeted ${formatMoment(post.tweetedAt)}` : undefined}
+                >
+                  <SendIcon />
+                  <span className="hidden sm:inline">{post.tweetedAt ? "Tweet again" : "Tweet"}</span>
+                </Button>
+              )}
               <Button size="sm" variant={post.status === "published" ? "outline" : "default"} onClick={() => setConfirm(post.status === "published" ? "unpublish" : "publish")}>
                 {post.status === "published" ? "Unpublish" : "Publish"}
               </Button>
@@ -461,6 +520,15 @@ function PostEditor({
           {post.status === "published" && (
             <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
               This post is live. Edits save as you type and show on bertomill.com within a minute.
+              {post.tweetUrl && post.tweetedAt && (
+                <>
+                  {" "}
+                  <a href={post.tweetUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    Tweeted {formatMoment(post.tweetedAt)}
+                  </a>
+                  .
+                </>
+              )}
             </p>
           )}
 
@@ -539,6 +607,43 @@ function PostEditor({
           />
         </div>
       )}
+
+      <Dialog open={tweetText !== null} onOpenChange={(o) => !o && !tweeting && setTweetText(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tweet this post</DialogTitle>
+            <DialogDescription>
+              Posts publicly to X as @berto_vmill.
+              {post?.tweetedAt && ` You already tweeted it on ${formatMoment(post.tweetedAt)}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={tweetText ?? ""}
+            onChange={(e) => setTweetText(e.target.value)}
+            rows={6}
+            autoFocus
+            className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          />
+          <DialogFooter className="items-center sm:justify-between">
+            <span
+              className={cn(
+                "text-xs tabular-nums text-muted-foreground",
+                tweetLength(tweetText ?? "") > TWEET_LIMIT && "text-destructive",
+              )}
+            >
+              {TWEET_LIMIT - tweetLength(tweetText ?? "")} left
+            </span>
+            <Button
+              size="sm"
+              onClick={() => void sendTweet()}
+              disabled={tweeting || !tweetText?.trim() || tweetLength(tweetText) > TWEET_LIMIT}
+            >
+              {tweeting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
+              Post to X
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>

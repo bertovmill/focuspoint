@@ -27,6 +27,9 @@ export interface Post {
   updatedAt: string;
   /** Rough read time in minutes, at 220 words/minute. */
   readingMinutes: number;
+  /** The last tweet sharing this post, if it has been shared to X. */
+  tweetUrl: string | null;
+  tweetedAt: string | null;
 }
 
 export const PUBLIC_SITE_URL = "https://bertomill.com";
@@ -75,6 +78,8 @@ function toPost(row: Record<string, unknown>): Post {
     previewToken: String(row.preview_token),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
     readingMinutes: Math.max(1, Math.round(words / 220)),
+    tweetUrl: (row.tweet_url as string | null) ?? null,
+    tweetedAt: row.tweeted_at instanceof Date ? row.tweeted_at.toISOString() : ((row.tweeted_at as string | null) ?? null),
   };
 }
 
@@ -174,6 +179,14 @@ export async function setPostStatus(slug: string, status: PostStatus, date?: str
       updated_at = NOW()
     WHERE slug = ${slug}
     RETURNING *
+  `;
+  return row ? toPost(row) : null;
+}
+
+/** Record that the post was shared to X. Only the latest tweet is kept. */
+export async function markPostTweeted(id: number, tweetUrl: string): Promise<Post | null> {
+  const [row] = await getDb()`
+    UPDATE posts SET tweet_url = ${tweetUrl}, tweeted_at = NOW() WHERE id = ${id} RETURNING *
   `;
   return row ? toPost(row) : null;
 }

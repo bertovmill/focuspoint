@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 type Cells = Map<string, PlannedMeal>;
 const key = (date: string, slot: string) => `${date}:${slot}`;
+type FillStatus = { running: boolean; total: number; done: number; failed: number };
 
 /**
  * /meals — the week: seven days by three sittings, the protein ring
@@ -243,7 +244,11 @@ export function WeekPlanPanel() {
 
   // ── week actions ──────────────────────────────────────────────────────
 
-  /** Every empty cell from today forward, three at a time so the grid fills as it goes. */
+  /**
+   * Every empty cell from today forward. The server fills them in the
+   * background (three at a time), so leaving the page doesn't stop it; the
+   * grid polls for progress while a run is going.
+   */
   const fillWeek = async () => {
     const targets = days
       .filter((d) => d >= today)
@@ -252,22 +257,57 @@ export function WeekPlanPanel() {
       toast.message("Nothing to fill — every cell from today on is planned.");
       return;
     }
-    setFill({ done: 0, total: targets.length });
-    let failed = 0;
-    const queue = [...targets];
-    const worker = async () => {
-      while (queue.length) {
-        const t = queue.shift()!;
-        const ok = await suggest(t.date, t.slot, true);
-        if (!ok) failed++;
-        setFill((f) => (f ? { ...f, done: f.done + 1 } : f));
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(3, targets.length) }, worker));
-    setFill(null);
-    if (failed) toast.error(`${failed} cell${failed === 1 ? "" : "s"} didn't fill — try again.`);
-    else toast.success("Week planned.");
+    try {
+      const res = await fetch("/api/nutrition/plan/fill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cells: targets, today }),
+      });
+      const job = (await res.json()) as FillStatus;
+      if (!res.ok && res.status !== 409) throw new Error();
+      setFill({ done: job.done, total: job.total });
+      toast.message("Planning the week in the background — you can leave this page.");
+    } catch {
+      toast.error("Couldn't start filling the week.");
+    }
   };
+
+  const refreshPlan = useCallback(async () => {
+    const p = await fetch(`/api/nutrition/plan?from=${days[0]}&to=${days[6]}`).catch(() => null);
+    if (!p?.ok) return;
+    const rows = (await p.json()) as PlannedMeal[];
+    setCells(new Map(rows.map((row) => [key(row.meal_date, row.slot), row])));
+  }, [days]);
+
+  // Pick up a run that was started earlier (another visit, another device).
+  useEffect(() => {
+    fetch("/api/nutrition/plan/fill")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((job: FillStatus | null) => {
+        if (job?.running) setFill({ done: job.done, total: job.total });
+      })
+      .catch(() => {});
+  }, []);
+
+  // While a run is going, poll its progress and pull in the cells it has filled.
+  const filling = fill !== null;
+  useEffect(() => {
+    if (!filling) return;
+    const id = setInterval(async () => {
+      const job = (await fetch("/api/nutrition/plan/fill")
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)) as FillStatus | null;
+      await refreshPlan();
+      if (job?.running) {
+        setFill({ done: job.done, total: job.total });
+        return;
+      }
+      setFill(null);
+      if (job?.failed) toast.error(`${job.failed} cell${job.failed === 1 ? "" : "s"} didn't fill — try again.`);
+      else toast.success("Week planned.");
+    }, 3000);
+    return () => clearInterval(id);
+  }, [filling, refreshPlan]);
 
   const sendGroceries = async () => {
     setSendingGroceries(true);

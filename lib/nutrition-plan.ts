@@ -221,3 +221,48 @@ export async function addPlanToGroceries(from: string, to: string) {
   }
   return { added, skipped, listId };
 }
+
+// ── background week fill ──────────────────────────────────────────────
+// "Fill week with Cael" runs on the server after the request returns, so the
+// page can be closed mid-run. Progress lives in one app_settings key the grid
+// polls; a run older than FILL_STALE_MS is treated as dead (the function was
+// cut off), so the button never stays stuck.
+
+const FILL_JOB_KEY = "meal_fill_job";
+const FILL_STALE_MS = 6 * 60 * 1000;
+
+export interface FillJob {
+  total: number;
+  done: number;
+  failed: number;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export async function getFillJob(): Promise<(FillJob & { running: boolean }) | null> {
+  const sql = getDb();
+  const [row] = await sql`SELECT value FROM app_settings WHERE key = ${FILL_JOB_KEY}`;
+  if (!row?.value) return null;
+  try {
+    const job = JSON.parse(String(row.value)) as FillJob;
+    const running = !job.finished_at && Date.now() - Date.parse(job.started_at) < FILL_STALE_MS;
+    return { ...job, running };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveFillJob(job: FillJob) {
+  const sql = getDb();
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at) VALUES (${FILL_JOB_KEY}, ${JSON.stringify(job)}, NOW())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+}
+
+/** True when the cell already has a meal, so a background fill leaves hand-set cells alone. */
+export async function hasPlannedMeal(date: string, slot: string): Promise<boolean> {
+  const sql = getDb();
+  const [row] = await sql`SELECT 1 FROM meal_recommendations WHERE meal_date = ${date} AND slot = ${slot}`;
+  return !!row;
+}

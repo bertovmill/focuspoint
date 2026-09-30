@@ -8738,3 +8738,9 @@ high score for each". Picked "trophy pill + 'to best'" over pill-only.
 
 Verified: typecheck; local dev — "to best" lines render, keystrokes popover
 shows 42,680 (Aug 31) / 40,738 today at #2; list_todos completes in chat.
+
+## 2026-09-30 — Favicon: green orb, and the tab icon actually loads now
+
+- `public/icon.svg` was not valid XML: one comment contained `--`, which comments can't have. Chrome rejected the file and showed the default globe in the tab. Fixed that.
+- Changed the icon to a plain green orb with no face (gradient #7fd9a0 → #3fae6c → #1f6b40). The dark tile, halo and gloss are unchanged.
+- Regenerated `public/apple-icon.png` with `node scripts/render-apple-icon.mjs`.

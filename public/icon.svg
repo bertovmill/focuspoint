@@ -7,21 +7,19 @@
       <stop offset="100%" stop-color="#080807"/>
     </linearGradient>
 
-    <!-- Cael's orb. Same top-left-to-bottom-right light as the in-app avatar,
-         recoloured from the old green to the terracotta primary:
-         primary token: dark oklch(0.68 0.13 40) -> light oklch(0.55 0.13 38). -->
+    <!-- Cael's orb: a plain green sphere, lit from the top left. -->
     <radialGradient id="orb" cx="0.34" cy="0.28" r="0.85">
-      <stop offset="0%" stop-color="#e8926f"/>
-      <stop offset="52%" stop-color="#db7a58"/>
-      <stop offset="100%" stop-color="#a94e31"/>
+      <stop offset="0%" stop-color="#7fd9a0"/>
+      <stop offset="52%" stop-color="#3fae6c"/>
+      <stop offset="100%" stop-color="#1f6b40"/>
     </radialGradient>
 
     <!-- Halo. A feathered radial, not stacked discs: two flat circles leave a
          visible step on a 512px render even at 7% opacity. -->
     <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0%" stop-color="#db7a58" stop-opacity="0.16"/>
-      <stop offset="62%" stop-color="#db7a58" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#db7a58" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#3fae6c" stop-opacity="0.16"/>
+      <stop offset="62%" stop-color="#3fae6c" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#3fae6c" stop-opacity="0"/>
     </radialGradient>
 
     <!-- Gloss across the top of the orb, feathered so it never shows an edge. -->
@@ -33,17 +31,9 @@
 
   <rect width="512" height="512" rx="108" fill="url(#tile)"/>
 
-  <!-- Warm halo: the orb sitting in its own light, the way the avatar glows in chat. -->
+  <!-- Soft halo: the orb sitting in its own light, the way the avatar glows in chat. -->
   <circle cx="256" cy="256" r="204" fill="url(#halo)"/>
 
   <circle cx="256" cy="256" r="140" fill="url(#orb)"/>
   <ellipse cx="222" cy="188" rx="86" ry="52" fill="url(#gloss)"/>
-
-  <!-- Face. Proportions carried over from public/cael-avatar.json so the icon and
-       the animated avatar are recognisably the same character. -->
-  <g fill="#fff5f0">
-    <circle cx="205" cy="235" r="24"/>
-    <circle cx="307" cy="235" r="24"/>
-  </g>
-  <path d="M215 300 Q256 337 297 300" stroke="#fff5f0" stroke-width="20" stroke-linecap="round" fill="none"/>
 </svg>

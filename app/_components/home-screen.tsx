@@ -15,8 +15,6 @@ import {
   ImageIcon,
   GaugeIcon,
   TelescopeIcon,
-  ThumbsUpIcon,
-  ThumbsDownIcon,
 } from "lucide-react";
 import {
   BarbellIcon,
@@ -29,20 +27,13 @@ import {
   UsersThreeIcon,
   type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { PinButton } from "@/app/_components/pin-button";
-import { WorkoutChart, type WorkoutLog } from "@/app/_components/workout-chart";
-import { TrainingLog } from "@/app/_components/training-log";
-import { DailyJournal } from "@/app/_components/daily-journal";
+import type { WorkoutLog } from "@/app/_components/workout-chart";
+import { TodaySnapshot } from "@/app/_components/today-snapshot";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
-import { CollapsibleSection } from "@/app/_components/collapsible-section";
-import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -77,27 +68,6 @@ interface GithubPr {
   id: number;
   repo: string;
   merged_at: string;
-}
-
-interface Meal {
-  id: number;
-  meal_date: string;
-  slot: string | null;
-  name: string;
-  description: string | null;
-  cuisine: string | null;
-  image_url: string | null;
-  feedback: "up" | "down" | null;
-}
-
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
 }
 
 const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hotkey: string }[] = [
@@ -168,7 +138,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [formGoals, setFormGoals] = useState<Record<string, { id: number; target: number; achieved: boolean }>>({});
   // Queue of forms whose goal was just crossed this session — shown one at a time as a full-screen celebration.
   const [celebrationQueue, setCelebrationQueue] = useState<{ label: string; targetLabel: string }[]>([]);
-  const [todayMeal, setTodayMeal] = useState<Meal | null | undefined>(undefined);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [readingLogs, setReadingLogs] = useState<ReadingLog[]>([]);
   const [githubPrs, setGithubPrs] = useState<GithubPr[]>([]);
@@ -180,32 +149,13 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [artFailed, setArtFailed] = useState(false);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
 
-  const handleMealFeedback = async (feedback: "up" | "down") => {
-    if (!todayMeal) return;
-    const prev = todayMeal;
-    const next = todayMeal.feedback === feedback ? null : feedback;
-    setTodayMeal({ ...todayMeal, feedback: next });
-    try {
-      const res = await fetch(`/api/meals/${todayMeal.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback: next }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setTodayMeal(prev);
-      toast.error("Couldn't save feedback.");
-    }
-  };
-
   useEffect(() => {
     (async () => {
       try {
-        const [goalRes, measuresRes, mealsRes, workoutsRes, readingRes, memoriesRes, communityRes, tripsRes, thanksRes, githubRes] =
+        const [goalRes, measuresRes, workoutsRes, readingRes, memoriesRes, communityRes, tripsRes, thanksRes, githubRes] =
           await Promise.all([
             fetch("/api/vision?kind=goal"),
             fetch("/api/measures?category=savings_snapshot&limit=400"),
-            fetch("/api/meals?limit=3"),
             fetch("/api/workouts"),
             fetch("/api/reading"),
             fetch("/api/memories?limit=500"),
@@ -231,15 +181,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           const rows: MeasureRow[] = await measuresRes.json();
           setSavingsHistory(rows);
         }
-        if (mealsRes.ok) {
-          const meals: Meal[] = await mealsRes.json();
-          // Three recommendations a day now — show whichever sitting is live.
-          const todays = meals.filter((m) => isToday(m.meal_date));
-          const slot = currentSlot();
-          setTodayMeal(todays.find((m) => m.slot === slot) ?? todays[0] ?? null);
-        } else {
-          setTodayMeal(null);
-        }
         if (workoutsRes.ok) setWorkoutLogs(await workoutsRes.json());
         if (readingRes.ok) setReadingLogs(await readingRes.json());
         if (githubRes.ok) setGithubPrs(await githubRes.json());
@@ -248,7 +189,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         if (tripsRes.ok) setTrips(await tripsRes.json());
         if (thanksRes.ok) setThankYous(await thanksRes.json());
       } catch {
-        setTodayMeal(null);
+        // leave the goal data empty
       }
     })();
   }, []);
@@ -444,83 +385,8 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             it's the one block that's actionable at 7am. */}
         <ScorecardCard />
 
-        {/* Today's meal — Mediterranean/Italian pick, informed by prior thumbs up/down */}
-        {todayMeal && (
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
-              {todayMeal.slot ? `Today's ${todayMeal.slot}` : "Today's meal"}
-            </p>
-            <Card className="overflow-hidden py-0 gap-0 rounded-xl shadow-none">
-              {todayMeal.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={todayMeal.image_url}
-                  alt={todayMeal.name}
-                  className="w-full aspect-[16/9] object-cover"
-                />
-              )}
-              <div className="px-5 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium leading-snug">{todayMeal.name}</p>
-                    {todayMeal.cuisine && (
-                      <Badge variant="outline" className="mt-1.5">
-                        {todayMeal.cuisine}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="icon"
-                      variant={todayMeal.feedback === "up" ? "default" : "outline"}
-                      aria-label="Liked it"
-                      onClick={() => handleMealFeedback("up")}
-                    >
-                      <ThumbsUpIcon className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant={todayMeal.feedback === "down" ? "default" : "outline"}
-                      aria-label="Not for me"
-                      onClick={() => handleMealFeedback("down")}
-                    >
-                      <ThumbsDownIcon className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-                {todayMeal.description && (
-                  <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                    {todayMeal.description}
-                  </p>
-                )}
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Training — the plain-text log of what was actually done each day, above the
-            numeric chart. The note says what happened; the chart says how much. */}
-        <CollapsibleSection id="training-log" title="Training log">
-          <TrainingLog />
-        </CollapsibleSection>
-
-        {/* Daily journal — 250 words of whatever is on his mind, right under the
-            training log. The word target lives in daily-journal.tsx. */}
-        <CollapsibleSection id="daily-journal" title="Daily journal">
-          <DailyJournal />
-        </CollapsibleSection>
-
-        {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
-        {workoutLogs.length > 0 && (
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
-              Training
-            </p>
-            <Card className="rounded-3xl px-5 py-5 shadow-none">
-              <WorkoutChart logs={workoutLogs} />
-            </Card>
-          </div>
-        )}
+        {/* What's on today — sessions from /training and the three sittings from /meals */}
+        <TodaySnapshot />
 
       </div>
 

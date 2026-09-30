@@ -8850,3 +8850,30 @@ paste of an image uploaded a webp and inserted it; cover upload via the file
 input set cover_url; phone width — toolbar fits one row. Not clicked: Publish
 (would go live) and "Work on this with Cael" (would post into his real chat).
 Known: last write wins if Cael and the editor change the same post at once.
+
+## 2026-09-30 — Home: "today" snapshot for training and meals
+
+Berto: remove Training log, Daily journal and the Training chart from the home
+dashboard and replace them with widgets from the Training and Meals pages, so home
+is a quick look at what's on today.
+
+- New `app/_components/today-snapshot.tsx`: two cards side by side (stacked on phone),
+  each heading links to its page.
+  - **Today's training**: today's sessions from `/api/training/sessions` (type,
+    title, target km/min), with the same done checkbox as /training. Strava
+    activities not matched to a session show as chips. The next race countdown sits at
+    the bottom.
+  - **Today's meals**: lunch / snack / dinner from `/api/nutrition/plan?date=` with
+    thumbnails, the sitting that's live right now marked "now", and the protein ring.
+    Unplanned sittings say "Not planned".
+- `home-screen.tsx`: removed the Training log, Daily journal and WorkoutChart
+  sections, plus the single "Today's meal" card (with its thumbs up/down), because the
+  meals widget covers it. `/api/workouts` is still fetched because goal celebrations use it.
+  The TrainingLog / DailyJournal / WorkoutChart components are still in the repo and
+  can be put back anywhere.
+- Both widgets send the client's local date, because the server's "today" is UTC.
+
+Verified in local dev: training shows today's Speed session and "Hyrox · 2 days"; the
+Training link goes to /training; meals are empty in real data (nothing planned since Sep 13),
+so the populated state was checked by pointing the fetch at Sep 13 in the browser.
+Checked at phone width too.

@@ -12,7 +12,6 @@ import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
 import { NEW_CHAT_EVENT } from "@/app/_components/new-chat-event";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
-import { FloatingChatBar } from "@/app/_components/floating-chat-bar";
 import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { WeekPlanPanel } from "@/app/_components/week-plan-panel";
 import { TrainingPlanPanel } from "@/app/_components/training-plan-panel";
@@ -539,11 +538,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           </DrawerContent>
         </Drawer>}
       </Tabbar>
-
-      {/* Ever-present line to Cael — floats over every section except the chat
-          page, which has its own composer. Sending rides the same path as
-          "Run now": fresh thread, message on its way, chat page open. */}
-      {mobileTab !== "chat" && <FloatingChatBar onSend={handleRunJobWithChat} />}
 
       {/* Section pages render nothing — the shell above owns the UI. */}
       {children}

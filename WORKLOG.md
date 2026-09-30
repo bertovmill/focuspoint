@@ -8782,3 +8782,9 @@ edit was rejected with nothing saved); preview page renders cover + inline image
 with the draft banner; same URL without the token 404s; index shows Substack +
 both migrated posts in date order. The test draft `tool-test-a-company-harness`
 is still in the table as a private draft.
+
+## 2026-09-30 — Favicon: Phosphor planet
+
+- Replaced the green orb with Phosphor's "Planet" icon (fill weight), in white on a green gradient tile (#4cc07e → #1f6b40). Picked from a side-by-side sheet of 10 Phosphor icons.
+- The icon's shape is copied into `public/icon.svg` from `@phosphor-icons/react`, which is already installed.
+- Simplified `scripts/render-apple-icon.mjs` (it no longer rescales the old halo) and regenerated `public/apple-icon.png`.

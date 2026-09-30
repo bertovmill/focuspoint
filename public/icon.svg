@@ -1,39 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Tile: the app's dark-mode card colour, not pure black, so the icon still
-         reads as a tile against a black home screen or a dark browser tab. -->
+    <!-- Green tile, lit from the top left. -->
     <linearGradient id="tile" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#14100f"/>
-      <stop offset="100%" stop-color="#080807"/>
-    </linearGradient>
-
-    <!-- Cael's orb: a plain green sphere, lit from the top left. -->
-    <radialGradient id="orb" cx="0.34" cy="0.28" r="0.85">
-      <stop offset="0%" stop-color="#7fd9a0"/>
-      <stop offset="52%" stop-color="#3fae6c"/>
+      <stop offset="0%" stop-color="#4cc07e"/>
       <stop offset="100%" stop-color="#1f6b40"/>
-    </radialGradient>
-
-    <!-- Halo. A feathered radial, not stacked discs: two flat circles leave a
-         visible step on a 512px render even at 7% opacity. -->
-    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0%" stop-color="#3fae6c" stop-opacity="0.16"/>
-      <stop offset="62%" stop-color="#3fae6c" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#3fae6c" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Gloss across the top of the orb, feathered so it never shows an edge. -->
-    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.34"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
   <rect width="512" height="512" rx="108" fill="url(#tile)"/>
 
-  <!-- Soft halo: the orb sitting in its own light, the way the avatar glows in chat. -->
-  <circle cx="256" cy="256" r="204" fill="url(#halo)"/>
-
-  <circle cx="256" cy="256" r="140" fill="url(#orb)"/>
-  <ellipse cx="222" cy="188" rx="86" ry="52" fill="url(#gloss)"/>
+  <!-- Phosphor "Planet", fill weight (MIT), drawn on its 256 grid and scaled to
+       fill the middle 320px of the tile. -->
+  <g transform="translate(96 96) scale(1.25)">
+    <path fill="#ffffff" d="M245.11,60.68c-7.65-13.19-27.85-16.16-58.5-8.66A96,96,0,0,0,32.81,140.3C5.09,169,5.49,186,10.9,195.32,16,204.16,26.64,208,40.64,208a124.11,124.11,0,0,0,28.79-4,96,96,0,0,0,153.78-88.25c12.51-13,20.83-25.35,23.66-35.92C248.83,72.51,248.24,66.07,245.11,60.68Zm-13.69,15c-6.11,22.78-48.65,57.31-87.52,79.64-67.81,39-113.62,41.52-119.16,32-1.46-2.51-.65-7.24,2.22-13a80.06,80.06,0,0,1,10.28-15.05,95.53,95.53,0,0,0,6.23,14.18,4,4,0,0,0,4,2.12,122.14,122.14,0,0,0,16.95-3.32c21.23-5.55,46.63-16.48,71.52-30.78s47-30.66,62.45-46.15A122.74,122.74,0,0,0,209.7,82.45a4,4,0,0,0,.17-4.52,96.26,96.26,0,0,0-9.1-12.46c14.21-2.35,27.37-2.17,30.5,3.24C232.19,70.28,232.24,72.63,231.42,75.69Z"/>
+  </g>
 </svg>

@@ -192,7 +192,7 @@ function UserMessage({
         </Attachments>
       ) : null}
       {text ? (
-        <MessageContent className="whitespace-pre-wrap text-base leading-relaxed">
+        <MessageContent className="whitespace-pre-wrap text-[17px] leading-relaxed">
           {text}
         </MessageContent>
       ) : null}
@@ -233,7 +233,7 @@ function AssistantMessage({
               return part.text ? (
                 <MessageResponse
                   key={`${message.id}-${i}`}
-                  className="text-base leading-relaxed"
+                  className="text-[17px] leading-relaxed"
                 >
                   {part.text}
                 </MessageResponse>

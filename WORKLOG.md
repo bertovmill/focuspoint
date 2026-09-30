@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-09-30 — Training weeks drafted live by a coach subagent
+
+"Draft this week" on /training no longer makes one `generateObject` call that
+wipes the week and inserts a blob. It hands the week to a new eve subagent,
+`agent/subagents/training_coach`, which reads a brief (`get_week_brief` →
+`weekDraftContext()` in `lib/training.ts`: goal, written plan, weekly routine,
+races, Strava load, notes, and the week's existing sessions with ids), posts the
+week's shape as a `task_update`, then walks Monday→Sunday one
+`set_training_session` call per step: keeping, refining, moving, deleting or
+adding sessions. Done (✓) sessions are never touched. Nothing is wiped, so the
+replace-confirm dialog is gone.
+
+The button (`app/_components/training-coach-stream.ts`) opens an eve session with
+a `[draft-training-week]` message; root instructions route that straight to
+`training_coach`. Declared subagents run as background tasks, so the first turn
+only returns a task receipt. `subagent.called` (with `childSessionId`) arrives
+after that turn settles, so the client keeps following the root stream, then
+attaches to the child stream. Each `set_training_session` request highlights the
+day and updates a status line, and each result re-reads the grid. The coach's
+final sentence shows as the toast. Chat can reach the same coach ("redraft
+Thursday, I'm travelling").
+
+Removed: `app/api/training/draft` and `draftWeek()`. Verified against dev eve on
+the Oct 5 week: ~5s per day, 45s total, edits in place with no duplicates.
+
+---
+
 ## 2026-09-29 — Wall on Writing; AI Coaching case study
 
 /writing's header now sits on the lit concrete wall (`sketches={false}`), like

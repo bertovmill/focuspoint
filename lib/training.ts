@@ -1,9 +1,6 @@
 // The training plan on /training: session types, the week's rows, Strava sync
 // with auto-matching, and the weekly draft Cael writes. Date helpers are shared
 // with the meal plan (lib/nutrition.ts) so both grids run Monday to Sunday.
-import { generateObject } from "ai";
-import { z } from "zod";
-
 import { getDb } from "./db";
 import { addDaysISO, num, todayISO } from "./nutrition";
 import { fetchStravaActivities, isStravaConnected, type StravaActivity } from "./strava";
@@ -308,38 +305,27 @@ export async function matchActivities(from: string, to: string) {
 }
 
 // ── the weekly draft ──────────────────────────────────────────────────────
-
-const TEXT_MODEL = "anthropic/claude-sonnet-4.6";
-
-const DraftSession = z.object({
-  day: z.number().int().min(0).max(6).describe("0 = Monday … 6 = Sunday"),
-  type: z.enum(["long_run", "intervals", "easy", "hyrox", "strength", "rest"]),
-  title: z.string().describe("Short session name, e.g. '18k steady' or 'Hyrox sim: 8 stations'"),
-  target_km: z.number().nullable().describe("Distance target in km for runs, else null"),
-  target_minutes: z.number().int().nullable().describe("Planned duration in minutes"),
-  intensity: z.enum(["easy", "moderate", "hard"]),
-  notes: z.string().describe("One or two lines: the point of the session and how to run it"),
-});
-const DraftWeek = z.object({
-  summary: z.string().describe("One sentence on what this week is for in the build"),
-  sessions: z.array(DraftSession).min(5).max(9),
-});
+// The week isn't written in one shot any more: the training_coach subagent
+// (agent/subagents/training_coach) reads this brief, then adds, edits and
+// removes sessions one call at a time so /training fills in live.
 
 /**
- * Writes a week of sessions for the Monday at `weekStart`, replacing any undone
- * sessions already there. Sessions already ticked (or matched from Strava) stay.
+ * Everything the coach needs to write the week starting Monday `weekStart`:
+ * the goal, the written plan, races, recent load from Strava, recent notes, his
+ * weekly routine, and the sessions already on the week (with ids to edit).
  */
-export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
+export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
   const to = addDaysISO(weekStart, 6);
   const sql = getDb();
-  const [events, recentSessions, recentActivities, notes, kept, doc, goal] = await Promise.all([
+  const [events, recentSessions, recentActivities, notes, week, doc, goal, routines] = await Promise.all([
     getEvents(),
     getSessions(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     getActivities(addDaysISO(weekStart, -28), addDaysISO(weekStart, -1)),
     sql`SELECT to_char(logged_date, 'YYYY-MM-DD') AS d, note FROM workout_notes ORDER BY logged_date DESC LIMIT 10`,
-    getSessions(weekStart, to).then((s) => s.filter((x) => x.done)),
+    getSessions(weekStart, to),
     getPlanDoc(),
     getGoal(),
+    sql`SELECT title, content FROM vision_items WHERE kind = 'routine' ORDER BY created_at ASC`,
   ]);
   const weekly = new Map<string, { km: number; n: number; effort: number }>();
   for (const a of recentActivities) {
@@ -351,14 +337,18 @@ export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
     cur.effort += a.relative_effort ?? 0;
     weekly.set(wk, cur);
   }
+  const dayName = (iso: string) => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][daysBetween(weekStart, iso)];
   const upcoming = events.filter((e) => e.event_date >= weekStart);
-  const context = [
+  return [
     `WEEK: Monday ${weekStart} to Sunday ${to}. Today is ${todayISO()}.`,
     `HIS GOAL: ${goal}`,
     `TARGET: ${sessionsPerWeek} sessions and ${7 - sessionsPerWeek} rest day(s). Mix long runs, Hyrox/hybrid work and strength. He runs close to 20k when he runs long and does full Hyrox simulations.`,
     "",
     ...(doc.content.trim()
       ? ["HIS WRITTEN TRAINING PLAN (follow its structure and any week-specific instructions; this outranks the defaults above):", doc.content.trim().slice(0, 6000), ""]
+      : []),
+    ...(routines.length
+      ? ["HIS WEEKLY ROUTINE (the shape of his days; fit sessions to it):", ...routines.map((r) => `${r.title}:\n${String(r.content).trim()}`), ""]
       : []),
     upcoming.length
       ? "RACES AHEAD:\n" + upcoming.map((e) => `- ${e.name} on ${e.event_date} (${daysBetween(weekStart, e.event_date)} days after this Monday)${e.notes ? ` — ${e.notes}` : ""}`).join("\n")
@@ -373,42 +363,12 @@ export async function draftWeek(weekStart: string, sessionsPerWeek = 6) {
       ? "RECENTLY PLANNED (✓ = done):\n" + recentSessions.map((s) => `- ${s.session_date} ${s.type} ${s.title}${s.done ? " ✓" : ""}${s.actual_km ? ` ${s.actual_km}km` : ""}`).join("\n")
       : "Nothing planned in the last four weeks.",
     "",
-    kept.length ? "ALREADY DONE THIS WEEK (keep the plan consistent with these):\n" + kept.map((s) => `- ${s.session_date} ${s.type} ${s.title}`).join("\n") : "",
+    week.length
+      ? "ALREADY ON THIS WEEK (✓ = done, never touch those; the rest you may keep, edit, move or delete by id):\n" +
+        week.map((s) => `- id ${s.id} · ${dayName(s.session_date)} ${s.session_date} · ${s.type} "${s.title}"${s.target_km ? ` ${s.target_km}km` : ""}${s.target_minutes ? ` ${s.target_minutes}min` : ""}${s.intensity ? ` ${s.intensity}` : ""}${s.done ? " ✓ done" : ""}${s.notes ? ` — ${s.notes}` : ""}`).join("\n")
+      : "THIS WEEK IS EMPTY.",
     notes.length ? "\nHIS RECENT TRAINING NOTES:\n" + notes.map((n) => `- ${n.d}: ${String(n.note).replace(/\s+/g, " ").slice(0, 240)}`).join("\n") : "",
   ].join("\n");
-
-  const { object } = await generateObject({
-    model: TEXT_MODEL,
-    schema: DraftWeek,
-    prompt: [
-      "You are the coach writing next week's training for Berto: a hybrid athlete (long runs near 20k, full Hyrox",
-      "simulations, heavy compound lifts) who trains hard nearly six days a week. Write one week. Progress volume",
-      "sensibly week over week, put a rest day after the hardest day, never stack two hard runs back to back,",
-      "and keep strength off the day before a long run. Be specific about targets. Use exactly one rest session on a rest day.",
-      "",
-      context,
-    ].join("\n"),
-  });
-
-  await clearWeek(weekStart, to, true);
-  const keptDays = new Set(kept.map((s) => s.session_date));
-  const saved: TrainingSession[] = [];
-  for (const s of object.sessions) {
-    const date = addDaysISO(weekStart, s.day);
-    if (keptDays.has(date) && s.type === "rest") continue;
-    saved.push(
-      await saveSession({
-        session_date: date,
-        type: s.type,
-        title: s.title,
-        target_km: s.target_km,
-        target_minutes: s.target_minutes,
-        intensity: s.intensity,
-        notes: s.notes,
-      }),
-    );
-  }
-  return { summary: object.summary, sessions: saved };
 }
 
 function daysBetween(a: string, b: string) {

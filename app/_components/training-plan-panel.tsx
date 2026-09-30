@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { SessionEditor, type SessionDraft } from "@/app/_components/session-editor";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
+import { draftWeekWithCoach } from "@/app/_components/training-coach-stream";
 import type { StravaActivity } from "@/lib/strava";
 import { daysUntil, sessionMeta, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
@@ -49,6 +50,8 @@ export function TrainingPlanPanel() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [coachStatus, setCoachStatus] = useState<string | null>(null);
+  const [coachDay, setCoachDay] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editor, setEditor] = useState<{ date: string } | TrainingSession | null>(null);
   const [editingEvent, setEditingEvent] = useState<number | "new" | null>(null);
@@ -175,24 +178,25 @@ export function TrainingPlanPanel() {
     }
   };
 
+  // The coach works the week session by session; each write re-reads the grid
+  // so cards appear, change and disappear while it goes. Undone sessions are
+  // edited in place rather than wiped, so there's nothing to confirm first.
   const draft = async () => {
-    const undone = sessions.filter((s) => !s.done).length;
-    if (undone > 0 && !window.confirm(`Replace the ${undone} unfinished session${undone === 1 ? "" : "s"} this week with a fresh draft?`)) return;
     setDrafting(true);
     try {
-      const res = await fetch("/api/training/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ week_start: weekStart, sessions_per_week: SESSIONS_PER_WEEK }),
+      const summary = await draftWeekWithCoach(weekStart, SESSIONS_PER_WEEK, {
+        onStatus: setCoachStatus,
+        onWriting: setCoachDay,
+        onWrote: () => void load(),
       });
-      if (!res.ok) throw new Error();
-      const r = (await res.json()) as { summary: string };
-      toast.success(r.summary, { duration: 8000 });
       await load();
-    } catch {
-      toast.error("Couldn't draft the week — the model may be busy.");
+      if (summary) toast.success(summary, { duration: 8000 });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't draft the week.");
     } finally {
       setDrafting(false);
+      setCoachStatus(null);
+      setCoachDay(null);
     }
   };
 
@@ -382,6 +386,13 @@ export function TrainingPlanPanel() {
         </div>
       </div>
 
+      {drafting && coachStatus && (
+        <p className="flex items-center gap-2 text-base text-muted-foreground" aria-live="polite">
+          <SparklesIcon className="size-4 shrink-0 animate-pulse text-foreground" />
+          {coachStatus}
+        </p>
+      )}
+
       {/* Week — stacked rows on phones, columns on wide screens */}
       <section className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
@@ -391,7 +402,7 @@ export function TrainingPlanPanel() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <div key={d} className={cn("flex flex-col rounded-xl border", isToday && "border-foreground/40", race && "border-rose-500/60")}>
+            <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60", drafting && coachDay === d && "ring-2 ring-primary/60")}>
               <div className={cn("flex items-center justify-between border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
                 <button type="button" onClick={() => setEditor({ date: d })} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>

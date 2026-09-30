@@ -41,6 +41,7 @@ import { DailyJournal } from "@/app/_components/daily-journal";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
+import { CollapsibleSection } from "@/app/_components/collapsible-section";
 import { currentSlot } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -499,16 +500,15 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
         {/* Training — the plain-text log of what was actually done each day, above the
             numeric chart. The note says what happened; the chart says how much. */}
-        <div className="mb-6">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
-            Training log
-          </p>
+        <CollapsibleSection id="training-log" title="Training log">
           <TrainingLog />
-        </div>
+        </CollapsibleSection>
 
         {/* Daily journal — 250 words of whatever is on his mind, right under the
             training log. The word target lives in daily-journal.tsx. */}
-        <DailyJournal />
+        <CollapsibleSection id="daily-journal" title="Daily journal">
+          <DailyJournal />
+        </CollapsibleSection>
 
         {/* Training — 5 standard workouts, indexed to % change from the first logged number */}
         {workoutLogs.length > 0 && (

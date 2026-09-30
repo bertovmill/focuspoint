@@ -233,10 +233,7 @@ export function DailyJournal() {
   const progress = Math.min(1, words / JOURNAL_WORD_GOAL);
 
   return (
-    <div className="mb-6">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
-        Daily journal
-      </p>
+    <div>
       <Card className="rounded-3xl px-5 py-5 shadow-none gap-0">
         <div className="flex items-center gap-1 border-b pb-2.5 mb-3">
           <Button

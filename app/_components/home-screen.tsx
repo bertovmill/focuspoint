@@ -115,27 +115,34 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
 ];
 
 /**
- * Daily artwork — one piece of "what it's all for" per day, rotating by day of year.
- * All images hand-verified Unsplash photos (hotlinking per Unsplash guidelines).
- * `place` (optional) is a Google Maps query — set it only for captions that name a
- * verifiable real location; those captions render as a maps link on the hero.
+ * Daily hero — one of humanity's triumphant moments per day, rotating by day of year.
+ * Images are public-domain / freely licensed Wikimedia Commons files (URLs verified);
+ * `wiki` is the English Wikipedia article the caption links to.
  */
-const DAILY_ART: { url: string; caption: string; place?: string }[] = [
-  { url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&fm=jpg", caption: "Peaks above the clouds" },
-  { url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1600&q=80&fm=jpg", caption: "Golden hour with good people" },
-  { url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80&fm=jpg", caption: "Dinner done right" },
-  { url: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=1600&q=80&fm=jpg", caption: "Lost in the dance" },
-  { url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80&fm=jpg", caption: "Lago di Braies, Dolomites", place: "Lago di Braies, Braies, Italy" },
-  { url: "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=1600&q=80&fm=jpg", caption: "The peloton rolls" },
-  { url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80&fm=jpg", caption: "Ocean morning" },
-  { url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1600&q=80&fm=jpg", caption: "Shoulder to shoulder" },
-  { url: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=1600&q=80&fm=jpg", caption: "Butterfly, full flight" },
-  { url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&q=80&fm=jpg", caption: "A sky full of stars" },
-  { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1600&q=80&fm=jpg", caption: "A table waiting for friends" },
-  { url: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1600&q=80&fm=jpg", caption: "On your marks" },
-  { url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1600&q=80&fm=jpg", caption: "Out on the water" },
-  { url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=1600&q=80&fm=jpg", caption: "Confetti night" },
-  { url: "https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=1600&q=80&fm=jpg", caption: "Still water, clear head" },
+const WM = "https://upload.wikimedia.org/wikipedia/commons/";
+const DAILY_ART: { url: string; moment: string; year: string; wiki: string }[] = [
+  { url: `${WM}thumb/4/41/A_Man_on_the_Moon%2C_AS11-40-5903_%28cropped%29.jpg/1920px-A_Man_on_the_Moon%2C_AS11-40-5903_%28cropped%29.jpg`, moment: "Humans walk on the Moon", year: "1969", wiki: "Apollo_11" },
+  { url: `${WM}e/e7/Great_Pyramid_of_Giza_-_Pyramid_of_Khufu.jpg`, moment: "The Great Pyramid rises at Giza", year: "c. 2560 BC", wiki: "Great_Pyramid_of_Giza" },
+  { url: `${WM}thumb/8/86/First_flight2.jpg/1920px-First_flight2.jpg`, moment: "The Wright brothers fly at Kitty Hawk", year: "1903", wiki: "Wright_Flyer" },
+  { url: `${WM}thumb/e/ee/Magna_Carta_%28British_Library_Cotton_MS_Augustus_II.106%29.jpg/1920px-Magna_Carta_%28British_Library_Cotton_MS_Augustus_II.106%29.jpg`, moment: "Magna Carta is sealed at Runnymede", year: "1215", wiki: "Magna_Carta" },
+  { url: `${WM}thumb/a/a8/NASA-Apollo8-Dec24-Earthrise.jpg/1920px-NASA-Apollo8-Dec24-Earthrise.jpg`, moment: "Earthrise, seen from lunar orbit", year: "1968", wiki: "Earthrise" },
+  { url: `${WM}3/3c/Stonehenge2007_07_30.jpg`, moment: "Stonehenge's great sarsens are raised", year: "c. 2500 BC", wiki: "Stonehenge" },
+  { url: `${WM}b/b6/Gutenberg_Bible%2C_Lenox_Copy%2C_New_York_Public_Library%2C_2009._Pic_01.jpg`, moment: "Gutenberg prints the Bible", year: "c. 1455", wiki: "Gutenberg_Bible" },
+  { url: `${WM}thumb/5/5f/Spirit_Of_St_Louis2.jpg/1920px-Spirit_Of_St_Louis2.jpg`, moment: "Lindbergh flies the Atlantic solo", year: "1927", wiki: "Spirit_of_St._Louis" },
+  { url: `${WM}d/da/The_Parthenon_in_Athens.jpg`, moment: "The Parthenon is completed", year: "432 BC", wiki: "Parthenon" },
+  { url: `${WM}thumb/1/1d/Sistine_Chapel_ceiling_02_%28brightened%29.jpg/1920px-Sistine_Chapel_ceiling_02_%28brightened%29.jpg`, moment: "Michelangelo finishes the Sistine ceiling", year: "1512", wiki: "Sistine_Chapel_ceiling" },
+  { url: `${WM}thumb/f/f3/Curiosity_Self-Portrait_at_%27Big_Sky%27_Drilling_Site.jpg/1920px-Curiosity_Self-Portrait_at_%27Big_Sky%27_Drilling_Site.jpg`, moment: "Curiosity lands on Mars", year: "2012", wiki: "Curiosity_(rover)" },
+  { url: `${WM}thumb/d/de/Colosseo_2020.jpg/1920px-Colosseo_2020.jpg`, moment: "The Colosseum opens in Rome", year: "AD 80", wiki: "Colosseum" },
+  { url: `${WM}thumb/5/5d/East_and_West_Shaking_hands_at_the_laying_of_last_rail_Union_Pacific_Railroad_-_Restoration.jpg/1920px-East_and_West_Shaking_hands_at_the_laying_of_last_rail_Union_Pacific_Railroad_-_Restoration.jpg`, moment: "The golden spike joins a continent", year: "1869", wiki: "First_transcontinental_railroad" },
+  { url: `${WM}thumb/c/c7/Cattedrale_di_Santa_Maria_del_Fiore_%E2%80%93_Il_Duomo_di_Firenze.jpg/1920px-Cattedrale_di_Santa_Maria_del_Fiore_%E2%80%93_Il_Duomo_di_Firenze.jpg`, moment: "Brunelleschi's dome crowns Florence", year: "1436", wiki: "Florence_Cathedral" },
+  { url: `${WM}thumb/a/a6/Endurance_under_full_sail_Frank_Hurley_State_Library_NSW_a090012h.jpg/1920px-Endurance_under_full_sail_Frank_Hurley_State_Library_NSW_a090012h.jpg`, moment: "Shackleton brings all 28 men home", year: "1916", wiki: "Imperial_Trans-Antarctic_Expedition" },
+  { url: `${WM}4/4a/Hagia_Sophia_%28228968325%29.jpeg`, moment: "Hagia Sophia is completed", year: "537", wiki: "Hagia_Sophia" },
+  { url: `${WM}thumb/2/23/Rosetta_Stone.JPG/1920px-Rosetta_Stone.JPG`, moment: "Champollion cracks the Rosetta Stone", year: "1822", wiki: "Rosetta_Stone" },
+  { url: `${WM}thumb/4/4a/Hubble_2009_close-up_2.jpg/1920px-Hubble_2009_close-up_2.jpg`, moment: "Hubble opens its eye on the universe", year: "1990", wiki: "Hubble_Space_Telescope" },
+  { url: `${WM}thumb/f/f0/Brooklyn_Bridge_and_the_Lower_Manhattan_skyline_from_Pebble_Beach%2C_New_York.jpg/1920px-Brooklyn_Bridge_and_the_Lower_Manhattan_skyline_from_Pebble_Beach%2C_New_York.jpg`, moment: "The Brooklyn Bridge opens", year: "1883", wiki: "Brooklyn_Bridge" },
+  { url: `${WM}4/41/Angkor_Wat.jpg`, moment: "Angkor Wat is completed", year: "c. 1150", wiki: "Angkor_Wat" },
+  { url: `${WM}thumb/b/bf/Golden_Gate_Bridge_as_seen_from_Battery_East.jpg/1920px-Golden_Gate_Bridge_as_seen_from_Battery_East.jpg`, moment: "The Golden Gate Bridge opens", year: "1937", wiki: "Golden_Gate_Bridge" },
+  { url: `${WM}c/c8/2017_Aerial_view_Hoover_Dam_4774.jpg`, moment: "Hoover Dam holds back the Colorado", year: "1936", wiki: "Hoover_Dam" },
 ];
 
 function dayOfYear(d: Date): number {
@@ -403,7 +410,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={art.url}
-            alt={art.caption}
+            alt={`${art.moment}, ${art.year}`}
             onError={() => setArtFailed(true)}
             className="w-full h-52 sm:h-72 lg:h-80 object-cover"
           />
@@ -413,20 +420,16 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             {header(true)}
           </div>
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-6 pb-3 text-xs font-medium text-white/95">
-            {art.place ? (
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(art.place)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 hover:text-white hover:underline underline-offset-2"
-                title={`Open ${art.place} in Google Maps`}
-              >
-                {art.caption}
-                <ArrowUpRightIcon className="size-3 opacity-80" />
-              </a>
-            ) : (
-              art.caption
-            )}
+            <a
+              href={`https://en.wikipedia.org/wiki/${art.wiki}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-white hover:underline underline-offset-2"
+              title="Read about it on Wikipedia"
+            >
+              {art.moment} · {art.year}
+              <ArrowUpRightIcon className="size-3 opacity-80" />
+            </a>
           </div>
         </div>
       )}

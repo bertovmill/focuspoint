@@ -596,6 +596,18 @@
   color: var(--primary);
   cursor: pointer;
 }
+.notion-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.2em 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.notion-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 /* Placeholders: on the line you're on (only while typing), and on an empty page. */
 .notion-prose.ProseMirror-focused :is(p, h1, h2, h3, summary).is-empty::before,
 .notion-prose :is(p, h1, h2, h3).is-editor-empty:first-child::before,

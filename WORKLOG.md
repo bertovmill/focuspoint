@@ -8815,3 +8815,38 @@ is still in the table as a private draft.
 - Replaced the green orb with Phosphor's "Planet" icon (fill weight), in white on a green gradient tile (#4cc07e → #1f6b40). Picked from a side-by-side sheet of 10 Phosphor icons.
 - The icon's shape is copied into `public/icon.svg` from `@phosphor-icons/react`, which is already installed.
 - Simplified `scripts/render-apple-icon.mjs` (it no longer rescales the old halo) and regenerated `public/apple-icon.png`.
+
+## 2026-09-30 — Writing tab in the sidebar: manage and edit articles in Cael
+
+Berto: "maybe blog management and everything should be on the sidebar right?"
+Picked (asked): **full editor** over manage-only, placed **after Notes**.
+
+- `app/_components/writing-panel.tsx` + `app/(app)/writing/page.tsx`, wired into
+  `app/(app)/layout.tsx` (rail + phone bar). `/writing` lists drafts and
+  published posts with cover thumbs; `/writing?post=<slug>` opens the editor:
+  cover upload/replace/remove + alt text, title, summary, tags, and the body in
+  the Notion editor. Autosaves (900ms, sendBeacon on leave). Publish/Unpublish
+  behind a confirm dialog; Preview / View live; "Work on this with Cael" flushes
+  and starts a chat that reads the post with get_post. A never-published draft's
+  slug follows its title (so "Untitled" isn't permanent); once published it's fixed.
+- Photos are downscaled in the browser (≤2000px webp) before `/api/upload`,
+  which sits behind Vercel's ~4.5 MB body limit — phone photos would 413.
+- `app/api/posts` (GET list, POST new draft) and `app/api/posts/[id]` (GET,
+  PATCH any field incl. status; POST alias for sendBeacon). `lib/posts.ts` gains
+  `getPostById`.
+- `app/_components/notion-editor.tsx`: `@tiptap/extension-image` (installed with
+  --legacy-peer-deps because of excalidraw's React 18 peer). Every editor now
+  keeps `![](url)` through a round trip (before, the editor had no image node and
+  would have silently dropped them). With an `uploadImage` prop: "/image",
+  paste and drop upload and insert. Images serialize as their own block —
+  tiptap-markdown writes them inline, which glued the next paragraph onto the
+  image line; `BlockImage` closes the block.
+- `agent/instructions.md`: Cael knows about the tab and to re-read before editing.
+
+Verified in local dev against the live DB (on the private test draft only):
+list renders; editor shows cover + inline image; body edit autosaved with the
+image intact on its own line; renaming the title moved the slug and the URL;
+paste of an image uploaded a webp and inserted it; cover upload via the file
+input set cover_url; phone width — toolbar fits one row. Not clicked: Publish
+(would go live) and "Work on this with Cael" (would post into his real chat).
+Known: last write wins if Cael and the editor change the same post at once.

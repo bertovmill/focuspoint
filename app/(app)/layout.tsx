@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon } from "lucide-react";
 import { AgentChat } from "@/app/_components/agent-chat";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
@@ -16,6 +16,7 @@ import { NewsletterPanel } from "@/app/_components/newsletter-panel";
 import { WeekPlanPanel } from "@/app/_components/week-plan-panel";
 import { TrainingPlanPanel } from "@/app/_components/training-plan-panel";
 import { CareerPanel } from "@/app/_components/career-panel";
+import { WritingPanel } from "@/app/_components/writing-panel";
 import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { KonstaApp } from "@/app/_components/konsta-app";
@@ -35,7 +36,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -61,13 +62,14 @@ const TAB_PATHS: Record<MobileTab, string> = {
   meals: "/meals",
   training: "/training",
   career: "/career",
+  writing: "/writing",
 };
 
 const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat, Notes, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27). Every other
+// The nav shows only Home, Chat, Notes, Writing, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more, so there is no "More" menu on the phone.
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [];
@@ -82,6 +84,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "home", label: "Home", icon: HomeIcon },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
   { tab: "notes", label: "Notes", icon: FileTextIcon },
+  { tab: "writing", label: "Writing", icon: PenLineIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "training", label: "Training", icon: DumbbellIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
@@ -97,6 +100,7 @@ const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
   { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-yellow-600 dark:text-yellow-400", pill: "bg-yellow-500/15" } },
+  { tab: "writing", label: "Writing", icon: PenLineIcon, color: { text: "text-orange-600 dark:text-orange-400", pill: "bg-orange-500/15" } },
   { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
   { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-rose-600 dark:text-rose-400", pill: "bg-rose-500/15" } },
   { tab: "meals", label: "Meals", icon: UtensilsIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },
@@ -408,6 +412,8 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <TrainingPlanPanel />
             </div>
+          ) : mobileTab === "writing" ? (
+            <WritingPanel onWorkWithCael={handleRunJobWithChat} />
           ) : mobileTab === "career" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <CareerPanel />

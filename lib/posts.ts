@@ -97,6 +97,11 @@ export async function listAllPosts(): Promise<Post[]> {
   return rows.map(toPost);
 }
 
+export async function getPostById(id: number): Promise<Post | null> {
+  const [row] = await getDb()`SELECT * FROM posts WHERE id = ${id}`;
+  return row ? toPost(row) : null;
+}
+
 export async function getPost(slug: string): Promise<Post | null> {
   const [row] = await getDb()`SELECT * FROM posts WHERE slug = ${slug}`;
   return row ? toPost(row) : null;

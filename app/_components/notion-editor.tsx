@@ -11,6 +11,7 @@ import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
+import { Image } from "@tiptap/extension-image";
 import { Markdown } from "tiptap-markdown";
 import {
   BoldIcon,
@@ -20,6 +21,7 @@ import {
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
+  ImageIcon,
   ItalicIcon,
   LinkIcon,
   ListChecksIcon,
@@ -38,6 +40,81 @@ import { cn } from "@/lib/utils";
 /** tiptap-markdown hangs its serializer off editor.storage without typing it. */
 function toMarkdown(editor: Editor): string {
   return (editor.storage as unknown as { markdown: { getMarkdown(): string } }).markdown.getMarkdown();
+}
+
+// ── images ─────────────────────────────────────────────────────────────────
+
+/**
+ * Images are blocks here (their own line in the article), but tiptap-markdown
+ * serializes them the inline way, so the next paragraph got glued onto the end
+ * of the `![](url)` line. Close the block after writing it.
+ */
+const BlockImage = Image.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(
+          state: { write(s: string): void; esc(s: string): string; closeBlock(node: unknown): void },
+          node: { attrs: { src: string; alt?: string | null; title?: string | null } },
+        ) {
+          const alt = state.esc(node.attrs.alt ?? "");
+          const title = node.attrs.title ? ` "${node.attrs.title.replace(/"/g, '\\"')}"` : "";
+          state.write(`![${alt}](${node.attrs.src}${title})`);
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
+/**
+ * Where an editor sends picked, pasted or dropped image files. Only editors
+ * given an `uploadImage` prop have one; the rest still keep images already in
+ * their markdown (so a round trip never drops a `![](url)`), they just can't add.
+ */
+const ImageUpload = Extension.create<object, { upload: ((file: File) => Promise<string>) | null }>({
+  name: "imageUpload",
+  addStorage() {
+    return { upload: null };
+  },
+});
+
+function uploaderOf(editor: Editor) {
+  return (editor.storage as unknown as { imageUpload?: { upload: ((file: File) => Promise<string>) | null } }).imageUpload?.upload ?? null;
+}
+
+async function insertImageFiles(editor: Editor, files: File[], pos?: number) {
+  const upload = uploaderOf(editor);
+  if (!upload) return;
+  for (const file of files.filter((f) => f.type.startsWith("image/"))) {
+    try {
+      const src = await upload(file);
+      const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+      const chain = editor.chain().focus();
+      (pos === undefined ? chain : chain.setTextSelection(pos)).setImage({ src, alt }).run();
+    } catch (err) {
+      console.error("image upload failed", err);
+      window.alert("That image couldn't be uploaded.");
+    }
+  }
+}
+
+function pickImage(editor: Editor) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = () => {
+    if (input.files?.length) void insertImageFiles(editor, [...input.files]);
+  };
+  input.click();
+}
+
+// editorProps get a ProseMirror view, not the Tiptap editor that owns it.
+const editorsByView = new WeakMap<object, Editor>();
+function uploaderOfView(view: object): Editor | null {
+  const editor = editorsByView.get(view);
+  return editor && uploaderOf(editor) ? editor : null;
 }
 
 // ── the "/" menu ───────────────────────────────────────────────────────────
@@ -73,10 +150,22 @@ const SLASH_ITEMS: SlashItem[] = [
   { title: "Code", description: "A block of code", icon: SquareCodeIcon, aliases: ["codeblock", "snippet"], run: (e, r) => e.chain().focus().deleteRange(r).toggleCodeBlock().run() },
 ];
 
-function filterSlashItems(query: string): SlashItem[] {
+const IMAGE_ITEM: SlashItem = {
+  title: "Image",
+  description: "Upload a photo",
+  icon: ImageIcon,
+  aliases: ["img", "photo", "picture"],
+  run: (e, r) => {
+    e.chain().focus().deleteRange(r).run();
+    pickImage(e);
+  },
+};
+
+function filterSlashItems(query: string, canUpload: boolean): SlashItem[] {
+  const all = canUpload ? [...SLASH_ITEMS, IMAGE_ITEM] : SLASH_ITEMS;
   const q = query.toLowerCase().trim();
-  if (!q) return SLASH_ITEMS;
-  return SLASH_ITEMS.filter(
+  if (!q) return all;
+  return all.filter(
     (item) => item.title.toLowerCase().includes(q) || item.aliases.some((a) => a.startsWith(q)),
   );
 }
@@ -200,7 +289,7 @@ const SlashCommand = Extension.create({
         char: "/",
         // A "/" inside code is a slash, not a command.
         allow: ({ state, range }) => state.doc.resolve(range.from).parent.type.name !== "codeBlock",
-        items: ({ query }) => filterSlashItems(query),
+        items: ({ query, editor }) => filterSlashItems(query, Boolean(uploaderOf(editor))),
         command: ({ editor, range, props }) => props.run(editor, range),
         render: renderSlashMenu,
       }),
@@ -325,9 +414,12 @@ export function NotionEditor({
   onChange,
   placeholder,
   className,
+  uploadImage,
 }: {
   initialContent: string;
   onChange: (markdown: string) => void;
+  /** Turns on adding images ("/image", paste, drop); returns the uploaded file's public URL. */
+  uploadImage?: (file: File) => Promise<string>;
   /** Shown while the whole document is empty. */
   placeholder: string;
   className?: string;
@@ -362,10 +454,25 @@ export function NotionEditor({
           return "Type '/' for commands";
         },
       }),
+      BlockImage,
+      ImageUpload,
       Markdown.configure({ transformPastedText: true, breaks: true }),
       SlashCommand,
     ],
     editorProps: {
+      handlePaste(view, event) {
+        const files = [...(event.clipboardData?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+        if (!files.length || !uploaderOfView(view)) return false;
+        void insertImageFiles(uploaderOfView(view)!, files);
+        return true;
+      },
+      handleDrop(view, event) {
+        const files = [...(event.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+        if (!files.length || !uploaderOfView(view)) return false;
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        void insertImageFiles(uploaderOfView(view)!, files, pos);
+        return true;
+      },
       attributes: {
         class: cn("journal-prose notion-prose focus:outline-none", className),
         // A CSS string, read by the empty-page placeholder rule.
@@ -373,6 +480,7 @@ export function NotionEditor({
       },
     },
     onCreate({ editor: e }) {
+      editorsByView.set(e.view, e);
       lastMarkdown.current = toMarkdown(e);
     },
     onUpdate({ editor: e }) {
@@ -382,6 +490,12 @@ export function NotionEditor({
       onChangeRef.current(markdown);
     },
   });
+
+  // The uploader can change identity between renders; the extension reads it at use time.
+  useEffect(() => {
+    if (!editor) return;
+    (editor.storage as unknown as { imageUpload: { upload: typeof uploadImage | null } }).imageUpload.upload = uploadImage ?? null;
+  }, [editor, uploadImage]);
 
   if (!editor) return null;
   return (

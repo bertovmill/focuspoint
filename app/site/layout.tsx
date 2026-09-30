@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { PUBLIC_HOST, SITE_PREFIX, BOOKING_URL, isPublicHost } from "@/lib/public-site";
+import { PUBLIC_HOST, SITE_PREFIX, BOOKING_URL, CHANNELS, isPublicHost } from "@/lib/public-site";
 import { SiteBasePathProvider, SiteLink } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
 import { NewsletterPopup } from "./_components/newsletter-popup";
@@ -62,6 +62,23 @@ export default async function SiteLayout({ children }: { readonly children: Reac
                 </p>
               </div>
               <SubscribeForm className="sm:max-w-sm" />
+            </div>
+          </div>
+          {/* Socials used to live only in the menu sheet, so most visitors never saw them. */}
+          <div className="border-b border-border/60">
+            <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-6 text-sm">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow</span>
+              {CHANNELS.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="text-foreground transition-colors hover:text-primary"
+                  rel="me noreferrer"
+                  target="_blank"
+                >
+                  {item.label}
+                </a>
+              ))}
             </div>
           </div>
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">

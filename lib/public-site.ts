@@ -29,6 +29,15 @@ export const CAEL_SIGN_IN_URL = `https://${CAEL_HOST}/sign-in`;
 /** Google Appointment Schedule — the one place visitors book time with Berto. */
 export const BOOKING_URL = "https://calendar.app.google/ZuKPqRgQpYNPwjhB6";
 
+/** Berto's social profiles — the menu sheet's "Channels" list and the footer both read this. */
+export const CHANNELS = [
+  { href: "https://www.linkedin.com/in/bertomill", label: "LinkedIn" },
+  { href: "https://www.youtube.com/@BertoVMill", label: "YouTube" },
+  { href: "https://x.com/berto_vmill", label: "X" },
+  { href: "https://robertmillwriting.substack.com", label: "Substack" },
+  { href: "https://www.instagram.com/bertomill/", label: "Instagram" },
+] as const;
+
 /** Path prefix the public tree actually lives at on disk. Never appears in a public URL. */
 export const SITE_PREFIX = "/site";
 

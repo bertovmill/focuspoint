@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { BOOKING_URL, CAEL_SIGN_IN_URL } from "@/lib/public-site";
+import { BOOKING_URL, CAEL_SIGN_IN_URL, CHANNELS } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 
@@ -16,14 +16,6 @@ const NAV = [
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
   { href: "/chat", label: "Ask Cael" },
-];
-
-// Social profiles, shown under "Channels" in the menu like koto.com's.
-const CHANNELS = [
-  { href: "https://www.instagram.com/bertomill/", label: "Instagram" },
-  { href: "https://www.linkedin.com/in/bertomill", label: "LinkedIn" },
-  { href: "https://x.com/bertomill1", label: "X" },
-  { href: "https://www.youtube.com/@BertoVMill", label: "YouTube" },
 ];
 
 /* Small uppercase mono label, used for the desktop links and the menu eyebrows. */

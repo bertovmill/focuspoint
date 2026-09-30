@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 import { getPublicStats, getWealthForms, getPublicVisions } from "@/lib/public-data";
 import { listContent } from "@/lib/content";
+import { listPublishedPosts } from "@/lib/posts";
 
 /**
  * The public-facing Cael, for visitors to bertomill.com.
@@ -45,7 +46,7 @@ async function buildContext(): Promise<string> {
     getPublicStats().catch(() => null),
     getWealthForms().catch(() => []),
     getPublicVisions().catch(() => ({}) as Record<string, string>),
-    listContent("writing").catch(() => []),
+    listPublishedPosts(),
     listContent("podcast").catch(() => []),
   ]);
 
@@ -88,7 +89,7 @@ async function buildContext(): Promise<string> {
 
   if (writing.length) {
     lines.push("", "## Published writing (link as /writing/<slug>)");
-    for (const p of writing.slice(0, 20)) lines.push(`- "${p.title}" (${p.slug}, ${p.date}) — ${p.summary}`);
+    for (const p of writing.slice(0, 20)) lines.push(`- "${p.title}" (${p.slug}, ${p.publishedAt}) — ${p.summary}`);
   }
 
   if (podcast.length) {

@@ -8744,3 +8744,41 @@ shows 42,680 (Aug 31) / 40,738 today at #2; list_todos completes in chat.
 - `public/icon.svg` was not valid XML: one comment contained `--`, which comments can't have. Chrome rejected the file and showed the default globe in the tab. Fixed that.
 - Changed the icon to a plain green orb with no face (gradient #7fd9a0 → #3fae6c → #1f6b40). The dark tile, halo and gloss are unchanged.
 - Regenerated `public/apple-icon.png` with `node scripts/render-apple-icon.mjs`.
+
+## 2026-09-30 — Cael writes the articles on bertomill.com/writing (covers + photos)
+
+Berto: "enable our internal agent to help me write and edit and add a cover photo
+and sub photos to articles on the outward facing version of my app". Cael could
+only create files through the generic GitHub connection, couldn't read them (so
+it couldn't edit), and had no cover field anywhere.
+
+Decisions (asked Berto): posts move to **Neon** (instant, no deploy, drafts) over
+markdown-in-repo; images from **both** chat uploads and gpt-image-1; **draft
+first, publish only on his explicit say-so**; the Writing index **mixes** his own
+posts with the Substack feed (Substack can't be written to by an agent).
+
+- `lib/db.ts` + `scripts/posts-migrate.mjs`: `posts` table (slug, title,
+  summary, body markdown, tags, cover_url/alt, status draft|published,
+  published_at, preview_token). Migrated live; the two `content/writing/*.md`
+  posts imported as published and the files removed.
+- `lib/posts.ts`: CRUD + `getVisiblePost` (drafts only with `?preview=<token>`).
+  Neon returns DATE as local-midnight Dates — read local parts, not toISOString.
+- `lib/image-upload.ts`: the webp-resize-to-Blob helper, pulled out of
+  `lib/nutrition-art.ts` so both use it. `lib/post-art.ts`: gpt-image-1 at
+  1536x1024 (high quality for covers).
+- Tools: `list_posts`, `get_post`, `save_post` (full body or exact find/replace
+  `edits`, cover_url, rename), `publish_post` (publish/unpublish),
+  `generate_post_image` (cover auto-attaches; inline returns `![alt](url)`).
+  Registered in `lib/agent-tool-registry.ts` for MCP. `agent/instructions.md`
+  gets a Writing bullet (voice, never publish unasked, don't use GitHub for posts).
+- Site: `/writing` merges DB posts + Substack by date, cover thumbnail on own
+  posts, revalidate 60. `/writing/[slug]` renders per request from the DB, cover
+  image under the header, OG/twitter image = cover, draft banner + noindex.
+  Sitemap and the public site chat read the DB posts.
+
+Verified: typecheck; ran the tools against live DB — created a draft, generated
+a cover and an inline image, applied a find/replace edit (and a non-matching
+edit was rejected with nothing saved); preview page renders cover + inline image
+with the draft banner; same URL without the token 404s; index shows Substack +
+both migrated posts in date order. The test draft `tool-test-a-company-harness`
+is still in the table as a private draft.

@@ -71,8 +71,14 @@ const PATH_TABS = Object.fromEntries(
 
 // The nav shows only Home, Chat, Notes, Writing, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
-// destination in the shell any more, so there is no "More" menu on the phone.
-const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [];
+// destination in the shell any more. On the phone the bar holds five slots
+// (Berto, 2026-09-30): the first four tabs plus "More", which opens the rest.
+const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
+  { tab: "sketches", label: "Sketches", icon: BrushIcon },
+  { tab: "training", label: "Training", icon: DumbbellIcon },
+  { tab: "meals", label: "Meals", icon: UtensilsIcon },
+  { tab: "career", label: "Career", icon: BriefcaseIcon },
+];
 
 // The selected state is one element that travels between items rather than a
 // background that blinks on and off. Both navs share this spring so the rail and
@@ -94,17 +100,13 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
 type TabColor = { text: string; pill: string };
 
-// The five tabs on the phone bar, in order, each in its own colour — the same
+// The four tabs on the phone bar before "More", in order, each in its own colour — the same
 // idea as the metric tiles. The rest are behind "More".
 const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color: TabColor }[] = [
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
   { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-yellow-600 dark:text-yellow-400", pill: "bg-yellow-500/15" } },
   { tab: "writing", label: "Writing", icon: PenLineIcon, color: { text: "text-orange-600 dark:text-orange-400", pill: "bg-orange-500/15" } },
-  { tab: "sketches", label: "Sketches", icon: BrushIcon, color: { text: "text-violet-600 dark:text-violet-400", pill: "bg-violet-500/15" } },
-  { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-rose-600 dark:text-rose-400", pill: "bg-rose-500/15" } },
-  { tab: "meals", label: "Meals", icon: UtensilsIcon, color: { text: "text-amber-600 dark:text-amber-400", pill: "bg-amber-500/15" } },
-  { tab: "career", label: "Career", icon: BriefcaseIcon, color: { text: "text-emerald-600 dark:text-emerald-400", pill: "bg-emerald-500/15" } },
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 

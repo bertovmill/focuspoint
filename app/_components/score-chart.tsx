@@ -55,12 +55,8 @@ export function ScoreChart({
     comparable: d.date >= recordsSince,
   }));
 
-  // Headroom above whichever is higher — the record or the best day drawn — so the
-  // line never touches the top edge and the record rule stays inside the plot.
-  const ceiling = Math.max(...data.map((d) => d.score), record ?? 0, 1);
-
   return (
-    <ChartContainer config={config} className="h-28 w-full">
+    <ChartContainer config={config} className="h-40 w-full">
       <AreaChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: 4 }}>
         <defs>
           {/* The stock-chart wash: strongest at the line, gone by the baseline. */}
@@ -78,7 +74,10 @@ export function ScoreChart({
           minTickGap={24}
           tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
         />
-        <YAxis hide domain={[0, Math.ceil(ceiling * 1.15)]} />
+        {/* Fixed 50–100, his ask (2026-09-30): he rarely lands below 50, so a 0-based
+            axis squashed the days that matter into the top third. A day under 50 runs
+            off the bottom edge; the tooltip still gives its real number. */}
+        <YAxis hide domain={[50, 100]} allowDataOverflow />
 
         {/* The number to beat, named rather than left as a bare rule — this is also the
             non-colour relief the contrast check asks for. */}

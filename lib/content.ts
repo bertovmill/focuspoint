@@ -24,6 +24,8 @@ export interface ContentMeta {
   tags: string[];
   /** Podcast only — where the episode can be watched or heard. */
   youtube?: string;
+  /** Spotify episode id (the part after `/episode/` in a share link). */
+  spotify?: string;
   audio?: string;
   duration?: string;
   /** Work only — who it was for, what I was there as, and when. */
@@ -74,6 +76,7 @@ function toMeta(
     summary: typeof data.summary === "string" ? data.summary : "",
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     youtube: typeof data.youtube === "string" ? data.youtube : undefined,
+    spotify: typeof data.spotify === "string" ? data.spotify : undefined,
     audio: typeof data.audio === "string" ? data.audio : undefined,
     duration: typeof data.duration === "string" ? data.duration : undefined,
     org: typeof data.org === "string" ? data.org : undefined,

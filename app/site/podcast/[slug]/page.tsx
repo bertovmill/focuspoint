@@ -59,6 +59,19 @@ export default async function PodcastEpisodePage({ params }: { params: Promise<{
         </div>
       )}
 
+      {ep.spotify && (
+        <div className="mt-8 aspect-video overflow-hidden rounded-xl">
+          <iframe
+            src={`https://open.spotify.com/embed/episode/${ep.spotify}/video`}
+            title={ep.title}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+            className="size-full"
+          />
+        </div>
+      )}
+
       {ep.audio && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <audio controls src={ep.audio} className="mt-8 w-full">

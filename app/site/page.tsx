@@ -124,7 +124,7 @@ export default async function SiteHomePage() {
           <h2
             className={`${headline.className} mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl`}
           >
-            Here&rsquo;s what I&rsquo;m about.
+            Work
           </h2>
         </RevealOnView>
 

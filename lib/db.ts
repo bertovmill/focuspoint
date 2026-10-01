@@ -718,4 +718,43 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // bertomill.com/capabilities: what Berto can do, and the projects that prove
+  // each one (lib/portfolio.ts). The join row carries the evidence — how that
+  // project shows that capability — so the claim is specific, not a tag (2026-10-01).
+  await sql`
+    CREATE TABLE IF NOT EXISTS capabilities (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS portfolio_projects (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      year TEXT,
+      live_url TEXT,
+      repo_url TEXT,
+      work_slug TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_capabilities (
+      project_id INTEGER NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE,
+      capability_id INTEGER NOT NULL REFERENCES capabilities(id) ON DELETE CASCADE,
+      evidence TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (project_id, capability_id)
+    )
+  `;
 }

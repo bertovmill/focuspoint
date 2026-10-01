@@ -9006,3 +9006,35 @@ cost shows "~$0.20 (link)", confirm dialog shows thumbnails and cost (cancelled,
 nothing posted); server rejects a GIF and an empty tweet; credits route returns
 `null` without a bearer token. **Not verified: an actual image upload to X** —
 no X keys locally; first real image tweet in production is the test.
+## 2026-10-01 — bertomill.com/capabilities: capabilities backed by projects, all from the DB
+
+Berto: a feature that breaks down his core capabilities and filters to the
+projects that prove each one, "all built in to our DB so that nothing is
+hardcoded". Prompted by a Lead Full-Stack GenAI Developer contractor role
+description; the ten seeded capabilities are what that role screens for.
+Picked (asked): **projects only** (not per-feature), edited via **Cael MCP tools
+and an admin UI**, on a **new /capabilities page**, and **/work stays markdown**
+(projects link to a case study by `work_slug`).
+
+- Schema (`lib/db.ts` + `scripts/portfolio-migrate.mjs`, run live):
+  `capabilities`, `portfolio_projects` (draft/published), and the join
+  `project_capabilities` with an `evidence` column: how *that* project shows
+  *that* capability. That sentence is the point; a bare tag proves nothing.
+- `lib/portfolio.ts`: `getPortfolio`, `getPublishedPortfolio`, `upsertCapability`,
+  `upsertProject` (capabilities list replaces links; unknown slug throws),
+  deletes.
+- Tools (auto-exposed over MCP): `list_portfolio`, `save_capability`,
+  `save_portfolio_project` (creates drafts; publishing only when Berto says).
+- Admin: `PortfolioEditor` in the Career tab at `/career#portfolio`; APIs under
+  `/api/portfolio` (private host only).
+- Public: `app/site/capabilities/page.tsx`, filter at
+  `/capabilities?capability=<slug>`, project anchors `#<slug>`. Capabilities
+  with no published project are hidden. Added to site nav and sitemap.
+- Seeded: 10 capabilities; **Cael and Venice as drafts** with evidence lines
+  for Berto to review. Public page shows nothing until one is published.
+
+Verified: public page with drafts temporarily shown locally (desktop, filter,
+phone width, no horizontal scroll), then reverted; upsert/relink/unknown-slug/
+delete exercised against the DB with a throwaway draft. **Not verified in the
+browser: the Career-tab editor** (Clerk sign-in), typechecks and calls the same
+verified functions.

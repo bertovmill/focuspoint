@@ -62,6 +62,9 @@ import get_post from "@/agent/tools/get_post";
 import list_posts from "@/agent/tools/list_posts";
 import publish_post from "@/agent/tools/publish_post";
 import save_post from "@/agent/tools/save_post";
+import list_portfolio from "@/agent/tools/list_portfolio";
+import save_capability from "@/agent/tools/save_capability";
+import save_portfolio_project from "@/agent/tools/save_portfolio_project";
 
 export const agentTools = {
   add_calendar_event,
@@ -124,4 +127,7 @@ export const agentTools = {
   list_posts,
   publish_post,
   save_post,
+  list_portfolio,
+  save_capability,
+  save_portfolio_project,
 };

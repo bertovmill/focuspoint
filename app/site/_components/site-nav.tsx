@@ -14,6 +14,7 @@ import { SocialIcons } from "./social-icons";
 const NAV = [
   { href: "/about", label: "About" },
   { href: "/work", label: "Work" },
+  { href: "/capabilities", label: "Capabilities" },
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
   { href: "/chat", label: "Ask Cael" },

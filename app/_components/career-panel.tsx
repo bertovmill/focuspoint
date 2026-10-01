@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { CareerTracker } from "@/app/_components/career-tracker";
+import { PortfolioEditor } from "@/app/_components/portfolio-editor";
 import { ARCHETYPE, GAPS, RESEARCHED_ON, ROLES, THEMES, TOOLS, type CareerRole } from "@/lib/career-research";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,11 @@ export function CareerPanel() {
       <section id="pipeline">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pipeline</h2>
         <CareerTracker />
+      </section>
+
+      <section id="portfolio">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Portfolio</h2>
+        <PortfolioEditor />
       </section>
 
       <section id="the-archetype">

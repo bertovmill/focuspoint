@@ -30,6 +30,7 @@ const PILLARS = [
   {
     label: "Go-to-market",
     title: "Aucctus",
+    logo: "/site-art/logo-aucctus.png",
     role: "Go-to-Market Lead",
     description:
       "Aucctus helps Fortune 500 innovation teams find, test and launch new ideas with AI agents. I run enterprise pipeline and discovery, and carry what customers say back into the product.",
@@ -39,6 +40,7 @@ const PILLARS = [
   {
     label: "Community",
     title: "MakersLounge",
+    logo: "/site-art/logo-makerslounge.svg",
     role: "Founder",
     description:
       "A Toronto community of founders and builders using AI in their businesses. Monthly demo nights, online workshops, and a matching app for finding collaborators.",
@@ -48,6 +50,7 @@ const PILLARS = [
   {
     label: "Building",
     title: "Cael",
+    logo: "/icon.svg",
     role: "Personal agent",
     description:
       "A side project that runs parts of my life: goals, reading, training and calendar in one place. You can ask it about my work directly.",
@@ -138,8 +141,15 @@ export default async function SiteHomePage() {
                   </span>
                 </div>
                 <h3
-                  className={`${headline.className} mt-6 flex items-center gap-2 text-3xl font-extrabold tracking-tight transition-colors group-hover:text-primary sm:text-4xl`}
+                  className={`${headline.className} mt-6 flex items-center gap-3 text-3xl font-extrabold tracking-tight transition-colors group-hover:text-primary sm:text-4xl`}
                 >
+                  <Image
+                    src={pillar.logo}
+                    alt=""
+                    width={44}
+                    height={44}
+                    className="size-10 shrink-0 rounded-xl object-contain sm:size-11"
+                  />
                   {pillar.title}
                   {pillar.external ? (
                     <ArrowUpRightIcon className="size-6 opacity-50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />

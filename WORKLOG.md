@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-01 — bertomill.com homepage: big headshot, three-pillar About with logos
+
+The hero now shows a large round headshot (112/144/176px) above the clock line and
+headline, in addition to the small nav avatar. Below the hero, the small grey intro
+paragraph and the "What I do" grid are replaced by an About section
+(`#about-me`): a big "Here's what I'm about." in the headline font, then three
+pillars, Go-to-market / Aucctus, Community / MakersLounge and Building / Cael. Each has
+its logo, a link, its role and the old description. A KPMG/CIBC line and the
+LinkedIn / Ask Cael buttons sit underneath. The writing and podcast item from the old
+grid was dropped, since "Latest" already covers it.
+
+Logos: `public/site-art/logo-aucctus.png` (512px icon from aucctus.com),
+`public/site-art/logo-makerslounge.svg` (favicon.svg from makerslounge.ca; their PNG
+is upscaled and blurry), and Cael reuses `/icon.svg`. They sit flat in `site-art/`
+because `PUBLIC_ASSET_RE` in `lib/public-site.ts` only allows files directly inside
+the listed folders. A subfolder would 307 to sign-in and break next/image.
+
+Files: `app/site/page.tsx`, `public/site-art/logo-*`.
+
 ## 2026-10-01 — Native iOS app shell (`mobile/`)
 
 Cael now has an iPhone app: a Capacitor 8 shell in `mobile/` that loads

@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { Manrope } from "next/font/google";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
 import { listSubstackPosts } from "@/lib/substack";
@@ -9,13 +8,10 @@ import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
 
-// The hero headline gets its own face. Manrope was hand-picked over Geist for the
-// headline only; body and labels stay on Geist / Geist Mono from the root layout.
-const headline = Manrope({
-  subsets: ["latin"],
-  weight: "800",
-  display: "swap",
-});
+// Display type: Geist (from the root layout) at semibold with tight tracking and a
+// soft ink instead of a heavy weight in pure black. Calm and current, not shouty.
+const display =
+  "font-sans font-semibold text-foreground/90";
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -108,7 +104,7 @@ export default async function SiteHomePage() {
             />
             <WallClock className="mb-5" />
             <AnimatedHeading
-              className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}
+              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
             />
           </div>
@@ -122,7 +118,7 @@ export default async function SiteHomePage() {
             About
           </p>
           <h2
-            className={`${headline.className} mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl`}
+            className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.045em] sm:text-5xl lg:text-6xl`}
           >
             Work
           </h2>
@@ -141,7 +137,7 @@ export default async function SiteHomePage() {
                   </span>
                 </div>
                 <h3
-                  className={`${headline.className} mt-6 flex items-center gap-3 text-3xl font-extrabold tracking-tight transition-colors group-hover:text-primary sm:text-4xl`}
+                  className={`${display} mt-6 flex items-center gap-3 text-3xl tracking-[-0.035em] transition-colors group-hover:text-primary sm:text-4xl`}
                 >
                   <Image
                     src={pillar.logo}

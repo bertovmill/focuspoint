@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-01 — bertomill.com: clean display type
+
+The hero headline, the "Work" heading and the pillar names drop Manrope 800 in pure
+black. They now use Geist (already loaded in the root layout) at semibold, with tight
+negative tracking (-0.045em on the big headings, -0.035em on pillar names) and 90%
+foreground ink. Berto asked for type that looks current but not effects-driven, and
+chose the "clean modern sans" direction over an editorial serif or a mixed style.
+No new font is loaded. Files: `app/site/page.tsx`.
+
 ## 2026-10-01 — bertomill.com homepage: big headshot, three-pillar About with logos
 
 The hero now shows a large round headshot (112/144/176px) above the clock line and

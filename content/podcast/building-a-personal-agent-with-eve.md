@@ -4,7 +4,6 @@ date: 2026-06-28
 summary: The full conversation about building Cael — from the mess of self-hosting agents, to SMS at 8am, to a nightly job that reads your own patterns back to you.
 tags: [eve, agents, build-log]
 duration: 24 min
-spotify: 3uTf7xGhfahFP7vrZgV2wi
 published: true
 ---
 

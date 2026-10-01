@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { SiteWeather } from "@/app/api/site/weather/route";
 
 /**
@@ -13,7 +13,8 @@ import type { SiteWeather } from "@/app/api/site/weather/route";
  *
  * For checking the look without waiting for a storm, two query params
  * override the real values: `?weather=rain|drizzle|storm|snow|fog|cloudy|clear`
- * and `?hour=21.5` (local hour, decimals allowed).
+ * and `?hour=21.5` (local hour, decimals allowed). Visitors can also drag the
+ * weather dial under the clock (see `setWeatherDial`).
  */
 
 /** What the shader gets, all 0 to 1. */
@@ -48,7 +49,7 @@ function params() {
 }
 
 /** The weather with any `?weather=` override applied. Null until it arrives. */
-export function useSiteWeather(): SiteWeather | null {
+export function useLiveWeather(): SiteWeather | null {
   const [weather, setWeather] = useState<SiteWeather | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +81,55 @@ export function useSiteWeather(): SiteWeather | null {
     };
   }, []);
   return weather;
+}
+
+/**
+ * The weather dial: one number from 0 to 1 that visitors drag to see the wall
+ * in other weather. Four stops, sunny (0), cloudy (1/3), overcast (2/3) and
+ * rain (1); cloud builds over the first two thirds and rain comes in over the
+ * last. Null follows the real weather. Kept in memory for the visit and shared
+ * by everything that reads the sky, so the wall and its label move together.
+ */
+let dial: number | null = null;
+const dialListeners = new Set<() => void>();
+
+export function setWeatherDial(value: number | null) {
+  dial = value === null ? null : Math.min(1, Math.max(0, value));
+  dialListeners.forEach((listener) => listener());
+}
+
+function subscribeToDial(listener: () => void) {
+  dialListeners.add(listener);
+  return () => {
+    dialListeners.delete(listener);
+  };
+}
+
+/** The dial while someone is holding it somewhere, null when it's on live. */
+export function useWeatherDial(): number | null {
+  return useSyncExternalStore(subscribeToDial, () => dial, () => null);
+}
+
+/** Where the dial sits for some weather, so it starts at the visitor's own. */
+export function dialFor(weather: SiteWeather): number {
+  if (weather.precipitation > 0) return 2 / 3 + Math.min(1, weather.precipitation) / 3;
+  return (Math.min(1, Math.max(0, weather.cloudCover)) * 2) / 3;
+}
+
+/** The weather a dial position stands for, keeping the visitor's city and sun. */
+function weatherAtDial(value: number, base: SiteWeather): SiteWeather {
+  const cloudCover = Math.min(1, value * 1.5);
+  const precipitation = Math.max(0, value * 3 - 2);
+  const condition: SiteWeather["condition"] =
+    precipitation > 0.4 ? "rain" : precipitation > 0 ? "drizzle" : cloudCover < 0.2 ? "clear" : "cloudy";
+  return { ...base, condition, cloudCover, precipitation };
+}
+
+/** The sky the wall shows: the live weather, or wherever the dial is held. */
+export function useSiteWeather(): SiteWeather | null {
+  const live = useLiveWeather();
+  const held = useWeatherDial();
+  return useMemo(() => (live && held !== null ? weatherAtDial(held, live) : live), [live, held]);
 }
 
 /** Now, or the `?hour=` override on today's date. */
@@ -160,11 +210,13 @@ export function skyLabel(now: Date, weather: SiteWeather | null): string {
   const city = weather?.city || zoneCity;
   const time = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const parts = [city, time];
-  if (weather) {
-    const sky = skyAt(now, weather);
-    const condition =
-      weather.condition === "clear" && sky.night > 0.5 ? "Clear night" : CONDITION_LABEL[weather.condition];
-    parts.push(condition);
-  }
+  if (weather) parts.push(conditionLabel(now, weather));
   return parts.filter(Boolean).join(" · ");
+}
+
+/** e.g. "Rain", "Overcast", "Clear night". */
+export function conditionLabel(now: Date, weather: SiteWeather): string {
+  if (weather.condition === "clear" && skyAt(now, weather).night > 0.5) return "Clear night";
+  if (weather.condition === "cloudy" && weather.cloudCover >= 0.9) return "Overcast";
+  return CONDITION_LABEL[weather.condition];
 }

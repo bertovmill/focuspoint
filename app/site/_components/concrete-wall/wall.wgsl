@@ -178,10 +178,13 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let base = mix(base_light, base_dark, dark) * (0.94 + h * 0.10 + grit);
 
   // Daylight dims under cloud and at night, though never so far in light mode
-  // that the headline loses the wall behind it. Night leans cool.
+  // that the headline loses the wall behind it. Night leans cool, and so does a
+  // heavy sky: a few clouds barely register, a full overcast turns the wall a
+  // flat blue-grey, and rain darkens it a little further.
   let overcast = cloud * (1.0 - night);
-  let ambient = mix(0.86, 0.72, dark) - night * mix(0.10, 0.08, dark) - overcast * 0.02;
-  let ambient_tint = mix(vec3f(1.0), vec3f(0.92, 0.95, 1.03), max(night, overcast * 0.6));
+  let gloom = smoothstep(0.0, 1.0, overcast) + rain * 0.25 * (1.0 - night);
+  let ambient = mix(0.86, 0.72, dark) - night * mix(0.10, 0.08, dark) - gloom * mix(0.16, 0.10, dark);
+  let ambient_tint = mix(vec3f(1.0), vec3f(0.92, 0.95, 1.03), max(night, min(1.0, gloom)));
 
   // The pointer light becomes a warm lamp in the room once it's dark.
   let key_color = mix(vec3f(1.0), vec3f(1.12, 0.98, 0.82), night);
@@ -194,7 +197,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let window_color = mix(sun_color, street_color, night);
   // Overcast light is weaker but still comes through the window as a soft
   // pane, enough to carry the rain's shadows.
-  let daylight = mix(1.0, 0.22, night) * mix(1.0, 0.62, cloud * (1.0 - night));
+  let daylight = mix(1.0, 0.22, night) * mix(1.0, 0.45, overcast);
   let window_strength = mix(0.32, 0.12, dark) * daylight;
 
   let lit = base * ambient_tint * (ambient + key * key_strength * key_color)

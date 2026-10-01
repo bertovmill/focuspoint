@@ -154,7 +154,7 @@ export function ConcreteWall({ className, sketches = true }: { className?: strin
           shader already dims itself. */}
       <div
         className="absolute inset-0 bg-[#3a4150] mix-blend-multiply transition-opacity duration-1000"
-        style={{ opacity: (live ? 0.06 : 0.16) * Math.max(sky.night, sky.cloudCover * 0.6) }}
+        style={{ opacity: (live ? 0.06 : 0.22) * Math.max(sky.night, sky.cloudCover * 0.9) }}
       />
 
       {/* Chalk plan on the wall, over whichever wall is showing. */}

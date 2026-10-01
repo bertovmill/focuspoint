@@ -4,6 +4,34 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-01 — bertomill.com: weather dial under the hero clock
+
+Under "TORONTO · 12:18 PM · CLOUDY" there is now a slider every visitor can drag to
+see the concrete wall in other weather. It has four stops: Sunny (shown as "Clear"
+after dark), Cloudy, Overcast and Rain. Clicking a stop's label jumps to it. It starts
+wherever the visitor's real weather puts it (their IP city, via `/api/site/weather`).
+While it's held somewhere else, the clock label shows the previewed condition and a
+"↺ Live" button returns it to the real weather. Berto picked placement under the label
+(not a floating pill) and visible to everyone (not just signed-in).
+
+How it works: one number from 0 to 1 in a small store in `sky.ts`
+(`setWeatherDial` / `useWeatherDial`, via useSyncExternalStore). Cloud cover goes from
+0 to 1 over the first two thirds and rain comes in over the last third.
+`useSiteWeather()` now returns the live weather with the dial applied, so the wall and
+the label move together. The old hook is `useLiveWeather()`. The dial lives in memory
+for the visit, so it carries across client navigation to the inner pages' walls and
+resets on reload. `?weather=` still works and sets where the dial starts.
+
+Overcast used to look almost the same as sun (ambient only dropped 2%). In
+`wall.wgsl` a `gloom` term (smoothstep of cloud, plus a bit for rain) now dims the
+ambient light 16% in light mode and 10% in dark, cools the tint, and cuts window light
+to 45% under full cloud. That's enough for a dark grey day, and the headline stays
+readable. The CSS fallback's cool wash is stronger too. This also changes how real
+overcast days look to visitors. The label says "Overcast" once cloud cover is 90% or
+more.
+
+Files: `app/site/_components/concrete-wall/{sky.ts,wall-clock.tsx,wall.wgsl,concrete-wall.tsx}`.
+
 ## 2026-10-01 — bertomill.com: clean display type
 
 The hero headline, the "Work" heading and the pillar names drop Manrope 800 in pure

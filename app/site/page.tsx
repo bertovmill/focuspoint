@@ -25,38 +25,33 @@ const LINKEDIN_URL = "https://www.linkedin.com/in/bertomill";
 const AUCCTUS_URL = "https://aucctus.com";
 const MAKERSLOUNGE_URL = "https://makerslounge.ca";
 
-/** The things I spend my weeks on, in the order I'd explain them to a stranger. */
-const WORK = [
+/** The three things I'm about, in the order I'd explain them to a stranger. */
+const PILLARS = [
   {
-    eyebrow: "Now",
-    title: "Go-to-Market Lead, Aucctus",
+    label: "Go-to-market",
+    title: "Aucctus",
+    role: "Go-to-Market Lead",
     description:
       "Aucctus helps Fortune 500 innovation teams find, test and launch new ideas with AI agents. I run enterprise pipeline and discovery, and carry what customers say back into the product.",
     href: AUCCTUS_URL,
     external: true,
   },
   {
-    eyebrow: "Community",
-    title: "Founder, MakersLounge",
+    label: "Community",
+    title: "MakersLounge",
+    role: "Founder",
     description:
       "A Toronto community of founders and builders using AI in their businesses. Monthly demo nights, online workshops, and a matching app for finding collaborators.",
     href: MAKERSLOUNGE_URL,
     external: true,
   },
   {
-    eyebrow: "Building",
-    title: "Cael, a personal agent",
+    label: "Building",
+    title: "Cael",
+    role: "Personal agent",
     description:
       "A side project that runs parts of my life: goals, reading, training and calendar in one place. You can ask it about my work directly.",
     href: "/chat",
-    external: false,
-  },
-  {
-    eyebrow: "Sharing",
-    title: "Writing and a podcast",
-    description:
-      "Notes on building AI agents that actually get used, plus recorded conversations about what to build next.",
-    href: "/writing",
     external: false,
   },
 ] as const;
@@ -117,17 +112,77 @@ export default async function SiteHomePage() {
         </RevealOnView>
       </div>
 
-      <div className="mx-auto max-w-3xl">
-        <RevealOnView as="section" className="py-14">
-          <p className="max-w-[58ch] text-lg leading-relaxed text-muted-foreground">
-            I lead go-to-market at{" "}
-            <span className="text-foreground">Aucctus</span>, run{" "}
-            <span className="text-foreground">MakersLounge</span>, a community
-            of founders building with AI. Before this I spent three years in
-            AI strategy at KPMG and CIBC.
+      {/* About: what I'm about, as three big pillars. */}
+      <section id="about-me" className="mx-auto max-w-6xl py-20 sm:py-28">
+        <RevealOnView>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            About
           </p>
+          <h2
+            className={`${headline.className} mt-4 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl`}
+          >
+            Here&rsquo;s what I&rsquo;m about.
+          </h2>
+        </RevealOnView>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+        <ul className="mt-14 grid gap-12 sm:mt-20 md:grid-cols-3 md:gap-10">
+          {PILLARS.map((pillar, i) => {
+            const inner = (
+              <>
+                <div className="flex items-baseline justify-between border-t-2 border-foreground pt-4">
+                  <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
+                    {pillar.label}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    0{i + 1}
+                  </span>
+                </div>
+                <h3
+                  className={`${headline.className} mt-6 flex items-center gap-2 text-3xl font-extrabold tracking-tight transition-colors group-hover:text-primary sm:text-4xl`}
+                >
+                  {pillar.title}
+                  {pillar.external ? (
+                    <ArrowUpRightIcon className="size-6 opacity-50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                  ) : (
+                    <ArrowRightIcon className="size-6 opacity-50 transition-transform group-hover:translate-x-0.5" />
+                  )}
+                </h3>
+                <p className="mt-1 text-sm font-medium text-muted-foreground">
+                  {pillar.role}
+                </p>
+                <p className="mt-5 leading-relaxed text-muted-foreground">
+                  {pillar.description}
+                </p>
+              </>
+            );
+            return (
+              <RevealOnView as="li" delay={i * 0.08} key={pillar.title}>
+                {pillar.external ? (
+                  <a
+                    href={pillar.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group block"
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <SiteLink href={pillar.href} className="group block">
+                    {inner}
+                  </SiteLink>
+                )}
+              </RevealOnView>
+            );
+          })}
+        </ul>
+
+        <RevealOnView className="mt-16 flex flex-col gap-6 border-t border-border/60 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-lg text-muted-foreground">
+            Before this, three years in AI strategy at{" "}
+            <span className="text-foreground">KPMG</span> and{" "}
+            <span className="text-foreground">CIBC</span>.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={LINKEDIN_URL}
               target="_blank"
@@ -145,56 +200,9 @@ export default async function SiteHomePage() {
             </SiteLink>
           </div>
         </RevealOnView>
-      </div>
+      </section>
 
       <div className="mx-auto max-w-3xl">
-        {/* What I do */}
-        <section className="border-t border-border/60 py-14">
-          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            What I do
-          </h2>
-          <ul className="mt-8 grid gap-x-10 gap-y-10 sm:grid-cols-2">
-            {WORK.map((item, i) => {
-              const inner = (
-                <>
-                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                    {item.eyebrow}
-                  </p>
-                  <h3 className="mt-2 flex items-center gap-1.5 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
-                    {item.title}
-                    {item.external ? (
-                      <ArrowUpRightIcon className="size-4 opacity-60" />
-                    ) : (
-                      <ArrowRightIcon className="size-4 opacity-60" />
-                    )}
-                  </h3>
-                  <p className="mt-2 leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
-                </>
-              );
-              return (
-                <RevealOnView as="li" delay={i * 0.06} key={item.title}>
-                  {item.external ? (
-                    <a
-                      href={item.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block"
-                    >
-                      {inner}
-                    </a>
-                  ) : (
-                    <SiteLink href={item.href} className="group block">
-                      {inner}
-                    </SiteLink>
-                  )}
-                </RevealOnView>
-              );
-            })}
-          </ul>
-        </section>
-
         {/* Latest */}
         {(latestWriting || latestEpisode) && (
           <section className="border-t border-border/60 py-14">

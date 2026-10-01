@@ -9047,3 +9047,13 @@ phone width, no horizontal scroll), then reverted; upsert/relink/unknown-slug/
 delete exercised against the DB with a throwaway draft. **Not verified in the
 browser: the Career-tab editor** (Clerk sign-in), typechecks and calls the same
 verified functions.
+
+## 2026-10-01 — Portfolio: Venice removed
+
+Berto: Venice has nothing to do with Cael and stays out of it. Deleted the
+Venice draft row (and its capability links) from `portfolio_projects`, and
+took it out of `scripts/portfolio-migrate.mjs` so a re-run can't seed it back.
+Portfolio now holds Cael and MakersLounge, both drafts. MakersLounge was added
+with evidence from the makerslounge-web codebase (6 of 10 capabilities); its
+gaps (evals, retrieval, observability, CI) are being built there, starting
+with matcher evals (bertovmill/makerslounge-web#26).

@@ -83,19 +83,6 @@ const PROJECTS = [
       "observability": "A traces view of every agent run, used to debug tool calls and failed turns.",
     },
   },
-  {
-    slug: "venice",
-    name: "Venice",
-    summary: "Aucctus's internal go-to-market app: deals, people, events, campaigns and content, with an in-app agent that works on production data.",
-    year: "2026",
-    links: {
-      "production-ai-systems": "In daily use by the Aucctus team on real pipeline data.",
-      "workflow-to-deployment": "Built around how the GTM team actually works: deals, events, invites and follow-ups.",
-      "human-in-the-loop": "Nothing sends on its own: the agent drafts, and a person approves each email or invite on a send page before it goes out.",
-      "agents-and-tools": "An eve agent plus an MCP server exposing the same tools to outside clients, with validation and dedupe on every write.",
-      "enterprise-integration": "Connected to Gmail, Google Calendar and Docs, Slack and Notion.",
-    },
-  },
 ];
 
 for (const [i, p] of PROJECTS.entries()) {

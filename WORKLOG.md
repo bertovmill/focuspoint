@@ -9,7 +9,7 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 The hero now shows a large round headshot (112/144/176px) above the clock line and
 headline, in addition to the small nav avatar. Below the hero, the small grey intro
 paragraph and the "What I do" grid are replaced by an About section
-(`#about-me`): a big "Here's what I'm about." in the headline font, then three
+(`#about-me`): a big "Work" heading in the headline font, then three
 pillars, Go-to-market / Aucctus, Community / MakersLounge and Building / Cael. Each has
 its logo, a link, its role and the old description. A KPMG/CIBC line and the
 LinkedIn / Ask Cael buttons sit underneath. The writing and podcast item from the old

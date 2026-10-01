@@ -4,6 +4,42 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-01 — bertomill.com/fitness: HYROX results
+
+New public page at `/fitness` (Berto picked the name "Fitness" over "/hyrox"), linked in
+the site nav after Podcast and added to the sitemap. It shows:
+
+- **Up next**: HYROX Toronto 2026, Pro division solo, 25–29, Friday Oct 2 2026, with a
+  countdown ("Tomorrow", "Race day"). Once the date passes and no result exists it reads
+  "Result coming", so it never silently disappears.
+- **Results**: race count, wins and best time, then one card per race with total, rank
+  against the field, partner, age group, all 8 runs and stations with the per-station
+  place, run total, Roxzone, and a link to the official result. Anchors are descriptive
+  (`#up-next`, `#hyrox-ottawa-2026`, `#hyrox-toronto-2025`).
+
+Races found on results.hyrox.com: Toronto 2025 mixed doubles with Katy Rozanova (57:09,
+1st of 360 mixed teams) and Ottawa 2026 mixed doubles with Katy (55:20, 1st of 601).
+Berto races as "Robert Mill" in older entries and "Berto Mill" in the Toronto 2026 entry.
+
+Data lives in `lib/hyrox.ts`, hand-kept on purpose (Berto chose this over a DB+tool or a
+cron). results.hyrox.com (mika:timing) is behind Cloudflare and 403s server-side fetches,
+and the hyranking.com mirror starts challenging after a few requests, so a scraper would
+break silently. **After a race:** open the upcoming race's `resultUrl` in a real browser
+(it's Berto's own entry and fills in with splits), copy the workout summary into
+`HYROX_RESULTS`, and remove it from `HYROX_UPCOMING`. Searching is per event only; there's
+no cross-event athlete search. The race-day lookup is a single page because the entry's
+`idp` is already stored.
+
+Nav: Fitness made the homepage link row wrap at ~1440px. Berto chose to show the header's
+social icons only from 1500px up (`min-[1500px]:flex`); they're still in the footer and
+menu sheet. That also fixes the wrap the row already had at 1280px.
+
+Files: `lib/hyrox.ts`, `app/site/fitness/page.tsx`, `app/site/_components/site-nav.tsx`,
+`app/sitemap.ts`.
+
+Next: add Toronto 2026 PRO splits after Oct 2. The training plan has race day on Oct 3
+(`training_sessions` id 6), but the entry is Friday Oct 2.
+
 ## 2026-10-01 — bertomill.com: weather dial under the hero clock
 
 Under "TORONTO · 12:18 PM · CLOUDY" there is now a slider every visitor can drag to

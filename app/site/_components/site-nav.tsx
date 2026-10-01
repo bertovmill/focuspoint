@@ -17,6 +17,7 @@ const NAV = [
   { href: "/capabilities", label: "Capabilities" },
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
+  { href: "/fitness", label: "Fitness" },
   { href: "/chat", label: "Ask Cael" },
 ];
 
@@ -214,8 +215,9 @@ export function SiteNav() {
         </div>
 
         <div className="ml-auto hidden items-center gap-4 sm:flex">
-          {/* Icons only from lg up: at sm/md they'd crowd the links row. */}
-          <SocialIcons className="hidden lg:flex" />
+          {/* Icons only on wide screens: below ~1500px they push the links row onto two
+              lines. They're still in the footer and the menu sheet. */}
+          <SocialIcons className="hidden min-[1500px]:flex" />
           {/* Accounts live on the private host, so this leaves the site. */}
           <a
             href={CAEL_SIGN_IN_URL}

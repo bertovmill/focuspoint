@@ -42,6 +42,7 @@
     ".next-3877/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "mobile"
   ]
 }

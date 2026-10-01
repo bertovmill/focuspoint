@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-01 — Native iOS app shell (`mobile/`)
+
+Cael now has an iPhone app: a Capacitor 8 shell in `mobile/` that loads
+`https://cael.bertomill.com` in a WKWebView, the iOS sibling of the Tauri shell in
+`desktop/`. Web deploys reach the app on next launch, so it only needs a rebuild
+when the shell changes. It's for Berto's phone only, installed straight from Xcode
+with his Apple Developer account (no App Store).
+
+Decisions: Capacitor over Tauri-iOS, since it has the more mature iOS plugin
+ecosystem for later push, share-sheet and Face ID work. The bundle id is
+`com.bertomill.cael`. `allowNavigation` keeps cael, clerk.bertomill.com and Google
+sign-in inside the app. The user agent gets a Safari suffix so Google OAuth isn't
+refused in the web view. The bundled `www/offline.html` is the error page. The icon
+is flattened from `desktop/app-icon.png`, and the splash is a plain dark screen.
+Camera, photos and mic usage strings are in Info.plist, because image `<input type=file>`
+offers Take Photo.
+
+Next: install full Xcode, sign with the team, and run on the phone. Check that Google
+sign-in works in the web view. Later options: push notifications, a share-sheet
+"send to Cael" extension.
+
 ## 2026-09-30 — Training weeks drafted live by a coach subagent
 
 "Draft this week" on /training no longer makes one `generateObject` call that

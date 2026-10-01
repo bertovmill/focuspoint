@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Manrope } from "next/font/google";
 import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 import { listContent, formatDate } from "@/lib/content";
@@ -99,6 +100,14 @@ export default async function SiteHomePage() {
           className="flex min-h-svh flex-col pt-26 pb-6 sm:pt-30 sm:pb-8"
         >
           <div className="mt-auto pt-16">
+            <Image
+              src="/berto-headshot.jpg"
+              alt="Berto Mill"
+              width={320}
+              height={320}
+              priority
+              className="mb-6 size-28 rounded-full object-cover shadow-lg ring-1 ring-black/10 sm:size-36 lg:size-44"
+            />
             <WallClock className="mb-5" />
             <AnimatedHeading
               className={`${headline.className} text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl`}

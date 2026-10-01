@@ -11,6 +11,7 @@ import {
   SendIcon,
   SparklesIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,14 @@ import {
 import { NotionEditor } from "@/app/_components/notion-editor";
 import { PostChat } from "@/app/_components/post-chat";
 import { cn } from "@/lib/utils";
+import {
+  estimateTweetCost,
+  formatUsd,
+  hasLink,
+  TWEET_IMAGE_MAX_BYTES,
+  TWEET_IMAGE_TYPES,
+  TWEET_MAX_IMAGES,
+} from "@/lib/x-shared";
 
 type PostSummary = {
   id: number;
@@ -238,27 +247,62 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+  // undefined while loading, null when X's balance isn't available.
+  const [balance, setBalance] = useState<number | null | undefined>(undefined);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     fetch("/api/tweets")
       .then((r) => r.json())
       .then((rows) => setTweets(Array.isArray(rows) ? rows : []))
       .catch(() => setTweets([]));
+    fetch("/api/tweets/credits")
+      .then((r) => r.json())
+      .then((d) => setBalance(typeof d.balance === "number" ? d.balance : null))
+      .catch(() => setBalance(null));
   }, []);
   useEffect(load, [load]);
 
+  const addImages = (files: FileList | File[]) => {
+    const picked = Array.from(files).filter((f) => {
+      if (!TWEET_IMAGE_TYPES.includes(f.type)) {
+        toast.error(`${f.name}: only JPG, PNG or WEBP images.`);
+        return false;
+      }
+      if (f.size > TWEET_IMAGE_MAX_BYTES) {
+        toast.error(`${f.name} is over 5 MB.`);
+        return false;
+      }
+      return true;
+    });
+    setImages((cur) => {
+      const room = TWEET_MAX_IMAGES - cur.length;
+      if (picked.length > room) toast.error(`A tweet can have at most ${TWEET_MAX_IMAGES} images.`);
+      return [...cur, ...picked.slice(0, room).map((file) => ({ file, preview: URL.createObjectURL(file) }))];
+    });
+  };
+  const removeImage = (i: number) =>
+    setImages((cur) => {
+      URL.revokeObjectURL(cur[i].preview);
+      return cur.filter((_, j) => j !== i);
+    });
+
   const length = tweetLength(text);
+  const cost = estimateTweetCost(text);
+  const canPost = !posting && (text.trim().length > 0 || images.length > 0) && length <= TWEET_LIMIT;
   const post = async () => {
     setPosting(true);
     try {
-      const res = await fetch("/api/tweets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
+      const form = new FormData();
+      form.append("text", text);
+      images.forEach((img) => form.append("images", img.file));
+      const res = await fetch("/api/tweets", { method: "POST", body: form });
       const tweet = await res.json();
       if (!res.ok) throw new Error(tweet.error);
       setText("");
+      images.forEach((img) => URL.revokeObjectURL(img.preview));
+      setImages([]);
       load();
       toast.success("Posted to X.", {
         action: { label: "View", onClick: () => window.open(tweet.url, "_blank", "noreferrer") },
@@ -291,17 +335,78 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim() && length <= TWEET_LIMIT) setConfirming(true);
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canPost) setConfirming(true);
+            }}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+              if (files.length) {
+                e.preventDefault();
+                addImages(files);
+              }
             }}
             placeholder="What's happening?"
             rows={3}
             className="field-sizing-content min-h-20 resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground/60"
           />
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {images.map((img, i) => (
+                <div key={img.preview} className="relative aspect-square overflow-hidden rounded-md border">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
+                  <img src={img.preview} alt="" className="size-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    aria-label="Remove image"
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={fileInput}
+            type="file"
+            accept={TWEET_IMAGE_TYPES.join(",")}
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files) addImages(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <div className="flex items-center justify-between gap-2">
-            <span className={cn("text-xs tabular-nums text-muted-foreground", length > TWEET_LIMIT && "text-destructive")}>
-              {TWEET_LIMIT - length} left
-            </span>
-            <Button size="sm" onClick={() => setConfirming(true)} disabled={posting || !text.trim() || length > TWEET_LIMIT}>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => fileInput.current?.click()}
+                disabled={posting || images.length >= TWEET_MAX_IMAGES}
+                aria-label="Add images"
+                title={`Add images (up to ${TWEET_MAX_IMAGES})`}
+              >
+                <ImagePlusIcon />
+              </Button>
+              <span className={cn("text-xs tabular-nums text-muted-foreground", length > TWEET_LIMIT && "text-destructive")}>
+                {TWEET_LIMIT - length} left
+              </span>
+              <span
+                className={cn("text-xs tabular-nums text-muted-foreground", hasLink(text) && "text-amber-600 dark:text-amber-500")}
+                title={hasLink(text) ? "X charges more for posts that contain a link" : "X pay-per-use price for one post"}
+              >
+                ~{formatUsd(cost)}
+                {hasLink(text) && " (link)"}
+              </span>
+              {typeof balance === "number" && (
+                <span className="text-xs tabular-nums text-muted-foreground" title="X API credit left">
+                  · {formatUsd(balance)} left
+                </span>
+              )}
+            </div>
+            <Button size="sm" onClick={() => setConfirming(true)} disabled={!canPost}>
               {posting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
               Post to X
             </Button>
@@ -340,6 +445,18 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
             <AlertDialogTitle>Post this to X?</AlertDialogTitle>
             <AlertDialogDescription className="whitespace-pre-wrap break-words">{text}</AlertDialogDescription>
           </AlertDialogHeader>
+          {images.length > 0 && (
+            <div className="flex gap-2">
+              {images.map((img) => (
+                // eslint-disable-next-line @next/next/no-img-element -- local blob preview
+                <img key={img.preview} src={img.preview} alt="" className="size-16 rounded-md border object-cover" />
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Costs about {formatUsd(cost)} in X API credit{hasLink(text) && " (posts with a link cost more)"}
+            {typeof balance === "number" && `; ${formatUsd(balance)} left`}.
+          </p>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction

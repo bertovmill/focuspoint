@@ -8960,3 +8960,49 @@ the live reload** — every model call returned 402 from the Vercel AI Gateway
 ("A positive credit balance is required", insufficient_funds), which blocks all
 of Cael, not just this panel. Re-test the edit → reload loop once credits are
 topped up.
+
+## 2026-10-01 — Tweets: images, cost estimate, X credit balance
+
+Fixed the live 401 on posting first: the X keys in Vercel were stale/mismatched
+(`X_ACCESS_TOKEN` had at one point been set to an OAuth 2.0 token). All four
+OAuth 1.0a values were regenerated and re-added as Vercel **Secret** vars
+(`X_API_KEY`, `X_API_KEY_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`),
+production redeployed, and a text tweet posted fine.
+
+Then, on /writing?tab=tweets:
+- **Images**: attach up to 4 JPG/PNG/WEBP (≤5 MB each) via the image button or
+  by pasting into the composer; previews with remove, and thumbnails in the
+  confirm dialog. Image-only tweets are allowed.
+- **Cost**: the composer shows the X pay-per-use price of the post — $0.015,
+  or $0.20 when the text contains a link (highlighted, since every "Tweet this
+  post" share includes the article URL and costs ~13× a plain tweet). The
+  `post_tweet` tool mentions the price too.
+- **Balance**: "· $X left" next to the cost, from X's `GET /2/usage/credits`.
+
+**Files changed:**
+- `lib/x-api.ts` — `uploadTweetImage()` (v2 `POST https://api.x.com/2/media/upload`,
+  multipart, `media_category=tweet_image`, OAuth 1.0a — multipart bodies aren't
+  part of the signature); `postTweet(text, { postId, mediaIds })`;
+  `getXCreditBalance()`; X errors now read the problem-doc `detail`/`title`
+  too, so a 401 says why instead of just "HTTP 401".
+- `lib/x-shared.ts` (new) — image limits and prices, free of server imports so
+  the client composer can use them.
+- `app/api/tweets/route.ts` — POST takes multipart (`text`, `images`) as well as JSON.
+- `app/api/tweets/credits/route.ts` (new) — `{ balance: number | null }`.
+- `app/_components/writing-panel.tsx` — composer UI above.
+- `agent/tools/post_tweet.ts` — price in description and result.
+
+**Decisions:** images only from the Writing page for now (no image URLs or
+generated images from Cael yet). Prices are hard-coded from X's pricing page —
+update `lib/x-shared.ts` if X changes them.
+
+**Needs from Berto:** the balance needs the app's **Bearer Token** as a new
+Vercel Secret `X_BEARER_TOKEN` (production), then a redeploy. Until then the
+balance is simply hidden. Unit of `total_balance` assumed USD dollars per X's
+docs — sanity-check against the Developer Console once it shows.
+
+**Verified:** typecheck clean. Locally: attach two images, previews, remove,
+cost shows "~$0.20 (link)", confirm dialog shows thumbnails and cost (cancelled,
+nothing posted); server rejects a GIF and an empty tweet; credits route returns
+`null` without a bearer token. **Not verified: an actual image upload to X** —
+no X keys locally; first real image tweet in production is the test.

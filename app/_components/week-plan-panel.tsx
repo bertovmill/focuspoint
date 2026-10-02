@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   PencilIcon,
   PlusIcon,
+  ScrollTextIcon,
   RefreshCwIcon,
   ShoppingCartIcon,
   SparklesIcon,
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
+import { MealPromptEditor } from "@/app/_components/meal-prompt-editor";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
@@ -500,6 +502,12 @@ export function WeekPlanPanel() {
             {fill ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
             {fill ? `Planning ${fill.done}/${fill.total}…` : "Fill week with Cael"}
           </Button>
+          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" asChild>
+            <a href="#meal-prompt" title="See and edit the prompt behind every suggestion">
+              <ScrollTextIcon className="size-3" />
+              Prompt
+            </a>
+          </Button>
           <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={sendingGroceries} onClick={sendGroceries}>
             {sendingGroceries ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
             Week → Groceries
@@ -607,6 +615,8 @@ export function WeekPlanPanel() {
         }
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
+
+      <MealPromptEditor days={days} today={today} />
 
       <RecipeLibrary recipes={recipes} onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))} onDelete={deleteRecipe} />
 

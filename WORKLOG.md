@@ -9121,3 +9121,34 @@ Portfolio now holds Cael and MakersLounge, both drafts. MakersLounge was added
 with evidence from the makerslounge-web codebase (6 of 10 capabilities); its
 gaps (evals, retrieval, observability, CI) are being built there, starting
 with matcher evals (bertovmill/makerslounge-web#26).
+
+## 2026-10-02 — Meals: editable suggestion prompt at /meals#meal-prompt
+
+Berto asked to see the prompt behind meal suggestions and have full control
+over it. The prompt was hardcoded in `lib/meal-suggest.ts` (+ per-sitting
+guidance in `lib/nutrition.ts`).
+
+- `lib/meal-prompt.ts`: one template with `{{placeholders}}` (slot, date,
+  guidance, notes, protein_target, planned_today, staples, food_thoughts,
+  recipes, recent_meals, feedback) plus a guidance line per sitting. Stored as
+  JSON under app_settings `meals.prompt.config`; no row = defaults (the old
+  prompt, verbatim apart from unwrapped lines). Placeholders render data only,
+  with "(none)" when empty, so every heading/instruction is editable text.
+  Unknown placeholders are left as typed so typos show in the preview.
+- `lib/meal-suggest.ts` now sends `buildMealPrompt()`; `gatherContext` moved
+  into meal-prompt.ts. Every path (✨, Fill week, daily tick, agent tool) uses it.
+- APIs: `GET/PUT/DELETE /api/meals/prompt` (DELETE = reset to default),
+  `POST /api/meals/prompt/preview` (renders a draft for a date + slot, and
+  lists the fixed output schema fields + model).
+- UI: `MealPromptEditor` (collapsible section under Notes on /meals, opened
+  by `#meal-prompt` / the new "Prompt" header button): template editor,
+  click-to-insert placeholders, guidance per sitting, live preview of the exact
+  prompt for any cell in the week, save / discard / reset.
+
+Not editable on purpose: the output schema (grid, protein totals and groceries
+read those fields) and the model. Observed while testing: the "OTHER STAPLES
+ON FILE" list (nutrition_staples) still carries dark chocolate, avocado etc.,
+which is part of why snacks keep coming back as chocolate/almonds.
+
+Verified locally: preview renders real data, draft edits update it, PUT /
+GET / DELETE round trip (DB left on defaults).

@@ -46,6 +46,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Stops iOS zooming in when a field under 16px is focused — the zoom never undoes
+  // itself and leaves the page wider than the screen. iOS still allows pinch-zoom.
+  maximumScale: 1,
   viewportFit: "cover",
 };
 

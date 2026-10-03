@@ -887,7 +887,9 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                 }}
                 rows={2}
                 placeholder="Write a note…"
-                className="text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 resize-none focus-visible:ring-0 dark:bg-transparent"
+                // 17px on a phone for comfortable typing, capped in height so a long note
+                // scrolls inside the box instead of running off the screen (Berto, 2026-10-03).
+                className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto resize-none focus-visible:ring-0 dark:bg-transparent"
               />
               <div className="mt-2 flex items-center gap-2">
                 <Button
@@ -1043,7 +1045,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                             if (e.key === "Escape") cancelEdit();
                           }}
                           rows={3}
-                          className="text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 focus-visible:ring-0 dark:bg-transparent"
+                          className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto focus-visible:ring-0 dark:bg-transparent"
                         />
                         <div className="flex gap-2 mt-2">
                           <Button size="xs" onClick={() => saveEdit(thought.id)}>
@@ -1067,7 +1069,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                         <p
                           onClick={() => setExpandedNoteId(expandedNoteId === thought.id ? null : thought.id)}
                           className={cn(
-                            "text-sm leading-relaxed break-words cursor-pointer",
+                            "text-base lg:text-sm leading-relaxed break-words cursor-pointer",
                             expandedNoteId !== thought.id && "line-clamp-2",
                           )}
                         >

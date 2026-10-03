@@ -9208,3 +9208,10 @@ Thu Threshold Intervals · Fri Unity Standard Upper Body · Sat Hyrox Sim ·
 Sun 20K easy. Any workout can be dropped for a week when he needs rest
 (upper body first). Planned: equipment tags, swap days, travel reshuffle.
 Fitbit: only steps + sleep are synced today — no heart rate yet.
+
+## 2026-10-03 — Meals prompt editor: bigger type for phone editing
+
+Berto edits the prompt on his phone. Template and guidance boxes are 16px on
+phones (also stops iOS zooming in on focus) and 14px from md up; preview,
+labels, placeholder chips and buttons each bumped a size. File:
+`app/_components/meal-prompt-editor.tsx`. Checked at 375px: no sideways scroll.

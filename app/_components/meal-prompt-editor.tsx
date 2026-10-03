@@ -164,8 +164,8 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
         aria-expanded={open}
       >
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">Suggestion prompt</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-base font-semibold">Suggestion prompt</h2>
+          <p className="text-sm text-muted-foreground">
             The exact instructions Cael sends the model for every ✨ and “Fill week”. See it, rewrite any of it.
           </p>
         </div>
@@ -184,10 +184,10 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
           <div className="min-w-0 space-y-3">
             <div>
               <div className="mb-1 flex items-center justify-between gap-2">
-                <label htmlFor="meal-prompt-template" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <label htmlFor="meal-prompt-template" className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Template
                 </label>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {dirty ? "Unsaved changes" : config.is_default ? "Using the default" : "Custom"}
                 </span>
               </div>
@@ -197,12 +197,12 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
                 spellCheck={false}
-                className="min-h-[420px] w-full resize-y rounded-md border bg-transparent p-2.5 font-mono text-xs leading-relaxed"
+                className="min-h-[420px] w-full resize-y rounded-md border bg-transparent p-2.5 font-mono text-base leading-relaxed md:text-sm"
               />
             </div>
 
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Placeholders <span className="font-normal normal-case">— click to insert at the cursor</span>
               </p>
               <div className="flex flex-wrap gap-1">
@@ -212,7 +212,7 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
                     type="button"
                     onClick={() => insertVariable(v.name)}
                     title={v.description}
-                    className="rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                    className="rounded border bg-muted/40 px-2 py-1 font-mono text-sm text-muted-foreground hover:text-foreground"
                   >
                     {`{{${v.name}}}`}
                   </button>
@@ -221,12 +221,12 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                 Guidance per sitting <span className="font-normal normal-case">— fills {"{{guidance}}"}</span>
               </p>
               {MEAL_SLOTS.map((s) => (
-                <div key={s.key} className="grid grid-cols-[52px_1fr] items-start gap-2">
-                  <label htmlFor={`meal-guidance-${s.key}`} className="pt-1.5 text-xs font-medium">
+                <div key={s.key} className="grid grid-cols-[60px_1fr] items-start gap-2">
+                  <label htmlFor={`meal-guidance-${s.key}`} className="pt-1.5 text-sm font-medium">
                     {s.label}
                   </label>
                   <textarea
@@ -234,21 +234,21 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
                     value={guidance[s.key]}
                     onChange={(e) => setGuidance((g) => ({ ...g, [s.key]: e.target.value }))}
                     rows={2}
-                    className="w-full resize-y rounded-md border bg-transparent px-2 py-1.5 text-xs"
+                    className="w-full resize-y rounded-md border bg-transparent px-2 py-1.5 text-base md:text-sm"
                   />
                 </div>
               ))}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" className="h-8 text-xs" disabled={!dirty || saving} onClick={save}>
+              <Button size="sm" className="h-9 text-sm" disabled={!dirty || saving} onClick={save}>
                 {saving ? <Spinner className="size-3" /> : "Save prompt"}
               </Button>
               {dirty && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                   onClick={() => {
                     setTemplate(config.template);
                     setGuidance(config.guidance);
@@ -260,7 +260,7 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
               <Button
                 size="sm"
                 variant="ghost"
-                className="ml-auto h-8 gap-1 text-xs text-muted-foreground"
+                className="ml-auto h-9 gap-1 text-sm text-muted-foreground"
                 disabled={saving || (config.is_default && matchesDefaults)}
                 onClick={resetToDefaults}
               >
@@ -273,9 +273,9 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
           {/* Preview */}
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview for</span>
+              <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preview for</span>
               <select
-                className="h-7 rounded-md border bg-transparent px-1.5 text-xs"
+                className="h-9 rounded-md border bg-transparent px-2 text-base md:h-8 md:text-sm"
                 value={previewDate}
                 onChange={(e) => setPreviewDate(e.target.value)}
                 aria-label="Preview day"
@@ -288,7 +288,7 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
                 ))}
               </select>
               <select
-                className="h-7 rounded-md border bg-transparent px-1.5 text-xs"
+                className="h-9 rounded-md border bg-transparent px-2 text-base md:h-8 md:text-sm"
                 value={previewSlot}
                 onChange={(e) => setPreviewSlot(e.target.value as MealSlot)}
                 aria-label="Preview sitting"
@@ -301,11 +301,11 @@ export function MealPromptEditor({ days, today }: { days: string[]; today: strin
               </select>
               {previewing && <Spinner className="size-3" />}
             </div>
-            <pre className="max-h-[640px] overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-2.5 font-mono text-xs leading-relaxed">
+            <pre className="max-h-[640px] overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-2.5 font-mono text-sm leading-relaxed">
               {preview?.prompt ?? (previewing ? "Building…" : "Couldn't build the preview.")}
             </pre>
             {preview && (
-              <div className="space-y-1 text-[11px] text-muted-foreground">
+              <div className="space-y-1 text-xs text-muted-foreground">
                 <p>
                   Sent to <span className="font-mono">{preview.model}</span>, which must answer with these fields (fixed — the
                   grid, protein totals and grocery list read them):

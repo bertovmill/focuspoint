@@ -133,25 +133,31 @@ WORKOUT_TEMPLATES.push({
       key: "superset-2",
       label: "Superset 2",
       exercises: [
-        { key: "deadlift", name: "Deadlift", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
-        { key: "walking_lunges", name: "Walking lunges", sets: 4, ladder: [20], weight: null },
+        // Capped at 225 × 10 on purpose — he doesn't want to push deadlifts and get hurt,
+        // so no ladder and no weight prompts (Berto, 2026-10-03).
+        { key: "deadlift", name: "Deadlift", sets: 4, ladder: [10], weight: 225, tracked: true },
+        // Sandbag, or a 40 lb dumbbell in each hand (80 total).
+        { key: "walking_lunges", name: "Walking lunges (sandbag / 2 × 40)", sets: 4, ladder: [20], weight: 80 },
       ],
     },
     {
       key: "superset-3",
       label: "Superset 3",
       exercises: [
-        { key: "split_squat", name: "Split squat (per leg)", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+        { key: "split_squat", name: "Split squat (per leg)", sets: 4, ladder: LADDER, weight: 135, tracked: true },
         // Hamstring curls over back extensions: deadlifts already load the lower back.
-        { key: "hamstring_curls", name: "Hamstring curls", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+        // Hammer Strength plate-loaded curl; 50 is a guess to correct after the first session.
+        { key: "hamstring_curls", name: "Hamstring curls (Hammer)", sets: 4, ladder: LADDER, weight: 50, tracked: true },
       ],
     },
     {
       key: "superset-4",
       label: "Superset 4",
       exercises: [
-        { key: "sled_push", name: "Heavy sled push", sets: 4, ladder: [25], weight: null, loaded: true, unit: "m" },
-        { key: "box_jumps", name: "Box jumps", sets: 4, ladder: [8], weight: null },
+        // Eight 45s on the sled (plates only, the sled itself not counted).
+        { key: "sled_push", name: "Heavy sled push", sets: 4, ladder: [25], weight: 360, unit: "m" },
+        // No box near the sled lane, so burpees take the box jumps' place.
+        { key: "burpees", name: "Burpees", sets: 4, ladder: [10], weight: null },
       ],
     },
     CORE_FINISHER,

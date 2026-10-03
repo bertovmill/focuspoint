@@ -9297,3 +9297,11 @@ of the default too (still available as placeholders).
 
 Verified locally: log + delete through the UI (test row removed), preview
 renders the liked list from real rows.
+
+## 2026-10-03 — Lower body: all starting weights set
+
+Deadlift 225 × 10, fixed (one rung, no weight prompt) — he doesn't want to push
+deadlifts and risk injury. Walking lunges 80 lbs (sandbag or 2 × 40 lb). Split
+squat 135. Hamstring curls (Hammer plate-loaded) 50 — a guess, correct after the
+first session. Sled push 360 lbs (8 × 45 plates). Box jumps → burpees × 10 (no
+box near the sled).

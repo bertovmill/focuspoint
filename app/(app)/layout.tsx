@@ -73,9 +73,10 @@ const PATH_TABS = Object.fromEntries(
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more. On the phone the bar holds five slots
 // (Berto, 2026-09-30): the first four tabs plus "More", which opens the rest.
+// Training sits on the bar and Writing behind More (Berto, 2026-10-03).
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
+  { tab: "writing", label: "Writing", icon: PenLineIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
-  { tab: "training", label: "Training", icon: DumbbellIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
   { tab: "career", label: "Career", icon: BriefcaseIcon },
 ];
@@ -106,7 +107,7 @@ const MOBILE_TABS: { tab: MobileTab; label: string; icon: typeof HomeIcon; color
   { tab: "home", label: "Home", icon: HomeIcon, color: { text: "text-primary", pill: "bg-primary/15" } },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon, color: { text: "text-sky-600 dark:text-sky-400", pill: "bg-sky-500/15" } },
   { tab: "notes", label: "Notes", icon: FileTextIcon, color: { text: "text-yellow-600 dark:text-yellow-400", pill: "bg-yellow-500/15" } },
-  { tab: "writing", label: "Writing", icon: PenLineIcon, color: { text: "text-orange-600 dark:text-orange-400", pill: "bg-orange-500/15" } },
+  { tab: "training", label: "Training", icon: DumbbellIcon, color: { text: "text-orange-600 dark:text-orange-400", pill: "bg-orange-500/15" } },
 ];
 const MORE_COLOR: TabColor = { text: "text-slate-600 dark:text-slate-300", pill: "bg-slate-500/15" };
 

@@ -7,7 +7,7 @@ import { generateMealImage } from "./nutrition-art";
 import { MEAL_SLOTS, normalizeIngredients, type MealSlot } from "./nutrition";
 import type { PlannedMeal } from "./nutrition-plan";
 
-export const TEXT_MODEL = "anthropic/claude-sonnet-4.6";
+export const TEXT_MODEL = "deepseek/deepseek-v4-flash";
 
 export const MealIdea = z.object({
   name: z.string().describe("Short dish name"),

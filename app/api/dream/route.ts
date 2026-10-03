@@ -44,7 +44,7 @@ async function runDream() {
     .join("\n");
 
   const { object: dream } = await generateObject({
-    model: "anthropic/claude-sonnet-4-6",
+    model: "deepseek/deepseek-v4-flash",
     schema: DreamSchema,
     prompt: `You are Cael — a personal guide performing your nightly dreaming cycle. Review this person's recent thoughts and todos, then consolidate what you've learned into structured insights that will make you a better guide tomorrow.
 

@@ -28,19 +28,22 @@ export type ChatModel = {
  * before the picker went cross-provider. Prices are list prices per 1M tokens.
  */
 export const CHAT_MODEL_FALLBACK: readonly ChatModel[] = [
+  { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "deepseek", inputPrice: 0.13, outputPrice: 0.26 },
   { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5", provider: "anthropic", inputPrice: 1, outputPrice: 5 },
   { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", provider: "anthropic", inputPrice: 3, outputPrice: 15 },
   { id: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8", provider: "anthropic", inputPrice: 5, outputPrice: 25 },
   { id: "anthropic/claude-opus-5", label: "Claude Opus 5", provider: "anthropic", inputPrice: 5, outputPrice: 25 },
 ];
 
-export const CHAT_MODEL_DEFAULT = "anthropic/claude-sonnet-4.6";
+// DeepSeek V4 Flash since 2026-10-03: Sonnet was burning through Gateway credits
+// fast enough that chats died mid-conversation when the balance hit zero.
+export const CHAT_MODEL_DEFAULT = "deepseek/deepseek-v4-flash";
 
 /** What the picker pins until Berto pins something of his own. */
 export const CHAT_MODEL_DEFAULT_PINS: readonly string[] = [
-  "anthropic/claude-haiku-4.5",
   CHAT_MODEL_DEFAULT,
-  "anthropic/claude-opus-5",
+  "anthropic/claude-haiku-4.5",
+  "anthropic/claude-sonnet-4.6",
 ];
 
 /**
@@ -109,7 +112,7 @@ export function providerRank(provider: string): number {
 
 type Sql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
 
-/** The currently selected model id, defaulting to Sonnet. */
+/** The currently selected model id, falling back to the default. */
 export async function getChatModel(sql: Sql): Promise<string> {
   try {
     const [row] = await sql`SELECT value FROM app_settings WHERE key = ${MODEL_KEY}`;

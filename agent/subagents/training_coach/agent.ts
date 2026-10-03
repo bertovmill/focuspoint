@@ -8,5 +8,5 @@ import { defineAgent } from "eve";
 export default defineAgent({
   description:
     "Training coach that drafts or reworks a week on Berto's /training plan, writing sessions onto the calendar one at a time. Delegate when he asks to draft, redraft, or rework a training week (or part of one). Pass the Monday of the week (ISO date) and anything he said about it (travel, soreness, a day he can't train).",
-  model: "anthropic/claude-sonnet-4.6",
+  model: "deepseek/deepseek-v4-flash",
 });

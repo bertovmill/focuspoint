@@ -15,7 +15,7 @@ import { listPublishedPosts } from "@/lib/posts";
 
 export const maxDuration = 60;
 
-const MODEL = "anthropic/claude-sonnet-4.6";
+const MODEL = "deepseek/deepseek-v4-flash";
 
 /** Ceilings on what one request may carry, so a visitor can't drive up cost or context. */
 const MAX_MESSAGES = 16;

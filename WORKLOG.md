@@ -4,6 +4,42 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-03 — Mobile pass: tab bar, notes, chat that survives app switching, web push
+
+Berto uses Cael mostly on his phone, from a home-screen icon.
+
+- **Tab bar**: Training replaced Writing on the phone bar; Writing moved to the top of
+  More (desktop rail unchanged). The active pill now wraps icon *and* label (72×56).
+  Konsta's 28px icon box and `truncate` were squeezing it to a sliver, so the links set
+  `overflow-visible!`. `app/(app)/layout.tsx`.
+- **Notes on mobile**: composer and edit box are 17px on phones (`lg:text-sm` on
+  desktop), capped at `45dvh` and scroll inside. The page "running off the screen" was
+  iOS auto-zooming on a <16px field; `maximumScale: 1` in the root viewport stops that
+  app-wide (iOS still allows pinch-zoom). `app/_components/dashboard.tsx`, `app/layout.tsx`.
+- **Chat survives app switching**: the turn always finished on the server; the phone
+  lost it. WebKit reports a dropped stream as `TypeError: Load failed`, which eve's
+  `isStreamDisconnectError` doesn't recognise, so no reconnect ran and the chat sat on
+  "Request failed". `useThreadAgent` now calls `agent.resume()` on `visibilitychange` →
+  visible, `pageshow`, `online`, and 1.5s after a non-stale-session error, when the last
+  event isn't a turn boundary. And `eveChannel({ turnPolicy: "queue" })` (Berto's pick):
+  a message sent mid-answer waits instead of cancelling it — a "hello?" after switching
+  back used to kill the running turn. Stop still interrupts. Not yet confirmed on a device.
+- **Web push "answer ready"** (Berto chose web push over the native app; his Apple
+  Developer membership runs to Dec 13 2026 with auto-renew off). `app/manifest.ts`
+  (standalone — iOS needs it for push), `public/sw.js` (shows the notification, tap opens
+  /chat), `lib/push.ts` (subscriptions as a JSON list in `app_settings`, dead endpoints
+  pruned on 404/410), `app/api/push` (POST/DELETE), the bell in the chat header
+  (`app/_components/push-bell.tsx`), and the eve channel's `message.completed` handler
+  (only `finishReason === "stop"`, so tool-call narration doesn't notify). Middleware lets
+  `/sw.js` and `/manifest.webmanifest` through unauthenticated.
+
+**Next steps:** VAPID keys aren't set yet — the bell stays hidden and `sendPush` no-ops
+until `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are in
+`.env.local` and Vercel production, followed by a redeploy (the public key is inlined at
+build time). Then on the phone: delete the old home-screen icon, re-add from Safari (so
+iOS reads the manifest), sign in once inside it, tap the bell. Possible follow-ups:
+deep-link the notification to the exact thread; disable the composer while resuming.
+
 ## 2026-10-01 — bertomill.com/fitness: HYROX results
 
 New public page at `/fitness` (Berto picked the name "Fitness" over "/hyrox"), linked in

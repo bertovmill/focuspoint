@@ -2,6 +2,7 @@
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
 import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
+import { PushBell } from "@/app/_components/push-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -170,6 +171,7 @@ function ChatSession({
           <StatusDot status={agent.status} />
         </span>
         <span className="flex items-center gap-1">
+          <PushBell />
           <PinButton className="p-2" />
           <button
             onClick={() => setTraceOpen(true)}

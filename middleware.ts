@@ -40,6 +40,10 @@ function isAlwaysAllowed(pathname: string): boolean {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||
+    // The web-app manifest and push service worker. iOS fetches the manifest when
+    // adding to the home screen, and a service worker script can't be a redirect.
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
     // Files served straight from public/. next/image's optimizer refetches its
     // source over HTTP without a session cookie, so gating these would 307 it to
     // the sign-in page and it would report "the requested resource isn't a valid image".

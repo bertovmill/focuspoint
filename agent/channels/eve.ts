@@ -3,6 +3,7 @@ import { localDev, vercelOidc, type AuthFn } from "eve/channels/auth";
 import { createClerkClient } from "@clerk/backend";
 import { SESSION_COOKIE, isValidSession } from "@/lib/session";
 import { CLERK_SERVER_ENABLED, isOwnerUser } from "@/lib/owner";
+import { sendPush } from "@/lib/push";
 
 /**
  * The agent transport is the app's back door — it can drive every tool Cael has —
@@ -78,4 +79,21 @@ export default eveChannel({
   // "hello?" used to throw away the turn still running on the server. Stop is the
   // way to interrupt.
   turnPolicy: "queue",
+  events: {
+    // Web push when an answer is ready (Berto, 2026-10-03), so he can switch apps
+    // while Cael works. Only the terminal reply counts: `message.completed` also
+    // fires for the narration before a tool call, which ends in "tool-calls".
+    // Never throws (lib/push.ts), so a failed push can't fail the turn.
+    async "message.completed"(data) {
+      if (data.finishReason !== "stop") return;
+      const text = (data.message ?? "").replace(/[*_`#>\[\]]/g, "").replace(/\s+/g, " ").trim();
+      if (!text) return;
+      await sendPush({
+        title: "Cael",
+        body: text.length > 140 ? `${text.slice(0, 139)}…` : text,
+        url: "/chat",
+        tag: "cael-answer",
+      });
+    },
+  },
 });

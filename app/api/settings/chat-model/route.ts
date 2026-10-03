@@ -21,7 +21,9 @@ export async function GET() {
   try {
     const sql = getDb();
     const [model, pinned] = await Promise.all([getChatModel(sql), getPinnedModels(sql)]);
-    return NextResponse.json({ model, pinned, models });
+    // Pins saved before the price ceiling can point at models no longer offered.
+    const offered = new Set(models.map((m) => m.id));
+    return NextResponse.json({ model, pinned: pinned.filter((id) => offered.has(id)), models });
   } catch {
     return NextResponse.json({
       model: CHAT_MODEL_DEFAULT,
@@ -34,6 +36,13 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
+    // Only models the picker offers (i.e. under the price ceiling) can be selected.
+    if ("model" in body) {
+      const offered = await listChatModels();
+      if (!offered.some((m) => m.id === body.model)) {
+        return NextResponse.json({ error: "That model is over the price ceiling" }, { status: 400 });
+      }
+    }
     const sql = getDb();
     // A PUT carries the model, the pins, or both — the picker sends only what changed.
     const model = "model" in body ? await setChatModel(sql, body.model) : await getChatModel(sql);

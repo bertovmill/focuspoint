@@ -2,7 +2,7 @@ import "server-only";
 
 import { gateway } from "ai";
 
-import { CHAT_MODEL_FALLBACK, type ChatModel, providerRank } from "@/lib/chat-model";
+import { CHAT_MODEL_FALLBACK, type ChatModel, isAffordable, providerRank } from "@/lib/chat-model";
 
 // The picker's model list comes straight from the AI Gateway catalog, so new
 // models appear without a deploy and the prices shown are the gateway's own.
@@ -20,7 +20,8 @@ function perMillion(price: string | undefined): number | null {
 }
 
 /**
- * Every language model the gateway will serve, ordered provider-first. Falls
+ * Every language model the gateway will serve under the price ceiling
+ * (MAX_OUTPUT_PRICE), ordered provider-first. Falls
  * back to the built-in ladder if the gateway is unreachable or unauthenticated
  * (which is the normal state in local dev without an OIDC token).
  */
@@ -37,6 +38,7 @@ export async function listChatModels(): Promise<ChatModel[]> {
         inputPrice: perMillion(m.pricing?.input),
         outputPrice: perMillion(m.pricing?.output),
       }))
+      .filter(isAffordable)
       .sort(
         (a, b) =>
           providerRank(a.provider) - providerRank(b.provider) ||

@@ -24,15 +24,31 @@ export type ChatModel = {
 };
 
 /**
- * Shown when the gateway catalog can't be reached — the ladder Cael ran on
- * before the picker went cross-provider. Prices are list prices per 1M tokens.
+ * The picker only offers models at or under this output price (USD per 1M
+ * tokens). Since 2026-10-03: the Claude tiers drained Gateway credits until
+ * chats died mid-conversation, so the expensive end of the catalog is gone
+ * from the list and the settings route refuses it.
+ */
+export const MAX_OUTPUT_PRICE = 3;
+
+/** Within the price ceiling. Unpriced models are out — they could cost anything. */
+export function isAffordable(model: Pick<ChatModel, "inputPrice" | "outputPrice">): boolean {
+  return (
+    model.outputPrice != null &&
+    model.outputPrice <= MAX_OUTPUT_PRICE &&
+    model.inputPrice != null &&
+    model.inputPrice <= MAX_OUTPUT_PRICE
+  );
+}
+
+/**
+ * Shown when the gateway catalog can't be reached. Prices are list prices per
+ * 1M tokens, all under MAX_OUTPUT_PRICE.
  */
 export const CHAT_MODEL_FALLBACK: readonly ChatModel[] = [
   { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "deepseek", inputPrice: 0.13, outputPrice: 0.26 },
-  { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5", provider: "anthropic", inputPrice: 1, outputPrice: 5 },
-  { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", provider: "anthropic", inputPrice: 3, outputPrice: 15 },
-  { id: "anthropic/claude-opus-4.8", label: "Claude Opus 4.8", provider: "anthropic", inputPrice: 5, outputPrice: 25 },
-  { id: "anthropic/claude-opus-5", label: "Claude Opus 5", provider: "anthropic", inputPrice: 5, outputPrice: 25 },
+  { id: "openai/gpt-5-mini", label: "GPT-5 mini", provider: "openai", inputPrice: 0.25, outputPrice: 2 },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", provider: "google", inputPrice: 0.5, outputPrice: 3 },
 ];
 
 // DeepSeek V4 Flash since 2026-10-03: Sonnet was burning through Gateway credits
@@ -42,8 +58,8 @@ export const CHAT_MODEL_DEFAULT = "deepseek/deepseek-v4-flash";
 /** What the picker pins until Berto pins something of his own. */
 export const CHAT_MODEL_DEFAULT_PINS: readonly string[] = [
   CHAT_MODEL_DEFAULT,
-  "anthropic/claude-haiku-4.5",
-  "anthropic/claude-sonnet-4.6",
+  "openai/gpt-5-mini",
+  "google/gemini-3-flash",
 ];
 
 /**

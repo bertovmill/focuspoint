@@ -1,6 +1,11 @@
 "use client";
 
-import { ClientError, type ClientSessionState, type HandleMessageStreamEvent } from "eve/client";
+import {
+  ClientError,
+  isCurrentTurnBoundaryEvent,
+  type ClientSessionState,
+  type HandleMessageStreamEvent,
+} from "eve/client";
 import type { EveMessageData, PrepareSend } from "eve/react";
 import { useEveAgent } from "eve/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
@@ -122,7 +127,13 @@ export function useThreadAgent(
       return input;
     },
     onError: (error) => {
-      if (!isStaleSession(error) || sessionLostRef.current) return;
+      // A dropped stream, not a dead session: the turn is still running on the
+      // server, so reattach shortly instead of leaving the chat on an error.
+      if (!isStaleSession(error)) {
+        scheduleReattachRef.current();
+        return;
+      }
+      if (sessionLostRef.current) return;
       sessionLostRef.current = true;
       const { agent: live, saveSnapshot: save, threadId: id } = latestRef.current;
       // Keep every event we have; only the session pointer is wrong.
@@ -155,6 +166,37 @@ export function useThreadAgent(
     },
     session,
   });
+
+  // Reattach to a turn the phone lost. iOS drops the stream when Cael is
+  // backgrounded, and WebKit reports that as "Load failed", which eve doesn't
+  // count as a disconnect, so its own reconnect never runs and the chat sat on
+  // an error until a reload (Berto, 2026-10-03). The run itself is durable on
+  // the server; `resume()` replays from the cursor and follows it to the end.
+  const reattach = useCallback(() => {
+    const { agent: live } = latestRef.current;
+    if (live.status !== "error" && live.status !== "ready") return;
+    if (sessionLostRef.current || document.visibilityState !== "visible") return;
+    const last = live.events[live.events.length - 1];
+    if (!last || isCurrentTurnBoundaryEvent(last)) return;
+    live.resume().catch(() => {});
+  }, []);
+  const reattachTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const scheduleReattachRef = useRef(() => {});
+  scheduleReattachRef.current = () => {
+    clearTimeout(reattachTimerRef.current);
+    reattachTimerRef.current = setTimeout(reattach, 1500);
+  };
+  useEffect(() => {
+    window.addEventListener("pageshow", reattach);
+    window.addEventListener("online", reattach);
+    document.addEventListener("visibilitychange", reattach);
+    return () => {
+      clearTimeout(reattachTimerRef.current);
+      window.removeEventListener("pageshow", reattach);
+      window.removeEventListener("online", reattach);
+      document.removeEventListener("visibilitychange", reattach);
+    };
+  }, [reattach]);
 
   // Latest values for the checkpoint timer, which fires outside of render.
   const latestRef = useRef({ agent, saveSnapshot, threadId });

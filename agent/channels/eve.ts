@@ -73,4 +73,9 @@ function clerkAuth(): AuthFn<Request> {
 
 export default eveChannel({
   auth: [vercelOidc(), localDev(), clerkAuth(), cookieAuth()],
+  // A message sent mid-answer waits for that answer instead of cancelling it
+  // (Berto, 2026-10-03). On the phone, coming back from another app and typing
+  // "hello?" used to throw away the turn still running on the server. Stop is the
+  // way to interrupt.
+  turnPolicy: "queue",
 });

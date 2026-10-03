@@ -9273,3 +9273,27 @@ Back squat starts at 225 lbs (bar + two plates a side, ~10 reps now), × 10 on
 the ladder. Wall balls default to the 9 kg ball (new `weightUnit: "kg"` on a
 template exercise); when Unity is out of 9 kg he types the ball he used, so the
 log shows it. Wall balls stay a fixed × 15 for now; raise the rung when he's ready.
+
+## 2026-10-03 — Meals: meal log on /meals, leaner default prompt
+
+Berto read the live prompt preview: the old food thoughts and the old staples
+shelf were mostly noise. He wants the prompt built from his staples and a log
+of meals he liked, with notes. Picked (asked): staples from **Notes on /meals
+only**; **reuse nutrition_meals** as the log with a UI on /meals; drop food
+thoughts. He left "keep recent / feedback / recipes" unticked, so they're out
+of the default too (still available as placeholders).
+
+- `lib/meal-prompt.ts`: new placeholders `{{liked_meals}}` (felt_good, last
+  40, with notes) and `{{disliked_meals}}` (last 20). Default template is now:
+  sitting + guidance, Notes, protein target / planned today, liked, disliked.
+  `{{staples}}`, `{{food_thoughts}}`, `{{recipes}}`, `{{recent_meals}}`,
+  `{{feedback}}` still work if he adds them back.
+- His saved prompt (`meals.prompt.config`, saved earlier today with only the
+  snack guidance changed) was moved onto the new template, guidance kept.
+- `app/_components/meal-log.tsx`: "Meal log" section at `/meals#meal-log`
+  (between Notes and the prompt editor): log name / sitting / date /
+  liked-or-not / notes; tap the thumb to flip it, tap a note to edit, delete.
+  Uses the existing `/api/nutrition/meals` routes. Phone-sized type.
+
+Verified locally: log + delete through the UI (test row removed), preview
+renders the liked list from real rows.

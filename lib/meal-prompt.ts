@@ -24,20 +24,11 @@ HIS MEAL NOTES — his current rules. Anything under a Principles heading is a h
 PROTEIN TARGET: about {{protein_target}} g over the day across lunch, snack and dinner. Dinner carries the most.
 ALREADY PLANNED THAT DAY: {{planned_today}}
 
-OTHER STAPLES ON FILE:
-{{staples}}
+MEALS HE'S LOGGED AND LIKED (with his notes) — aim for food like this, but don't repeat one he ate in the last few days:
+{{liked_meals}}
 
-OLDER FOOD THOUGHTS HE'S CAPTURED (background — where they conflict with his Notes, the Notes win):
-{{food_thoughts}}
-
-RECIPES HE HAS SAVED (favour variations on these; don't repeat one planned that week):
-{{recipes}}
-
-EATEN IN THE LAST 10 DAYS (don't repeat these):
-{{recent_meals}}
-
-PAST FEEDBACK ON RECOMMENDATIONS:
-{{feedback}}`;
+MEALS HE'S LOGGED AND DIDN'T LIKE — avoid these and anything close to them:
+{{disliked_meals}}`;
 
 export const DEFAULT_MEAL_GUIDANCE = Object.fromEntries(MEAL_SLOTS.map((s) => [s.key, s.guidance])) as Record<MealSlot, string>;
 
@@ -49,7 +40,9 @@ export const MEAL_PROMPT_VARIABLES = [
   { name: "notes", description: "Your Notes page on /meals (first 3,000 characters)" },
   { name: "protein_target", description: "Daily protein target in grams" },
   { name: "planned_today", description: "What's already planned that day, with protein" },
-  { name: "staples", description: "Staples on file (nutrition_staples), one per line" },
+  { name: "liked_meals", description: "Meal log: meals you liked, with your notes (last 40)" },
+  { name: "disliked_meals", description: "Meal log: meals you didn't like, with your notes (last 20)" },
+  { name: "staples", description: "Older staples shelf from the Nutrition screen (not your Notes)" },
   { name: "food_thoughts", description: "Last 25 thoughts tagged nutrition/energy/…" },
   { name: "recipes", description: "Last 30 saved recipes" },
   { name: "recent_meals", description: "Meals logged in the last 10 days" },
@@ -99,7 +92,7 @@ const list = (lines: string[]) => (lines.length ? lines.join("\n") : "(none)");
 /** The live data behind every placeholder except slot/date/guidance. */
 async function gatherVariables(date: string): Promise<Record<string, string>> {
   const sql = getDb();
-  const [staples, thoughts, notes, recent, feedback, recipes, sameDay, target] = await Promise.all([
+  const [staples, thoughts, notes, recent, feedback, recipes, sameDay, target, liked, disliked] = await Promise.all([
     sql`SELECT name, why FROM nutrition_staples ORDER BY sort_order ASC`,
     sql`
       SELECT content FROM thoughts
@@ -119,7 +112,17 @@ async function gatherVariables(date: string): Promise<Record<string, string>> {
     sql`SELECT name, slot, protein_g FROM nutrition_recipes ORDER BY created_at DESC LIMIT 30`,
     sql`SELECT slot, name, protein_g FROM meal_recommendations WHERE meal_date = ${date}`,
     getProteinTarget(),
+    sql`
+      SELECT name, slot, notes, to_char(eaten_date, 'YYYY-MM-DD') AS eaten_date FROM nutrition_meals
+      WHERE felt_good ORDER BY eaten_date DESC, created_at DESC LIMIT 40
+    `,
+    sql`
+      SELECT name, slot, notes, to_char(eaten_date, 'YYYY-MM-DD') AS eaten_date FROM nutrition_meals
+      WHERE NOT felt_good ORDER BY eaten_date DESC, created_at DESC LIMIT 20
+    `,
   ]);
+  const logLine = (m: Record<string, unknown>) =>
+    `- ${m.eaten_date}${m.slot ? ` ${m.slot}` : ""}: ${m.name}${m.notes ? ` — "${String(m.notes).replace(/\s+/g, " ")}"` : ""}`;
   const planned = sameDay.reduce((sum, r) => sum + (Number(r.protein_g) || 0), 0);
   return {
     notes: notes ? notes.slice(0, 3000) : "(none)",
@@ -133,6 +136,8 @@ async function gatherVariables(date: string): Promise<Record<string, string>> {
     recent_meals: list(
       recent.map((r) => `- ${String(r.eaten_date).slice(0, 10)} ${r.slot ?? ""} ${r.name}${r.felt_good ? "" : " (felt off)"}`),
     ),
+    liked_meals: list(liked.map(logLine)),
+    disliked_meals: list(disliked.map(logLine)),
     feedback: list(feedback.map((f) => `- ${f.slot}: ${f.name} → ${f.feedback}`)),
   };
 }

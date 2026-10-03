@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
+import { MealLog } from "@/app/_components/meal-log";
 import { MealPromptEditor } from "@/app/_components/meal-prompt-editor";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
@@ -615,6 +616,8 @@ export function WeekPlanPanel() {
         }
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
+
+      <MealLog />
 
       <MealPromptEditor days={days} today={today} />
 

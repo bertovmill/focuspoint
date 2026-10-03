@@ -9251,3 +9251,18 @@ Berto edits the prompt on his phone. Template and guidance boxes are 16px on
 phones (also stops iOS zooming in on focus) and 14px from md up; preview,
 labels, placeholder chips and buttons each bumped a size. File:
 `app/_components/meal-prompt-editor.tsx`. Checked at 375px: no sideways scroll.
+
+## 2026-10-03 — Unity Standard Lower Body template
+
+Second structured workout, `/training/workouts/unity-standard-lower-body/<date>`,
+same format as upper (Berto picked the exercises from what Unity has):
+- SS1 back squat (ladder) + wall balls × 15
+- SS2 deadlift (ladder) + walking lunges × 20
+- SS3 split squat per leg (ladder) + hamstring curls (ladder) — curls over back
+  extensions because deadlifts already load the lower back; no calf-raise machine
+- SS4 heavy sled push 4 × 25 m (weight logged, not charted) + box jumps × 8
+- Core finisher: the same 3 × 10 toe touches / bicycle crunches / knee tucks
+No starting weights yet: template exercises can be `loaded` with a null weight,
+shown as an outlined "—" box he fills the first time. Added `unit: "m"` for the
+sled. Warm-up/cool-down are optional on a template (none given for lower).
+Strength sessions titled "… Lower Body …" link to it; coach brief updated.

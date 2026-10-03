@@ -13,8 +13,12 @@ export interface TemplateExercise {
   sets: number;
   /** Rep targets in order. One rung = a fixed target that never steps up. */
   ladder: number[];
-  /** Starting weight in lbs, null for bodyweight. */
+  /** Starting weight in lbs; null for bodyweight, or for a loaded lift not weighed yet. */
   weight: number | null;
+  /** Takes a weight even though there's no starting number yet (he types it the first time). */
+  loaded?: boolean;
+  /** What a "rep" is. Defaults to reps; the sled counts metres. */
+  unit?: "m";
   perSide?: boolean;
   /** Charted week over week. Superset partners and abs are logged but not charted. */
   tracked?: boolean;
@@ -33,8 +37,8 @@ export interface WorkoutTemplate {
   aliases?: string[];
   /** Matches a planned session to this template (strength sessions whose title fits). */
   match: RegExp;
-  warmup: string;
-  cooldown: string;
+  warmup?: string;
+  cooldown?: string;
   blocks: TemplateBlock[];
 }
 
@@ -94,6 +98,61 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     ],
   },
 ];
+
+// The core finisher both strength days end on.
+const CORE_FINISHER: TemplateBlock = {
+  key: "ab-circuit",
+  label: "Core finisher",
+  exercises: [
+    { key: "abs_toe_touches", name: "Toe touches", sets: 3, ladder: [10], weight: null },
+    { key: "bicycle_crunches", name: "Bicycle crunches", sets: 3, ladder: [10], weight: null },
+    { key: "knee_tucks", name: "Knee tucks", sets: 3, ladder: [10], weight: null },
+  ],
+};
+
+WORKOUT_TEMPLATES.push({
+  slug: "unity-standard-lower-body",
+  name: "Unity Standard Lower Body",
+  match: /lower[\s-]*body/i,
+  // Built around his Hyrox weak spots (Berto, 2026-10-03): sled push (Ottawa rank 34),
+  // wall balls (22) and lunges. Starting weights come from his first session.
+  blocks: [
+    {
+      key: "superset-1",
+      label: "Superset 1",
+      exercises: [
+        { key: "back_squat", name: "Back squat", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+        { key: "wall_balls", name: "Wall balls", sets: 4, ladder: [15], weight: null },
+      ],
+    },
+    {
+      key: "superset-2",
+      label: "Superset 2",
+      exercises: [
+        { key: "deadlift", name: "Deadlift", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+        { key: "walking_lunges", name: "Walking lunges", sets: 4, ladder: [20], weight: null },
+      ],
+    },
+    {
+      key: "superset-3",
+      label: "Superset 3",
+      exercises: [
+        { key: "split_squat", name: "Split squat (per leg)", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+        // Hamstring curls over back extensions: deadlifts already load the lower back.
+        { key: "hamstring_curls", name: "Hamstring curls", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
+      ],
+    },
+    {
+      key: "superset-4",
+      label: "Superset 4",
+      exercises: [
+        { key: "sled_push", name: "Heavy sled push", sets: 4, ladder: [25], weight: null, loaded: true, unit: "m" },
+        { key: "box_jumps", name: "Box jumps", sets: 4, ladder: [8], weight: null },
+      ],
+    },
+    CORE_FINISHER,
+  ],
+});
 
 export function getTemplate(slug: string) {
   return WORKOUT_TEMPLATES.find((t) => t.slug === slug || t.aliases?.includes(slug)) ?? null;

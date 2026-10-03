@@ -184,9 +184,11 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </div>
       </header>
 
-      <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Warm-up</span> · {t.warmup}
-      </p>
+      {t.warmup && (
+        <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Warm-up</span> · {t.warmup}
+        </p>
+      )}
 
       {!data ? (
         <div className="space-y-4">
@@ -227,9 +229,11 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         ))
       )}
 
-      <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Cool-down</span> · {t.cooldown}
-      </p>
+      {t.cooldown && (
+        <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Cool-down</span> · {t.cooldown}
+        </p>
+      )}
 
       {data && (
         <section id="progress" className="space-y-3">
@@ -279,9 +283,9 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
       <td className="px-3 py-2.5 sm:px-4">
         <span className="block font-medium leading-snug">{ex.name}</span>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
-          <span className="font-medium tabular-nums text-foreground/80">× {row.target}</span>
+          <span className="font-medium tabular-nums text-foreground/80">× {row.target}{ex.unit === "m" ? " m" : ""}</span>
           <span aria-hidden>·</span>
-          {ex.weight === null ? (
+          {ex.weight === null && !ex.loaded ? (
             <span>BW</span>
           ) : (
             <span className="inline-flex items-center whitespace-nowrap">
@@ -291,8 +295,9 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
                 onFocus={(e) => e.currentTarget.select()}
                 onClick={(e) => e.currentTarget.select()}
                 value={row.weight}
+                placeholder="—"
                 onChange={(e) => setWeight(e.target.value.replace(/[^\d.]/g, ""))}
-                className="w-10 rounded border border-transparent bg-transparent px-0.5 py-0.5 text-base tabular-nums sm:w-11 sm:text-sm hover:border-border focus:border-ring focus:outline-none"
+                className={cn("w-10 rounded border px-0.5 py-0.5 text-base tabular-nums sm:w-11 sm:text-sm hover:border-border focus:border-ring focus:outline-none", row.weight ? "border-transparent bg-transparent" : "border-border bg-background")}
                 aria-label={`${ex.name} weight`}
               />
               <span>{ex.perSide ? "/side" : "lbs"}</span>

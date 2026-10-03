@@ -9266,3 +9266,10 @@ No starting weights yet: template exercises can be `loaded` with a null weight,
 shown as an outlined "—" box he fills the first time. Added `unit: "m"` for the
 sled. Warm-up/cool-down are optional on a template (none given for lower).
 Strength sessions titled "… Lower Body …" link to it; coach brief updated.
+
+## 2026-10-03 — Lower body starting weights
+
+Back squat starts at 225 lbs (bar + two plates a side, ~10 reps now), × 10 on
+the ladder. Wall balls default to the 9 kg ball (new `weightUnit: "kg"` on a
+template exercise); when Unity is out of 9 kg he types the ball he used, so the
+log shows it. Wall balls stay a fixed × 15 for now; raise the rung when he's ready.

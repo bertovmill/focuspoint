@@ -300,7 +300,7 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
                 className={cn("w-10 rounded border px-0.5 py-0.5 text-base tabular-nums sm:w-11 sm:text-sm hover:border-border focus:border-ring focus:outline-none", row.weight ? "border-transparent bg-transparent" : "border-border bg-background")}
                 aria-label={`${ex.name} weight`}
               />
-              <span>{ex.perSide ? "/side" : "lbs"}</span>
+              <span>{ex.perSide ? "/side" : (ex.weightUnit ?? "lbs")}</span>
             </span>
           )}
         </div>
@@ -380,7 +380,7 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
       {latest && (
         <span className="text-sm tabular-nums text-muted-foreground">
           {latest.total}/{latest.goal}
-          {latest.weight !== null && ` · ${latest.weight}${ex.perSide ? "/side" : " lbs"}`}
+          {latest.weight !== null && ` · ${latest.weight}${ex.perSide ? "/side" : ` ${ex.weightUnit ?? "lbs"}`}`}
         </span>
       )}
     </div>
@@ -446,7 +446,7 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
       </svg>
       <p className="mt-1 min-h-5 text-xs tabular-nums text-muted-foreground">
         {h
-          ? `${shortDate(h.date)} · ${h.total}/${h.goal} reps (× ${h.target})${h.weight !== null ? ` at ${h.weight}${ex.perSide ? "/side" : " lbs"}` : ""}`
+          ? `${shortDate(h.date)} · ${h.total}/${h.goal} reps (× ${h.target})${h.weight !== null ? ` at ${h.weight}${ex.perSide ? "/side" : ` ${ex.weightUnit ?? "lbs"}`}` : ""}`
           : "Dashed line: the target (sets × rung)"}
       </p>
     </div>

@@ -17,6 +17,8 @@ export interface TemplateExercise {
   weight: number | null;
   /** Takes a weight even though there's no starting number yet (he types it the first time). */
   loaded?: boolean;
+  /** Defaults to lbs; the wall ball is weighed in kg. */
+  weightUnit?: "kg";
   /** What a "rep" is. Defaults to reps; the sled counts metres. */
   unit?: "m";
   perSide?: boolean;
@@ -121,8 +123,10 @@ WORKOUT_TEMPLATES.push({
       key: "superset-1",
       label: "Superset 1",
       exercises: [
-        { key: "back_squat", name: "Back squat", sets: 4, ladder: LADDER, weight: null, loaded: true, tracked: true },
-        { key: "wall_balls", name: "Wall balls", sets: 4, ladder: [15], weight: null },
+        // 225 = bar + two plates a side; about 10 reps now (Berto, 2026-10-03).
+        { key: "back_squat", name: "Back squat", sets: 4, ladder: LADDER, weight: 225, tracked: true },
+        // 9 kg is the target ball; when the gym is out of them he logs the one he used.
+        { key: "wall_balls", name: "Wall balls", sets: 4, ladder: [15], weight: 9, weightUnit: "kg" },
       ],
     },
     {

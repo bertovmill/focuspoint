@@ -133,7 +133,9 @@ const TABBAR_LINK_COLORS = {
 /**
  * A tab's icon with the coloured pill behind it. The pill shares one `layoutId`
  * across all six tabs, so it slides from the old tab to the new one instead of
- * blinking. Sized for a thumb: 56×36 pill, 26px icon.
+ * blinking. The pill wraps the icon and the label below it with a little room on
+ * every side (Berto, 2026-10-03): 72×56, anchored to Konsta's 28px icon box, which
+ * is why the links turn off Konsta's `truncate` clipping. 26px icon.
  */
 function TabIcon({
   icon: Icon,
@@ -147,12 +149,12 @@ function TabIcon({
   reduceMotion?: boolean | null;
 }) {
   return (
-    <span className="relative flex h-9 w-14 items-center justify-center">
+    <span className="relative flex size-7 items-center justify-center">
       {active && (
         <motion.span
           layoutId="mobileTabPill"
           transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
-          className={cn("absolute inset-0 rounded-full", color.pill)}
+          className={cn("absolute -top-1.5 left-[calc(50%-2.25rem)] h-14 w-18 rounded-[1.25rem]", color.pill)}
         />
       )}
       <motion.span
@@ -504,7 +506,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             icon={<TabIcon icon={Icon} color={color} active={mobileTab === tab} reduceMotion={reduceMotion} />}
             label={label}
             colors={{ ...TABBAR_LINK_COLORS, textActiveIos: color.text, textActiveMaterial: color.text }}
-            className="min-w-0 flex-1 basis-0 px-0!"
+            className="min-w-0 flex-1 basis-0 px-0! overflow-visible!"
           />
         ))}
         {MORE_TABS.length > 0 && <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
@@ -521,7 +523,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               }
               label="More"
               colors={{ ...TABBAR_LINK_COLORS, textActiveIos: MORE_COLOR.text, textActiveMaterial: MORE_COLOR.text }}
-              className="min-w-0 flex-1 basis-0 px-0!"
+              className="min-w-0 flex-1 basis-0 px-0! overflow-visible!"
             />
           </DrawerTrigger>
           <DrawerContent aria-describedby={undefined}>

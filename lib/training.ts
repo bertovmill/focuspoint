@@ -343,7 +343,7 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     `WEEK: Monday ${weekStart} to Sunday ${to}. Today is ${todayISO()}.`,
     `HIS GOAL: ${goal}`,
     `TARGET: ${sessionsPerWeek} sessions and ${7 - sessionsPerWeek} rest day(s). Mix long runs, Hyrox/hybrid work and strength. He runs close to 20k when he runs long and does full Hyrox simulations.`,
-    "His once-a-week upper-body lift is a fixed, structured workout he logs set by set: add it as a strength session titled \"Upper body strength\" (that title links it to the log). Leave its notes empty — the exercises, weights and rep targets live in the app.",
+    "His once-a-week upper-body lift is a fixed, structured workout he logs set by set: add it as a strength session titled \"Unity Standard Upper Body\" (that title links it to the log). Leave its notes empty — the exercises, weights and rep targets live in the app.",
     "",
     ...(doc.content.trim()
       ? ["HIS WRITTEN TRAINING PLAN (follow its structure and any week-specific instructions; this outranks the defaults above):", doc.content.trim().slice(0, 6000), ""]

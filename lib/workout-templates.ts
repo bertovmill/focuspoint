@@ -29,6 +29,8 @@ export interface TemplateBlock {
 export interface WorkoutTemplate {
   slug: string;
   name: string;
+  /** Earlier slugs, so old links keep working. */
+  aliases?: string[];
   /** Matches a planned session to this template (strength sessions whose title fits). */
   match: RegExp;
   warmup: string;
@@ -40,8 +42,10 @@ const LADDER = [10, 15, 20];
 
 export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   {
-    slug: "upper-body",
-    name: "Upper body strength",
+    slug: "unity-standard-upper-body",
+    // Named for Unity, his gym (Berto, 2026-10-03).
+    name: "Unity Standard Upper Body",
+    aliases: ["upper-body"],
     match: /upper[\s-]*body/i,
     warmup: "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells",
     cooldown: "6-minute stretch",
@@ -92,7 +96,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
 ];
 
 export function getTemplate(slug: string) {
-  return WORKOUT_TEMPLATES.find((t) => t.slug === slug) ?? null;
+  return WORKOUT_TEMPLATES.find((t) => t.slug === slug || t.aliases?.includes(slug)) ?? null;
 }
 
 export function templateExercises(t: WorkoutTemplate) {

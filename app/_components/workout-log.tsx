@@ -166,15 +166,15 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t.name}</h1>
             <div className="mt-1 flex items-center gap-1">
-              <Link href={workoutHref(slug, addDaysISO(date, -7))} className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="A week earlier">
+              <Link href={workoutHref(t.slug, addDaysISO(date, -7))} className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="A week earlier">
                 <ChevronLeftIcon className="size-5" />
               </Link>
               <span className="text-lg text-muted-foreground">{longDate(date)}</span>
-              <Link href={workoutHref(slug, addDaysISO(date, 7))} className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="A week later">
+              <Link href={workoutHref(t.slug, addDaysISO(date, 7))} className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="A week later">
                 <ChevronRightIcon className="size-5" />
               </Link>
               {date !== todayISO() && (
-                <Link href={workoutHref(slug, todayISO())} className="ml-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground">Today</Link>
+                <Link href={workoutHref(t.slug, todayISO())} className="ml-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground">Today</Link>
               )}
             </div>
           </div>
@@ -247,7 +247,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Past sessions</h2>
           <div className="flex flex-wrap gap-2">
             {pastDates.map((d) => (
-              <Link key={d} href={workoutHref(slug, d)} className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted">{shortDate(d)}</Link>
+              <Link key={d} href={workoutHref(t.slug, d)} className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted">{shortDate(d)}</Link>
             ))}
           </div>
         </section>

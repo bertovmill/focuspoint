@@ -9194,3 +9194,17 @@ Tested the Today → View sets → tap a box flow at phone width. Rep boxes now 
 typing replaces instead of appending (tapping the already-focused box gave
 6 → 76 before). Weight box is 16px on phones so iOS doesn't zoom, and the weight
 + unit stay on one line.
+
+## 2026-10-03 — Upper-body workout renamed "Unity Standard Upper Body"
+
+Named for Unity, his gym. Slug is now `unity-standard-upper-body`
+(`/training/workouts/unity-standard-upper-body/<date>`); the old `upper-body`
+slug is an alias so earlier links still resolve. Existing strength_logs rows
+moved to the new slug; a stray tricep-extension row from UI testing removed
+(he hasn't given those reps). Coach brief now titles the session with this name.
+
+Agreed week (not built yet): Mon Stations · Tue Lower Body · Wed Rest ·
+Thu Threshold Intervals · Fri Unity Standard Upper Body · Sat Hyrox Sim ·
+Sun 20K easy. Any workout can be dropped for a week when he needs rest
+(upper body first). Planned: equipment tags, swap days, travel reshuffle.
+Fitbit: only steps + sleep are synced today — no heart rate yet.

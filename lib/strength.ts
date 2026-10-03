@@ -51,9 +51,10 @@ export async function getStrengthLogs(template: string): Promise<StrengthLog[]> 
  * should aim for (from the last session before this date), and the full history
  * for the charts.
  */
-export async function getWorkoutDay(slug: string, date: string) {
-  const t = getTemplate(slug);
-  if (!t) throw new Error(`Unknown workout: ${slug}`);
+export async function getWorkoutDay(requested: string, date: string) {
+  const t = getTemplate(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  const slug = t.slug;
   const history = await getStrengthLogs(slug);
   const prescriptions: Record<string, Prescription & { last: StrengthLog | null }> = {};
   for (const ex of templateExercises(t)) {
@@ -72,9 +73,10 @@ export interface StrengthEntry {
 }
 
 /** Upserts the day's rows; an exercise with no reps typed is removed. */
-export async function saveWorkoutDay(slug: string, date: string, entries: StrengthEntry[]) {
-  const t = getTemplate(slug);
-  if (!t) throw new Error(`Unknown workout: ${slug}`);
+export async function saveWorkoutDay(requested: string, date: string, entries: StrengthEntry[]) {
+  const t = getTemplate(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  const slug = t.slug;
   const keys = new Set(templateExercises(t).map((e) => e.key));
   await ensureTable();
   const sql = getDb();

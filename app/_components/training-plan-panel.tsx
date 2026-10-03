@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ActivityIcon,
   CheckIcon,
@@ -21,6 +23,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { SessionEditor, type SessionDraft } from "@/app/_components/session-editor";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { draftWeekWithCoach } from "@/app/_components/training-coach-stream";
+import { WorkoutLog } from "@/app/_components/workout-log";
+import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
+import { templateForSession, workoutHref } from "@/lib/workout-templates";
 import type { StravaActivity } from "@/lib/strava";
 import { daysUntil, sessionMeta, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
@@ -40,6 +45,14 @@ const SESSIONS_PER_WEEK = 6;
  * what actually happened, matched or not.
  */
 export function TrainingPlanPanel() {
+  // /training/workouts/<template>/<date> opens one structured session in place of the week.
+  const pathname = usePathname();
+  const m = pathname.match(/^\/training\/workouts\/([^/]+)(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/);
+  if (m) return <WorkoutLog slug={m[1]} date={m[2] ?? todayISO()} />;
+  return <TrainingWeek />;
+}
+
+function TrainingWeek() {
   const today = todayISO();
   const [weekStart, setWeekStart] = useState(() => weekStartISO(today));
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
@@ -441,6 +454,8 @@ export function TrainingPlanPanel() {
         </div>
       </details>
 
+      <PastPrograms />
+
       <SessionEditor target={editor} saving={saving} onClose={() => setEditor(null)} onSave={saveSession} onDelete={removeSession} />
     </div>
   );
@@ -507,6 +522,7 @@ function GoalLine() {
 function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
+  const template = templateForSession(s);
   return (
     <div className={cn("group relative rounded-lg border", big ? "p-4" : "p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
       <div className={cn("flex items-start", big ? "gap-4" : "gap-2.5")}>
@@ -538,7 +554,7 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
               {s.target_minutes !== null && `${s.target_minutes} min`}
             </span>
           )}
-          {big && s.notes && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}
+          {big && s.notes && !template && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}
           {s.done && (s.actual_km !== null || s.actual_minutes !== null) && (
             <span className={cn("block tabular-nums text-emerald-700 dark:text-emerald-400", big ? "text-base" : "text-xs")}>
               {s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`}
@@ -550,7 +566,42 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
           )}
         </button>
       </div>
+      {template && (
+        <Link
+          href={workoutHref(template.slug, s.session_date)}
+          className={cn(
+            "mt-2 flex items-center justify-center gap-1 rounded-md bg-violet-500/10 font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
+            big ? "h-11 text-base" : "h-8 text-xs",
+          )}
+        >
+          {s.done ? "View sets" : "Log sets"} <ChevronRightIcon className={big ? "size-5" : "size-3.5"} />
+        </Link>
+      )}
     </div>
+  );
+}
+
+/** The old one-number-per-lift log (workout_logs), archived when the structured workouts replaced it. */
+function PastPrograms() {
+  const [logs, setLogs] = useState<OldWorkoutLog[] | null>(null);
+  return (
+    <details
+      id="past-programs"
+      className="group rounded-xl border p-4"
+      onToggle={(e) => {
+        if ((e.currentTarget as HTMLDetailsElement).open && logs === null)
+          fetch("/api/workouts").then((r) => r.json()).then(setLogs).catch(() => setLogs([]));
+      }}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold">
+        Past programs
+        <ChevronRightIcon className="size-5 text-muted-foreground transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="mt-4 space-y-2">
+        <p className="text-sm text-muted-foreground">5×5 lifts and 10K times, logged one number per day before the structured workouts.</p>
+        {logs === null ? <Skeleton className="h-40 w-full" /> : <WorkoutChart logs={logs} />}
+      </div>
+    </details>
   );
 }
 

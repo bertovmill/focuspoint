@@ -9152,3 +9152,37 @@ which is part of why snacks keep coming back as chocolate/almonds.
 
 Verified locally: preview renders real data, draft edits update it, PUT /
 GET / DELETE round trip (DB left on defaults).
+
+## 2026-10-03 — Training: structured workouts logged set by set
+
+Berto wanted logging a repeat workout to be "just typing the numbers", charted
+week over week. His once-a-week upper-body lift is now a hardcoded template;
+each session is a table of reps per set.
+
+- `lib/workout-templates.ts` (client-safe): the "Upper body strength" template —
+  warm-up, 4 supersets (hammer row 135/side, hammer press 70/side, chin-ups BW,
+  bent-over barbell row 45/side; partners push-ups / sit-ups / toe touches /
+  BW tricep extensions at × 20), ab circuit 3 × 10 × 3, cool-down. Progression is
+  a rep ladder at fixed weight (Berto): 10 → 15 → 20 per set; hit every set and
+  the next session steps up a rung; at the top rung the page suggests more weight,
+  and a new weight drops back to × 10. Partners/abs are one-rung (fixed) and not
+  charted. `nextPrescription()` derives the target from the last log — no state table.
+- `strength_logs` table (template, log_date, exercise, weight, target_reps,
+  reps INT[]; skipped set = -1). `lib/strength.ts` reads/writes it and ticks the
+  matching planned session done on save.
+- API: `GET/PUT /api/training/workouts/[template]?date=`.
+- Page: `/training/workouts/upper-body/<date>` (rendered by TrainingPlanPanel
+  from the pathname; the layout now maps sub-paths to their section tab).
+  Autosaves 700 ms after typing; last session's reps are the placeholders (only
+  when the weight is unchanged); tapping a row's total fills empty sets with the
+  target. Progress charts: total reps per session vs a dashed target step line,
+  scaled to the top rung (4 × 20 = 80), weight jumps marked.
+- Strength sessions titled "Upper body …" get a "Log sets" button on /training;
+  the weekly coach brief now tells Cael to title that session "Upper body strength".
+- Old `workout_logs` (5×5 + 10K) archived under a collapsed "Past programs".
+- Seeded 2026-10-03: hammer row 10/10/8/6, press 10/8/6/6, chin-ups 10/10/8/8,
+  barbell row 10×4 (→ × 15 next), partners 4×20, abs 3×10. Tricep extension
+  reps weren't given, left blank.
+
+Next: a Cael tool to log sets from chat; DB-backed templates when the routine
+changes; duration-based templates for running/HIIT.

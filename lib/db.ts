@@ -573,6 +573,22 @@ export async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS training_sessions_date_idx ON training_sessions (session_date)`;
+  // Structured workouts (lib/workout-templates.ts): one row per exercise per
+  // session of a template, holding the reps of each set. weight + target_reps are
+  // stored per row so the rep ladder and any weight jump read straight off history.
+  await sql`
+    CREATE TABLE IF NOT EXISTS strength_logs (
+      id SERIAL PRIMARY KEY,
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      exercise TEXT NOT NULL,
+      weight NUMERIC,
+      target_reps INTEGER NOT NULL,
+      reps INTEGER[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(template, log_date, exercise)
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS strava_activities (
       id BIGINT PRIMARY KEY,

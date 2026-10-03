@@ -183,7 +183,8 @@ export default function AppLayout({ children }: { readonly children: ReactNode }
 function Workspace({ children }: { readonly children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const mobileTab = PATH_TABS[pathname] ?? "home";
+  // Sub-pages of a section (e.g. /training/workouts/upper-body/2026-10-03) stay on its tab.
+  const mobileTab = PATH_TABS[pathname] ?? PATH_TABS["/" + pathname.split("/")[1]] ?? "home";
   const setMobileTab = useCallback(
     (tab: MobileTab) => router.push(TAB_PATHS[tab]),
     [router],

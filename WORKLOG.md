@@ -9186,3 +9186,11 @@ each session is a table of reps per set.
 
 Next: a Cael tool to log sets from chat; DB-backed templates when the routine
 changes; duration-based templates for running/HIIT.
+
+## 2026-10-03 — Workout log: phone input fixes
+
+Tested the Today → View sets → tap a box flow at phone width. Rep boxes now use
+`pattern="[0-9]*"` (iOS number pad) and select their value on every tap, so
+typing replaces instead of appending (tapping the already-focused box gave
+6 → 76 before). Weight box is 16px on phones so iOS doesn't zoom, and the weight
++ unit stay on one line.

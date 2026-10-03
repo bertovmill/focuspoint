@@ -284,16 +284,19 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
           {ex.weight === null ? (
             <span>BW</span>
           ) : (
-            <>
+            <span className="inline-flex items-center whitespace-nowrap">
               <input
                 inputMode="decimal"
+                autoComplete="off"
+                onFocus={(e) => e.currentTarget.select()}
+                onClick={(e) => e.currentTarget.select()}
                 value={row.weight}
                 onChange={(e) => setWeight(e.target.value.replace(/[^\d.]/g, ""))}
-                className="w-9 rounded border border-transparent bg-transparent px-0.5 py-0.5 tabular-nums sm:w-11 hover:border-border focus:border-ring focus:outline-none"
+                className="w-10 rounded border border-transparent bg-transparent px-0.5 py-0.5 text-base tabular-nums sm:w-11 sm:text-sm hover:border-border focus:border-ring focus:outline-none"
                 aria-label={`${ex.name} weight`}
               />
               <span>{ex.perSide ? "/side" : "lbs"}</span>
-            </>
+            </span>
           )}
         </div>
         {p?.bumpSuggested && sameWeightAsLast && (
@@ -305,7 +308,13 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
         return (
           <td key={i} className="px-0.5 py-2.5 text-center sm:px-1">
             <input
+              // pattern brings up the plain number pad on iOS; selecting on every
+              // tap (even of the box already focused) means typing replaces it.
               inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
+              onFocus={(e) => e.currentTarget.select()}
+              onClick={(e) => e.currentTarget.select()}
               value={v}
               placeholder={placeholders[i] == null ? "" : String(placeholders[i])}
               onChange={(e) => {

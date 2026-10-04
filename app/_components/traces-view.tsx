@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatContextWindow } from "@/lib/chat-model";
 import { cn } from "@/lib/utils";
 import {
   buildToolCallMap,
@@ -47,6 +48,14 @@ function formatRelativeTime(iso: string) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** "54,000 · 27% of 200k" — the biggest single call against the model's window. */
+function formatPeakContext(peak: number, window: number | undefined) {
+  if (peak === 0) return "—";
+  if (!window) return peak.toLocaleString();
+  const pct = Math.round((peak / window) * 100);
+  return `${peak.toLocaleString()} · ${pct}% of ${formatContextWindow(window)}`;
 }
 
 function formatDuration(ms: number | null) {
@@ -86,6 +95,14 @@ export function TracesView() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [windows, setWindows] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    fetch("/api/models/context-windows")
+      .then((res) => (res.ok ? res.json() : { windows: {} }))
+      .then((body: { windows?: Record<string, number> }) => setWindows(body.windows ?? {}))
+      .catch(() => setWindows({}));
+  }, []);
 
   useEffect(() => {
     fetch("/api/threads")
@@ -234,6 +251,14 @@ export function TracesView() {
                   />
                   <Stat label="Output tokens" value={selected.stats.totalOutputTokens.toLocaleString()} />
                   <Stat label="Cache read" value={selected.stats.totalCacheReadTokens.toLocaleString()} />
+                  <Stat
+                    label="Peak context"
+                    value={formatPeakContext(
+                      selected.stats.peakContextTokens,
+                      selected.stats.model ? windows[selected.stats.model] : undefined,
+                    )}
+                  />
+                  <Stat label="Compactions" value={String(selected.stats.compactionCount)} />
                   <Stat label="eve" value={selected.stats.eveVersion ?? "—"} />
                 </div>
                 {selected.stats.gitSha && (

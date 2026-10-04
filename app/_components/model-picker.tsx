@@ -21,6 +21,7 @@ import {
   CHAT_MODEL_DEFAULT_PINS,
   CHAT_MODEL_FALLBACK,
   type ChatModel,
+  formatContextWindow,
   formatPricePerMillion,
   providerLabel,
   providerRank,
@@ -104,6 +105,7 @@ function synthesize(id: string): ChatModel {
     provider: id.split("/")[0] ?? "unknown",
     inputPrice: null,
     outputPrice: null,
+    contextWindow: null,
   };
 }
 
@@ -238,6 +240,12 @@ function ModelRow({
       <CheckIcon className={cn("size-4 shrink-0", selected ? "opacity-100" : "opacity-0")} />
       <ModelSelectorLogo provider={model.provider} />
       <ModelSelectorName className={cn(selected && "font-medium")}>{model.label}</ModelSelectorName>
+      <span
+        className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums"
+        title="Context window"
+      >
+        {formatContextWindow(model.contextWindow)}
+      </span>
       <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
         {formatPricePerMillion(model.inputPrice)} / {formatPricePerMillion(model.outputPrice)}
       </span>

@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Chat text at 16px
+
+Berto worries about font size: "not too big but definitely reasonable". Chat messages and
+the composer went from 17px to **16px** (Claude-app size) with line height 1.55; tool
+lines stay 14px. The composer can't go under 16px or iPhone Safari zooms on focus. Also
+fixed "Thought for 1 seconds". Files: `components/chat/eve-thread.tsx`,
+`components/chat/eve-composer.tsx`, `components/ai-elements/reasoning.tsx`.
+
+---
+
 ## 2026-10-04 — Chat that feels like the Claude app
 
 Berto wants the chat to feel as good as Claude/Muse on his phone so he reaches for it more.

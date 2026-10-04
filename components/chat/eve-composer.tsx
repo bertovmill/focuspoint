@@ -248,7 +248,7 @@ function ComposerCard({
           placeholder={dictation.listening ? "Listening…" : placeholder}
           aria-label="Message input"
           autoFocus={autoFocus}
-          className="min-h-12 px-4 pt-3.5 pb-1 text-[17px] leading-snug placeholder:text-muted-foreground/70"
+          className="min-h-12 px-4 pt-3.5 pb-1 text-base leading-snug placeholder:text-muted-foreground/70"
         />
       </PromptInputBody>
       <PromptInputFooter className="px-2.5 pt-1 pb-2.5">

@@ -27,23 +27,27 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { content, tags } = await req.json();
+    const { content, tags, image_url } = await req.json();
     const trimmed = typeof content === "string" ? content.trim() : "";
-    if (!trimmed) return NextResponse.json({ error: "Content required" }, { status: 400 });
+    const imageUrl = typeof image_url === "string" && image_url ? image_url : null;
+    // A photo on its own is a note too; it just isn't searchable by meaning.
+    if (!trimmed && !imageUrl) return NextResponse.json({ error: "Content required" }, { status: 400 });
     const cleanTags = Array.isArray(tags)
       ? tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 12)
       : [];
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO thoughts (content, tags)
-      VALUES (${trimmed}, ${cleanTags})
-      RETURNING id, content, tags, created_at
+      INSERT INTO thoughts (content, tags, image_url)
+      VALUES (${trimmed}, ${cleanTags}, ${imageUrl})
+      RETURNING id, content, tags, image_url, created_at
     `;
-    try {
-      const lit = toVectorLiteral(await embedText(trimmed));
-      await sql`UPDATE thoughts SET embedding = ${lit}::vector WHERE id = ${row.id}`;
-    } catch (err) {
-      console.error("POST thought: embedding failed", err);
+    if (trimmed) {
+      try {
+        const lit = toVectorLiteral(await embedText(trimmed));
+        await sql`UPDATE thoughts SET embedding = ${lit}::vector WHERE id = ${row.id}`;
+      } catch (err) {
+        console.error("POST thought: embedding failed", err);
+      }
     }
     return NextResponse.json(row, { status: 201 });
   } catch {

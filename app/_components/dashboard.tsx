@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
+import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, ImagePlusIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
@@ -47,6 +47,7 @@ import { focusAppWindow } from "@/lib/desktop";
 import { WORKING_LIMIT_MAX, workingLimitMessage } from "@/lib/working-now";
 import { FOLLOW_UP_OPTIONS, type Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
+import { uploadPhoto } from "@/lib/upload-photo";
 import {
   InputGroup,
   InputGroupAddon,
@@ -230,6 +231,13 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   // in the same table as the ones Cael captures — one list, one search index.
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  // One photo per note (thoughts.image_url), for the composer and the note being
+  // edited. The photo uploads as soon as it's picked, so saving is just the URL.
+  const [newNotePhoto, setNewNotePhoto] = useState<string | null>(null);
+  const [editPhoto, setEditPhoto] = useState<string | null>(null);
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<"new" | "edit" | null>(null);
+  const newNotePhotoRef = useRef<HTMLInputElement>(null);
+  const editPhotoRef = useRef<HTMLInputElement>(null);
   const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -458,6 +466,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const startEdit = (thought: Thought) => {
     setEditingId(thought.id);
     setEditContent(thought.content);
+    setEditPhoto(thought.image_url ?? null);
     setTimeout(() => {
       editRef.current?.focus();
       editRef.current?.select();
@@ -467,19 +476,38 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const cancelEdit = () => {
     setEditingId(null);
     setEditContent("");
+    setEditPhoto(null);
   };
+
+  const attachNotePhoto = async (file: File | undefined, target: "new" | "edit") => {
+    if (!file) return;
+    setUploadingPhotoFor(target);
+    try {
+      const url = await uploadPhoto(file);
+      (target === "new" ? setNewNotePhoto : setEditPhoto)(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't upload photo.");
+    } finally {
+      setUploadingPhotoFor(null);
+    }
+  };
+
+  // Pasting a screenshot into either note box attaches it, like dropping it in.
+  const pastedImage = (e: React.ClipboardEvent) =>
+    Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
 
   const saveEdit = async (id: number) => {
     const content = editContent.trim();
-    if (!content) return;
+    const image_url = editPhoto;
+    if ((!content && !image_url) || uploadingPhotoFor === "edit") return;
     const prevThoughts = thoughts;
-    setThoughts((prev) => prev.map((t) => (t.id === id ? { ...t, content } : t)));
-    setEditingId(null);
+    setThoughts((prev) => prev.map((t) => (t.id === id ? { ...t, content, image_url } : t)));
+    cancelEdit();
     try {
       const res = await fetch(`/api/thoughts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, image_url }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -490,13 +518,13 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
   const handleCreateThought = async () => {
     const content = newNote.trim();
-    if (!content || savingNote) return;
+    if ((!content && !newNotePhoto) || savingNote || uploadingPhotoFor === "new") return;
     setSavingNote(true);
     try {
       const res = await fetch("/api/thoughts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, image_url: newNotePhoto }),
       });
       if (!res.ok) throw new Error();
       const saved: Thought = await res.json();
@@ -504,6 +532,7 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       // refetch would drop an active semantic search back to the unfiltered list.
       setThoughts((prev) => [saved, ...prev]);
       setNewNote("");
+      setNewNotePhoto(null);
     } catch {
       toast.error("Couldn't save note.");
     } finally {
@@ -885,21 +914,36 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                     handleCreateThought();
                   }
                 }}
+                onPaste={(e) => {
+                  const image = pastedImage(e);
+                  if (image) { e.preventDefault(); attachNotePhoto(image, "new"); }
+                }}
                 rows={2}
                 placeholder="Write a note…"
                 // 17px on a phone for comfortable typing, capped in height so a long note
                 // scrolls inside the box instead of running off the screen (Berto, 2026-10-03).
                 className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto resize-none focus-visible:ring-0 dark:bg-transparent"
               />
+              <NotePhotoPreview
+                url={newNotePhoto}
+                uploading={uploadingPhotoFor === "new"}
+                onRemove={() => setNewNotePhoto(null)}
+              />
               <div className="mt-2 flex items-center gap-2">
                 <Button
                   size="xs"
                   onClick={handleCreateThought}
-                  disabled={!newNote.trim() || savingNote}
+                  disabled={(!newNote.trim() && !newNotePhoto) || savingNote || uploadingPhotoFor === "new"}
                 >
                   {savingNote ? <Spinner className="size-3 mr-1.5" /> : <PlusIcon className="size-3 mr-1.5" />}
                   Add note
                 </Button>
+                <NotePhotoButton
+                  inputRef={newNotePhotoRef}
+                  hasPhoto={!!newNotePhoto}
+                  disabled={uploadingPhotoFor !== null}
+                  onPick={(file) => attachNotePhoto(file, "new")}
+                />
                 {newNote.trim() && (
                   <span className="text-xs text-muted-foreground hidden sm:inline">
                     Enter to save · Shift+Enter for a new line
@@ -1044,16 +1088,35 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
                             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(thought.id); }
                             if (e.key === "Escape") cancelEdit();
                           }}
+                          onPaste={(e) => {
+                            const image = pastedImage(e);
+                            if (image) { e.preventDefault(); attachNotePhoto(image, "edit"); }
+                          }}
                           rows={3}
                           className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto focus-visible:ring-0 dark:bg-transparent"
                         />
+                        <NotePhotoPreview
+                          url={editPhoto}
+                          uploading={uploadingPhotoFor === "edit"}
+                          onRemove={() => setEditPhoto(null)}
+                        />
                         <div className="flex gap-2 mt-2">
-                          <Button size="xs" onClick={() => saveEdit(thought.id)}>
+                          <Button
+                            size="xs"
+                            onClick={() => saveEdit(thought.id)}
+                            disabled={(!editContent.trim() && !editPhoto) || uploadingPhotoFor === "edit"}
+                          >
                             Save
                           </Button>
                           <Button size="xs" variant="outline" onClick={cancelEdit}>
                             Cancel
                           </Button>
+                          <NotePhotoButton
+                            inputRef={editPhotoRef}
+                            hasPhoto={!!editPhoto}
+                            disabled={uploadingPhotoFor !== null}
+                            onPick={(file) => attachNotePhoto(file, "edit")}
+                          />
                         </div>
                       </div>
                     ) : (
@@ -1557,5 +1620,64 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
         />
       )}
     </div>
+  );
+}
+
+/** The photo attached to a note being written or edited, with a way to drop it. */
+function NotePhotoPreview({ url, uploading, onRemove }: { url: string | null; uploading: boolean; onRemove: () => void }) {
+  if (uploading) {
+    return (
+      <div className="mt-2 flex h-20 w-28 items-center justify-center rounded-md border bg-muted">
+        <Spinner className="size-4" />
+      </div>
+    );
+  }
+  if (!url) return null;
+  return (
+    <div className="relative mt-2 w-fit">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" className="h-20 max-w-48 rounded-md border object-cover" />
+      <Button
+        variant="secondary"
+        size="icon-xs"
+        onClick={onRemove}
+        aria-label="Remove photo"
+        className="absolute -right-2 -top-2 rounded-full shadow-sm"
+      >
+        <XIcon className="size-3" />
+      </Button>
+    </div>
+  );
+}
+
+/** Opens the photo picker (camera roll or camera on a phone) for a note. */
+function NotePhotoButton({
+  inputRef,
+  hasPhoto,
+  disabled,
+  onPick,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  hasPhoto: boolean;
+  disabled: boolean;
+  onPick: (file: File | undefined) => void;
+}) {
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          onPick(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+      <Button size="xs" variant="outline" disabled={disabled} onClick={() => inputRef.current?.click()}>
+        <ImagePlusIcon className="size-3 mr-1.5" />
+        {hasPhoto ? "Change photo" : "Photo"}
+      </Button>
+    </>
   );
 }

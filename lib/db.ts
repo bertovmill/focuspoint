@@ -594,6 +594,8 @@ export async function ensureSchema() {
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;
   await sql`CREATE INDEX IF NOT EXISTS training_sessions_date_idx ON training_sessions (session_date)`;
+  // Which workout-bank entry a session logs into (lib/workout-bank.ts).
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS workout_slug TEXT`;
   // Structured workouts (lib/workout-templates.ts): one row per exercise per
   // session of a template, holding the reps of each set. weight + target_reps are
   // stored per row so the rep ladder and any weight jump read straight off history.

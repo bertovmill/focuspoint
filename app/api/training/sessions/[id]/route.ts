@@ -31,6 +31,7 @@ export async function PATCH(req: Request, { params }: Params) {
         body.target_pace_sec !== undefined ? (body.target_pace_sec === "" || body.target_pace_sec === null ? null : Number(body.target_pace_sec)) : cur.target_pace_sec,
       intensity: body.intensity !== undefined ? body.intensity : cur.intensity,
       notes: body.notes !== undefined ? (typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null) : cur.notes,
+      workout_slug: body.workout_slug === undefined ? undefined : body.workout_slug || null,
     });
     return NextResponse.json(row);
   } catch (err) {

@@ -9489,3 +9489,46 @@ steps/sleep (`activity_and_fitness.readonly` already covered `exercise`).
 Verified on :3007 against live data: 67 workouts pulled over 28 days; today's long
 run matched (15.8 km, 84 min, HR 147, 166 AZM, 82 min cardio). Autosave: throwaway
 2021 session, typed 6:00 → PATCH saved 10 km @ 360 s = 60 min; deleted. Typecheck clean.
+## 2026-10-04 — Workout bank: every repeat workout editable, weeks fill themselves
+
+Berto wanted a workout bank with the workouts preset and easy to change. He
+chose: full structure editing, splits per rep/station for the running and Hyrox
+days, and the default week auto-filling each new week.
+
+- **Storage:** `workout_bank` table (slug PK, JSONB definition, archived) in
+  `lib/workout-bank.ts`, seeded on first read from `SEED_WORKOUTS`
+  (lib/workout-templates.ts, now only the seed). Six workouts with default days:
+  Mon Stations · Tue Unity Standard Lower Body · Wed rest · Thu Threshold
+  Intervals · Fri Unity Standard Upper Body · Sat Hyrox Sim · Sun 20K Long Run.
+- **Timed sets:** exercises can be `measure: "time"` (seconds stored in the
+  same strength_logs.reps array; target = time to beat; empty ladder = no target).
+  Times are typed as digits on the phone pad ("345" → 3:45, "12300" → 1:23:00),
+  tidied to m:ss on blur. Timed rows render as wrapping boxes (or one box beside
+  the name for single-time rows); charts plot average per set vs target with a
+  zoomed axis. Intervals: 6 × 1 km ≤ 3:45. 20K: 4 × 5 km ≤ 25:00 (5:00/km,
+  zone 2). Sim: 8 × (1 km ≤ 3:54 + station). Stations: 4 rounds of 1 km +
+  station. Station times have no targets: both raced splits were mixed doubles.
+- **Linking:** `training_sessions.workout_slug` replaces title matching (old
+  upper/lower sessions backfilled). Logging ticks the session done; clearing every
+  number unticks it (unless Strava did it).
+- **Default week:** `fillWeekFromBank()` runs on GET /api/training/sessions for a
+  whole Monday–Sunday week, this week or later, when it's empty: each workout on
+  its default day, rest on the leftover day. Each week fills once
+  (app_settings `training.bank_filled_weeks`), so a cleared week stays clear.
+  Oct 5–11 was already drafted (post-race easy week), so Oct 12 is the first
+  filled week.
+- **Pages:** `/training/workouts` (the bank, by day) · `/training/workouts/new` ·
+  `/training/workouts/<slug>/edit` (name, calendar type, default day with a clash
+  warning, distance/pace or minutes, intensity, warm-up/cool-down, blocks and
+  exercises: add/remove/reorder, sets, reps or time, ladder/target, weight +
+  lbs/kg + per side, chart it, note). Remove = archive (logs kept). "Workout bank"
+  button on /training; "Edit workout" on each log page. APIs: `/api/training/bank`
+  (GET, POST), `/api/training/bank/[slug]` (GET, PUT, DELETE).
+- **Cael:** new `workout_bank` tool (list/get/save/remove, also on MCP);
+  `set_training_session` takes `workout_slug`; the coach's week brief lists the
+  bank with slugs.
+- Fixed while testing: the week grid could show the wrong week when two loads
+  raced (stale response now ignored).
+
+Open: a 4 × 20 tricep-extension row reappeared on 2026-10-03 from a whole-page
+save at 17:29 — left in place, asked Berto whether he logged it.

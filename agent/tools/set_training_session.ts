@@ -16,6 +16,7 @@ export default defineTool({
     target_pace_sec: z.number().int().nullable().optional().describe("Run target pace in seconds per km, e.g. 330 for 5:30/km"),
     intensity: z.enum(["easy", "moderate", "hard"]).nullable().optional(),
     notes: z.string().nullable().optional(),
+    workout_slug: z.string().nullable().optional().describe("Link to a workout-bank workout (see workout_bank list), e.g. unity-standard-upper-body — the session then opens that workout's log. null unlinks."),
     done: z.boolean().optional().describe("Mark done (true) or not done (false)"),
     actual_km: z.number().optional(),
     actual_minutes: z.number().int().optional(),
@@ -26,10 +27,10 @@ export default defineTool({
       return { deleted: input.id };
     }
     let row = null;
-    const editing = input.id && (input.session_date || input.type || input.title || input.target_km !== undefined || input.target_minutes !== undefined || input.target_pace_sec !== undefined || input.intensity !== undefined || input.notes !== undefined);
+    const editing = input.id && (input.session_date || input.type || input.title || input.target_km !== undefined || input.target_minutes !== undefined || input.target_pace_sec !== undefined || input.intensity !== undefined || input.notes !== undefined || input.workout_slug !== undefined);
     if (!input.id) {
       if (!input.session_date || !input.type) throw new Error("session_date and type are required to add a session");
-      row = await saveSession({ session_date: input.session_date, type: input.type, title: input.title, target_km: input.target_km ?? null, target_minutes: input.target_minutes ?? null, target_pace_sec: input.target_pace_sec ?? null, intensity: input.intensity ?? null, notes: input.notes ?? null });
+      row = await saveSession({ session_date: input.session_date, type: input.type, title: input.title, target_km: input.target_km ?? null, target_minutes: input.target_minutes ?? null, target_pace_sec: input.target_pace_sec ?? null, intensity: input.intensity ?? null, notes: input.notes ?? null, workout_slug: input.workout_slug ?? null });
     } else if (editing) {
       const { getSessions } = await import("../../lib/training");
       const cur = (await getSessions("1970-01-01", "2999-12-31")).find((s) => s.id === input.id);
@@ -44,6 +45,7 @@ export default defineTool({
         target_pace_sec: input.target_pace_sec !== undefined ? input.target_pace_sec : cur.target_pace_sec,
         intensity: input.intensity !== undefined ? input.intensity : cur.intensity,
         notes: input.notes !== undefined ? input.notes : cur.notes,
+        workout_slug: input.workout_slug,
       });
     }
     if (typeof input.done === "boolean") {

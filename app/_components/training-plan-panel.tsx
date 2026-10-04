@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  DumbbellIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -21,8 +22,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { SessionPage, newSessionHref, sessionHref } from "@/app/_components/session-editor";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { WorkoutLog } from "@/app/_components/workout-log";
+import { WorkoutBank, WorkoutEditor } from "@/app/_components/workout-bank";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
-import { templateForSession, workoutHref } from "@/lib/workout-templates";
+import { workoutHref } from "@/lib/workout-templates";
 import { daysUntil, formatPace, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -38,8 +40,13 @@ interface SyncStatus {
  * day is training that happened but matched nothing (walks and bike rides hidden).
  */
 export function TrainingPlanPanel() {
-  // /training/workouts/<template>/<date> opens one structured session in place of the week.
   const pathname = usePathname();
+  // The workout bank and its editor.
+  if (/^\/training\/workouts\/?$/.test(pathname)) return <WorkoutBank />;
+  if (/^\/training\/workouts\/new\/?$/.test(pathname)) return <WorkoutEditor />;
+  const editing = pathname.match(/^\/training\/workouts\/([^/]+)\/edit\/?$/);
+  if (editing) return <WorkoutEditor key={editing[1]} slug={editing[1]} />;
+  // /training/workouts/<template>/<date> opens one structured session in place of the week.
   const m = pathname.match(/^\/training\/workouts\/([^/]+)(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/);
   if (m) return <WorkoutLog slug={m[1]} date={m[2] ?? todayISO()} />;
   // /training/sessions/<id> edits a session; /training/sessions/new/<date> adds one.
@@ -72,7 +79,12 @@ function TrainingWeek() {
   const [syncing, setSyncing] = useState(false);
   const [editingEvent, setEditingEvent] = useState<number | "new" | null>(null);
 
+  // Only the latest week's response lands — switching weeks quickly (or ?week= on
+  // mount) mustn't let a slower earlier fetch overwrite the grid.
+  const latestWeek = useRef(days[0]);
+  latestWeek.current = days[0];
   const load = useCallback(async () => {
+    const forWeek = days[0];
     try {
       const [s, e, st] = await Promise.all([
         fetch(`/api/training/sessions?from=${days[0]}&to=${days[6]}`),
@@ -81,6 +93,7 @@ function TrainingWeek() {
       ]);
       if (s.ok) {
         const data = (await s.json()) as { sessions: TrainingSession[]; activities: Activity[] };
+        if (forWeek !== latestWeek.current) return;
         setSessions(data.sessions);
         setActivities(data.activities.filter(isTraining));
       }
@@ -310,6 +323,11 @@ function TrainingWeek() {
           {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <Button variant="outline" className="h-11 gap-2 px-4 text-base" asChild>
+            <Link href="/training/workouts">
+              <DumbbellIcon className="size-4" /> Workout bank
+            </Link>
+          </Button>
           {watch.connected && (
             <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={watch.last_synced_at ? `Workouts last synced ${new Date(watch.last_synced_at).toLocaleString()}` : undefined}>
               {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}
@@ -434,7 +452,7 @@ function GoalLine() {
 function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
-  const template = templateForSession(s);
+  const template = s.workout_slug ? { slug: s.workout_slug } : null;
   return (
     <div className={cn("group relative rounded-lg border", big ? "p-4" : "p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
       <div className={cn("flex items-start", big ? "gap-4" : "gap-2.5")}>
@@ -492,7 +510,7 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
             big ? "h-11 text-base" : "h-8 text-xs",
           )}
         >
-          {s.done ? "View sets" : "Log sets"} <ChevronRightIcon className={big ? "size-5" : "size-3.5"} />
+          {s.done ? (s.type === "strength" ? "View sets" : "View splits") : s.type === "strength" ? "Log sets" : "Log splits"} <ChevronRightIcon className={big ? "size-5" : "size-3.5"} />
         </Link>
       )}
     </div>

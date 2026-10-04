@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getActivities, getSessions, saveSession } from "@/lib/training";
+import { fillWeekFromBank } from "@/lib/workout-bank";
+import { addDaysISO } from "@/lib/nutrition";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -10,6 +12,8 @@ export async function GET(req: Request) {
     const from = searchParams.get("from") ?? "";
     const to = searchParams.get("to") ?? "";
     if (!ISO.test(from) || !ISO.test(to)) return NextResponse.json({ error: "Bad range" }, { status: 400 });
+    // A whole week, this one or later, that's still empty fills from the workout bank's default days.
+    if (to === addDaysISO(from, 6)) await fillWeekFromBank(from).catch(() => false);
     const [sessions, activities] = await Promise.all([getSessions(from, to), getActivities(from, to)]);
     return NextResponse.json({ sessions, activities });
   } catch {
@@ -31,6 +35,7 @@ export async function POST(req: Request) {
       target_pace_sec: body.target_pace_sec === "" || body.target_pace_sec == null ? null : Number(body.target_pace_sec),
       intensity: body.intensity ?? null,
       notes: typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
+      workout_slug: body.workout_slug === undefined ? undefined : body.workout_slug || null,
     });
     return NextResponse.json(row);
   } catch (err) {

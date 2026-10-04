@@ -3,7 +3,8 @@
 // lib/workout-templates.ts; this file only touches the database.
 import { getDb } from "./db";
 import { num } from "./nutrition";
-import { getTemplate, nextPrescription, templateExercises, type Prescription, type StrengthLog } from "./workout-templates";
+import { getWorkout } from "./workout-bank";
+import { nextPrescription, templateExercises, type Prescription, type StrengthLog } from "./workout-templates";
 
 let tableReady = false;
 async function ensureTable() {
@@ -52,7 +53,7 @@ export async function getStrengthLogs(template: string): Promise<StrengthLog[]> 
  * for the charts.
  */
 export async function getWorkoutDay(requested: string, date: string) {
-  const t = getTemplate(requested);
+  const t = await getWorkout(requested);
   if (!t) throw new Error(`Unknown workout: ${requested}`);
   const slug = t.slug;
   const history = await getStrengthLogs(slug);
@@ -62,7 +63,7 @@ export async function getWorkoutDay(requested: string, date: string) {
     const last = before[before.length - 1] ?? null;
     prescriptions[ex.key] = { ...nextPrescription(ex, last), last };
   }
-  return { date, logs: history.filter((l) => l.log_date === date), prescriptions, history };
+  return { template: t, date, logs: history.filter((l) => l.log_date === date), prescriptions, history };
 }
 
 export interface StrengthEntry {
@@ -74,7 +75,7 @@ export interface StrengthEntry {
 
 /** Upserts the day's rows; an exercise with no reps typed is removed. */
 export async function saveWorkoutDay(requested: string, date: string, entries: StrengthEntry[]) {
-  const t = getTemplate(requested);
+  const t = await getWorkout(requested);
   if (!t) throw new Error(`Unknown workout: ${requested}`);
   const slug = t.slug;
   const keys = new Set(templateExercises(t).map((e) => e.key));
@@ -95,10 +96,19 @@ export async function saveWorkoutDay(requested: string, date: string, entries: S
         weight = EXCLUDED.weight, target_reps = EXCLUDED.target_reps, reps = EXCLUDED.reps, updated_at = NOW()
     `;
   }
-  // Logging the workout counts as doing it: tick the matching planned session.
-  await sql`
-    UPDATE training_sessions SET done = TRUE, done_at = COALESCE(done_at, NOW()), updated_at = NOW()
-    WHERE session_date = ${date} AND type = 'strength' AND done = FALSE AND title ~* ${t.match.source}
-  `;
+  // Logging the workout counts as doing it: tick the matching planned session —
+  // and clearing every number untick it again (unless a Fitbit workout marked it done).
+  const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM strength_logs WHERE template = ${slug} AND log_date = ${date}`;
+  if (n > 0) {
+    await sql`
+      UPDATE training_sessions SET done = TRUE, done_at = COALESCE(done_at, NOW()), updated_at = NOW()
+      WHERE session_date = ${date} AND workout_slug = ${slug} AND done = FALSE
+    `;
+  } else {
+    await sql`
+      UPDATE training_sessions SET done = FALSE, done_at = NULL, updated_at = NOW()
+      WHERE session_date = ${date} AND workout_slug = ${slug} AND done = TRUE AND activity_id IS NULL
+    `;
+  }
   return getWorkoutDay(slug, date);
 }

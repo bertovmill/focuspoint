@@ -49,6 +49,8 @@ export interface TrainingSession {
   actual_avg_hr: number | null;
   /** Seconds in light / moderate / vigorous / peak heart-rate zones. */
   actual_zones: number[] | null;
+  /** The bank workout this session logs into (lib/workout-bank.ts), if any. */
+  workout_slug: string | null;
 }
 
 /** A Fitbit workout as /training shows it. */
@@ -74,7 +76,7 @@ export interface TrainingEvent {
 }
 
 const SESSION_COLUMNS = `id, to_char(session_date, 'YYYY-MM-DD') AS session_date, position, type, title, target_km,
-  target_minutes, target_pace_sec, intensity, notes, done, done_at, activity_id, actual_km, actual_minutes, actual_effort, actual_avg_hr, actual_zones`;
+  target_minutes, target_pace_sec, intensity, notes, done, done_at, activity_id, actual_km, actual_minutes, actual_effort, actual_avg_hr, actual_zones, workout_slug`;
 
 function shapeSession(r: Record<string, unknown>): TrainingSession {
   return {
@@ -96,6 +98,7 @@ function shapeSession(r: Record<string, unknown>): TrainingSession {
     actual_effort: num(r.actual_effort),
     actual_avg_hr: num(r.actual_avg_hr),
     actual_zones: Array.isArray(r.actual_zones) ? (r.actual_zones as unknown[]).map(Number) : null,
+    workout_slug: (r.workout_slug as string | null) ?? null,
   };
 }
 
@@ -169,6 +172,8 @@ export interface SessionInput {
   target_pace_sec?: number | null;
   intensity?: string | null;
   notes?: string | null;
+  /** undefined = leave as is; null = unlink from the bank. */
+  workout_slug?: string | null;
 }
 
 /** 330 → "5:30". */
@@ -213,21 +218,22 @@ export async function saveSession(input: SessionInput): Promise<TrainingSession>
   if (input.id) {
     const [row] = await sql.query(
       `UPDATE training_sessions SET session_date = $2, position = COALESCE($3, position), type = $4, title = $5,
-         target_km = $6, target_minutes = $7, intensity = $8, notes = $9, target_pace_sec = $10, updated_at = NOW()
+         target_km = $6, target_minutes = $7, intensity = $8, notes = $9, target_pace_sec = $10,
+         workout_slug = CASE WHEN $12 THEN $11 ELSE workout_slug END, updated_at = NOW()
        WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
       [input.id, input.session_date, input.position ?? null, input.type, title, input.target_km ?? null,
-        minutes, intensity, input.notes ?? null, pace],
+        minutes, intensity, input.notes ?? null, pace, input.workout_slug ?? null, input.workout_slug !== undefined],
     );
     if (!row) throw new Error("Session not found");
     return shapeSession(row as Record<string, unknown>);
   }
   const [row] = await sql.query(
-    `INSERT INTO training_sessions (session_date, position, type, title, target_km, target_minutes, intensity, notes, target_pace_sec)
+    `INSERT INTO training_sessions (session_date, position, type, title, target_km, target_minutes, intensity, notes, target_pace_sec, workout_slug)
      VALUES ($1, COALESCE($2, (SELECT COALESCE(MAX(position), -1) + 1 FROM training_sessions WHERE session_date = $1)),
-             $3, $4, $5, $6, $7, $8, $9)
+             $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING ${SESSION_COLUMNS}`,
     [input.session_date, input.position ?? null, input.type, title, input.target_km ?? null,
-      minutes, intensity, input.notes ?? null, pace],
+      minutes, intensity, input.notes ?? null, pace, input.workout_slug ?? null],
   );
   return shapeSession(row as Record<string, unknown>);
 }
@@ -392,6 +398,9 @@ export async function matchActivities(from: string, to: string) {
  */
 export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
   const to = addDaysISO(weekStart, 6);
+  // Dynamic: workout-bank imports this module.
+  const bank = await (await import("./workout-bank")).listWorkouts().catch(() => []);
+  const DAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const sql = getDb();
   const [events, recentSessions, recentActivities, notes, week, doc, goal, routines] = await Promise.all([
     getEvents(),
@@ -419,7 +428,10 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     `WEEK: Monday ${weekStart} to Sunday ${to}. Today is ${todayISO()}.`,
     `HIS GOAL: ${goal}`,
     `TARGET: ${sessionsPerWeek} sessions and ${7 - sessionsPerWeek} rest day(s). Mix long runs, Hyrox/hybrid work and strength. He runs close to 20k when he runs long and does full Hyrox simulations.`,
-    "His once-a-week upper-body lift is a fixed, structured workout he logs set by set: add it as a strength session titled \"Unity Standard Upper Body\" (that title links it to the log); likewise the lower-body lift is titled \"Unity Standard Lower Body\". Leave their notes empty — the exercises, weights and rep targets live in the app.",
+    "HIS WORKOUT BANK: his repeatable workouts (Unity Standard Upper/Lower Body, Threshold Intervals, Stations, Hyrox Sim, 20K Long Run) live in the workout bank, each with a default day — empty weeks fill from it automatically. When you schedule one of them, pass its workout_slug (from the workout_bank tool) and its name as the title, and leave notes empty: the exercises, weights and targets live in the bank.",
+    ...(bank.length
+      ? ["THE BANK (workout_slug · name · type · default day):", ...bank.map((w) => `- ${w.slug} · ${w.name} · ${w.session_type} · ${w.default_day === null ? "no default day" : DAY[w.default_day]}`), ""]
+      : []),
     "",
     ...(doc.content.trim()
       ? ["HIS WRITTEN TRAINING PLAN (follow its structure and any week-specific instructions; this outranks the defaults above):", doc.content.trim().slice(0, 6000), ""]

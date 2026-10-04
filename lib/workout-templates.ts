@@ -1,7 +1,8 @@
-// Structured workouts: the fixed shape of a session he repeats every week, so
-// logging is just typing the reps per set. Hardcoded for the current block
-// (Berto, 2026-10-03); when the routine changes every couple of months the old
-// template is archived and a new one added here. Client-safe — no DB imports.
+// Structured workouts — the workout bank. Each is the fixed shape of a session he
+// repeats every week, so logging is just typing the reps (or times) per set. The
+// bank lives in the `workout_bank` table (lib/workout-bank.ts) and is edited at
+// /training/workouts; the definitions below are only its first-run seed.
+// Client-safe — no DB imports.
 //
 // Progression is a rep ladder at a fixed weight (Berto): hit the target on every
 // set and the next session's target steps up 10 → 15 → 20; at the top rung the
@@ -11,7 +12,8 @@ export interface TemplateExercise {
   key: string;
   name: string;
   sets: number;
-  /** Rep targets in order. One rung = a fixed target that never steps up. */
+  /** Rep targets in order (for a timed set: the time to beat, in seconds). One rung =
+   *  a fixed target that never steps up; empty = no target, just log it. */
   ladder: number[];
   /** Starting weight in lbs; null for bodyweight, or for a loaded lift not weighed yet. */
   weight: number | null;
@@ -21,6 +23,10 @@ export interface TemplateExercise {
   weightUnit?: "kg";
   /** What a "rep" is. Defaults to reps; the sled counts metres. */
   unit?: "m";
+  /** Each set is a time in seconds (lower is better) instead of a rep count. */
+  measure?: "time";
+  /** One line under the name: how to do it ("90 s easy jog between"). */
+  note?: string;
   perSide?: boolean;
   /** Charted week over week. Superset partners and abs are logged but not charted. */
   tracked?: boolean;
@@ -32,13 +38,24 @@ export interface TemplateBlock {
   exercises: TemplateExercise[];
 }
 
+export interface WorkoutPlan {
+  km?: number | null;
+  pace_sec?: number | null;
+  minutes?: number | null;
+  intensity?: string | null;
+}
+
 export interface WorkoutTemplate {
   slug: string;
   name: string;
   /** Earlier slugs, so old links keep working. */
   aliases?: string[];
-  /** Matches a planned session to this template (strength sessions whose title fits). */
-  match: RegExp;
+  /** Session type on the calendar (lib/training.ts SESSION_TYPES). */
+  session_type: string;
+  /** Day it lands on in the default week, 0 = Monday … 6 = Sunday; null = not scheduled. */
+  default_day: number | null;
+  /** Targets copied onto the calendar session (distance + pace for runs, minutes otherwise). */
+  plan?: WorkoutPlan;
   warmup?: string;
   cooldown?: string;
   blocks: TemplateBlock[];
@@ -52,7 +69,9 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     // Named for Unity, his gym (Berto, 2026-10-03).
     name: "Unity Standard Upper Body",
     aliases: ["upper-body"],
-    match: /upper[\s-]*body/i,
+    session_type: "strength",
+    default_day: 4,
+    plan: { minutes: 60, intensity: "moderate" },
     warmup: "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells",
     cooldown: "6-minute stretch",
     blocks: [
@@ -115,9 +134,10 @@ const CORE_FINISHER: TemplateBlock = {
 WORKOUT_TEMPLATES.push({
   slug: "unity-standard-lower-body",
   name: "Unity Standard Lower Body",
-  match: /lower[\s-]*body/i,
-  // Built around his Hyrox weak spots (Berto, 2026-10-03): sled push (Ottawa rank 34),
-  // wall balls (22) and lunges. Starting weights come from his first session.
+  session_type: "strength",
+  default_day: 1,
+  plan: { minutes: 60, intensity: "hard" },
+  // Built around the Hyrox legs: sled push, wall balls and lunges (Berto, 2026-10-03).
   blocks: [
     {
       key: "superset-1",
@@ -164,18 +184,96 @@ WORKOUT_TEMPLATES.push({
   ],
 });
 
-export function getTemplate(slug: string) {
-  return WORKOUT_TEMPLATES.find((t) => t.slug === slug || t.aliases?.includes(slug)) ?? null;
-}
+const run = (key: string, name: string, target?: number): TemplateExercise => ({
+  key, name, sets: 1, ladder: target ? [target] : [], weight: null, measure: "time",
+});
+const station = (key: string, name: string): TemplateExercise => ({
+  key, name, sets: 1, ladder: [], weight: null, measure: "time",
+});
+
+// The rest of the week (Berto, 2026-10-03/04). Station times have no targets yet:
+// both raced splits (Ottawa 2026, Toronto 2025) were mixed doubles, so the
+// station times were shared. Run targets use his own 1 km splits (3:54 avg).
+WORKOUT_TEMPLATES.push(
+  {
+    slug: "threshold-intervals",
+    name: "Threshold Intervals",
+    session_type: "intervals",
+    default_day: 3,
+    plan: { km: 11, pace_sec: 225, intensity: "hard" },
+    warmup: "15 min easy + 4 × 20 s strides",
+    cooldown: "10 min easy",
+    blocks: [
+      {
+        key: "main-set",
+        label: "Main set",
+        exercises: [
+          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, note: "Hold 3:45 on every rep · 90 s easy jog between" },
+        ],
+      },
+    ],
+  },
+  {
+    slug: "stations",
+    name: "Stations",
+    session_type: "hyrox",
+    default_day: 0,
+    plan: { minutes: 60, intensity: "moderate" },
+    warmup: "10 min easy jog + drills",
+    cooldown: "5 min walk + stretch",
+    blocks: [
+      { key: "round-1", label: "Round 1", exercises: [run("run_1", "Run 1 km"), station("ski", "SkiErg 1000 m")] },
+      { key: "round-2", label: "Round 2", exercises: [run("run_2", "Run 1 km"), { ...station("sled_push", "Sled push 50 m"), loaded: true }] },
+      { key: "round-3", label: "Round 3", exercises: [run("run_3", "Run 1 km"), { ...station("sled_pull", "Sled pull 50 m"), loaded: true }] },
+      { key: "round-4", label: "Round 4", exercises: [run("run_4", "Run 1 km"), { ...station("wall_balls", "Wall balls × 50"), weight: 9, weightUnit: "kg" }] },
+    ],
+  },
+  {
+    slug: "hyrox-sim",
+    name: "Hyrox Sim",
+    session_type: "hyrox",
+    default_day: 5,
+    plan: { minutes: 70, intensity: "hard" },
+    warmup: "15 min easy + race-pace strides",
+    cooldown: "10 min easy + stretch",
+    blocks: [
+      ["SkiErg 1000 m", "ski"],
+      ["Sled push 50 m", "sled_push"],
+      ["Sled pull 50 m", "sled_pull"],
+      ["Burpee broad jumps 80 m", "bbj"],
+      ["Row 1000 m", "row"],
+      ["Farmers carry 200 m", "farmers"],
+      ["Sandbag lunges 100 m", "lunges"],
+      ["Wall balls × 100", "wall_balls"],
+    ].map(([name, key], i) => ({
+      key: `station-${i + 1}`,
+      label: `${i + 1} · ${name.replace(/ [\d×].*$/, "")}`,
+      exercises: [run(`run_${i + 1}`, "Run 1 km", 234), station(key, name)],
+    })),
+  },
+  {
+    slug: "20k-long-run",
+    name: "20K Long Run",
+    session_type: "long_run",
+    default_day: 6,
+    plan: { km: 20, pace_sec: 300, intensity: "easy" },
+    blocks: [
+      {
+        key: "splits",
+        label: "Splits",
+        exercises: [
+          { key: "split_5k", name: "5 km split", sets: 4, ladder: [1500], weight: null, measure: "time", tracked: true, note: "Conversational, zone 2 · 5:00/km" },
+        ],
+      },
+    ],
+  },
+);
+
+/** The bank's first-run contents. */
+export const SEED_WORKOUTS = WORKOUT_TEMPLATES;
 
 export function templateExercises(t: WorkoutTemplate) {
   return t.blocks.flatMap((b) => b.exercises);
-}
-
-/** The template a planned session logs into, if any. */
-export function templateForSession(s: { type: string; title: string }) {
-  if (s.type !== "strength") return null;
-  return WORKOUT_TEMPLATES.find((t) => t.match.test(s.title)) ?? null;
 }
 
 export function workoutHref(slug: string, date: string) {
@@ -192,8 +290,58 @@ export interface StrengthLog {
 }
 
 export function hitAll(ex: TemplateExercise, log: Pick<StrengthLog, "reps" | "target_reps">) {
+  if (!log.target_reps) return false;
   const done = log.reps.filter((r): r is number => r !== null);
-  return done.length >= ex.sets && done.every((r) => r >= log.target_reps);
+  // A timed set hits by coming in at or under the target; a rep set by reaching it.
+  return done.length >= ex.sets && done.every((r) => (ex.measure === "time" ? r <= log.target_reps : r >= log.target_reps));
+}
+
+export function hitSet(ex: TemplateExercise, value: number | null, target: number) {
+  if (value === null || !target) return false;
+  return ex.measure === "time" ? value <= target : value >= target;
+}
+
+/** 225 → "3:45", 4980 → "1:23:00". */
+export function formatTime(sec: number) {
+  const s = Math.round(sec);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/**
+ * What he typed into a time box → seconds. "3:45" and "1:23:00" read as written;
+ * bare digits are typed on the phone's number pad (no colon there): "345" = 3:45,
+ * "12300" = 1:23:00, and one or two digits are whole minutes.
+ */
+export function parseTime(text: string): number | null {
+  const t = text.trim();
+  if (!t) return null;
+  if (t.includes(":")) {
+    const parts = t.split(":").map(Number);
+    if (parts.some((n) => !Number.isFinite(n))) return null;
+    return parts.reduce((total, n) => total * 60 + n, 0);
+  }
+  if (!/^\d+$/.test(t)) return null;
+  if (t.length <= 2) return Number(t) * 60;
+  const ss = Number(t.slice(-2));
+  const rest = t.slice(0, -2);
+  const mm = rest.length > 2 ? Number(rest.slice(-2)) : Number(rest);
+  const hh = rest.length > 2 ? Number(rest.slice(0, -2)) : 0;
+  return ss < 60 && mm < 60 ? hh * 3600 + mm * 60 + ss : null;
+}
+
+/** Template definitions are JSON in the bank; this keeps any missing optional parts sane. */
+export function normalizeTemplate(t: WorkoutTemplate): WorkoutTemplate {
+  return {
+    ...t,
+    default_day: t.default_day ?? null,
+    blocks: (t.blocks ?? []).map((b) => ({
+      ...b,
+      exercises: (b.exercises ?? []).map((e) => ({ ...e, sets: Math.max(1, Math.round(e.sets || 1)), ladder: e.ladder ?? [] })),
+    })),
+  };
 }
 
 export interface Prescription {
@@ -205,7 +353,7 @@ export interface Prescription {
 
 /** What to aim for next time, from the last session's log of this exercise. */
 export function nextPrescription(ex: TemplateExercise, last: StrengthLog | null): Prescription {
-  if (!last) return { weight: ex.weight, target: ex.ladder[0], bumpSuggested: false };
+  if (!last) return { weight: ex.weight, target: ex.ladder[0] ?? 0, bumpSuggested: false };
   if (!hitAll(ex, last)) return { weight: last.weight, target: last.target_reps, bumpSuggested: false };
   const i = ex.ladder.indexOf(last.target_reps);
   if (i >= 0 && i < ex.ladder.length - 1) return { weight: last.weight, target: ex.ladder[i + 1], bumpSuggested: false };

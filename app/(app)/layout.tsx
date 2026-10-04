@@ -286,7 +286,15 @@ function Workspace({ children }: { readonly children: ReactNode }) {
 
   return (
     <KonstaApp>
-    <main className="flex h-dvh overflow-hidden bg-background text-foreground">
+    <main
+      className={cn(
+        "flex h-dvh overflow-hidden bg-background text-foreground",
+        // The installed iPhone app draws under the status bar (black-translucent, see
+        // app/layout.tsx). Home's photo is meant to run up under the clock; every
+        // other section starts below it.
+        mobileTab !== "home" && "pt-[var(--safe-top)]",
+      )}
+    >
       {/* Desktop nav rail — leftmost, always visible, collapsible to icons only */}
       <aside
         className={cn(

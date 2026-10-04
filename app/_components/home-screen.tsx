@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAnimate, useReducedMotion } from "motion/react";
 import {
   ArrowUpRightIcon,
   MessageCircleIcon,
@@ -34,6 +35,7 @@ import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { DayPlanCard } from "@/app/_components/day-plan-card";
+import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -114,6 +116,18 @@ const DAILY_ART: { url: string; moment: string; year: string; wiki: string }[] =
   { url: `${WM}c/c8/2017_Aerial_view_Hoover_Dam_4774.jpg`, moment: "Hoover Dam holds back the Colorado", year: "1936", wiki: "Hoover_Dam" },
 ];
 
+/** True for a touch that starts somewhere a sideways drag means something else. */
+function swipeExempt(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el?.closest("input, textarea, select, [contenteditable=true], [data-no-day-swipe]");
+}
+
+/** "Sunday, October 4" for a YYYY-MM-DD key, read as a local date. */
+function longDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
 function dayOfYear(d: Date): number {
   const start = new Date(d.getFullYear(), 0, 0);
   return Math.floor((d.getTime() - start.getTime()) / 86400000);
@@ -146,6 +160,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
   const [thankYous, setThankYous] = useState<{ thanked_date: string }[]>([]);
   const [artFailed, setArtFailed] = useState(false);
   const art = DAILY_ART[dayOfYear(new Date()) % DAILY_ART.length];
+
+  // Swipe left/right to move the page a day (his ask, 2026-10-04). Held as an
+  // offset from today, not a date, so 0 keeps meaning "today" across midnight.
+  const [dayOffset, setDayOffset] = useState(0);
+  const today = todayISO();
+  const date = addDaysISO(today, dayOffset);
+  const isToday = dayOffset === 0;
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const [dayScope, animateDay] = useAnimate<HTMLDivElement>();
+  const reduceMotion = useReducedMotion();
+  const shiftDay = (n: number) => {
+    setDayOffset((o) => o + n);
+    // The new day slides in from the side it came from.
+    if (!reduceMotion && dayScope.current) {
+      void animateDay(dayScope.current, { x: [Math.sign(n) * 48, 0], opacity: [0, 1] }, { duration: 0.22, ease: "easeOut" });
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -192,11 +223,20 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     })();
   }, []);
 
+  // The key handler is bound once; the ref keeps it calling the current shiftDay.
+  const shiftDayRef = useRef(shiftDay);
+  shiftDayRef.current = shiftDay;
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        shiftDayRef.current(e.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
       const section = SECTIONS.find((s) => s.hotkey === e.key);
       if (section) {
         e.preventDefault();
@@ -320,11 +360,25 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               onImage ? "text-white/75 drop-shadow-sm" : "text-muted-foreground",
             )}
           >
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {longDate(date)}
           </p>
         </div>
       </button>
       <div className="flex items-center gap-1">
+        {!isToday && (
+          <button
+            type="button"
+            onClick={() => shiftDay(-dayOffset)}
+            className={cn(
+              "mr-1 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              onImage
+                ? "bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
+                : "bg-muted text-foreground hover:bg-muted/70",
+            )}
+          >
+            Today
+          </button>
+        )}
         <PinButton
           iconClassName="size-3.5"
           className={onImage ? "text-white/80 hover:text-white hover:bg-white/15" : undefined}
@@ -343,7 +397,24 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
           onClose={() => setCelebrationQueue((prev) => prev.slice(1))}
         />
       )}
-    <div className="flex-1 overflow-y-auto min-h-0 pb-[var(--mobile-nav-h)] lg:pb-0">
+    <div
+      className="flex-1 overflow-y-auto min-h-0 pb-[var(--mobile-nav-h)] lg:pb-0"
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        swipe.current = e.touches.length === 1 && !swipeExempt(e.target) ? { x: t.clientX, y: t.clientY } : null;
+      }}
+      onTouchEnd={(e) => {
+        const start = swipe.current;
+        swipe.current = null;
+        if (!start) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - start.x;
+        const dy = t.clientY - start.y;
+        // A clear sideways swipe only, so scrolling the page never flips the day.
+        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        shiftDay(dx < 0 ? 1 : -1);
+      }}
+    >
       {/* Daily artwork — full-bleed hero with the header overlaid */}
       {!artFailed && (
         <div className="relative">
@@ -352,11 +423,13 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             src={art.url}
             alt={`${art.moment}, ${art.year}`}
             onError={() => setArtFailed(true)}
-            className="w-full h-52 sm:h-72 lg:h-80 object-cover"
+            // Taller by the status bar's height, so the photo runs up under the clock
+            // in the installed app and the visible part stays the same size.
+            className="w-full h-[calc(13rem+var(--safe-top))] sm:h-[calc(18rem+var(--safe-top))] lg:h-80 object-cover"
           />
-          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-[calc(6rem+var(--safe-top))] bg-gradient-to-b from-black/50 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
-          <div className="absolute inset-x-0 top-0 mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
+          <div className="absolute inset-x-0 top-0 mx-auto max-w-6xl px-6 pb-5 pt-[calc(1.25rem+var(--safe-top))] flex items-center justify-between">
             {header(true)}
           </div>
           <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-6 pb-3 text-xs font-medium text-white/95">
@@ -374,21 +447,26 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         </div>
       )}
 
-      <div className={cn("pb-24 lg:pb-12", artFailed ? "py-8" : "pt-10")}>
+      <div className={cn("pb-24 lg:pb-12", artFailed ? "pt-[calc(2rem+var(--safe-top))]" : "pt-10")}>
       <div className="mx-auto max-w-6xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
-        {/* The daily scorecard — "did I win today?". First thing on the page because
-            it's the one block that's actionable at 7am. */}
-        <ScorecardCard />
+        {/* Everything in here follows the day swipe. */}
+        <div ref={dayScope}>
+          {/* The daily scorecard — "did I win today?". First thing on the page because
+              it's the one block that's actionable at 7am. A future day has nothing to
+              score yet, so it shows only what's planned. */}
+          {dayOffset <= 0 && <ScorecardCard date={date} />}
 
-        {/* What's on today — sessions from /training and the three sittings from /meals */}
-        <TodaySnapshot />
+          {/* What's on the day — sessions from /training and the sittings from /meals */}
+          <TodaySnapshot date={date} />
 
-        {/* Daily habits from Principles, slotted around today's calendar. Also the
-            habit checklist since the scorecard row came off. */}
-        <DayPlanCard />
+          {/* Daily habits from Principles, slotted around today's calendar. Also the
+              habit checklist since the scorecard row came off. Today only: it's
+              built from the live calendar and has no other day to show. */}
+          {isToday && <DayPlanCard />}
+        </div>
 
       </div>
 

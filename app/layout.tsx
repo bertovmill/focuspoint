@@ -37,6 +37,17 @@ export const metadata: Metadata = {
     // 180px PNG rendered from the same source.
     apple: "/apple-icon.png",
   },
+  // Opened from the home-screen icon, the page runs edge to edge: content draws
+  // under the clock and battery instead of below an opaque status-bar strip (his
+  // ask, 2026-10-04). iOS reads this when the icon is added, so an existing icon
+  // has to be removed and re-added once. iOS 26+ lays a Liquid Glass blur over that
+  // strip; Home's photo shows through it, and every other section pads past it
+  // with --safe-top.
+  appleWebApp: {
+    capable: true,
+    title: "Cael",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 // viewport-fit=cover is what makes env(safe-area-inset-*) report real numbers on

@@ -1016,7 +1016,7 @@ function PostEditor({
 
       {/* Cael, beside the document on desktop; full screen over it on a phone. */}
       {chatOpen && post && (
-        <aside className="fixed inset-0 z-[60] flex flex-col bg-background lg:static lg:z-auto lg:w-[400px] lg:shrink-0 lg:border-l xl:w-[440px]">
+        <aside className="fixed inset-0 z-[60] flex flex-col bg-background pt-[var(--safe-top)] lg:static lg:pt-0 lg:z-auto lg:w-[400px] lg:shrink-0 lg:border-l xl:w-[440px]">
           <PostChat
             post={post}
             beforeSend={flush}

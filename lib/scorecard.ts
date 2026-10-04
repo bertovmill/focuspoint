@@ -247,7 +247,14 @@ export type Records = {
 };
 
 export type ScorecardSummary = {
+  /**
+   * The day being looked at — today unless the caller asked for an earlier `date`
+   * (the home screen swipes back through past days). `records`, `broken` and the
+   * leaderboard flag are all measured against this day.
+   */
   today: ScorecardDay;
+  /** False when `today` is a past day the caller asked for. */
+  isToday: boolean;
   targets: Targets;
   /** Consecutive perfect days ending today (or yesterday, if today isn't won yet). */
   streak: number;
@@ -465,8 +472,10 @@ export async function setTargets(sql: Sql, raw: unknown): Promise<Targets> {
  * The whole card in one query pass: logged metrics, PRs derived from `github_prs`,
  * and the perfect-day streak over the last year.
  */
-export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
+export async function getScorecardSummary(sql: Sql, date?: string): Promise<ScorecardSummary> {
   const todayKey = dayKey(new Date());
+  // A future day has nothing to score yet, so asking for one just shows today.
+  const viewKey = date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date < todayKey ? date : todayKey;
   const since = shiftDay(todayKey, HISTORY_DAYS);
 
   const [targets, logged, keyRows, healthConnected] = await Promise.all([
@@ -512,7 +521,7 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
 
   const { streak, bestStreak, atRisk } = computePerfectStreak(byDate, todayKey);
 
-  const today = byDate.get(todayKey) ?? buildDay(todayKey, {}, targets);
+  const today = byDate.get(viewKey) ?? buildDay(viewKey, {}, targets);
   const recent: ScorecardDay[] = [];
   for (let i = SCORECARD_DAYS - 1; i >= 0; i--) {
     const key = shiftDay(todayKey, i);
@@ -528,10 +537,11 @@ export async function getScorecardSummary(sql: Sql): Promise<ScorecardSummary> {
     .map(([date]) => date)
     .sort()[0] ?? todayKey;
 
-  const records = computeRecords(byDate, todayKey, trackingSince);
+  const records = computeRecords(byDate, viewKey, trackingSince);
 
   return {
     today,
+    isToday: viewKey === todayKey,
     targets,
     streak,
     bestStreak,

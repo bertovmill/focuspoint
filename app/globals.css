@@ -66,6 +66,8 @@
      silently drops the whole declaration when it meets a bare `env()` inside one.
      Behind a `var()` it leaves the calc alone. */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The status bar's height in the installed iPhone app, which draws under it. */
+  --safe-top: env(safe-area-inset-top, 0px);
   /* The floating pill tab bar: 4.25rem of bar, 0.75rem of air under it, plus the
      home indicator. Content scrolls up to here, then stops. */
   --mobile-nav-h: calc(5rem + var(--safe-bottom));

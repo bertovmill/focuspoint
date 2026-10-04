@@ -9,21 +9,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
-import { DEFAULT_PROTEIN_TARGET_G, slotsShown, todayISO } from "@/lib/nutrition";
+import { DEFAULT_PROTEIN_TARGET_G, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 /**
  * The home screen's "what's on today" pair: today's sessions from /training and
  * today's three sittings from /meals, side by side on desktop. Each heading links
  * through to the full page; the only action here is ticking a session done.
+ * `date` follows the home screen's day swipe; it defaults to today.
  */
-export function TodaySnapshot() {
+export function TodaySnapshot({ date }: { date?: string } = {}) {
+  const day = date ?? todayISO();
   return (
     <section id="today-snapshot" className="mb-6 grid gap-6 md:grid-cols-2">
-      <TrainingToday />
-      <MealsToday />
+      <TrainingToday today={day} />
+      <MealsToday today={day} />
     </section>
   );
+}
+
+/** "Today's", "Tomorrow's", "Yesterday's", else the weekday: "Thursday's". */
+function dayPossessive(iso: string): string {
+  const now = todayISO();
+  if (iso === now) return "Today's";
+  if (iso === addDaysISO(now, 1)) return "Tomorrow's";
+  if (iso === addDaysISO(now, -1)) return "Yesterday's";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "long" })}'s`;
 }
 
 function Heading({ href, children }: { href: string; children: string }) {
@@ -38,18 +50,19 @@ function Heading({ href, children }: { href: string; children: string }) {
   );
 }
 
-function TrainingToday() {
-  const today = todayISO();
+function TrainingToday({ today }: { today: string }) {
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
 
-  const load = useCallback(async () => {
+  // `isStale` drops an answer for a day the home screen has already swiped past.
+  const load = useCallback(async (isStale: () => boolean = () => false) => {
     try {
       const [s, e] = await Promise.all([
         fetch(`/api/training/sessions?from=${today}&to=${today}`),
         fetch("/api/training/events"),
       ]);
+      if (isStale()) return;
       if (s.ok) {
         const data = (await s.json()) as { sessions: TrainingSession[]; activities: Activity[] };
         setSessions(data.sessions);
@@ -62,7 +75,11 @@ function TrainingToday() {
   }, [today]);
 
   useEffect(() => {
-    load();
+    let stale = false;
+    load(() => stale);
+    return () => {
+      stale = true;
+    };
   }, [load]);
 
   const toggleDone = async (s: TrainingSession) => {
@@ -93,7 +110,7 @@ function TrainingToday() {
 
   return (
     <div>
-      <Heading href="/training">Today&apos;s training</Heading>
+      <Heading href="/training">{`${dayPossessive(today)} training`}</Heading>
       <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
         {sessions === null ? (
           <div className="space-y-2">
@@ -103,7 +120,7 @@ function TrainingToday() {
         ) : (
           <div className="space-y-3">
             {list.length === 0 && extras.length === 0 && (
-              <p className="text-sm text-muted-foreground">Nothing planned today.</p>
+              <p className="text-sm text-muted-foreground">Nothing planned{today === todayISO() ? " today" : ""}.</p>
             )}
             {list.map((s) => {
               const meta = sessionMeta(s.type);
@@ -169,36 +186,40 @@ function TrainingToday() {
   );
 }
 
-function MealsToday() {
-  const today = todayISO();
+function MealsToday({ today }: { today: string }) {
   const [meals, setMeals] = useState<PlannedMeal[] | null>(null);
   const [protein, setProtein] = useState({ target: DEFAULT_PROTEIN_TARGET_G, eaten: 0 });
 
   useEffect(() => {
+    let stale = false;
     (async () => {
       try {
         const [p, t] = await Promise.all([
           fetch(`/api/nutrition/plan?date=${today}`),
           fetch(`/api/nutrition/target?date=${today}`),
         ]);
+        if (stale) return;
         setMeals(p.ok ? await p.json() : []);
         if (t.ok) {
           const data = (await t.json()) as { target_g: number; eaten_g: number };
           setProtein({ target: data.target_g, eaten: data.eaten_g });
         }
       } catch {
-        setMeals([]);
+        if (!stale) setMeals([]);
       }
     })();
+    return () => {
+      stale = true;
+    };
   }, [today]);
 
   const bySlot = new Map((meals ?? []).map((m) => [m.slot, m]));
   // The first meal still to plan — no clock: his meal times move around.
-  const live = slotsShown(false).find((s) => !bySlot.has(s.key))?.key;
+  const live = today === todayISO() ? slotsShown(false).find((s) => !bySlot.has(s.key))?.key : undefined;
 
   return (
     <div>
-      <Heading href="/meals">Today&apos;s meals</Heading>
+      <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
       <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
         {meals === null ? (
           <div className="space-y-2">

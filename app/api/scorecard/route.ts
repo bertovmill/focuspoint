@@ -6,9 +6,11 @@ import { dayKey, getScorecardSummary, recordMetrics, type MetricPatch } from "@/
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** `?date=YYYY-MM-DD` looks at an earlier day; no date (or a future one) is today. */
+export async function GET(req: Request) {
   try {
-    return NextResponse.json(await getScorecardSummary(getDb()));
+    const date = new URL(req.url).searchParams.get("date") ?? undefined;
+    return NextResponse.json(await getScorecardSummary(getDb(), date));
   } catch (err) {
     console.error("scorecard read failed:", err);
     return NextResponse.json({ error: "Failed to load scorecard" }, { status: 500 });
@@ -41,7 +43,8 @@ export async function PATCH(req: Request) {
 
     if (Object.keys(patch).length) await recordMetrics(sql, date, patch);
 
-    return NextResponse.json(await getScorecardSummary(sql));
+    // Answer for the day that was edited, so a correction to yesterday stays on yesterday.
+    return NextResponse.json(await getScorecardSummary(sql, date));
   } catch (err) {
     console.error("scorecard write failed:", err);
     return NextResponse.json({ error: "Failed to save" }, { status: 500 });

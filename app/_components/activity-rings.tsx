@@ -80,6 +80,7 @@ function Ring({
   best,
   leaderboard,
   today,
+  isToday,
   editable,
   onEdit,
 }: {
@@ -89,8 +90,10 @@ function Ring({
   best: PersonalBest | undefined;
   /** Top days for this metric, best first. */
   leaderboard: PersonalBest[];
-  /** Today's key, so today's row on the leaderboard can be flagged. */
+  /** The shown day's key, so its row on the leaderboard can be flagged. */
   today: string;
+  /** False when the card is showing a past day — its row then reads as a date. */
+  isToday: boolean;
   editable: boolean;
   onEdit: (key: MetricKey, raw: string) => void;
 }) {
@@ -196,7 +199,7 @@ function Ring({
                     {formatMetric(metric.key, row.value)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {row.date === today ? "today" : shortDate(row.date)}
+                    {row.date === today && isToday ? "today" : shortDate(row.date)}
                   </span>
                 </li>
               ))}
@@ -295,6 +298,7 @@ export function ActivityRings({
   bests,
   leaderboards,
   today,
+  isToday = true,
   onEdit,
 }: {
   metrics: MetricValue[];
@@ -302,6 +306,7 @@ export function ActivityRings({
   bests: Partial<Record<MetricKey, PersonalBest>>;
   leaderboards: Record<MetricKey, PersonalBest[]>;
   today: string;
+  isToday?: boolean;
   onEdit: (key: MetricKey, raw: string) => void;
 }) {
   return (
@@ -314,6 +319,7 @@ export function ActivityRings({
           best={bests[m.key]}
           leaderboard={leaderboards[m.key] ?? []}
           today={today}
+          isToday={isToday}
           editable={metricDef(m.key).source !== "agent"}
           onEdit={onEdit}
         />

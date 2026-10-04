@@ -9903,3 +9903,45 @@ stays correct regardless, the screen may just sleep there.
   sideways swipes count, so scrolling never flips the day. Week arrows are bigger
   on phones; "This week" became "Today".
 - Trimmed the protein card copy to "N g to go" / "Planned N g · kcal".
+
+---
+
+## 2026-10-04 — Home: swipe between days; full screen under the status bar
+
+Berto (screenshot of the installed iPhone app): swipe left/right to change days, and
+the screen should fill the whole phone instead of stopping under the clock/Wi-Fi/battery.
+
+- **Swipe between days on Home** (`home-screen.tsx`): a clear sideways swipe anywhere
+  on Home moves a day (left = next, right = previous); same rule as Meals, so vertical
+  scrolling never flips the day, and swipes starting in inputs/editors are ignored.
+  ←/→ keys do it on desktop. The new day slides in from the side it came from. The
+  header date follows, and a **Today** pill appears on any other day to jump back.
+  The day is kept as an offset from today, so "today" still means today after midnight.
+  - Past days: the scorecard shows that day's score, rings and values (editable;
+    corrections are written to that day). The line reads "N pts short of your best", or
+    "Your high score" if that day holds it. No record confetti for past days.
+  - Future days: no scorecard (nothing to score yet), just the planned training and meals.
+  - Training and meals follow the day ("Yesterday's training", "Tomorrow's meals",
+    "Thursday's …"). Today's plan (habits around the calendar) shows on today only.
+  - API: `GET /api/scorecard?date=YYYY-MM-DD` and `getScorecardSummary(sql, date)`
+    look at a past day (a future date falls back to today). PATCH now answers for
+    the day it wrote. Summary gained `isToday`. Streak and the 14-day chart stay
+    anchored to the real today.
+- **Full screen on the iPhone** (`app/layout.tsx`): `appleWebApp` with
+  `statusBarStyle: "black-translucent"`, so the installed app draws under the status
+  bar. Home's photo is taller by `--safe-top` (new var in `globals.css`) and runs up
+  under the clock; the header is pushed below it. Every other section pads past it
+  (`pt-[var(--safe-top)]` on the shell `main` when not on Home; the Writing panel's
+  full-screen chat too). `agent-chat.tsx` is now `flex-1` instead of `h-dvh`, so the
+  padding can't push the composer off the bottom.
+  - **The home-screen icon must be removed and re-added once**: iOS reads the
+    status-bar style only when the icon is added.
+  - iOS 26+ puts a Liquid Glass blur over the status-bar strip of such apps, so the
+    photo shows through it softened, not perfectly sharp. That's the OS, not the app.
+- Verified at 390px in Playwright with the API stubbed and a 47px status bar simulated
+  (no DB or eve in the cloud container): swipe right → Saturday + "Yesterday's",
+  two swipes left → Monday + "Tomorrow's" with no scorecard, a vertical drag doesn't
+  flip, Today pill returns; `/training` and `/chat` start at 47px, composer on screen.
+  `npm run typecheck` clean.
+- Berto's message was cut off ("…but on mobile if we") — the rest of that thought
+  is still to come.

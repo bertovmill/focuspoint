@@ -124,7 +124,9 @@ function ChatSession({
   return (
     <main
       className={cn(
-        "relative flex h-dvh flex-col overflow-hidden bg-background text-foreground",
+        // Fills the shell rather than the viewport: the shell gives the status bar
+        // its strip on a phone, and a full h-dvh here would push the composer off the bottom.
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground",
         hasMobileNav ? "pb-[var(--mobile-nav-h)] lg:pb-0" : "pb-[var(--safe-bottom)] lg:pb-0",
       )}
     >

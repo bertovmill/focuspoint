@@ -90,8 +90,16 @@ export function shortDate(key: string): string {
   });
 }
 
-export function ScorecardCard() {
+/**
+ * `date` is the day the home screen is on (swiped back through past days, 2026-10-04).
+ * Omitted, or today, it's the live card.
+ */
+export function ScorecardCard({ date }: { date?: string } = {}) {
   const [summary, setSummary] = useState<ScorecardSummary | null>(null);
+  // True while a swipe's day is still on its way — the old day stays up, dimmed.
+  const [loading, setLoading] = useState(false);
+  // Only the newest request may land: a fast run of swipes can answer out of order.
+  const latest = useRef(0);
   const [syncing, setSyncing] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   // Records celebrated this session, so an in-flight PATCH response can't double-fire
@@ -99,13 +107,17 @@ export function ScorecardCard() {
   const celebrated = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
+    const id = ++latest.current;
+    setLoading(true);
     try {
-      const res = await fetch("/api/scorecard");
-      if (res.ok) setSummary(await res.json());
+      const res = await fetch(date ? `/api/scorecard?date=${date}` : "/api/scorecard");
+      if (res.ok && id === latest.current) setSummary(await res.json());
     } catch {
       // A dead scorecard fetch shouldn't take the home screen with it.
+    } finally {
+      if (id === latest.current) setLoading(false);
     }
-  }, []);
+  }, [date]);
 
   useEffect(() => {
     void load();
@@ -130,7 +142,8 @@ export function ScorecardCard() {
    * at 9pm are two separate moments — but reloading the page is neither.
    */
   useEffect(() => {
-    if (!summary?.broken.length) return;
+    // Looking back at an old record isn't breaking one.
+    if (!summary?.isToday || !summary.broken.length) return;
 
     let seen: string[] = [];
     try {
@@ -187,19 +200,23 @@ export function ScorecardCard() {
     window.history.replaceState({}, "", window.location.pathname);
   }, [load]);
 
+  const shownDate = summary?.isToday ? undefined : summary?.today.date;
   const patch = useCallback(async (body: Record<string, unknown>) => {
+    const id = ++latest.current;
     try {
       const res = await fetch("/api/scorecard", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        // A past day's correction is written to that day, not today.
+        body: JSON.stringify(shownDate ? { ...body, date: shownDate } : body),
       });
       if (!res.ok) throw new Error();
-      setSummary(await res.json());
+      const next = (await res.json()) as ScorecardSummary;
+      if (id === latest.current) setSummary(next);
     } catch {
       toast.error("Couldn't save that");
     }
-  }, []);
+  }, [shownDate]);
 
   const handleEdit = useCallback(
     (key: MetricKey, raw: string) => {
@@ -235,7 +252,7 @@ export function ScorecardCard() {
 
   if (!summary) return null;
 
-  const { today, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore, recordsSince } = summary;
+  const { today, isToday, recent, streak, bestStreak, atRisk, googleConnected, records, broken, maxScore, recordsSince } = summary;
   const total = today.metrics.length;
 
   const tier = scoreTier(today.score);
@@ -258,7 +275,7 @@ export function ScorecardCard() {
   const peak = comparable.length ? Math.max(...comparable.map((d) => d.score)) : 0;
 
   return (
-    <div className="mb-6">
+    <div className={cn("mb-6 transition-opacity", loading && "opacity-60")}>
       {celebrating && <RecordConfetti onDone={() => setCelebrating(false)} />}
 
       <div className="flex items-center justify-between gap-3 mb-3">
@@ -352,11 +369,17 @@ export function ScorecardCard() {
 
         <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
           <p className={cn("font-medium", (beatingBest || closingIn) && "text-amber-600 dark:text-amber-400")}>
-            {beatingBest
-              ? `New high score — ${(today.score - best!.value).toLocaleString("en-CA")} clear of your best`
-              : best
-                ? `${toBeat.toLocaleString("en-CA")} pts to beat your best`
-                : "Set the first high score"}
+            {!isToday
+              ? beatingBest
+                ? "Your high score"
+                : best
+                  ? `${(Math.round((best.value - today.score) * 10) / 10).toLocaleString("en-CA")} pts short of your best`
+                  : "No high score to compare"
+              : beatingBest
+                ? `New high score — ${(today.score - best!.value).toLocaleString("en-CA")} clear of your best`
+                : best
+                  ? `${toBeat.toLocaleString("en-CA")} pts to beat your best`
+                  : "Set the first high score"}
           </p>
           <span className="flex shrink-0 items-center gap-1.5">
             <FlameIcon
@@ -376,7 +399,7 @@ export function ScorecardCard() {
 
         {/* Three rings, left to right — Steps · Sleep · Keystrokes. */}
         <div className="mt-3 border-t pt-3">
-          <ActivityRings metrics={today.metrics} broken={broken} bests={records.metrics} leaderboards={summary.leaderboards} today={today.date} onEdit={handleEdit} />
+          <ActivityRings metrics={today.metrics} broken={broken} bests={records.metrics} leaderboards={summary.leaderboards} today={today.date} isToday={isToday} onEdit={handleEdit} />
         </div>
 
         {/* How the number above was built, in one line. */}

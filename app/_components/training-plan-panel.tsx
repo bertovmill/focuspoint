@@ -12,7 +12,6 @@ import {
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
-  SparklesIcon,
   TrashIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { SessionEditor, type SessionDraft } from "@/app/_components/session-editor";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
-import { draftWeekWithCoach } from "@/app/_components/training-coach-stream";
 import { WorkoutLog } from "@/app/_components/workout-log";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
 import { templateForSession, workoutHref } from "@/lib/workout-templates";
@@ -36,8 +34,6 @@ interface StravaStatus {
   connected: boolean;
   last_synced_at: string | null;
 }
-
-const SESSIONS_PER_WEEK = 6;
 
 /**
  * /training — the week of sessions building toward the races, with Strava
@@ -62,9 +58,6 @@ function TrainingWeek() {
   const [strava, setStrava] = useState<StravaStatus>({ configured: false, connected: false, last_synced_at: null });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [drafting, setDrafting] = useState(false);
-  const [coachStatus, setCoachStatus] = useState<string | null>(null);
-  const [coachDay, setCoachDay] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editor, setEditor] = useState<{ date: string } | TrainingSession | null>(null);
   const [editingEvent, setEditingEvent] = useState<number | "new" | null>(null);
@@ -188,28 +181,6 @@ function TrainingWeek() {
     } catch {
       setSessions(prev);
       toast.error("Couldn't save that.");
-    }
-  };
-
-  // The coach works the week session by session; each write re-reads the grid
-  // so cards appear, change and disappear while it goes. Undone sessions are
-  // edited in place rather than wiped, so there's nothing to confirm first.
-  const draft = async () => {
-    setDrafting(true);
-    try {
-      const summary = await draftWeekWithCoach(weekStart, SESSIONS_PER_WEEK, {
-        onStatus: setCoachStatus,
-        onWriting: setCoachDay,
-        onWrote: () => void load(),
-      });
-      await load();
-      if (summary) toast.success(summary, { duration: 8000 });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't draft the week.");
-    } finally {
-      setDrafting(false);
-      setCoachStatus(null);
-      setCoachDay(null);
     }
   };
 
@@ -380,10 +351,6 @@ function TrainingWeek() {
           {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <Button className="h-11 gap-2 px-5 text-base" disabled={drafting} onClick={draft}>
-            {drafting ? <Spinner className="size-4" /> : <SparklesIcon className="size-4" />}
-            {drafting ? "Drafting…" : "Draft this week"}
-          </Button>
           {strava.connected ? (
             <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={strava.last_synced_at ? `Last synced ${new Date(strava.last_synced_at).toLocaleString()}` : undefined}>
               {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}
@@ -399,13 +366,6 @@ function TrainingWeek() {
         </div>
       </div>
 
-      {drafting && coachStatus && (
-        <p className="flex items-center gap-2 text-base text-muted-foreground" aria-live="polite">
-          <SparklesIcon className="size-4 shrink-0 animate-pulse text-foreground" />
-          {coachStatus}
-        </p>
-      )}
-
       {/* Week — stacked rows on phones, columns on wide screens */}
       <section className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
@@ -415,7 +375,7 @@ function TrainingWeek() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60", drafting && coachDay === d && "ring-2 ring-primary/60")}>
+            <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
               <div className={cn("flex items-center justify-between border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
                 <button type="button" onClick={() => setEditor({ date: d })} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>

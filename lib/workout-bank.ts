@@ -136,29 +136,40 @@ const FILLED_KEY = "training.bank_filled_weeks";
  * Fills an empty week (this one or later) from the bank: each workout on its
  * default day, rest on any day left over. Each week is filled at most once, so a
  * week he clears on purpose stays clear. Returns true when it added sessions.
+ *
+ * `replace` is the "Fill from bank" button: it clears the week's unfinished
+ * sessions first and lays the default lineup over it. Done sessions stay, and a
+ * workout already done that week isn't added again.
  */
-export async function fillWeekFromBank(weekStart: string): Promise<boolean> {
+export async function fillWeekFromBank(weekStart: string, opts: { replace?: boolean } = {}): Promise<boolean> {
   if (weekStart !== weekStartISO(weekStart) || weekStart < weekStartISO(todayISO())) return false;
   await ensureBank();
   const sql = getDb();
   const [setting] = await sql`SELECT value FROM app_settings WHERE key = ${FILLED_KEY}`;
   const filled: string[] = setting ? JSON.parse(String(setting.value)) : [];
-  if (filled.includes(weekStart)) return false;
+  if (filled.includes(weekStart) && !opts.replace) return false;
   const to = addDaysISO(weekStart, 6);
-  const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM training_sessions WHERE session_date BETWEEN ${weekStart} AND ${to}`;
   const remember = async () => {
+    if (filled.includes(weekStart)) return;
     const next = JSON.stringify([...filled, weekStart].slice(-104));
     await sql`
       INSERT INTO app_settings (key, value, updated_at) VALUES (${FILLED_KEY}, ${next}, NOW())
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
     `;
   };
-  if (n > 0) {
-    await remember();
-    return false;
+  if (opts.replace) {
+    await sql`DELETE FROM training_sessions WHERE session_date BETWEEN ${weekStart} AND ${to} AND done = FALSE`;
+  } else {
+    const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM training_sessions WHERE session_date BETWEEN ${weekStart} AND ${to}`;
+    if (n > 0) {
+      await remember();
+      return false;
+    }
   }
-  const workouts = (await listWorkouts()).filter((w) => w.default_day !== null);
-  const used = new Set<number>();
+  const kept = await sql`SELECT EXTRACT(ISODOW FROM session_date)::int - 1 AS day, workout_slug FROM training_sessions WHERE session_date BETWEEN ${weekStart} AND ${to}`;
+  const doneSlugs = new Set(kept.map((r) => r.workout_slug).filter(Boolean));
+  const used = new Set<number>(kept.map((r) => Number(r.day)));
+  const workouts = (await listWorkouts()).filter((w) => w.default_day !== null && !doneSlugs.has(w.slug));
   for (const w of workouts) {
     const day = w.default_day!;
     used.add(day);

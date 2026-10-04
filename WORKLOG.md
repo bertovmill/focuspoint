@@ -9576,3 +9576,15 @@ bank workout "Restorative Yoga" (slug `restorative-yoga`, Wednesday, 45 min easy
 one timed row to log how long). Added to the live bank (and the seed); the
 already-filled Wed Oct 14 rest switched to it. With all seven days taken, filled
 weeks no longer get a rest session. set_training_session accepts `yoga`.
+
+## 2026-10-04 — "Fill from bank" button; Oct 5–11 switched to the default week
+
+Oct 5–11 had Cael's post-race easy week, drafted before the bank existed, so
+auto-fill (empty weeks only) skipped it. Berto chose the full default lineup and
+a reset button. `fillWeekFromBank(week, { replace: true })` deletes the week's
+unfinished sessions and lays the default lineup over it — done sessions stay and
+a workout already done that week isn't re-added. `POST /api/training/sessions/fill
+{ week_start }`; "Fill from bank" button (with a confirm) on this and later weeks.
+Ran it for Oct 5–11: Stations · Lower · Yoga · Intervals · Upper · Sim · 20K.
+(Tested via a direct script: another session's uncommitted nutrition edits —
+missing meal-prompt-editor — were breaking the local page build.)

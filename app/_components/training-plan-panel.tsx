@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  CalendarRangeIcon,
   DumbbellIcon,
   CheckIcon,
   ChevronLeftIcon,
@@ -217,6 +218,23 @@ function TrainingWeek() {
   const upcoming = events.filter((e) => daysUntil(e.event_date) >= 0);
   const isCurrentWeek = weekStart === weekStartISO(today);
 
+  // "Fill from bank": lay the default lineup over this week, keeping anything done.
+  const [filling, setFilling] = useState(false);
+  const fillFromBank = async () => {
+    if (!window.confirm(`Replace ${weekRangeLabel(weekStart)}'s unfinished sessions with the workout bank's default week? Sessions you've done stay.`)) return;
+    setFilling(true);
+    try {
+      const res = await fetch("/api/training/sessions/fill", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ week_start: weekStart }) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Couldn't fill the week");
+      await load();
+      toast.success("Week filled from the bank");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't fill the week");
+    } finally {
+      setFilling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -328,6 +346,12 @@ function TrainingWeek() {
               <DumbbellIcon className="size-4" /> Workout bank
             </Link>
           </Button>
+          {weekStart >= weekStartISO(today) && (
+            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={filling} onClick={fillFromBank}>
+              {filling ? <Spinner className="size-4" /> : <CalendarRangeIcon className="size-4" />}
+              Fill from bank
+            </Button>
+          )}
           {watch.connected && (
             <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={watch.last_synced_at ? `Workouts last synced ${new Date(watch.last_synced_at).toLocaleString()}` : undefined}>
               {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}

@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
-import { MealLog } from "@/app/_components/meal-log";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
@@ -45,7 +44,7 @@ const key = (date: string, slot: string) => `${date}:${slot}`;
  * /meals — the week: seven days by three sittings, every one a meal from the
  * bank (no generated dishes). Ticking a sitting logs it as eaten
  * (nutrition_meals) and moves the protein ring. Under the grid: a Notion-style
- * Notes page, the meal log, and the meal bank itself. Cells are the same
+ * Notes page and the meal bank itself. Cells are the same
  * meal_recommendations rows the Today cards and the Tasks strip read.
  */
 export function WeekPlanPanel() {
@@ -59,7 +58,6 @@ export function WeekPlanPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [ate, setAte] = useState<Map<string, Logged>>(new Map());
-  const [logVersion, setLogVersion] = useState(0);
   const [filling, setFilling] = useState(false);
   // Days where the optional snack row is open on phones before anything is in it.
   const [snackOpen, setSnackOpen] = useState<Set<string>>(new Set());
@@ -165,7 +163,6 @@ export function WeekPlanPanel() {
     const row = (await res.json()) as Logged;
     setAte((prev) => new Map(prev).set(k, { ...row, eaten_date: cell.meal_date }));
     shiftRing(cell.meal_date, cell.protein_g);
-    setLogVersion((v) => v + 1);
   };
 
   const unlogEaten = async (date: string, slot: string) => {
@@ -184,7 +181,6 @@ export function WeekPlanPanel() {
       shiftRing(date, prev.protein_g);
       throw new Error();
     }
-    setLogVersion((v) => v + 1);
   };
 
   const toggleEaten = async (date: string, slot: string) => {
@@ -676,8 +672,6 @@ export function WeekPlanPanel() {
         }
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
-
-      <MealLog version={logVersion} />
 
       <RecipeLibrary
         recipes={recipes}

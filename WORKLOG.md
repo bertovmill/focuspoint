@@ -9798,3 +9798,10 @@ contributes **avg HR, AZM and zone time**.
 
 Verified on :3007: throwaway 2021 session ticked → typed 17.4 / 4:50 → saved 290 s,
 84 min, plan untouched; deleted. Sync over 28 days attached HR to nothing new.
+
+## 2026-10-04 — Meals: Meal log section removed
+
+Berto found Meal log next to Meal bank confusing, so /meals now shows only the
+bank under the grid. `meal-log.tsx` is gone; eaten ticks still write
+`nutrition_meals` rows (the history and Cael's `log_meal` / `list_nutrition`
+are unchanged).

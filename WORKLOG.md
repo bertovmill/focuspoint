@@ -9945,3 +9945,32 @@ the screen should fill the whole phone instead of stopping under the clock/Wi-Fi
   `npm run typecheck` clean.
 - Berto's message was cut off ("…but on mobile if we") — the rest of that thought
   is still to come.
+
+---
+
+## 2026-10-04 — Meals: hold and drag to rearrange
+
+Berto: "hold and drag to rearrange meals on the meal page". Same feel as dragging
+sessions on /training (`@dnd-kit/core`): mouse drags after 6 px; on the phone it's
+press-and-hold 250 ms, so scrolling, swiping days and tapping the card's buttons
+still work.
+
+- Drop a meal on another sitting: an empty one takes it, a filled one **swaps**
+  (Meal 1 ↔ Meal 3), so rearranging never loses a meal. Works across days on the
+  desktop week grid.
+- Phone (one day at a time): drop on another sitting of the day, or on a day in
+  the Mo–Su strip to move it to the same sitting that day (the pill grows under the
+  finger; toast "Burritos moved to 3 Sat"). A drag never also counts as a day swipe.
+- The "Ate it" tick travels with its meal, and the protein ring follows when an
+  eaten meal leaves or joins today.
+- API: `PATCH /api/nutrition/plan { from: {date, slot}, to: {date, slot} }` →
+  `movePlannedMeal()` in `lib/nutrition-plan.ts`. One transaction that parks the
+  moving row on a temporary `__moving` slot, because (meal_date, slot) is unique
+  and a direct swap collides. The same three steps move the nutrition_meals log rows.
+- Files: `app/_components/week-plan-panel.tsx` (MealDnd, DayDrop, moveMeal),
+  `app/api/nutrition/plan/route.ts`, `lib/nutrition-plan.ts`.
+- Verified: Playwright at 390px (press-and-hold drag Meal 1 → Meal 3 swaps with the
+  tick following; Burritos → Sat pill moves it and the ring goes 120 → 160 g to go;
+  a tap on Swap still opens the picker) and at 1280px (mouse drag swaps). API stubbed,
+  since there's no DB in the cloud container. The swap SQL itself was run against a
+  local Postgres 16 with the unique index. `npm run typecheck` clean.

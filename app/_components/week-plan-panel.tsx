@@ -16,6 +16,19 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -41,6 +54,8 @@ import { cn } from "@/lib/utils";
 type Cells = Map<string, PlannedMeal>;
 type Logged = { id: number; name: string; slot: string | null; eaten_date: string; protein_g: number | string | null };
 const key = (date: string, slot: string) => `${date}:${slot}`;
+/** Where a drag starts or lands. A day pill on the phone strip has no slot of its own. */
+type Spot = { date: string; slot?: string };
 
 /**
  * /meals — the week: seven days by three sittings, every one a meal from the
@@ -248,6 +263,120 @@ export function WeekPlanPanel() {
       toast.error("Couldn't clear that.");
     }
   };
+
+  // ── drag to rearrange ─────────────────────────────────────────────────
+  // Berto (2026-10-04): hold and drag to rearrange meals. Same feel as /training:
+  // mouse after 6px, press-and-hold 250 ms on a phone so scrolling and the card's
+  // buttons still work. Dropping on a filled sitting swaps the two; on the phone
+  // strip, dropping on a day moves it to the same sitting that day.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+  const [dragging, setDragging] = useState<PlannedMeal | null>(null);
+  // A drag's finger-lift must not also count as a day swipe.
+  const dragged = useRef(false);
+
+  const moveMeal = async (from: { date: string; slot: string }, to: { date: string; slot: string }) => {
+    const kf = key(from.date, from.slot);
+    const kt = key(to.date, to.slot);
+    if (kf === kt) return;
+    const a = cells.get(kf);
+    if (!a) return;
+    const b = cells.get(kt);
+    const la = ate.get(kf);
+    const lb = ate.get(kt);
+    const prevCells = cells;
+    const prevAte = ate;
+
+    // Optimistic: the meals trade places, and each "ate it" tick goes with its meal.
+    setCells((prev) => {
+      const next = new Map(prev);
+      next.delete(kf);
+      next.delete(kt);
+      next.set(kt, { ...a, meal_date: to.date, slot: to.slot });
+      if (b) next.set(kf, { ...b, meal_date: from.date, slot: from.slot });
+      return next;
+    });
+    setAte((prev) => {
+      const next = new Map(prev);
+      next.delete(kf);
+      next.delete(kt);
+      if (la) next.set(kt, { ...la, eaten_date: to.date, slot: to.slot });
+      if (lb) next.set(kf, { ...lb, eaten_date: from.date, slot: from.slot });
+      return next;
+    });
+    const ring = (sign: 1 | -1) => {
+      if (from.date === to.date) return;
+      if (la) {
+        shiftRing(from.date, -sign * (Number(la.protein_g) || 0));
+        shiftRing(to.date, sign * (Number(la.protein_g) || 0));
+      }
+      if (lb) {
+        shiftRing(to.date, -sign * (Number(lb.protein_g) || 0));
+        shiftRing(from.date, sign * (Number(lb.protein_g) || 0));
+      }
+    };
+    ring(1);
+
+    try {
+      const res = await fetch("/api/nutrition/plan", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to }),
+      });
+      if (!res.ok) throw new Error();
+      if (from.date !== to.date) toast.success(`${a.name} moved to ${shortDayLabel(to.date)}`);
+    } catch {
+      setCells(prevCells);
+      setAte(prevAte);
+      ring(-1);
+      toast.error("Couldn't move that.");
+    }
+  };
+
+  const onDragStart = (e: DragStartEvent) => {
+    dragged.current = true;
+    const from = e.active.data.current as Spot | undefined;
+    setDragging(from?.slot ? (cells.get(key(from.date, from.slot)) ?? null) : null);
+  };
+  const onDragEnd = (e: DragEndEvent) => {
+    setDragging(null);
+    const from = e.active.data.current as Spot | undefined;
+    const over = e.over?.data.current as Spot | undefined;
+    if (!from?.slot || !over) return;
+    void moveMeal({ date: from.date, slot: from.slot }, { date: over.date, slot: over.slot ?? from.slot });
+  };
+  const dndProps = {
+    sensors,
+    // Only what's under the finger counts — the hidden layout's cells have no size.
+    collisionDetection: pointerWithin,
+    onDragStart,
+    onDragEnd,
+    onDragCancel: () => setDragging(null),
+  };
+  const overlay = (
+    <DragOverlay>
+      {dragging && (
+        <div className="rotate-1 rounded-md bg-background shadow-xl">
+          <PlanCell
+            date={dragging.meal_date}
+            slot={dragging.slot}
+            cell={dragging}
+            busy={false}
+            past={false}
+            today={false}
+            eaten={false}
+            onPick={() => {}}
+            onRotate={() => {}}
+            onToggleEaten={() => {}}
+            onClear={() => {}}
+            onSave={() => {}}
+          />
+        </div>
+      )}
+    </DragOverlay>
+  );
 
   const saveToLibrary = async (cell: PlannedMeal) => {
     try {
@@ -547,7 +676,8 @@ export function WeekPlanPanel() {
         </div>
       </section>
 
-      {/* Week grid — days across on wide screens */}
+      {/* Week grid — days across on wide screens. Meals drag between any two cells. */}
+      <DndContext {...dndProps}>
       <section className="hidden md:block">
         <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1.5">
           <div />
@@ -568,22 +698,23 @@ export function WeekPlanPanel() {
                 {slot.label}
               </div>
               {days.map((d) => (
-                <PlanCell
-                  key={key(d, slot.key)}
-                  date={d}
-                  slot={slot.key}
-                  compact={slot.key === "snack"}
-                  cell={cells.get(key(d, slot.key))}
-                  busy={busy.has(key(d, slot.key))}
-                  past={d < today}
-                  today={d === today}
-                  eaten={ate.has(key(d, slot.key))}
-                  onPick={() => setPicker({ date: d, slot: slot.key })}
-                  onRotate={() => rotate(d, slot.key)}
-                  onToggleEaten={() => toggleEaten(d, slot.key)}
-                  onClear={() => clearCell(d, slot.key)}
-                  onSave={saveToLibrary}
-                />
+                <MealDnd key={key(d, slot.key)} date={d} slot={slot.key} filled={cells.has(key(d, slot.key))}>
+                  <PlanCell
+                    date={d}
+                    slot={slot.key}
+                    compact={slot.key === "snack"}
+                    cell={cells.get(key(d, slot.key))}
+                    busy={busy.has(key(d, slot.key))}
+                    past={d < today}
+                    today={d === today}
+                    eaten={ate.has(key(d, slot.key))}
+                    onPick={() => setPicker({ date: d, slot: slot.key })}
+                    onRotate={() => rotate(d, slot.key)}
+                    onToggleEaten={() => toggleEaten(d, slot.key)}
+                    onClear={() => clearCell(d, slot.key)}
+                    onSave={saveToLibrary}
+                  />
+                </MealDnd>
               ))}
             </div>
           ))}
@@ -593,18 +724,23 @@ export function WeekPlanPanel() {
           ))}
         </div>
       </section>
+      {overlay}
+      </DndContext>
 
-      {/* Phones — one day at a time: tap a day, or swipe left/right. */}
+      {/* Phones — one day at a time: tap a day, or swipe left/right. Hold a meal
+          to drag it to another sitting, or onto a day in the strip. */}
+      <DndContext {...dndProps}>
       <section
         className="space-y-3 md:hidden"
         onTouchStart={(e) => {
           const t = e.touches[0];
           swipe.current = { x: t.clientX, y: t.clientY };
+          dragged.current = false;
         }}
         onTouchEnd={(e) => {
           const start = swipe.current;
           swipe.current = null;
-          if (!start) return;
+          if (!start || dragged.current) return;
           const t = e.changedTouches[0];
           const dx = t.clientX - start.x;
           const dy = t.clientY - start.y;
@@ -620,20 +756,21 @@ export function WeekPlanPanel() {
             const n = ALL_SLOTS.filter((s) => cells.has(key(d, s.key))).length;
             const on = d === selected;
             return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setSelected(d)}
-                aria-pressed={on}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-lg py-1.5",
-                  on ? "bg-foreground text-background" : d === today ? "border border-foreground/40" : "text-muted-foreground",
-                )}
-              >
-                <span className="text-[11px] font-semibold uppercase">{weekday.slice(0, 2)}</span>
-                <span className="text-base font-medium tabular-nums">{dd}</span>
-                <span className={cn("size-1 rounded-full", n > 0 ? (on ? "bg-background" : "bg-foreground/50") : "bg-transparent")} />
-              </button>
+              <DayDrop key={d} date={d} active={!!dragging && d !== selected}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(d)}
+                  aria-pressed={on}
+                  className={cn(
+                    "flex w-full flex-col items-center gap-0.5 rounded-lg py-1.5",
+                    on ? "bg-foreground text-background" : d === today ? "border border-foreground/40" : "text-muted-foreground",
+                  )}
+                >
+                  <span className="text-[11px] font-semibold uppercase">{weekday.slice(0, 2)}</span>
+                  <span className="text-base font-medium tabular-nums">{dd}</span>
+                  <span className={cn("size-1 rounded-full", n > 0 ? (on ? "bg-background" : "bg-foreground/50") : "bg-transparent")} />
+                </button>
+              </DayDrop>
             );
           })}
         </div>
@@ -656,20 +793,22 @@ export function WeekPlanPanel() {
                 {(cells.has(key(d, "snack")) || snackOpen.has(d) ? ALL_SLOTS : MEAL_SLOTS).map((slot) => (
                   <div key={slot.key} className="grid grid-cols-[60px_1fr] items-stretch gap-2">
                     <div className="pt-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{slot.label}</div>
-                    <PlanCell
-                      date={d}
-                      slot={slot.key}
-                      cell={cells.get(key(d, slot.key))}
-                      busy={busy.has(key(d, slot.key))}
-                      past={d < today}
-                      today={d === today}
-                      eaten={ate.has(key(d, slot.key))}
-                      onPick={() => setPicker({ date: d, slot: slot.key })}
-                      onRotate={() => rotate(d, slot.key)}
-                      onToggleEaten={() => toggleEaten(d, slot.key)}
-                      onClear={() => clearCell(d, slot.key)}
-                      onSave={saveToLibrary}
-                    />
+                    <MealDnd date={d} slot={slot.key} filled={cells.has(key(d, slot.key))}>
+                      <PlanCell
+                        date={d}
+                        slot={slot.key}
+                        cell={cells.get(key(d, slot.key))}
+                        busy={busy.has(key(d, slot.key))}
+                        past={d < today}
+                        today={d === today}
+                        eaten={ate.has(key(d, slot.key))}
+                        onPick={() => setPicker({ date: d, slot: slot.key })}
+                        onRotate={() => rotate(d, slot.key)}
+                        onToggleEaten={() => toggleEaten(d, slot.key)}
+                        onClear={() => clearCell(d, slot.key)}
+                        onSave={saveToLibrary}
+                      />
+                    </MealDnd>
                   </div>
                 ))}
                 {!cells.has(key(d, "snack")) && !snackOpen.has(d) && (
@@ -687,6 +826,8 @@ export function WeekPlanPanel() {
           );
         })}
       </section>
+      {overlay}
+      </DndContext>
 
       {/* Notes — his Notion-style page for what isn't tied to one week: the
           typical grocery list, staples, go-to meals (lib/meal-notes.ts). */}
@@ -731,6 +872,46 @@ export function WeekPlanPanel() {
         onPick={onPickRecipe}
         onCustom={onCustom}
       />
+    </div>
+  );
+}
+
+/**
+ * One sitting as both a drop target and — when it holds a meal — something to
+ * pick up. The cell stays in place, faded, while its copy follows the finger.
+ */
+function MealDnd({ date, slot, filled, children }: { date: string; slot: string; filled: boolean; children: React.ReactNode }) {
+  const id = key(date, slot);
+  const data: Spot = { date, slot };
+  const drag = useDraggable({ id, data, disabled: !filled });
+  const drop = useDroppable({ id, data });
+  return (
+    <div
+      ref={(node) => {
+        drag.setNodeRef(node);
+        drop.setNodeRef(node);
+      }}
+      {...(filled ? { ...drag.attributes, ...drag.listeners } : {})}
+      className={cn(
+        // Fills its grid cell so the card inside keeps the row's height.
+        "flex min-w-0 flex-col rounded-md [&>*]:flex-1",
+        // No text selection or iOS callout on the press-and-hold that starts a drag.
+        filled && "select-none [-webkit-touch-callout:none] [&_img]:pointer-events-none",
+        drag.isDragging && "opacity-30",
+        drop.isOver && !drag.isDragging && "ring-2 ring-foreground/50 ring-offset-1 ring-offset-background",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A day in the phone strip as a drop target: the meal goes to the same sitting that day. */
+function DayDrop({ date, active, children }: { date: string; active: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `day:${date}`, data: { date } satisfies Spot, disabled: !active });
+  return (
+    <div ref={setNodeRef} className={cn("rounded-lg transition-transform", isOver && "scale-110 ring-2 ring-foreground/60")}>
+      {children}
     </div>
   );
 }

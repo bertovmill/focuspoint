@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { MEAL_SLOTS, MEAL_SLOT_KEYS } from "@/lib/nutrition";
-import { clearPlannedMeal, fillFromBank, getPlanRange, setPlannedMeal } from "@/lib/nutrition-plan";
+import { clearPlannedMeal, fillFromBank, getPlanRange, movePlannedMeal, setPlannedMeal } from "@/lib/nutrition-plan";
 
 function localToday() {
   const d = new Date();
@@ -74,6 +74,24 @@ export async function PUT(req: Request) {
     return NextResponse.json(row);
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 });
+  }
+}
+
+// PATCH { from: { date, slot }, to: { date, slot } }   moves a meal (drag on /meals);
+// a meal already at `to` swaps into `from`.
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const ends = [body?.from, body?.to] as { date?: unknown; slot?: unknown }[];
+    for (const end of ends) {
+      if (!ISO.test(String(end?.date))) return NextResponse.json({ error: "Bad date" }, { status: 400 });
+      if (!MEAL_SLOT_KEYS.includes(String(end?.slot))) return NextResponse.json({ error: "Unknown slot" }, { status: 400 });
+    }
+    const [from, to] = ends.map((e) => ({ date: String(e.date), slot: String(e.slot) }));
+    if (from.date !== to.date || from.slot !== to.slot) await movePlannedMeal(from, to);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Couldn't move that" }, { status: 500 });
   }
 }
 

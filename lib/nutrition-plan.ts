@@ -159,6 +159,40 @@ export async function clearPlannedMeal(date: string, slot: string) {
   await sql`DELETE FROM meal_recommendations WHERE meal_date = ${date} AND slot = ${slot}`;
 }
 
+/**
+ * Drags on /meals: puts the meal at `from` into `to`, and whatever sat at `to`
+ * (if anything) into `from` — a swap, so rearranging a day never loses a meal.
+ * The sitting's "ate it" log rows travel with their meal. One transaction, via a
+ * parking slot, because (meal_date, slot) is unique and a direct swap would
+ * collide with itself halfway through.
+ */
+export async function movePlannedMeal(
+  from: { date: string; slot: string },
+  to: { date: string; slot: string },
+) {
+  const sql = getDb();
+  const PARK = "__moving";
+  const swap = (table: "meal_recommendations" | "nutrition_meals") => {
+    const dateCol = table === "meal_recommendations" ? "meal_date" : "eaten_date";
+    return [
+      sql.query(`UPDATE ${table} SET slot = $1 WHERE ${dateCol} = $2 AND slot = $3`, [PARK, from.date, from.slot]),
+      sql.query(`UPDATE ${table} SET ${dateCol} = $1, slot = $2 WHERE ${dateCol} = $3 AND slot = $4`, [
+        from.date,
+        from.slot,
+        to.date,
+        to.slot,
+      ]),
+      sql.query(`UPDATE ${table} SET ${dateCol} = $1, slot = $2 WHERE ${dateCol} = $3 AND slot = $4`, [
+        to.date,
+        to.slot,
+        from.date,
+        PARK,
+      ]),
+    ];
+  };
+  await sql.transaction([...swap("meal_recommendations"), ...swap("nutrition_meals")]);
+}
+
 // ── Protein target ────────────────────────────────────────────────────────
 
 export async function getProteinTarget(): Promise<number> {

@@ -169,6 +169,12 @@ export function RecipePicker({
                   onClick={() => onPick(r, eatIt && loggable)}
                   className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left hover:bg-muted/60"
                 >
+                  {r.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.image_url} alt="" className="size-10 shrink-0 rounded object-cover" />
+                  ) : (
+                    <span className="size-10 shrink-0 rounded bg-muted" />
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-base md:text-sm">{r.name}</span>
                     <span className="block text-sm text-muted-foreground tabular-nums md:text-xs">

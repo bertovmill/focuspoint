@@ -9823,3 +9823,16 @@ warm-up and cool-down to be real tick-offs. Week-over-week measure stays simple:
 
 Verified on :3007 with a 2021 date: ticked a warm-up part, added reps 7–8, typed
 3:50 and 3:40 → reload kept all of it, chart showed avg 3:45. Test rows deleted.
+## 2026-10-04 — Meals: photos for bank meals, meal detail
+
+Berto recognises a meal by its picture faster than its name.
+
+- Tap a bank meal → detail dialog: photo, protein/kcal, his notes, ingredient
+  list, "Generate picture" / "New picture", remove from bank.
+- `POST /api/nutrition/recipes/[id]/image` → `generateRecipeImage()`
+  (lib/nutrition-art.ts, gpt-image-1, same food-photo style as staples/rules)
+  saves `nutrition_recipes.image_url` and copies it onto every planned cell made
+  from that meal.
+- The grid shows the photo as a real thumbnail (beside the name on phones, a
+  strip on top on desktop) instead of a 15% background; the picker lists show it
+  too. Generated photos for all four bank meals.

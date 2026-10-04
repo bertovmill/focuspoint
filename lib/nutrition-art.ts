@@ -55,6 +55,24 @@ export async function generateRuleImage(key: string) {
   return upload(`nutrition/rules/${key}`, image, 512);
 }
 
+/**
+ * A photo of one meal in the bank, so he can recognise it on the grid at a
+ * glance. Generated on demand from /meals (the button on the meal); the key
+ * carries a timestamp so a regenerate isn't served from a cached URL.
+ */
+export async function generateRecipeImage(recipe: { id: number; name: string; description?: string | null; ingredients?: string[] }) {
+  const made = recipe.ingredients?.length ? ` Made with ${recipe.ingredients.slice(0, 10).join(", ")}.` : "";
+  const { image } = await generateImage({
+    model: FOOD_IMAGE_MODEL,
+    prompt:
+      `${PHOTO_STYLE}. Overhead or 45-degree shot of one plated serving of ${recipe.name}, home-cooked and simple.` +
+      `${recipe.description ? ` ${recipe.description}` : ""}${made}`,
+    size: "1024x1024",
+    providerOptions: OPENAI_OPTIONS,
+  });
+  return upload(`nutrition/recipes/${recipe.id}-${Date.now()}`, image, 512);
+}
+
 function slug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

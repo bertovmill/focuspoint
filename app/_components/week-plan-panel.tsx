@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ImageIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -676,6 +678,14 @@ export function WeekPlanPanel() {
       <RecipeLibrary
         recipes={recipes}
         onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))}
+        onImage={(r) => {
+          setRecipes((rs) => rs.map((x) => (x.id === r.id ? r : x)));
+          setCells((prev) => {
+            const next = new Map(prev);
+            for (const [k, c] of next) if (c.recipe_id === r.id) next.set(k, { ...c, image_url: r.image_url });
+            return next;
+          });
+        }}
         onDelete={deleteRecipe}
       />
 
@@ -769,20 +779,27 @@ function PlanCell({
         busy && "opacity-50",
       )}
     >
-      {cell.image_url && (
-        <div
-          className="absolute inset-0 rounded-md bg-cover bg-center opacity-15"
-          style={{ backgroundImage: `url(${cell.image_url})` }}
-          aria-hidden
-        />
-      )}
-      <p className="relative line-clamp-2 text-sm font-medium leading-snug md:text-xs" title={cell.description ?? cell.name}>
-        {cell.name}
-      </p>
-      <p className="relative mt-auto pt-1 text-xs tabular-nums text-muted-foreground md:text-[11px]">
-        {cell.protein_g !== null ? <span className="font-medium text-foreground">{cell.protein_g} g</span> : "? g"}
-        {cell.kcal !== null && ` · ${cell.kcal} kcal`}
-      </p>
+      {/* The photo is what he recognises first: a thumbnail beside the name on
+          phones, a strip across the top of the cell on the week grid. */}
+      <div className="flex flex-1 gap-2.5 md:flex-col md:gap-1.5">
+        {cell.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cell.image_url}
+            alt=""
+            className="size-14 shrink-0 rounded object-cover md:h-14 md:w-full"
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <p className="line-clamp-2 text-sm font-medium leading-snug md:text-xs" title={cell.description ?? cell.name}>
+            {cell.name}
+          </p>
+          <p className="mt-auto pt-1 text-xs tabular-nums text-muted-foreground md:text-[11px]">
+            {cell.protein_g !== null ? <span className="font-medium text-foreground">{cell.protein_g} g</span> : "? g"}
+            {cell.kcal !== null && ` · ${cell.kcal} kcal`}
+          </p>
+        </div>
+      </div>
       <div className="relative -mx-1 -mb-1 mt-1 flex items-center gap-0.5">
         {loggable && (
           <button
@@ -850,12 +867,15 @@ function DayTotal({ total, target, past }: { total?: { protein: number; kcal: nu
 function RecipeLibrary({
   recipes,
   onAdd,
+  onImage,
   onDelete,
 }: {
   recipes: Recipe[];
   onAdd: (r: Recipe) => void;
+  onImage: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
 }) {
+  const [openId, setOpenId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [protein, setProtein] = useState("");
@@ -927,34 +947,146 @@ function RecipeLibrary({
       )}
 
       {recipes.length > 0 && (
-        <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {recipes.map((r) => (
-            <div key={r.id} className="flex items-start gap-2 rounded-md border px-2.5 py-2">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{r.name}</p>
-                <p className="text-xs tabular-nums text-muted-foreground">
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setOpenId(r.id)}
+              className="flex w-full min-w-0 items-center gap-3 rounded-md border p-2 text-left hover:bg-muted/60"
+            >
+              {r.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={r.image_url} alt="" className="size-14 shrink-0 rounded object-cover" />
+              ) : (
+                <span className="flex size-14 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+                  <ImageIcon className="size-4" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{r.name}</span>
+                <span className="block text-xs tabular-nums text-muted-foreground">
                   {r.protein_g !== null ? `${r.protein_g} g protein` : "protein ?"}
                   {r.kcal !== null && ` · ${r.kcal} kcal`}
-                </p>
-                {r.ingredients.length > 0 && (
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground" title={r.ingredients.join(", ")}>
-                    {r.ingredients.join(", ")}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => onDelete(r)}
-                className="tap-target shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-destructive"
-                aria-label={`Delete ${r.name}`}
-                title="Delete"
-              >
-                <TrashIcon className="size-3.5" />
-              </button>
-            </div>
+                  {r.ingredients.length > 0 && ` · ${r.ingredients.length} ingredients`}
+                </span>
+              </span>
+            </button>
           ))}
         </div>
       )}
+
+      <MealDetail
+        recipe={recipes.find((r) => r.id === openId) ?? null}
+        onClose={() => setOpenId(null)}
+        onImage={onImage}
+        onDelete={(r) => {
+          setOpenId(null);
+          onDelete(r);
+        }}
+      />
     </section>
+  );
+}
+
+/**
+ * One bank meal, opened: the photo (generate or redo it), the numbers, his
+ * notes, and the ingredients to buy for it.
+ */
+function MealDetail({
+  recipe,
+  onClose,
+  onImage,
+  onDelete,
+}: {
+  recipe: Recipe | null;
+  onClose: () => void;
+  onImage: (r: Recipe) => void;
+  onDelete: (r: Recipe) => void;
+}) {
+  const [generating, setGenerating] = useState(false);
+
+  const generate = async () => {
+    if (!recipe) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/nutrition/recipes/${recipe.id}/image`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
+      onImage(data as Recipe);
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Couldn't make a picture.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!recipe} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90dvh] max-w-md gap-3 overflow-y-auto">
+        {recipe && (
+          <>
+            <div className="relative -mx-1 overflow-hidden rounded-md bg-muted">
+              {recipe.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={recipe.image_url} alt={recipe.name} className="aspect-[4/3] w-full object-cover" />
+              ) : (
+                <div className="flex aspect-[4/3] w-full items-center justify-center text-muted-foreground">
+                  <ImageIcon className="size-8" />
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute bottom-2 right-2 h-8 gap-1.5 text-xs shadow-sm"
+                disabled={generating}
+                onClick={generate}
+              >
+                {generating ? <Spinner className="size-3" /> : <ImageIcon className="size-3" />}
+                {generating ? "Making a picture…" : recipe.image_url ? "New picture" : "Generate picture"}
+              </Button>
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-lg leading-snug">{recipe.name}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm tabular-nums text-muted-foreground">
+              {recipe.protein_g !== null ? (
+                <span className="font-medium text-foreground">{recipe.protein_g} g protein</span>
+              ) : (
+                "protein ?"
+              )}
+              {recipe.kcal !== null && ` · ${recipe.kcal} kcal`}
+            </p>
+            {recipe.description && <p className="text-sm text-foreground/80">{recipe.description}</p>}
+            <div>
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredients</h3>
+              {recipe.ingredients.length > 0 ? (
+                <ul className="space-y-1 text-sm">
+                  {recipe.ingredients.map((ing) => (
+                    <li key={ing} className="flex items-center gap-2">
+                      <span className="size-1.5 shrink-0 rounded-full bg-foreground/40" />
+                      {ing}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No ingredients listed.</p>
+              )}
+            </div>
+            <div className="flex justify-end border-t pt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(recipe)}
+              >
+                <TrashIcon className="size-3.5" />
+                Remove from bank
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

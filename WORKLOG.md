@@ -9405,3 +9405,22 @@ failed with `redirect_uri invalid` because it was started from
 Strava allows one callback domain, so `/api/strava/connect` now bounces any
 `*.vercel.app` host to `https://cael.bertomill.com/api/strava/connect` first
 (state cookie and callback then share a host). localhost still works.
+
+## 2026-10-04 — Habit nudge every other day (web push)
+
+Berto: he won't tick the habits every day; what matters is remembering them
+every couple of days. Picked (asked): a phone push every 2 days, sent regardless
+of ticks.
+
+- `app/api/cron/habit-nudge/route.ts`: verifies `CRON_SECRET`, reads the habits
+  section of Principles, `sendPush` "Your daily habits — Meditate · Read ·
+  Workout · Nap", tapping opens `/#today-plan`.
+- `vercel.json` (new): one cron, `0 16 */2 * *` (noon EDT / 11am EST, odd days of
+  the month — so the 31st→1st runs back to back; fine for "every couple days").
+  A plain Next route, not an eve schedule, so no agent session per fire (the
+  dispatcher was removed 2026-09-12 to cut Fluid CPU).
+- Habits doc edits (DB, not code): "Read 2 mins" → "Read 20 mins"; added
+  "Nap 20 mins sometime midday" under On habits.
+
+**No push device is subscribed yet** (`push_subscriptions` empty) — he needs to
+open Cael from the home-screen app on his phone and turn on the bell in chat.

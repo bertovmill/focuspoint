@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/cron/habit-nudge", "schedule": "0 16 */2 * *" }]
+}

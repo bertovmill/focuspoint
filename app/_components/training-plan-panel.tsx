@@ -376,7 +376,7 @@ function TrainingWeek() {
           const race = events.find((e) => e.event_date === d);
           return (
             <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
-              <div className={cn("flex items-center justify-between border-b px-3 py-2", isToday && "bg-foreground text-background")}>
+              <div className={cn("flex items-center justify-between rounded-t-[11px] border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
                 <button type="button" onClick={() => setEditor({ date: d })} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
                   <PlusIcon className="size-5" />

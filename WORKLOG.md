@@ -9677,3 +9677,19 @@ reverts on failure) with a toast. It moves rather than swaps — two sessions ca
 share a day. Tested Wed yoga → Thu and back.
 Also checked "log page slow to load": the API answers in ~55 ms; the wait was
 the dev server compiling the route on first open.
+
+## 2026-10-05 — Stations rebuilt from Toronto 2026; Toronto times are the targets
+
+Toronto 2026 (Pro solo, 1:07:12, 33rd, AG 6th) station places: lunges 5, ski 11,
+row 11, sled pull 13, BBJ 23, sled push 72, farmers 109, wall balls 198 (7:38).
+Runs 33:21 (4:10 avg), fading to 4:30–4:35 on runs 4–6 after the sleds.
+Research (elite schedules, wall-ball EMOM/set-planning advice): run quality
+first then stations; wall balls ~2 short blocks a week with planned sets;
+farmers and sled push one block each; full sims sparingly.
+
+Bank edits (DB only — the code seed is unchanged and only matters on an empty
+bank): **Stations** = 4 × (run 1 km ≤ 4:10 + station): wall balls × 50 ≤ 3:49
+(9 kg, planned 25–25), farmers 200 m ≤ 1:46, sled push 50 m ≤ 3:18, wall balls
+× 50 ≤ 3:49; station rows charted. **Hyrox Sim** targets now Toronto: runs ≤ 4:10
+(was the doubles 3:54), each station its Toronto time. Wall balls' second weekly
+block is Tuesday's squat + wall-ball superset.

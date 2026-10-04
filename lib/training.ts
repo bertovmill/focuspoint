@@ -424,3 +424,53 @@ function weekKeyOf(iso: string) {
   const dow = new Date(y, m - 1, d).getDay();
   return addDaysISO(iso, dow === 0 ? -6 : 1 - dow);
 }
+
+// ── pace suggestions ──────────────────────────────────────────────────────
+// What pace to put on a planned run, from what he's actually been running on
+// Strava (and, for intervals, his Hyrox race runs). Shown under the pace box on
+// the session page with where it came from, so he can take it or ignore it.
+
+export interface PaceSuggestion {
+  pace_sec: number;
+  basis: string;
+}
+
+const RUN_SPORTS = ["Run", "TrailRun", "VirtualRun"];
+const LONG_RUN_M = 14_000;
+
+function median(xs: number[]) {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+export async function paceSuggestions(): Promise<Record<string, PaceSuggestion | null>> {
+  const { HYROX_RESULTS, hyroxSeconds } = await import("./hyrox");
+  const sql = getDb();
+  const rows = await sql`
+    SELECT distance_m, moving_time_s FROM strava_activities
+    WHERE sport_type = ANY(${RUN_SPORTS}) AND distance_m >= 3000 AND moving_time_s > 0
+      AND start_local >= NOW() - INTERVAL '60 days'
+  `;
+  const runs = rows.map((r) => ({ m: Number(r.distance_m), pace: Number(r.moving_time_s) / (Number(r.distance_m) / 1000) }));
+  const long = runs.filter((r) => r.m >= LONG_RUN_M);
+  const short = runs.filter((r) => r.m < LONG_RUN_M);
+  // Easy runs: the slower half of his shorter runs, so tempo days don't drag it fast.
+  const shortMedian = short.length ? median(short.map((r) => r.pace)) : null;
+  const easy = shortMedian === null ? [] : short.filter((r) => r.pace >= shortMedian);
+  const race = HYROX_RESULTS[0];
+  const raceRuns = race ? race.splits.map((s) => hyroxSeconds(s.run)) : [];
+
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  return {
+    long_run: long.length
+      ? { pace_sec: median(long.map((r) => r.pace)), basis: `median of your last ${plural(long.length, "run")} of 14 km+ on Strava (60 days)` }
+      : null,
+    easy: easy.length
+      ? { pace_sec: median(easy.map((r) => r.pace)), basis: `median of your easier ${plural(easy.length, "run")} under 14 km on Strava (60 days)` }
+      : null,
+    intervals: raceRuns.length
+      ? { pace_sec: raceRuns.reduce((a, b) => a + b, 0) / raceRuns.length, basis: `your average 1 km run at ${race.event}, the pace to hold every rep` }
+      : null,
+  };
+}

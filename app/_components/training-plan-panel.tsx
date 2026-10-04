@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ActivityIcon,
   CheckIcon,
@@ -19,13 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { SessionEditor, type SessionDraft } from "@/app/_components/session-editor";
+import { SessionPage, newSessionHref, sessionHref } from "@/app/_components/session-editor";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { WorkoutLog } from "@/app/_components/workout-log";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
 import { templateForSession, workoutHref } from "@/lib/workout-templates";
 import type { StravaActivity } from "@/lib/strava";
-import { daysUntil, parsePace, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import { daysUntil, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -45,12 +45,27 @@ export function TrainingPlanPanel() {
   const pathname = usePathname();
   const m = pathname.match(/^\/training\/workouts\/([^/]+)(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/);
   if (m) return <WorkoutLog slug={m[1]} date={m[2] ?? todayISO()} />;
+  // /training/sessions/<id> edits a session; /training/sessions/new/<date> adds one.
+  const edit = pathname.match(/^\/training\/sessions\/(\d+)\/?$/);
+  if (edit) return <SessionPage key={edit[1]} id={Number(edit[1])} />;
+  const add = pathname.match(/^\/training\/sessions\/new\/(\d{4}-\d{2}-\d{2})\/?$/);
+  if (add) return <SessionPage key={add[1]} date={add[1]} />;
   return <TrainingWeek />;
 }
 
 function TrainingWeek() {
   const today = todayISO();
+  const router = useRouter();
   const [weekStart, setWeekStart] = useState(() => weekStartISO(today));
+  // ?week=YYYY-MM-DD opens that week, so coming back from a session page lands where
+  // you were. Read after mount: on a client navigation the URL updates after first render.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const w = new URLSearchParams(window.location.search).get("week");
+      if (w && /^\d{4}-\d{2}-\d{2}$/.test(w)) setWeekStart(weekStartISO(w));
+    });
+    return () => clearTimeout(t);
+  }, []);
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [activities, setActivities] = useState<StravaActivity[]>([]);
@@ -58,8 +73,6 @@ function TrainingWeek() {
   const [strava, setStrava] = useState<StravaStatus>({ configured: false, connected: false, last_synced_at: null });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editor, setEditor] = useState<{ date: string } | TrainingSession | null>(null);
   const [editingEvent, setEditingEvent] = useState<number | "new" | null>(null);
 
   const load = useCallback(async () => {
@@ -124,48 +137,6 @@ function TrainingWeek() {
   }, [loading, strava.connected]);
 
   // ── session actions ───────────────────────────────────────────────────
-
-  const saveSession = async (d: SessionDraft, id?: number) => {
-    setSaving(true);
-    try {
-      const body = {
-        session_date: d.session_date,
-        type: d.type,
-        title: d.title,
-        target_km: d.target_km === "" ? null : Number(d.target_km),
-        target_minutes: d.target_minutes === "" ? null : Number(d.target_minutes),
-        target_pace_sec: d.target_pace === "" ? null : parsePace(d.target_pace),
-        intensity: d.intensity,
-        notes: d.notes,
-      };
-      const res = await fetch(id ? `/api/training/sessions/${id}` : "/api/training/sessions", {
-        method: id ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
-      const row = (await res.json()) as TrainingSession;
-      setSessions((ss) => (id ? ss.map((s) => (s.id === id ? row : s)) : [...ss, row]));
-      setEditor(null);
-    } catch {
-      toast.error("Couldn't save that session.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeSession = async (id: number) => {
-    const prev = sessions;
-    setSessions((ss) => ss.filter((s) => s.id !== id));
-    setEditor(null);
-    try {
-      const res = await fetch(`/api/training/sessions/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-    } catch {
-      setSessions(prev);
-      toast.error("Couldn't delete that.");
-    }
-  };
 
   const toggleDone = async (s: TrainingSession) => {
     const prev = sessions;
@@ -309,7 +280,7 @@ function TrainingWeek() {
               <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
               <p className="text-xl font-semibold">{shortDayLabel(today)}</p>
             </div>
-            <Button variant="outline" className="h-11 gap-1.5 px-4 text-base" onClick={() => setEditor({ date: today })}>
+            <Button variant="outline" className="h-11 gap-1.5 px-4 text-base" onClick={() => router.push(newSessionHref(today))}>
               <PlusIcon className="size-5" /> Add
             </Button>
           </div>
@@ -323,7 +294,7 @@ function TrainingWeek() {
               <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
             )}
             {todayList.map((s) => (
-              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => setEditor(s)} />
+              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
             ))}
             {todayActs.map((a) => (
               <ActivityChip key={a.id} a={a} />
@@ -379,7 +350,7 @@ function TrainingWeek() {
             <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
               <div className={cn("flex items-center justify-between rounded-t-[11px] border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
-                <button type="button" onClick={() => setEditor({ date: d })} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
+                <button type="button" onClick={() => router.push(newSessionHref(d))} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
                   <PlusIcon className="size-5" />
                 </button>
               </div>
@@ -393,7 +364,7 @@ function TrainingWeek() {
                   <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
                 )}
                 {list.map((s) => (
-                  <SessionCard key={s.id} s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => setEditor(s)} />
+                  <SessionCard key={s.id} s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
                 ))}
                 {acts.filter((a) => !linked.has(a.id)).map((a) => (
                   <ActivityChip key={a.id} a={a} />
@@ -417,7 +388,6 @@ function TrainingWeek() {
 
       <PastPrograms />
 
-      <SessionEditor target={editor} saving={saving} onClose={() => setEditor(null)} onSave={saveSession} onDelete={removeSession} />
     </div>
   );
 }

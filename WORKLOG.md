@@ -9438,3 +9438,21 @@ verbiage" — so nothing is generated.
   lines; when there are none it says to add an indented bullet in Principles.
 
 Today: Nap shows his On napping line; Meditate/Read/Workout have no why yet.
+
+## 2026-10-04 — Session editor is a page; pace suggested from Strava
+
+Berto didn't want the add/edit session modal. It's now a page:
+`/training/sessions/<id>` (edit) and `/training/sessions/new/<date>` (add),
+rendered by TrainingPlanPanel from the pathname like the workout pages. Bigger
+touch targets (h-12 inputs, intensity as three buttons). Save/Delete/back return
+to `/training?week=<monday>`, and the week grid reads `?week` after mount so you
+land on the week you were editing.
+
+Pace suggestions (`paceSuggestions()` in lib/training.ts,
+`GET /api/training/pace-suggestions`), shown under the pace box with their basis
+and a "Use" button:
+- long run: median pace of Strava runs ≥ 14 km, last 60 days
+- easy: median of the slower half of runs under 14 km, last 60 days
+- intervals: average 1 km run split from his latest Hyrox result (3:54, Ottawa)
+Strava is not connected right now (no tokens, 0 cached activities), so long and
+easy show a "Connect Strava" hint until it is.

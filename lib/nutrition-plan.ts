@@ -191,16 +191,53 @@ export async function proteinEatenOn(date: string): Promise<number> {
 
 export const GROCERY_LIST_NAME = "Groceries";
 
+export interface GroceryItem {
+  name: string;
+  /** The planned meals that call for it, each with how many times it's planned. */
+  meals: { name: string; times: number }[];
+}
+
 /**
- * Pushes every ingredient in the plan between `from` and `to` onto the
- * Groceries list in Lists — the same one-way bridge the staples shelf uses.
- * Skips anything already open on the list, so re-running is safe. Creates the
- * list if it isn't there yet.
+ * The week's shopping list, straight from the ingredients typed on each meal —
+ * no model involved. A cell picked from the bank reads the bank meal's
+ * ingredients as they are now (so fixing a meal's list fixes every week it's
+ * in); a typed-in cell uses its own. Only the sittings the grid shows count:
+ * old lunch/dinner/snack rows from the generated-plan days are left out.
+ */
+export async function buildGroceryList(from: string, to: string): Promise<GroceryItem[]> {
+  const sql = getDb();
+  const plan = (await getPlanRange(from, to)).filter((p) => MEAL_SLOT_KEYS.includes(p.slot));
+  const ids = [...new Set(plan.map((p) => p.recipe_id).filter((id): id is number => id !== null))];
+  const bank = new Map<number, string[]>();
+  if (ids.length > 0) {
+    const rows = await sql`SELECT id, ingredients FROM nutrition_recipes WHERE id = ANY(${ids})`;
+    for (const r of rows) bank.set(Number(r.id), Array.isArray(r.ingredients) ? r.ingredients.map(String) : []);
+  }
+
+  const items = new Map<string, { name: string; meals: Map<string, number> }>();
+  for (const cell of plan) {
+    const ingredients = (cell.recipe_id !== null && bank.get(cell.recipe_id)) || cell.ingredients;
+    for (const ing of normalizeIngredients(ingredients)) {
+      const k = ing.toLowerCase();
+      const item = items.get(k) ?? { name: ing.charAt(0).toUpperCase() + ing.slice(1), meals: new Map() };
+      item.meals.set(cell.name, (item.meals.get(cell.name) ?? 0) + 1);
+      items.set(k, item);
+    }
+  }
+  return [...items.values()]
+    .map((i) => ({ name: i.name, meals: [...i.meals].map(([name, times]) => ({ name, times })) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Pushes the week's grocery list (buildGroceryList) onto the Groceries list
+ * in Lists — the same one-way bridge the staples shelf uses. Skips anything
+ * already open on the list, so re-running is safe. Creates the list if it
+ * isn't there yet.
  */
 export async function addPlanToGroceries(from: string, to: string) {
   const sql = getDb();
-  const plan = await getPlanRange(from, to);
-  const wanted = normalizeIngredients(plan.flatMap((p) => p.ingredients));
+  const wanted = (await buildGroceryList(from, to)).map((i) => i.name);
   if (wanted.length === 0) return { added: [] as string[], skipped: 0, listId: null as number | null };
 
   let [list] = await sql`SELECT id FROM lists WHERE name = ${GROCERY_LIST_NAME} LIMIT 1`;

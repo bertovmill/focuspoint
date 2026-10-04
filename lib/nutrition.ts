@@ -149,7 +149,7 @@ export function weekRangeLabel(startISO: string) {
   return `${fmt(startISO)} – ${fmt(addDaysISO(startISO, 6))}`;
 }
 
-/** Accepts an array, or one string split on newlines / commas; trims and de-duplicates. */
+/** Accepts an array, or one string split on newlines / commas; trims, drops pasted list bullets, and de-duplicates. */
 export function normalizeIngredients(input: unknown): string[] {
   const raw = Array.isArray(input)
     ? input.map(String)
@@ -159,7 +159,7 @@ export function normalizeIngredients(input: unknown): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const item of raw) {
-    const t = item.trim();
+    const t = item.trim().replace(/^(?:[-*•]|\d+[.)])\s+/, "").trim();
     if (!t) continue;
     const key = t.toLowerCase();
     if (seen.has(key)) continue;

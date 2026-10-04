@@ -17,14 +17,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
-import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
+import type { GroceryItem, PlannedMeal, Recipe } from "@/lib/nutrition-plan";
 import {
   DEFAULT_PROTEIN_TARGET_G,
   ALL_SLOTS,
@@ -72,7 +72,7 @@ export function WeekPlanPanel() {
   const [filling, setFilling] = useState(false);
   // Days where the optional snack row is open on phones before anything is in it.
   const [snackOpen, setSnackOpen] = useState<Set<string>>(new Set());
-  const [sendingGroceries, setSendingGroceries] = useState(false);
+  const [groceriesOpen, setGroceriesOpen] = useState(false);
   const [picker, setPicker] = useState<{ date: string; slot: string } | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetDraft, setTargetDraft] = useState("");
@@ -364,28 +364,6 @@ export function WeekPlanPanel() {
     }
   };
 
-  const sendGroceries = async () => {
-    setSendingGroceries(true);
-    try {
-      const res = await fetch("/api/nutrition/groceries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: days[0], to: days[6] }),
-      });
-      if (!res.ok) throw new Error();
-      const { added, skipped } = (await res.json()) as { added: string[]; skipped: number };
-      if (added.length === 0 && skipped === 0) toast.message("No ingredients on this week's plan yet.");
-      else
-        toast.success(
-          `${added.length} item${added.length === 1 ? "" : "s"} → Groceries${skipped ? ` (${skipped} already there)` : ""}`,
-        );
-    } catch {
-      toast.error("Couldn't build the grocery list.");
-    } finally {
-      setSendingGroceries(false);
-    }
-  };
-
   const saveTarget = async () => {
     const n = Number(targetDraft);
     setEditingTarget(false);
@@ -562,9 +540,9 @@ export function WeekPlanPanel() {
             {filling ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
             Fill week from bank
           </Button>
-          <Button size="sm" variant="outline" className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs" disabled={sendingGroceries} onClick={sendGroceries}>
-            {sendingGroceries ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
-            Week → Groceries
+          <Button size="sm" variant="outline" className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs" onClick={() => setGroceriesOpen(true)}>
+            <ShoppingCartIcon className="size-3" />
+            Grocery list
           </Button>
         </div>
       </section>
@@ -726,10 +704,12 @@ export function WeekPlanPanel() {
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
 
+      <GroceryListDialog open={groceriesOpen} onOpenChange={setGroceriesOpen} from={days[0]} to={days[6]} />
+
       <RecipeLibrary
         recipes={recipes}
         onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))}
-        onImage={(r) => {
+        onUpdate={(r) => {
           setRecipes((rs) => rs.map((x) => (x.id === r.id ? r : x)));
           setCells((prev) => {
             const next = new Map(prev);
@@ -918,12 +898,12 @@ function DayTotal({ total, target, past }: { total?: { protein: number; kcal: nu
 function RecipeLibrary({
   recipes,
   onAdd,
-  onImage,
+  onUpdate,
   onDelete,
 }: {
   recipes: Recipe[];
   onAdd: (r: Recipe) => void;
-  onImage: (r: Recipe) => void;
+  onUpdate: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
 }) {
   const [openId, setOpenId] = useState<number | null>(null);
@@ -1030,7 +1010,7 @@ function RecipeLibrary({
       <MealDetail
         recipe={recipes.find((r) => r.id === openId) ?? null}
         onClose={() => setOpenId(null)}
-        onImage={onImage}
+        onUpdate={onUpdate}
         onDelete={(r) => {
           setOpenId(null);
           onDelete(r);
@@ -1042,20 +1022,53 @@ function RecipeLibrary({
 
 /**
  * One bank meal, opened: the photo (generate or redo it), the numbers, his
- * notes, and the ingredients to buy for it.
+ * notes, and the ingredients to buy for it — the grocery list is built from
+ * these, so they're editable right here.
  */
 function MealDetail({
   recipe,
   onClose,
-  onImage,
+  onUpdate,
   onDelete,
 }: {
   recipe: Recipe | null;
   onClose: () => void;
-  onImage: (r: Recipe) => void;
+  onUpdate: (r: Recipe) => void;
   onDelete: (r: Recipe) => void;
 }) {
   const [generating, setGenerating] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEditing(false);
+  }, [recipe?.id]);
+
+  const startEditing = () => {
+    if (!recipe) return;
+    setDraft(recipe.ingredients.join("\n"));
+    setEditing(true);
+  };
+
+  const saveIngredients = async () => {
+    if (!recipe) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/nutrition/recipes/${recipe.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredients: draft }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdate((await res.json()) as Recipe);
+      setEditing(false);
+    } catch {
+      toast.error("Couldn't save the ingredients.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const generate = async () => {
     if (!recipe) return;
@@ -1064,7 +1077,7 @@ function MealDetail({
       const res = await fetch(`/api/nutrition/recipes/${recipe.id}/image`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
-      onImage(data as Recipe);
+      onUpdate(data as Recipe);
     } catch (err) {
       toast.error(err instanceof Error && err.message ? err.message : "Couldn't make a picture.");
     } finally {
@@ -1109,9 +1122,35 @@ function MealDetail({
               {recipe.kcal !== null && ` · ${recipe.kcal} kcal`}
             </p>
             {recipe.description && <p className="text-sm text-foreground/80">{recipe.description}</p>}
-            <div>
-              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredients</h3>
-              {recipe.ingredients.length > 0 ? (
+            <div id="meal-ingredients">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredients</h3>
+                {!editing && (
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs text-muted-foreground" onClick={startEditing}>
+                    <PencilIcon className="size-3" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+              {editing ? (
+                <div className="space-y-2">
+                  <textarea
+                    autoFocus
+                    className="min-h-40 w-full rounded-md border bg-transparent px-3 py-2 text-base md:text-sm"
+                    placeholder="One per line — these become the grocery list"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditing(false)}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" className="h-8 text-xs" disabled={saving} onClick={saveIngredients}>
+                      {saving ? <Spinner className="size-3" /> : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              ) : recipe.ingredients.length > 0 ? (
                 <ul className="space-y-1 text-sm">
                   {recipe.ingredients.map((ing) => (
                     <li key={ing} className="flex items-center gap-2">
@@ -1136,6 +1175,128 @@ function MealDetail({
               </Button>
             </div>
           </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The week's grocery list, built from each planned meal's ingredients (no AI).
+ * Each item notes which meals need it; "Send to Groceries" copies the lot onto
+ * the Groceries list in Lists for ticking off in the store. Opens on
+ * /meals#grocery-list so the view can be linked to directly.
+ */
+function GroceryListDialog({
+  open,
+  onOpenChange,
+  from,
+  to,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  from: string;
+  to: string;
+}) {
+  const [items, setItems] = useState<GroceryItem[] | null>(null);
+  const [sending, setSending] = useState(false);
+
+  // #grocery-list ⇄ open, so the list has its own address.
+  useEffect(() => {
+    if (window.location.hash === "#grocery-list") onOpenChange(true);
+  }, [onOpenChange]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const want = open ? "#grocery-list" : "";
+    if (url.hash !== want && (open || url.hash === "#grocery-list")) {
+      url.hash = want;
+      window.history.replaceState(null, "", url);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setItems(null);
+    fetch(`/api/nutrition/groceries?from=${from}&to=${to}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rows: GroceryItem[]) => setItems(rows))
+      .catch(() => {
+        setItems([]);
+        toast.error("Couldn't build the grocery list.");
+      });
+  }, [open, from, to]);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const res = await fetch("/api/nutrition/groceries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to }),
+      });
+      if (!res.ok) throw new Error();
+      const { added, skipped } = (await res.json()) as { added: string[]; skipped: number };
+      toast.success(
+        `${added.length} item${added.length === 1 ? "" : "s"} → Groceries${skipped ? ` (${skipped} already there)` : ""}`,
+      );
+    } catch {
+      toast.error("Couldn't send to Groceries.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!items?.length) return;
+    try {
+      await navigator.clipboard.writeText(items.map((i) => `- ${i.name}`).join("\n"));
+      toast.success("Copied.");
+    } catch {
+      toast.error("Couldn't copy.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90dvh] max-w-md gap-3 overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Grocery list</DialogTitle>
+          <DialogDescription>
+            {weekRangeLabel(from)} · from each meal&apos;s ingredients in the meal bank
+          </DialogDescription>
+        </DialogHeader>
+        {items === null ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">
+            Nothing to buy yet — plan some meals, and make sure each one has ingredients in the meal bank.
+          </p>
+        ) : (
+          <ul className="divide-y">
+            {items.map((item) => (
+              <li key={item.name} className="py-2">
+                <div className="text-sm font-medium">{item.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {item.meals.map((m) => (m.times > 1 ? `${m.name} ×${m.times}` : m.name)).join(" · ")}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!!items?.length && (
+          <div className="flex justify-end gap-2 border-t pt-3">
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={copy}>
+              Copy
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={sending} onClick={send}>
+              {sending ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
+              Send to Groceries
+            </Button>
+          </div>
         )}
       </DialogContent>
     </Dialog>

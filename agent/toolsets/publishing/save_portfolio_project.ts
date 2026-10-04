@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { CAPABILITIES_URL, slugify, upsertProject } from "../../lib/portfolio";
+import { CAPABILITIES_URL, slugify, upsertProject } from "../../../lib/portfolio";
 
 export default defineTool({
   description:

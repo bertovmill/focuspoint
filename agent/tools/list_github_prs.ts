@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -28,7 +29,7 @@ export default defineTool({
           ORDER BY merged_at DESC LIMIT ${recent_limit}
         `
       : [];
-    return { total: totals?.total ?? 0, byMonth, byRepo, recent };
+    return jsonSafe({ total: totals?.total ?? 0, byMonth, byRepo, recent });
   },
   toModelOutput(output) {
     if (output.total === 0) return { type: "text", value: "No merged pull requests on record yet." };

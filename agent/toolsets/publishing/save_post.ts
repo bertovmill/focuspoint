@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { createPost, getPost, postUrl, slugify, updatePost } from "../../lib/posts";
+import { createPost, getPost, postUrl, slugify, updatePost } from "../../../lib/posts";
 
 export default defineTool({
   description:

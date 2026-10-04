@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description: "Delete a vision item (statement, goal, or image) by id. Confirm with the user first unless they explicitly asked to remove it.",
@@ -14,7 +15,7 @@ export default defineTool({
       RETURNING id, kind, title, content
     `;
     if (!row) throw new Error(`No vision item with id ${id}`);
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const label = output.title ?? output.content ?? "";

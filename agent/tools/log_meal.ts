@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -32,7 +33,7 @@ export default defineTool({
       )
       RETURNING id, name, slot, felt_good, eaten_date, protein_g
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     return {

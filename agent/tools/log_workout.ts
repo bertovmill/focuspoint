@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 const EXERCISES = ["squat", "deadlift", "bench", "chinups", "10k_run", "gym_hours"] as const;
 
@@ -20,7 +21,7 @@ export default defineTool({
       ON CONFLICT (exercise, logged_date) DO UPDATE SET value = EXCLUDED.value
       RETURNING exercise, value, logged_date
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const unit = output.exercise === "10k_run" ? "min" : output.exercise === "gym_hours" ? "hrs" : "lbs";

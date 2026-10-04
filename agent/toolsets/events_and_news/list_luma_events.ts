@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db";
+import { getDb } from "../../../lib/db";
+import { jsonSafe } from "../../../lib/json-safe";
 
 /**
  * The MakersLounge calendar, from Cael's own mirror of Luma (see lib/luma-sync.ts).
@@ -39,7 +40,7 @@ export default defineTool({
               FROM luma_events
               ORDER BY start_at DESC LIMIT ${limit}
             `;
-    return { when, events: rows };
+    return { when, events: jsonSafe(rows) };
   },
   toModelOutput(output) {
     if (output.events.length === 0) {

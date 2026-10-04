@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -22,7 +23,7 @@ export default defineTool({
           SELECT id, kind, title, content, image_url, horizon, achieved, created_at
           FROM vision_items ORDER BY kind, created_at ASC
         `;
-    return rows;
+    return jsonSafe(rows);
   },
   toModelOutput(output) {
     if (output.length === 0) return { type: "text", value: "No vision items yet." };

@@ -2,21 +2,17 @@ import { defineDynamic, defineInstructions } from "eve/instructions";
 
 import { nowHuman, todayISO } from "../lib/now";
 
-// The model doesn't know what day it is. Inject the real current date/time
-// every turn so Cael reasons about "today", "tomorrow", and date-relative
-// calendar queries correctly. Resolves on turn.started so a long-running or
-// resumed session always sees a fresh date.
+// The model doesn't know what day it is. Give it the real date/time at the
+// start of every turn so "today", "tomorrow", and date-relative calendar queries
+// come out right in long or resumed sessions. It goes in as a short user-role
+// line rather than system context: a timestamp that changes every turn inside
+// the system prompt would invalidate the provider's prompt cache on every turn.
 export default defineDynamic({
   events: {
     "turn.started": () =>
       defineInstructions({
-        markdown: [
-          `# Current date`,
-          ``,
-          `Right now it is **${nowHuman()}**. Today's date is **${todayISO()}** (ISO).`,
-          `Use this for any date reasoning — "today", "tomorrow", "this week",`,
-          `and when calling calendar tools. Never guess the date.`,
-        ].join("\n"),
+        role: "user",
+        content: `[[Now: ${nowHuman()} — today is ${todayISO()}. Use this for any date reasoning; never guess the date.]]`,
       }),
   },
 });

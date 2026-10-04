@@ -4,6 +4,56 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Right context at the right time: daily snapshot, context map, on-demand toolsets, routing evals
+
+Berto wanted to be sure Cael finds the right context (meals, principles, training, …)
+at the right time. Built on a research pass (Anthropic context engineering + tool
+search, Manus on KV-cache, LangChain write/select/compress/isolate, Letta, Breunig's
+"how contexts fail"): pre-load a small, high-value brief; fetch the rest just in time;
+keep the prompt prefix stable; trim the always-on tool list; verify with evals.
+
+- **Daily snapshot** (`agent/instructions/daily-snapshot.ts`, `agent/lib/daily-snapshot.ts`):
+  on the first turn of each day of a conversation, a user-role message opening
+  `[[Daily snapshot — <date>]]` carries his principles, today's training + next race,
+  today's food + protein, today's calendar, top 5 todos, and the latest dream (flagged
+  when old). About 950 tokens, built in ~150 ms, and each section fails quietly on its
+  own. User-role, so it joins the append-only history instead of the system prompt.
+  It's re-added after midnight or after compaction drops the marker.
+- **Clock line moved out of the system prompt.** `current-date.ts` used to put a
+  per-minute timestamp in *system* context every turn, which invalidates the provider's
+  cached prefix every turn. It's now a short user-role `[[Now: …]]` line per turn.
+- **Context map** in `agent/instructions.md` ("Where context lives"): one topic →
+  read-this-first table, which replaces the scattered "check memory first" lines.
+  `get_dream_summary` is no longer a must-call at session start (the dream is in the
+  snapshot).
+- **On-demand toolsets** (`agent/toolsets/`): `publishing` (posts, images, X, LinkedIn,
+  portfolio/capabilities) and `events_and_news` (Luma ×3, AI news, reading list) no
+  longer ride on every call. `load_toolset` loads one for the rest of the session.
+  `agent/tools/toolsets.ts` (a `step.started` dynamic resolver) also auto-loads a set
+  when a message has a trigger word (Writing-editor prefix, "tweet", "Luma", …). It
+  ignores the injected snapshot/clock messages, because his principles mention
+  "portfolio". MCP still exposes every tool (`lib/agent-tool-registry.ts` paths
+  updated).
+- **Routing evals** (`evals/routing/`, `npx eve eval routing`): 17 cases from his real
+  messages, covering money decisions → vision, dinner → meal notes/history, today's
+  workout/next race checked against the DB, past thoughts → search_memory, toolset
+  loading with and without trigger words, tweets never posted without his OK, and
+  negative cases (no tools for arithmetic, no personal context leaking into a poem).
+  **17/17 pass**, twice.
+- **Bug the evals caught: `list_vision` had failed on every call (12/12 in 45 days).**
+  It returned raw rows with Date objects, which eve rejects as non-JSON. So Cael had
+  never actually read his visions, methods, goals, milestones or routines. `add_todo`,
+  `list_todos` and `add_family_memory` had the same intermittent failure. New
+  `lib/json-safe.ts` `jsonSafe()` now wraps every tool that returns raw rows (17 tools).
+- Tokens: a fresh turn is ~17.9k input (was ~18.5k) even with the snapshot added, and
+  ~94% of it was a cache hit in the evals.
+- Next: the model still calls `load_toolset` even when a trigger already loaded the
+  set (harmless, one extra step). **The nightly Dream job looks dead**: the latest
+  dream is 2026-09-10. Worth checking the scheduled task, and then having it curate
+  memory blocks (the "sleep-time" idea from the research).
+
+---
+
 ## 2026-10-04 — Context management: real context windows, peak context in traces
 
 Berto asked how Cael's context management holds up.

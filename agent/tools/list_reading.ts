@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description: "List the user's logged reading history (finished books, page counts, dates). Use this to answer questions about reading pace or what's been read recently.",
@@ -15,7 +16,7 @@ export default defineTool({
       ORDER BY logged_date DESC
       LIMIT ${limit}
     `;
-    return { logs: rows };
+    return { logs: jsonSafe(rows) };
   },
   toModelOutput(output) {
     if (output.logs.length === 0) return { type: "text", value: "No books logged yet." };

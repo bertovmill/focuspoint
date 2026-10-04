@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -26,7 +27,7 @@ export default defineTool({
       )
       RETURNING id, title, note, image_url, thanked_date, created_at
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     return { type: "text", value: `Thank-you logged${output.title ? `: "${output.title}"` : ""} (id: ${output.id})` };

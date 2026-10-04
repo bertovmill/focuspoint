@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -31,7 +32,7 @@ export default defineTool({
       VALUES (${kind}, ${title?.trim() || null}, ${content?.trim() || null}, ${image_url?.trim() || null}, ${horizon ?? null})
       RETURNING id, kind, title, content, horizon
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const label = output.title ?? output.content ?? "";

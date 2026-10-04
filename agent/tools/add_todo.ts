@@ -2,6 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
 import { TASK_CATEGORIES } from "../../lib/task-categories";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description: "Add a new todo task for the user.",
@@ -32,7 +33,7 @@ export default defineTool({
       VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimated_minutes}, ${category ?? null})
       RETURNING id, title, priority, due_date, recurrence, estimated_minutes, category, created_at
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const rec = output.recurrence && output.recurrence !== "none" ? ` (repeats ${output.recurrence})` : "";

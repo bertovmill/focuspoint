@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { generatePostImage } from "../../lib/post-art";
-import { getPost, updatePost } from "../../lib/posts";
+import { generatePostImage } from "../../../lib/post-art";
+import { getPost, updatePost } from "../../../lib/posts";
 
 export default defineTool({
   description:

@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -16,7 +17,7 @@ export default defineTool({
       ORDER BY meal_date DESC, CASE slot WHEN 'lunch' THEN 1 WHEN 'snack' THEN 2 ELSE 3 END
       LIMIT ${limit}
     `;
-    return { meals: rows };
+    return { meals: jsonSafe(rows) };
   },
   toModelOutput(output) {
     if (output.meals.length === 0) {

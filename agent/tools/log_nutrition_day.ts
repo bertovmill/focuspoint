@@ -2,6 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
 import { PROTOCOL_RULES, isOnProtocol } from "../../lib/nutrition";
+import { jsonSafe } from "../../lib/json-safe";
 
 const RULE_KEYS = PROTOCOL_RULES.map((r) => r.key) as [string, ...string[]];
 
@@ -25,7 +26,7 @@ export default defineTool({
             updated_at = NOW()
       RETURNING logged_date, rules
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const kept = (output.rules as string[]) ?? [];

@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { deleteSession, saveSession, setSessionDone } from "../../lib/training";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description:
@@ -51,7 +52,7 @@ export default defineTool({
     if (typeof input.done === "boolean") {
       row = await setSessionDone(row?.id ?? input.id!, input.done, { km: input.actual_km ?? null, minutes: input.actual_minutes ?? null });
     }
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     if (!output) return { type: "text", value: "Nothing changed." };

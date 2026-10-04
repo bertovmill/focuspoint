@@ -207,7 +207,7 @@ WORKOUT_TEMPLATES.push(
     session_type: "intervals",
     default_day: 3,
     plan: { km: 11, pace_sec: 225, intensity: "hard" },
-    warmup: "15 min easy + 4 × 20 s strides",
+    warmup: "10 min easy + 4 × 20 s strides",
     cooldown: "10 min easy",
     blocks: [
       {

@@ -694,6 +694,18 @@ export async function ensureSchema() {
   // 12–8 eating window (2026-09-05). Not the old fasted_til_noon: that was the
   // morning half only; this is the whole window, so it is its own flag.
   await sql`ALTER TABLE daily_habits ADD COLUMN IF NOT EXISTS ate_in_window BOOLEAN NOT NULL DEFAULT FALSE`;
+  // Ticks on the Today timeline (lib/day-plan.ts). The habits are whatever the
+  // "Daily habits" section of the Principles doc lists, so a tick is keyed by the
+  // habit's slug rather than a column per habit.
+  await sql`
+    CREATE TABLE IF NOT EXISTS habit_checks (
+      habit_date DATE NOT NULL,
+      habit_key TEXT NOT NULL,
+      done BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (habit_date, habit_key)
+    )
+  `;
 
   // Articles for bertomill.com/writing that Cael drafts and edits (lib/posts.ts).
   // They sit alongside the Substack feed on the Writing index. A draft is only

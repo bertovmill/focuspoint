@@ -9323,3 +9323,39 @@ deadlifts and risk injury. Walking lunges 80 lbs (sandbag or 2 × 40 lb). Split
 squat 135. Hamstring curls (Hammer plate-loaded) 50 — a guess, correct after the
 first session. Sled push 360 lbs (8 × 45 plates). Box jumps → burpees × 10 (no
 box near the sled).
+
+## 2026-10-04 — Today's plan: daily habits slotted around the calendar
+
+Berto wanted his daily habits (morning meditation, reading, workout, a 20-min
+nap) written down in Principles, and a quick schedule builder that reads them
+plus the calendar. Picked (asked): habits live as a **section in the Principles
+doc**; the plan is **shown on Home only, never written to Google Calendar**;
+placement is **simple rules, no LLM**; the timeline **is the checklist**
+(tick boxes on each habit block — the old habit row came off on 2026-09-30).
+
+- `lib/day-plan.ts` (new, pure): parses the first heading that mentions
+  "habit" (his existing "On habits" section matches) — each list item is
+  `Name — 20 min — morning` / `Nap 20 min at 1pm`, loosely (durations in
+  m/min/h/hours, `1pm`/`13:00`, morning/midday/afternoon/evening, `morn*` for
+  typos). Default 30 min, anytime 7am–9:30pm. `planDay()` places habits in list
+  order into the first free gap in their window (an explicit time gets a 3h
+  grace), else later in the day, else "no gap left". Day is 6am–10pm.
+- `app/api/day-plan/route.ts` (new): GET = Principles + today's timed busy
+  Google events (skips all-day, free/transparent, declined) in
+  `STREAK_TIME_ZONE` minutes → plan + ticks. PATCH `{key, done}` ticks.
+- `lib/habits.ts`: `getHabitTicks`/`setHabitTick`. Some habits tick themselves
+  by name: read* ← a Kindle note today, workout/train/gym/run/lift ← a done
+  training session, strength sets or a Strava activity, journal ← 250 words,
+  meditat* ← the legacy `daily_habits.meditated`. Others are manual ticks.
+- `lib/db.ts`: `habit_checks (habit_date, habit_key, done)`; created lazily on
+  the first tick if missing.
+- `app/_components/day-plan-card.tsx`: "Today's plan" on Home (`#today-plan`),
+  under Today's training/meals — habits with ticks, meetings muted for context.
+
+Verified locally on :3003: card renders his three habits from "On habits", tick
+persists through the API (test tick undone). Google Calendar was **not
+connected** (`google_auth` empty, no `GOOGLE_REFRESH_TOKEN` in env), so meetings
+aren't factored in until he reconnects at `/api/google/connect`.
+
+Next: his "On habits" list has no nap line yet; Cael could get a tool to read
+the day plan.

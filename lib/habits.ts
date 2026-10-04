@@ -80,3 +80,59 @@ export async function setHabit(sql: Sql, key: ManualHabitKey, value: boolean, da
     `;
   }
 }
+
+// ── Today timeline ticks (lib/day-plan.ts) ───────────────────────────────────
+// The timeline's habits come from the Principles doc, so they're free text. A few
+// tick themselves off from data he already logs, matched on the habit's name;
+// everything else is a manual tick in habit_checks.
+
+export type HabitTick = { done: boolean; /** Ticked by something logged elsewhere, not a tap. */ auto: boolean };
+
+const AUTO_SOURCES: { match: RegExp; source: "reading" | "workout" | "journal" | "meditate" }[] = [
+  { match: /read/, source: "reading" },
+  { match: /workout|train|gym|lift|run|strength/, source: "workout" },
+  { match: /journal/, source: "journal" },
+  { match: /meditat/, source: "meditate" },
+];
+
+export async function getHabitTicks(sql: Sql, keys: string[], date?: string): Promise<Record<string, HabitTick>> {
+  const today = date ?? dayKey(new Date());
+
+  const [notes, journal, legacy, workouts, checks] = await Promise.all([
+    sql`SELECT 1 FROM reading_notes WHERE note_date = ${today}::date LIMIT 1`,
+    sql`SELECT 1 FROM daily_journal WHERE entry_date = ${today}::date
+        AND array_length(regexp_split_to_array(trim(content), '\\s+'), 1) >= ${JOURNAL_WORD_GOAL} LIMIT 1`,
+    sql`SELECT meditated FROM daily_habits WHERE habit_date = ${today}::date`,
+    // Any of: a training session ticked, a strength set logged, a Strava activity.
+    sql`SELECT 1 WHERE
+          EXISTS (SELECT 1 FROM training_sessions WHERE session_date = ${today}::date AND done AND type <> 'rest')
+       OR EXISTS (SELECT 1 FROM strength_logs WHERE log_date = ${today}::date AND cardinality(reps) > 0)
+       OR EXISTS (SELECT 1 FROM strava_activities WHERE start_local::date = ${today}::date)`,
+    // No table until the first tick creates it (the read path skips ensureSchema).
+    sql`SELECT habit_key, done FROM habit_checks WHERE habit_date = ${today}::date`.catch(() => []),
+  ]);
+
+  const sources = {
+    reading: notes.length > 0,
+    journal: journal.length > 0,
+    meditate: Boolean(legacy[0]?.meditated),
+    workout: workouts.length > 0,
+  };
+  const manual = new Map(checks.map((r) => [String(r.habit_key), Boolean(r.done)]));
+
+  return Object.fromEntries(
+    keys.map((key) => {
+      const source = AUTO_SOURCES.find((s) => s.match.test(key))?.source;
+      const auto = source ? sources[source] : false;
+      return [key, { done: auto || (manual.get(key) ?? false), auto }];
+    }),
+  );
+}
+
+export async function setHabitTick(sql: Sql, key: string, done: boolean, date?: string): Promise<void> {
+  const today = date ?? dayKey(new Date());
+  await sql`
+    INSERT INTO habit_checks (habit_date, habit_key, done) VALUES (${today}::date, ${key}, ${done})
+    ON CONFLICT (habit_date, habit_key) DO UPDATE SET done = EXCLUDED.done, updated_at = NOW()
+  `;
+}

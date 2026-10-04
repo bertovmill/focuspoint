@@ -34,6 +34,7 @@ import { TodaySnapshot } from "@/app/_components/today-snapshot";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
+import { DayPlanCard } from "@/app/_components/day-plan-card";
 import { cn } from "@/lib/utils";
 
 export type HomeTarget =
@@ -387,6 +388,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
         {/* What's on today — sessions from /training and the three sittings from /meals */}
         <TodaySnapshot />
+
+        {/* Daily habits from Principles, slotted around today's calendar. Also the
+            habit checklist since the scorecard row came off. */}
+        <DayPlanCard />
 
       </div>
 

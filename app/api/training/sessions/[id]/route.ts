@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH { done, actual_km?, actual_minutes? } toggles completion;
-// PATCH { session_date?, type?, title?, target_km?, target_minutes?, intensity?, notes? } edits.
+// PATCH { session_date?, type?, title?, target_km?, target_minutes?, target_pace_sec?, intensity?, notes? } edits.
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const { id } = await params;
@@ -17,7 +17,7 @@ export async function PATCH(req: Request, { params }: Params) {
       });
       return NextResponse.json(row);
     }
-    const [cur] = await getDb()`SELECT to_char(session_date, 'YYYY-MM-DD') AS d, type, title, target_km, target_minutes, intensity, notes FROM training_sessions WHERE id = ${id}`;
+    const [cur] = await getDb()`SELECT to_char(session_date, 'YYYY-MM-DD') AS d, type, title, target_km, target_minutes, target_pace_sec, intensity, notes FROM training_sessions WHERE id = ${id}`;
     if (!cur) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const row = await saveSession({
       id: Number(id),
@@ -27,6 +27,8 @@ export async function PATCH(req: Request, { params }: Params) {
       target_km: body.target_km !== undefined ? (body.target_km === "" || body.target_km === null ? null : Number(body.target_km)) : cur.target_km,
       target_minutes:
         body.target_minutes !== undefined ? (body.target_minutes === "" || body.target_minutes === null ? null : Math.round(Number(body.target_minutes))) : cur.target_minutes,
+      target_pace_sec:
+        body.target_pace_sec !== undefined ? (body.target_pace_sec === "" || body.target_pace_sec === null ? null : Number(body.target_pace_sec)) : cur.target_pace_sec,
       intensity: body.intensity !== undefined ? body.intensity : cur.intensity,
       notes: body.notes !== undefined ? (typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null) : cur.notes,
     });

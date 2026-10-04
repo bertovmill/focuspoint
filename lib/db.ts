@@ -572,6 +572,7 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS target_pace_sec INTEGER`;
   await sql`CREATE INDEX IF NOT EXISTS training_sessions_date_idx ON training_sessions (session_date)`;
   // Structured workouts (lib/workout-templates.ts): one row per exercise per
   // session of a template, holding the reps of each set. weight + target_reps are

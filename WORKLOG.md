@@ -9375,3 +9375,23 @@ morning — so no "I'm up" tap; a standing start time he can adjust instead.
 
 Verified locally: 5:30 → Meditate 5:30, Read 5:50, Workout 5:52; PUT 06:15
 re-plans from 6:15; set back to 05:30; bad time → 400.
+## 2026-10-04 (chat) — Runs planned by distance + pace
+
+Berto doesn't want to plan runs as km + minutes; pace is what he thinks in. New
+`training_sessions.target_pace_sec` (seconds per km; added on live Neon, mirrored
+in `ensureSchema` and `scripts/training-migrate.mjs`). For long run / intervals /
+easy, `session-editor.tsx` now shows **km · pace (mm:ss) · intensity** with a live
+"≈ 1h 50m at that pace" hint and an inline error for an unreadable pace; other
+types keep a minutes box. `saveSession` derives `target_minutes = km × pace` when
+both are set, so weekly minutes and the agent's plan text keep working. Older runs
+(km + minutes, no pace) open with the implied pace prefilled. Cards (/training
+and the today snapshot) use `targetLabel()` → "20 km · 5:30/km · 110 min".
+Agent `set_training_session` takes `target_pace_sec`; the training coach is told
+to plan runs as distance + pace.
+
+Verified on :3007: create 20 km @ 330 s → 110 min, edit to 300 s → 100 min,
+switch to strength clears km/pace (throwaway 2021 row, deleted); editor hint
+renders. Typecheck clean.
+
+Strava: still not connected — `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` are
+missing from `.env.local` and Vercel. The integration code is ready.

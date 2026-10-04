@@ -25,7 +25,7 @@ import { WorkoutLog } from "@/app/_components/workout-log";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
 import { templateForSession, workoutHref } from "@/lib/workout-templates";
 import type { StravaActivity } from "@/lib/strava";
-import { daysUntil, sessionMeta, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import { daysUntil, parsePace, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -134,6 +134,7 @@ function TrainingWeek() {
         title: d.title,
         target_km: d.target_km === "" ? null : Number(d.target_km),
         target_minutes: d.target_minutes === "" ? null : Number(d.target_minutes),
+        target_pace_sec: d.target_pace === "" ? null : parsePace(d.target_pace),
         intensity: d.intensity,
         notes: d.notes,
       };
@@ -507,11 +508,9 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
             {s.intensity === "hard" && <span className={cn("text-rose-500", big ? "text-sm" : "text-xs")}>hard</span>}
           </span>
           <span className={cn("block font-medium leading-snug", big ? "text-xl" : "text-sm", s.done && "line-through text-muted-foreground")}>{s.title}</span>
-          {(s.target_km !== null || s.target_minutes !== null) && (
+          {targetLabel(s) && (
             <span className={cn("block tabular-nums text-muted-foreground", big ? "text-base" : "text-xs")}>
-              {s.target_km !== null && `${s.target_km} km`}
-              {s.target_km !== null && s.target_minutes !== null && " · "}
-              {s.target_minutes !== null && `${s.target_minutes} min`}
+              {targetLabel(s)}
             </span>
           )}
           {big && s.notes && !template && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}

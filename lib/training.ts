@@ -30,6 +30,8 @@ export interface TrainingSession {
   title: string;
   target_km: number | null;
   target_minutes: number | null;
+  /** Target pace in seconds per km (runs). */
+  target_pace_sec: number | null;
   intensity: string | null;
   notes: string | null;
   done: boolean;
@@ -49,7 +51,7 @@ export interface TrainingEvent {
 }
 
 const SESSION_COLUMNS = `id, to_char(session_date, 'YYYY-MM-DD') AS session_date, position, type, title, target_km,
-  target_minutes, intensity, notes, done, done_at, strava_activity_id, actual_km, actual_minutes, actual_effort`;
+  target_minutes, target_pace_sec, intensity, notes, done, done_at, strava_activity_id, actual_km, actual_minutes, actual_effort`;
 
 function shapeSession(r: Record<string, unknown>): TrainingSession {
   return {
@@ -60,6 +62,7 @@ function shapeSession(r: Record<string, unknown>): TrainingSession {
     title: String(r.title),
     target_km: num(r.target_km),
     target_minutes: num(r.target_minutes),
+    target_pace_sec: num(r.target_pace_sec),
     intensity: (r.intensity as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
     done: Boolean(r.done),
@@ -139,8 +142,40 @@ export interface SessionInput {
   title?: string;
   target_km?: number | null;
   target_minutes?: number | null;
+  target_pace_sec?: number | null;
   intensity?: string | null;
   notes?: string | null;
+}
+
+/** 330 → "5:30". */
+export function formatPace(sec: number): string {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** "5:30" (or "5.5", "5") → seconds per km; null when unreadable. */
+export function parsePace(text: string): number | null {
+  const t = text.trim();
+  const m = t.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (m) return Number(m[2]) < 60 ? Number(m[1]) * 60 + Number(m[2]) : null;
+  const n = Number(t);
+  return t !== "" && Number.isFinite(n) && n > 0 ? Math.round(n * 60) : null;
+}
+
+/** Minutes a run takes at a pace — runs are planned by distance + pace, so time is derived. */
+export function minutesAtPace(km: number | null, paceSec: number | null): number | null {
+  return km && paceSec ? Math.round((km * paceSec) / 60) : null;
+}
+
+/** "20 km · 5:30/km · 110 min" — whichever targets are set. */
+export function targetLabel(s: Pick<TrainingSession, "target_km" | "target_minutes" | "target_pace_sec">): string {
+  return [
+    s.target_km !== null && `${s.target_km} km`,
+    s.target_pace_sec !== null && `${formatPace(s.target_pace_sec)}/km`,
+    s.target_minutes !== null && `${s.target_minutes} min`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export async function saveSession(input: SessionInput): Promise<TrainingSession> {
@@ -148,25 +183,27 @@ export async function saveSession(input: SessionInput): Promise<TrainingSession>
   const meta = sessionMeta(input.type);
   const title = input.title?.trim() || meta.label;
   const intensity = input.intensity && (INTENSITIES as readonly string[]).includes(input.intensity) ? input.intensity : null;
+  const pace = input.target_pace_sec ? Math.round(input.target_pace_sec) : null;
+  const minutes = minutesAtPace(input.target_km ?? null, pace) ?? input.target_minutes ?? null;
   const sql = getDb();
   if (input.id) {
     const [row] = await sql.query(
       `UPDATE training_sessions SET session_date = $2, position = COALESCE($3, position), type = $4, title = $5,
-         target_km = $6, target_minutes = $7, intensity = $8, notes = $9, updated_at = NOW()
+         target_km = $6, target_minutes = $7, intensity = $8, notes = $9, target_pace_sec = $10, updated_at = NOW()
        WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
       [input.id, input.session_date, input.position ?? null, input.type, title, input.target_km ?? null,
-        input.target_minutes ?? null, intensity, input.notes ?? null],
+        minutes, intensity, input.notes ?? null, pace],
     );
     if (!row) throw new Error("Session not found");
     return shapeSession(row as Record<string, unknown>);
   }
   const [row] = await sql.query(
-    `INSERT INTO training_sessions (session_date, position, type, title, target_km, target_minutes, intensity, notes)
+    `INSERT INTO training_sessions (session_date, position, type, title, target_km, target_minutes, intensity, notes, target_pace_sec)
      VALUES ($1, COALESCE($2, (SELECT COALESCE(MAX(position), -1) + 1 FROM training_sessions WHERE session_date = $1)),
-             $3, $4, $5, $6, $7, $8)
+             $3, $4, $5, $6, $7, $8, $9)
      RETURNING ${SESSION_COLUMNS}`,
     [input.session_date, input.position ?? null, input.type, title, input.target_km ?? null,
-      input.target_minutes ?? null, intensity, input.notes ?? null],
+      minutes, intensity, input.notes ?? null, pace],
   );
   return shapeSession(row as Record<string, unknown>);
 }
@@ -366,7 +403,7 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     "",
     week.length
       ? "ALREADY ON THIS WEEK (✓ = done, never touch those; the rest you may keep, edit, move or delete by id):\n" +
-        week.map((s) => `- id ${s.id} · ${dayName(s.session_date)} ${s.session_date} · ${s.type} "${s.title}"${s.target_km ? ` ${s.target_km}km` : ""}${s.target_minutes ? ` ${s.target_minutes}min` : ""}${s.intensity ? ` ${s.intensity}` : ""}${s.done ? " ✓ done" : ""}${s.notes ? ` — ${s.notes}` : ""}`).join("\n")
+        week.map((s) => `- id ${s.id} · ${dayName(s.session_date)} ${s.session_date} · ${s.type} "${s.title}"${s.target_km ? ` ${s.target_km}km` : ""}${s.target_pace_sec ? ` @${formatPace(s.target_pace_sec)}/km` : ""}${s.target_minutes ? ` ${s.target_minutes}min` : ""}${s.intensity ? ` ${s.intensity}` : ""}${s.done ? " ✓ done" : ""}${s.notes ? ` — ${s.notes}` : ""}`).join("\n")
       : "THIS WEEK IS EMPTY.",
     notes.length ? "\nHIS RECENT TRAINING NOTES:\n" + notes.map((n) => `- ${n.d}: ${String(n.note).replace(/\s+/g, " ").slice(0, 240)}`).join("\n") : "",
   ].join("\n");

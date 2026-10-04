@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST { session_date, type, title?, target_km?, target_minutes?, intensity?, notes? } — new session
+// POST { session_date, type, title?, target_km?, target_minutes?, target_pace_sec?, intensity?, notes? } — new session
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       title: body.title,
       target_km: body.target_km === "" || body.target_km == null ? null : Number(body.target_km),
       target_minutes: body.target_minutes === "" || body.target_minutes == null ? null : Math.round(Number(body.target_minutes)),
+      target_pace_sec: body.target_pace_sec === "" || body.target_pace_sec == null ? null : Number(body.target_pace_sec),
       intensity: body.intensity ?? null,
       notes: typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
     });

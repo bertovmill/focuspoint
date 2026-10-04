@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { INTENSITIES, SESSION_TYPES, formatPace, minutesAtPace, parsePace, type PaceSuggestion, type TrainingSession } from "@/lib/training";
 import { weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
+import { ZONES, ZoneBar } from "@/app/_components/zone-bar";
 
 export interface SessionDraft {
   session_date: string;
@@ -184,6 +185,9 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
         {d.session_date && <p className="text-lg text-muted-foreground">{longDate(d.session_date)}</p>}
       </header>
 
+      {existing?.done && <Actuals s={existing} />}
+      {existing?.done && <h2 className="border-t pt-5 text-lg font-semibold">Plan</h2>}
+
       <form
         className="space-y-5"
         onSubmit={(e) => {
@@ -341,6 +345,52 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
         </div>
       </form>
     </div>
+  );
+}
+
+/**
+ * What actually happened, from the Fitbit workout that marked it done (or his manual
+ * tick). Read-only and separate from the plan fields below, so the plan survives.
+ */
+function Actuals({ s }: { s: TrainingSession }) {
+  const pace = s.actual_km && s.actual_minutes ? formatPace((s.actual_minutes * 60) / s.actual_km) : null;
+  const stats = [
+    s.actual_km ? { label: "Distance", value: `${s.actual_km} km` } : null,
+    pace ? { label: "Pace", value: `${pace}/km` } : null,
+    s.actual_minutes !== null ? { label: "Time", value: fmtDuration(s.actual_minutes) } : null,
+    s.actual_avg_hr !== null ? { label: "Avg heart rate", value: `${s.actual_avg_hr} bpm` } : null,
+    s.actual_effort !== null ? { label: "Active Zone Min", value: String(s.actual_effort) } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+  if (!stats.length && !s.actual_zones) return null;
+  return (
+    <section id="actual" className="space-y-3 rounded-xl border border-emerald-600/30 bg-emerald-500/5 p-4">
+      <h2 className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+        Actual{s.activity_id ? " · from your Fitbit" : ""}
+      </h2>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+        {stats.map((x) => (
+          <div key={x.label}>
+            <dt className="text-xs text-muted-foreground">{x.label}</dt>
+            <dd className="text-xl font-semibold tabular-nums">{x.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {s.actual_zones && s.actual_zones.some((z) => z > 0) && (
+        <div className="space-y-1.5">
+          <ZoneBar zones={s.actual_zones} className="h-2.5" />
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {s.actual_zones.map((z, i) =>
+              z > 0 ? (
+                <span key={i} className="inline-flex items-center gap-1.5 tabular-nums">
+                  <span className={cn("size-2 rounded-full", ZONES[i]?.color)} />
+                  {ZONES[i]?.label} {Math.round(z / 60)} min
+                </span>
+              ) : null,
+            )}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

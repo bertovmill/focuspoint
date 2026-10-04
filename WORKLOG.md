@@ -9677,3 +9677,13 @@ reverts on failure) with a toast. It moves rather than swaps — two sessions ca
 share a day. Tested Wed yoga → Thu and back.
 Also checked "log page slow to load": the API answers in ~55 ms; the wait was
 the dev server compiling the route on first open.
+
+## 2026-10-04 (chat) — Session page shows what actually happened
+
+Berto saw 5:19/km on the card but 4:00 in the editor and asked to sync them. The
+editor's pace is the *plan* (old 20 km / 80 min); he chose to keep the plan and show
+actuals alongside rather than overwrite. Done sessions now open with an **Actual ·
+from your Fitbit** block (`#actual`): distance, pace, time, avg HR, AZM, and the
+heart-rate zone bar with minutes per zone; the editable fields below sit under a
+**Plan** heading. `ZoneBar` moved to `app/_components/zone-bar.tsx` (shared by the
+week cards and the session page). Checked on :3007 against his Oct 4 long run.

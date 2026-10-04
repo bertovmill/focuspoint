@@ -1,11 +1,25 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") ?? 120), 500);
     const sql = getDb();
+    // ?from=&to= — one week's logs, for the ticks on the /meals grid
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (from && to && ISO.test(from) && ISO.test(to)) {
+      const rows = await sql`
+        SELECT id, name, notes, felt_good, slot, to_char(eaten_date, 'YYYY-MM-DD') AS eaten_date, created_at, protein_g, kcal
+        FROM nutrition_meals
+        WHERE eaten_date BETWEEN ${from} AND ${to}
+        ORDER BY eaten_date ASC, created_at ASC
+      `;
+      return NextResponse.json(rows);
+    }
     const rows = await sql`
       SELECT id, name, notes, felt_good, slot, eaten_date, created_at, protein_g, kcal
       FROM nutrition_meals

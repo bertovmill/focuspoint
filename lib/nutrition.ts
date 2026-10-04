@@ -53,8 +53,8 @@ export function isOnProtocol(rules: readonly string[] | null | undefined) {
   return PROTOCOL_RULE_KEYS.every((k) => rules?.includes(k));
 }
 
-// The three sittings Berto eats: one lunch, one snack, one dinner. Cael fills all
-// three in each morning (see lib/meal-suggest.ts).
+// The three sittings Berto eats: one lunch, one snack, one dinner, each
+// planned from the meal bank (fillFromBank in lib/nutrition-plan.ts).
 export const MEAL_SLOTS = [
   { key: "lunch", label: "Lunch", guidance: "Light and whole-food — this is the day-time sitting, so it must not sit heavy or spike blood sugar." },
   { key: "snack", label: "Snack", guidance: "A small afternoon snack for mental performance — think avocado, dark chocolate, almonds. Not a meal." },

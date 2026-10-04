@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDaysIcon, CheckIcon, RefreshCwIcon, SparklesIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckIcon, ShuffleIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { MEAL_SLOTS, currentSlot } from "@/lib/nutrition";
@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 import { useNutritionToday } from "@/app/_components/use-nutrition-today";
 
 /**
- * Today's three sittings, on the Nutrition screen. Cael fills these in on the
- * morning tick (agent/schedules/dispatcher.ts); the buttons here are for the
- * days that hasn't happened yet, or when a suggestion doesn't appeal.
+ * Today's three sittings, on the Nutrition screen — all meals from the bank on
+ * /meals. The buttons fill an empty sitting or swap one, rotating through the
+ * bank.
  */
 export function MealPlan() {
   const { bySlot, eatenSlots, loading, busySlot, toggleAte, setFeedback, suggest } = useNutritionToday();
@@ -40,8 +40,8 @@ export function MealPlan() {
             disabled={busySlot !== null}
             onClick={() => suggest()}
           >
-            {busySlot === "all" ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
-            {busySlot === "all" ? "Cooking up ideas…" : `Suggest ${missing.length === 3 ? "all three" : "the rest"}`}
+            {busySlot === "all" ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
+            {`Fill ${missing.length === 3 ? "all three" : "the rest"} from the bank`}
           </Button>
         )}
       </div>
@@ -70,10 +70,10 @@ export function MealPlan() {
                     onClick={() => suggest(slotMeta.key)}
                     disabled={busy}
                     className="tap-target ml-auto text-muted-foreground hover:text-foreground disabled:opacity-50"
-                    aria-label={`Suggest a different ${slotMeta.label.toLowerCase()}`}
-                    title="Suggest something else"
+                    aria-label={`Swap for a different ${slotMeta.label.toLowerCase()}`}
+                    title="Swap for another bank meal"
                   >
-                    {busy ? <Spinner className="size-3" /> : <RefreshCwIcon className="size-3" />}
+                    {busy ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
                   </button>
                 )}
               </div>
@@ -139,7 +139,7 @@ export function MealPlan() {
                 </>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-3 py-6 text-center">
-                  <p className="text-xs text-muted-foreground">{loading ? "…" : "Nothing suggested yet"}</p>
+                  <p className="text-xs text-muted-foreground">{loading ? "…" : "Nothing planned yet"}</p>
                   {!loading && (
                     <Button
                       size="sm"
@@ -148,8 +148,8 @@ export function MealPlan() {
                       disabled={busy || busySlot !== null}
                       onClick={() => suggest(slotMeta.key)}
                     >
-                      {busy ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
-                      Suggest one
+                      {busy ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
+                      Pick from bank
                     </Button>
                   )}
                 </div>

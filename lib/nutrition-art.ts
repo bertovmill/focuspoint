@@ -55,17 +55,6 @@ export async function generateRuleImage(key: string) {
   return upload(`nutrition/rules/${key}`, image, 512);
 }
 
-/** A plated dish for one of the day's three recommendations. */
-export async function generateMealImage(imagePrompt: string, slot: string) {
-  const { image } = await generateImage({
-    model: FOOD_IMAGE_MODEL,
-    prompt: `${PHOTO_STYLE}. Overhead or 45-degree shot of a plated ${slot}: ${imagePrompt}`,
-    size: "1536x1024",
-    providerOptions: OPENAI_OPTIONS,
-  });
-  return upload(`nutrition/meals/${slot}-${Date.now()}`, image, 1024);
-}
-
 function slug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

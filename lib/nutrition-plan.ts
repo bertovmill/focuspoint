@@ -5,6 +5,7 @@
 import { getDb } from "./db";
 import {
   DEFAULT_PROTEIN_TARGET_G,
+  addDaysISO,
   MEAL_SLOT_KEYS,
   PROTEIN_TARGET_SETTING_KEY,
   normalizeIngredients,
@@ -222,47 +223,84 @@ export async function addPlanToGroceries(from: string, to: string) {
   return { added, skipped, listId };
 }
 
-// ── background week fill ──────────────────────────────────────────────
-// "Fill week with Cael" runs on the server after the request returns, so the
-// page can be closed mid-run. Progress lives in one app_settings key the grid
-// polls; a run older than FILL_STALE_MS is treated as dead (the function was
-// cut off), so the button never stays stuck.
+// ── filling from the bank ─────────────────────────────────────────────
+// Berto rarely strays from his meal bank, so every planned sitting comes from
+// nutrition_recipes — no model calls. The rotation reaches the whole bank: each
+// cell takes the entry for that sitting planned least often over the last three
+// weeks, ties broken at random.
 
-const FILL_JOB_KEY = "meal_fill_job";
-const FILL_STALE_MS = 6 * 60 * 1000;
-
-export interface FillJob {
-  total: number;
-  done: number;
-  failed: number;
-  started_at: string;
-  finished_at: string | null;
+export interface BankFillResult {
+  filled: PlannedMeal[];
+  /** Cells left alone: already planned, or nothing in the bank for that sitting. */
+  skipped: number;
 }
 
-export async function getFillJob(): Promise<(FillJob & { running: boolean }) | null> {
+export async function fillFromBank(
+  targets: { date: string; slot: string }[],
+  { overwrite = false }: { overwrite?: boolean } = {},
+): Promise<BankFillResult> {
+  const cells = targets.filter((t) => MEAL_SLOT_KEYS.includes(t.slot)).sort((a, b) => a.date.localeCompare(b.date));
+  if (cells.length === 0) return { filled: [], skipped: targets.length };
   const sql = getDb();
-  const [row] = await sql`SELECT value FROM app_settings WHERE key = ${FILL_JOB_KEY}`;
-  if (!row?.value) return null;
-  try {
-    const job = JSON.parse(String(row.value)) as FillJob;
-    const running = !job.finished_at && Date.now() - Date.parse(job.started_at) < FILL_STALE_MS;
-    return { ...job, running };
-  } catch {
-    return null;
-  }
-}
+  const recipes = (await sql`SELECT * FROM nutrition_recipes`).map((r) => shapeRecipe(r as Record<string, unknown>));
+  if (recipes.length === 0) throw new Error("The meal bank is empty — add a few meals first.");
 
-export async function saveFillJob(job: FillJob) {
-  const sql = getDb();
-  await sql`
-    INSERT INTO app_settings (key, value, updated_at) VALUES (${FILL_JOB_KEY}, ${JSON.stringify(job)}, NOW())
-    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  const from = addDaysISO(cells[0].date, -21);
+  const to = addDaysISO(cells[cells.length - 1].date, 7);
+  const planned = await sql`
+    SELECT recipe_id, to_char(meal_date, 'YYYY-MM-DD') AS meal_date, slot FROM meal_recommendations
+    WHERE meal_date BETWEEN ${from} AND ${to}
   `;
+  const uses = new Map<number, number>();
+  const current = new Map<string, number | null>();
+  for (const p of planned) {
+    const id = num(p.recipe_id);
+    current.set(`${p.meal_date}:${p.slot}`, id);
+    if (id) uses.set(id, (uses.get(id) ?? 0) + 1);
+  }
+
+  const filled: PlannedMeal[] = [];
+  let skipped = 0;
+  for (const c of cells) {
+    const k = `${c.date}:${c.slot}`;
+    if (!overwrite && current.has(k)) {
+      skipped++;
+      continue;
+    }
+    // Entries tagged for this sitting, plus untagged ones ("any sitting").
+    let pool = recipes.filter((r) => r.slot === c.slot || !r.slot);
+    // A swap should land on something different when there's anything else.
+    const was = current.get(k);
+    if (was && pool.length > 1) pool = pool.filter((r) => r.id !== was);
+    if (pool.length === 0) {
+      skipped++;
+      continue;
+    }
+    const least = Math.min(...pool.map((r) => uses.get(r.id) ?? 0));
+    const choices = pool.filter((r) => (uses.get(r.id) ?? 0) === least);
+    const pick = choices[Math.floor(Math.random() * choices.length)];
+    filled.push(await setPlannedMeal({ date: c.date, slot: c.slot, name: "", recipe_id: pick.id }));
+    uses.set(pick.id, least + 1);
+    current.set(k, pick.id);
+  }
+  return { filled, skipped };
 }
 
-/** True when the cell already has a meal, so a background fill leaves hand-set cells alone. */
-export async function hasPlannedMeal(date: string, slot: string): Promise<boolean> {
+/** Finds a bank entry by name: exact (any case) first, then a partial match. */
+export async function findRecipeByName(name: string): Promise<Recipe | null> {
   const sql = getDb();
-  const [row] = await sql`SELECT 1 FROM meal_recommendations WHERE meal_date = ${date} AND slot = ${slot}`;
-  return !!row;
+  const needle = name.trim();
+  if (!needle) return null;
+  const [exact] = await sql`SELECT * FROM nutrition_recipes WHERE lower(name) = lower(${needle}) LIMIT 1`;
+  if (exact) return shapeRecipe(exact as Record<string, unknown>);
+  const [partial] = await sql`
+    SELECT * FROM nutrition_recipes WHERE name ILIKE ${"%" + needle + "%"} ORDER BY length(name) ASC LIMIT 1
+  `;
+  return partial ? shapeRecipe(partial as Record<string, unknown>) : null;
+}
+
+export async function listRecipes(): Promise<Recipe[]> {
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM nutrition_recipes ORDER BY name ASC`;
+  return rows.map((r) => shapeRecipe(r as Record<string, unknown>));
 }

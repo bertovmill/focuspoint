@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookmarkIcon,
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PencilIcon,
   PlusIcon,
-  ScrollTextIcon,
   RefreshCwIcon,
   ShoppingCartIcon,
-  SparklesIcon,
+  ShuffleIcon,
   TrashIcon,
   XIcon,
 } from "lucide-react";
@@ -21,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { MealLog } from "@/app/_components/meal-log";
-import { MealPromptEditor } from "@/app/_components/meal-prompt-editor";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
@@ -29,6 +28,7 @@ import {
   DEFAULT_PROTEIN_TARGET_G,
   MEAL_SLOTS,
   addDaysISO,
+  currentSlot,
   shortDayLabel,
   todayISO,
   weekDates,
@@ -38,13 +38,15 @@ import {
 import { cn } from "@/lib/utils";
 
 type Cells = Map<string, PlannedMeal>;
+type Logged = { id: number; name: string; slot: string | null; eaten_date: string; protein_g: number | string | null };
 const key = (date: string, slot: string) => `${date}:${slot}`;
-type FillStatus = { running: boolean; total: number; done: number; failed: number };
+const SLOT_ORDER: string[] = MEAL_SLOTS.map((s) => s.key);
 
 /**
- * /meals — the week: seven days by three sittings, the protein ring
- * for today, a Notion-style Notes page and the recipe library underneath, and
- * one button that turns the week's ingredients into the Groceries list. Cells are the same
+ * /meals — the week: seven days by three sittings, every one a meal from the
+ * bank (no generated dishes). Ticking a sitting logs it as eaten
+ * (nutrition_meals) and moves the protein ring. Under the grid: a Notion-style
+ * Notes page, the meal log, and the meal bank itself. Cells are the same
  * meal_recommendations rows the Today cards and the Tasks strip read.
  */
 export function WeekPlanPanel() {
@@ -57,7 +59,9 @@ export function WeekPlanPanel() {
   const [eaten, setEaten] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Set<string>>(new Set());
-  const [fill, setFill] = useState<{ done: number; total: number } | null>(null);
+  const [ate, setAte] = useState<Map<string, Logged>>(new Map());
+  const [logVersion, setLogVersion] = useState(0);
+  const [filling, setFilling] = useState(false);
   const [sendingGroceries, setSendingGroceries] = useState(false);
   const [picker, setPicker] = useState<{ date: string; slot: string } | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
@@ -73,14 +77,19 @@ export function WeekPlanPanel() {
 
   const load = useCallback(async () => {
     try {
-      const [p, r, t] = await Promise.all([
+      const [p, r, t, m] = await Promise.all([
         fetch(`/api/nutrition/plan?from=${days[0]}&to=${days[6]}`),
         fetch("/api/nutrition/recipes"),
         fetch("/api/nutrition/target"),
+        fetch(`/api/nutrition/meals?from=${days[0]}&to=${days[6]}`),
       ]);
       if (p.ok) {
         const rows = (await p.json()) as PlannedMeal[];
         setCells(new Map(rows.map((row) => [key(row.meal_date, row.slot), row])));
+      }
+      if (m.ok) {
+        const rows = (await m.json()) as Logged[];
+        setAte(new Map(rows.filter((l) => l.slot).map((l) => [key(l.eaten_date, l.slot!), l])));
       }
       if (r.ok) setRecipes(await r.json());
       if (t.ok) {
@@ -109,28 +118,94 @@ export function WeekPlanPanel() {
 
   // ── cell actions ──────────────────────────────────────────────────────
 
-  const suggest = useCallback(
-    async (date: string, slot: string, quiet = false) => {
-      const k = key(date, slot);
-      setBusyCell(k, true);
-      try {
-        const res = await fetch("/api/nutrition/plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, slot, with_image: date === today }),
-        });
-        if (!res.ok) throw new Error();
-        putCell((await res.json()) as PlannedMeal);
-        return true;
-      } catch {
-        if (!quiet) toast.error("Couldn't get a suggestion — the model may be busy.");
-        return false;
-      } finally {
-        setBusyCell(k, false);
-      }
-    },
-    [today],
-  );
+  /** Swaps a sitting for another bank meal — whichever has come up least lately. */
+  const rotate = async (date: string, slot: string) => {
+    const k = key(date, slot);
+    setBusyCell(k, true);
+    try {
+      const res = await fetch("/api/nutrition/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, slot }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
+      putCell(data as PlannedMeal);
+      await relog(data as PlannedMeal);
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Couldn't swap that.");
+    } finally {
+      setBusyCell(k, false);
+    }
+  };
+
+  // ── eaten ticks ───────────────────────────────────────────────────────
+  // A tick is a nutrition_meals row for that date and sitting, carrying the
+  // meal's protein so the ring counts it.
+
+  const shiftRing = (date: string, grams: number | string | null | undefined) => {
+    if (date === today) setEaten((e) => Math.max(0, e + (Number(grams) || 0)));
+  };
+
+  const logEaten = async (cell: PlannedMeal) => {
+    const k = key(cell.meal_date, cell.slot);
+    const res = await fetch("/api/nutrition/meals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: cell.name,
+        slot: cell.slot,
+        eaten_date: cell.meal_date,
+        protein_g: cell.protein_g,
+        kcal: cell.kcal,
+      }),
+    });
+    if (!res.ok) throw new Error();
+    const row = (await res.json()) as Logged;
+    setAte((prev) => new Map(prev).set(k, { ...row, eaten_date: cell.meal_date }));
+    shiftRing(cell.meal_date, cell.protein_g);
+    setLogVersion((v) => v + 1);
+  };
+
+  const unlogEaten = async (date: string, slot: string) => {
+    const k = key(date, slot);
+    const prev = ate.get(k);
+    if (!prev) return;
+    setAte((m) => {
+      const next = new Map(m);
+      next.delete(k);
+      return next;
+    });
+    shiftRing(date, -(Number(prev.protein_g) || 0));
+    const res = await fetch(`/api/nutrition/meals/${prev.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setAte((m) => new Map(m).set(k, prev));
+      shiftRing(date, prev.protein_g);
+      throw new Error();
+    }
+    setLogVersion((v) => v + 1);
+  };
+
+  const toggleEaten = async (date: string, slot: string) => {
+    const cell = cells.get(key(date, slot));
+    try {
+      if (ate.has(key(date, slot))) await unlogEaten(date, slot);
+      else if (cell) await logEaten(cell);
+    } catch {
+      toast.error("Couldn't save that.");
+    }
+  };
+
+  /** After a swap, an eaten sitting's log follows the new meal. */
+  const relog = async (cell: PlannedMeal) => {
+    if (!ate.has(key(cell.meal_date, cell.slot))) return;
+    try {
+      await unlogEaten(cell.meal_date, cell.slot);
+      await logEaten(cell);
+    } catch {
+      toast.error("Couldn't update the log.");
+    }
+  };
 
   const setCell = async (date: string, slot: string, body: Record<string, unknown>) => {
     const k = key(date, slot);
@@ -142,11 +217,12 @@ export function WeekPlanPanel() {
         body: JSON.stringify({ date, slot, ...body }),
       });
       if (!res.ok) throw new Error();
-      putCell((await res.json()) as PlannedMeal);
-      return true;
+      const row = (await res.json()) as PlannedMeal;
+      putCell(row);
+      return row;
     } catch {
       toast.error("Couldn't save that.");
-      return false;
+      return null;
     } finally {
       setBusyCell(k, false);
     }
@@ -154,6 +230,7 @@ export function WeekPlanPanel() {
 
   const clearCell = async (date: string, slot: string) => {
     const prev = cells.get(key(date, slot));
+    if (ate.has(key(date, slot))) await unlogEaten(date, slot).catch(() => {});
     dropCell(date, slot);
     try {
       const res = await fetch(`/api/nutrition/plan?date=${date}&slot=${slot}`, { method: "DELETE" });
@@ -189,69 +266,63 @@ export function WeekPlanPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date: cell.meal_date, slot: cell.slot, recipe_id: recipe.id }),
       }).catch(() => {});
-      toast.success(`${cell.name} saved to the library.`);
+      toast.success(`${cell.name} added to the meal bank.`);
     } catch {
-      toast.error("Couldn't save that recipe.");
+      toast.error("Couldn't add that to the bank.");
     }
   };
 
-  const onPickRecipe = async (recipe: Recipe) => {
-    if (!picker) return;
-    const t = picker;
-    setPicker(null);
-    await setCell(t.date, t.slot, { recipe_id: recipe.id });
-  };
-
-  const onCustom = async (meal: CustomMeal) => {
-    if (!picker) return;
-    const t = picker;
-    setPicker(null);
-    let recipe_id: number | null = null;
-    if (meal.save) {
-      try {
-        const res = await fetch("/api/nutrition/recipes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: meal.name,
-            slot: t.slot,
-            protein_g: meal.protein_g,
-            kcal: meal.kcal,
-            ingredients: meal.ingredients,
-          }),
-        });
-        if (res.ok) {
-          const recipe = (await res.json()) as Recipe;
-          recipe_id = recipe.id;
-          setRecipes((rs) => [...rs, recipe].sort((a, b) => a.name.localeCompare(b.name)));
-        }
-      } catch {
-        // fall through: the cell is still set, just unlinked
-      }
+  /** Sets the picked cell, then logs it as eaten when the picker says so. */
+  const placeAndLog = async (t: { date: string; slot: string }, body: Record<string, unknown>, eatIt: boolean) => {
+    const row = await setCell(t.date, t.slot, body);
+    if (!row) return;
+    try {
+      if (ate.has(key(t.date, t.slot))) {
+        await unlogEaten(t.date, t.slot);
+        if (eatIt) await logEaten(row);
+      } else if (eatIt) await logEaten(row);
+    } catch {
+      toast.error("Couldn't log that.");
     }
-    await setCell(t.date, t.slot, {
-      name: meal.name,
-      protein_g: meal.protein_g,
-      kcal: meal.kcal,
-      ingredients: meal.ingredients,
-      recipe_id,
-    });
   };
 
-  const onSuggestFromPicker = async () => {
+  const onPickRecipe = async (recipe: Recipe, eatIt: boolean) => {
     if (!picker) return;
     const t = picker;
-    const ok = await suggest(t.date, t.slot);
-    if (ok) setPicker(null);
+    setPicker(null);
+    await placeAndLog(t, { recipe_id: recipe.id }, eatIt);
+  };
+
+  // A meal that isn't in the bank yet goes into the bank first, so every
+  // planned sitting is a bank meal.
+  const onCustom = async (meal: CustomMeal, eatIt: boolean) => {
+    if (!picker) return;
+    const t = picker;
+    try {
+      const res = await fetch("/api/nutrition/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: meal.name,
+          slot: t.slot,
+          protein_g: meal.protein_g,
+          kcal: meal.kcal,
+          ingredients: meal.ingredients,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const recipe = (await res.json()) as Recipe;
+      setRecipes((rs) => [...rs, recipe].sort((a, b) => a.name.localeCompare(b.name)));
+      setPicker(null);
+      await placeAndLog(t, { recipe_id: recipe.id }, eatIt);
+    } catch {
+      toast.error("Couldn't add that to the bank.");
+    }
   };
 
   // ── week actions ──────────────────────────────────────────────────────
 
-  /**
-   * Every empty cell from today forward. The server fills them in the
-   * background (three at a time), so leaving the page doesn't stop it; the
-   * grid polls for progress while a run is going.
-   */
+  /** Every empty cell from today forward, filled by rotating through the bank. */
   const fillWeek = async () => {
     const targets = days
       .filter((d) => d >= today)
@@ -260,57 +331,30 @@ export function WeekPlanPanel() {
       toast.message("Nothing to fill — every cell from today on is planned.");
       return;
     }
+    setFilling(true);
     try {
       const res = await fetch("/api/nutrition/plan/fill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cells: targets, today }),
+        body: JSON.stringify({ cells: targets }),
       });
-      const job = (await res.json()) as FillStatus;
-      if (!res.ok && res.status !== 409) throw new Error();
-      setFill({ done: job.done, total: job.total });
-      toast.message("Planning the week in the background — you can leave this page.");
-    } catch {
-      toast.error("Couldn't start filling the week.");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
+      const { filled, skipped } = data as { filled: PlannedMeal[]; skipped: number };
+      setCells((prev) => {
+        const next = new Map(prev);
+        for (const row of filled) next.set(key(row.meal_date, row.slot), row);
+        return next;
+      });
+      toast.success(
+        `Filled ${filled.length} sitting${filled.length === 1 ? "" : "s"} from the bank${skipped ? ` (${skipped} had nothing tagged for that sitting)` : ""}.`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Couldn't fill the week.");
+    } finally {
+      setFilling(false);
     }
   };
-
-  const refreshPlan = useCallback(async () => {
-    const p = await fetch(`/api/nutrition/plan?from=${days[0]}&to=${days[6]}`).catch(() => null);
-    if (!p?.ok) return;
-    const rows = (await p.json()) as PlannedMeal[];
-    setCells(new Map(rows.map((row) => [key(row.meal_date, row.slot), row])));
-  }, [days]);
-
-  // Pick up a run that was started earlier (another visit, another device).
-  useEffect(() => {
-    fetch("/api/nutrition/plan/fill")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((job: FillStatus | null) => {
-        if (job?.running) setFill({ done: job.done, total: job.total });
-      })
-      .catch(() => {});
-  }, []);
-
-  // While a run is going, poll its progress and pull in the cells it has filled.
-  const filling = fill !== null;
-  useEffect(() => {
-    if (!filling) return;
-    const id = setInterval(async () => {
-      const job = (await fetch("/api/nutrition/plan/fill")
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)) as FillStatus | null;
-      await refreshPlan();
-      if (job?.running) {
-        setFill({ done: job.done, total: job.total });
-        return;
-      }
-      setFill(null);
-      if (job?.failed) toast.error(`${job.failed} cell${job.failed === 1 ? "" : "s"} didn't fill — try again.`);
-      else toast.success("Week planned.");
-    }, 3000);
-    return () => clearInterval(id);
-  }, [filling, refreshPlan]);
 
   const sendGroceries = async () => {
     setSendingGroceries(true);
@@ -366,7 +410,24 @@ export function WeekPlanPanel() {
       });
     } catch {
       setRecipes(prev);
-      toast.error("Couldn't delete that recipe.");
+      toast.error("Couldn't remove that from the bank.");
+    }
+  };
+
+  /** Moves a bank meal to another sitting (or "any"), which is what the fill rotates by. */
+  const retagRecipe = async (r: Recipe, slot: string | null) => {
+    const prev = recipes;
+    setRecipes((rs) => rs.map((x) => (x.id === r.id ? { ...x, slot } : x)));
+    try {
+      const res = await fetch(`/api/nutrition/recipes/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setRecipes(prev);
+      toast.error("Couldn't change that.");
     }
   };
 
@@ -481,7 +542,7 @@ export function WeekPlanPanel() {
           <p className="text-xs text-muted-foreground">
             {eaten >= target
               ? "Target cleared. Nice."
-              : `${Math.max(0, Math.round(target - eaten))} g to go. Tick a sitting on the Nutrition screen or the Tasks board to count it.`}
+              : `${Math.max(0, Math.round(target - eaten))} g to go. Tick a sitting below once you've eaten it.`}
           </p>
           {plannedToday && plannedToday.n > 0 && (
             <p className="text-xs tabular-nums text-muted-foreground">
@@ -496,18 +557,18 @@ export function WeekPlanPanel() {
             size="sm"
             variant="outline"
             className="h-8 gap-1 text-xs"
-            disabled={fill !== null || emptyAhead === 0}
+            disabled={filling || emptyAhead === 0 || recipes.length === 0}
             onClick={fillWeek}
-            title={emptyAhead === 0 ? "Every cell from today on is planned" : `Fill ${emptyAhead} empty cell${emptyAhead === 1 ? "" : "s"}`}
+            title={
+              recipes.length === 0
+                ? "Add meals to the bank first"
+                : emptyAhead === 0
+                  ? "Every cell from today on is planned"
+                  : `Fill ${emptyAhead} empty cell${emptyAhead === 1 ? "" : "s"} from the bank`
+            }
           >
-            {fill ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
-            {fill ? `Planning ${fill.done}/${fill.total}…` : "Fill week with Cael"}
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" asChild>
-            <a href="#meal-prompt" title="See and edit the prompt behind every suggestion">
-              <ScrollTextIcon className="size-3" />
-              Prompt
-            </a>
+            {filling ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
+            Fill week from bank
           </Button>
           <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={sendingGroceries} onClick={sendGroceries}>
             {sendingGroceries ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
@@ -545,8 +606,10 @@ export function WeekPlanPanel() {
                   busy={busy.has(key(d, slot.key))}
                   past={d < today}
                   today={d === today}
+                  eaten={ate.has(key(d, slot.key))}
                   onPick={() => setPicker({ date: d, slot: slot.key })}
-                  onSuggest={() => suggest(d, slot.key)}
+                  onRotate={() => rotate(d, slot.key)}
+                  onToggleEaten={() => toggleEaten(d, slot.key)}
                   onClear={() => clearCell(d, slot.key)}
                   onSave={saveToLibrary}
                 />
@@ -588,8 +651,10 @@ export function WeekPlanPanel() {
                       busy={busy.has(key(d, slot.key))}
                       past={d < today}
                       today={d === today}
+                      eaten={ate.has(key(d, slot.key))}
                       onPick={() => setPicker({ date: d, slot: slot.key })}
-                      onSuggest={() => suggest(d, slot.key)}
+                      onRotate={() => rotate(d, slot.key)}
+                      onToggleEaten={() => toggleEaten(d, slot.key)}
                       onClear={() => clearCell(d, slot.key)}
                       onSave={saveToLibrary}
                     />
@@ -617,19 +682,26 @@ export function WeekPlanPanel() {
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
 
-      <MealLog />
+      <MealLog version={logVersion} />
 
-      <MealPromptEditor days={days} today={today} />
-
-      <RecipeLibrary recipes={recipes} onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))} onDelete={deleteRecipe} />
+      <RecipeLibrary
+        recipes={recipes}
+        onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))}
+        onRetag={retagRecipe}
+        onDelete={deleteRecipe}
+      />
 
       <RecipePicker
         target={picker}
         recipes={recipes}
-        suggesting={!!picker && busy.has(key(picker.date, picker.slot))}
+        eatenDefault={
+          !!picker &&
+          (picker.date < today ||
+            (picker.date === today && SLOT_ORDER.indexOf(picker.slot) <= SLOT_ORDER.indexOf(currentSlot())) ||
+            ate.has(key(picker.date, picker.slot)))
+        }
         onClose={() => setPicker(null)}
         onPick={onPickRecipe}
-        onSuggest={onSuggestFromPicker}
         onCustom={onCustom}
       />
     </div>
@@ -641,8 +713,10 @@ function PlanCell({
   busy,
   past,
   today,
+  eaten,
   onPick,
-  onSuggest,
+  onRotate,
+  onToggleEaten,
   onClear,
   onSave,
 }: {
@@ -652,11 +726,14 @@ function PlanCell({
   busy: boolean;
   past: boolean;
   today: boolean;
+  eaten: boolean;
   onPick: () => void;
-  onSuggest: () => void;
+  onRotate: () => void;
+  onToggleEaten: () => void;
   onClear: () => void;
   onSave: (cell: PlannedMeal) => void;
 }) {
+  const loggable = past || today;
   if (!cell) {
     return (
       <div
@@ -674,19 +751,19 @@ function PlanCell({
               type="button"
               onClick={onPick}
               className="tap-target rounded-md p-1.5 text-muted-foreground hover:text-foreground"
-              aria-label="Pick a meal"
-              title="Pick from the library or type one in"
+              aria-label={loggable ? "Pick or log a meal" : "Pick a meal"}
+              title={loggable ? "Pick a bank meal (and log it as eaten)" : "Pick a meal from the bank"}
             >
               <PlusIcon className="size-3.5" />
             </button>
             <button
               type="button"
-              onClick={onSuggest}
+              onClick={onRotate}
               className="tap-target rounded-md p-1.5 text-muted-foreground hover:text-foreground"
-              aria-label="Ask Cael"
-              title="Ask Cael for an idea"
+              aria-label="Rotate one in"
+              title="Rotate in a bank meal you haven't had lately"
             >
-              <SparklesIcon className="size-3.5" />
+              <ShuffleIcon className="size-3.5" />
             </button>
           </>
         )}
@@ -697,8 +774,8 @@ function PlanCell({
     <div
       className={cn(
         "relative flex min-h-[76px] flex-col rounded-md border p-2",
-        today ? "border-foreground/30" : "border-border",
-        past && "opacity-60",
+        eaten ? "border-emerald-500/60 bg-emerald-500/5" : today ? "border-foreground/30" : "border-border",
+        past && !eaten && "opacity-60",
         busy && "opacity-50",
       )}
     >
@@ -717,22 +794,46 @@ function PlanCell({
         {cell.kcal !== null && ` · ${cell.kcal} kcal`}
       </p>
       <div className="relative -mx-1 -mb-1 mt-1 flex items-center gap-0.5">
-        <button type="button" onClick={onPick} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Swap" title="Swap for another">
+        {loggable && (
+          <button
+            type="button"
+            onClick={onToggleEaten}
+            className={cn(
+              "tap-target mr-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-[11px]",
+              eaten ? "text-emerald-600" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={eaten}
+            aria-label={eaten ? "Eaten — tap to un-log" : "Mark as eaten"}
+            title={eaten ? "Logged as eaten (tap to undo)" : "Ate it — log it and count the protein"}
+          >
+            <span
+              className={cn(
+                "flex size-3.5 items-center justify-center rounded border",
+                eaten ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/50",
+              )}
+            >
+              {eaten && <CheckIcon className="size-2.5" />}
+            </span>
+            {eaten ? "Ate" : null}
+          </button>
+        )}
+        <button type="button" onClick={onPick} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Swap" title="Swap for another bank meal">
           <RefreshCwIcon className="size-3" />
         </button>
-        <button type="button" onClick={onSuggest} disabled={busy} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Ask Cael" title="Ask Cael for a different one">
-          {busy ? <Spinner className="size-3" /> : <SparklesIcon className="size-3" />}
+        <button type="button" onClick={onRotate} disabled={busy} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Rotate" title="Rotate in a different bank meal">
+          {busy ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
         </button>
-        <button
-          type="button"
-          onClick={() => !cell.recipe_id && onSave(cell)}
-          disabled={!!cell.recipe_id}
-          className={cn("tap-target rounded p-1", cell.recipe_id ? "text-emerald-600" : "text-muted-foreground hover:text-foreground")}
-          aria-label={cell.recipe_id ? "In the library" : "Save to library"}
-          title={cell.recipe_id ? "In the recipe library" : "Save to the recipe library"}
-        >
-          <BookmarkIcon className={cn("size-3", cell.recipe_id && "fill-current")} />
-        </button>
+        {!cell.recipe_id && (
+          <button
+            type="button"
+            onClick={() => onSave(cell)}
+            className="tap-target rounded p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Add to the meal bank"
+            title="Not in the bank — add it"
+          >
+            <BookmarkIcon className="size-3" />
+          </button>
+        )}
         <button type="button" onClick={onClear} className="tap-target ml-auto rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Clear" title="Clear this cell">
           <XIcon className="size-3" />
         </button>
@@ -759,10 +860,12 @@ function DayTotal({ total, target, past }: { total?: { protein: number; kcal: nu
 function RecipeLibrary({
   recipes,
   onAdd,
+  onRetag,
   onDelete,
 }: {
   recipes: Recipe[];
   onAdd: (r: Recipe) => void;
+  onRetag: (r: Recipe, slot: string | null) => void;
   onDelete: (r: Recipe) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -791,26 +894,26 @@ function RecipeLibrary({
       setIngredients("");
       setOpen(false);
     } catch {
-      toast.error("Couldn't save that recipe.");
+      toast.error("Couldn't add that meal.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <section>
+    <section id="meal-bank" className="scroll-mt-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold">Recipe library</h2>
+          <h2 className="text-sm font-semibold">Meal bank</h2>
           <p className="text-xs text-muted-foreground">
             {recipes.length === 0
-              ? "Meals you can drop into any cell. Bookmark a suggestion above, or add one here."
-              : `${recipes.length} saved · pick any into a cell with +`}
+              ? "Every planned meal comes from here. Add the meals you eat on repeat."
+              : `${recipes.length} meal${recipes.length === 1 ? "" : "s"} · pick any into a cell with +, or fill the week from them`}
           </p>
         </div>
         <Button size="sm" variant={open ? "default" : "outline"} className="h-7 gap-1 text-xs" onClick={() => setOpen((v) => !v)}>
           <PlusIcon className="size-3" />
-          Add recipe
+          Add meal
         </Button>
       </div>
 
@@ -842,7 +945,7 @@ function RecipeLibrary({
               Cancel
             </Button>
             <Button type="submit" size="sm" className="h-8 text-xs" disabled={saving || !name.trim()}>
-              {saving ? <Spinner className="size-3" /> : "Save recipe"}
+              {saving ? <Spinner className="size-3" /> : "Add to bank"}
             </Button>
           </div>
         </form>
@@ -854,8 +957,22 @@ function RecipeLibrary({
             <div key={r.id} className="flex items-start gap-2 rounded-md border px-2.5 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{r.name}</p>
-                <p className="text-xs tabular-nums text-muted-foreground">
-                  {r.slot && <span className="uppercase tracking-wide">{r.slot} · </span>}
+                <p className="flex flex-wrap items-center gap-x-1 text-xs tabular-nums text-muted-foreground">
+                  <select
+                    className="-ml-0.5 rounded bg-transparent py-0.5 text-xs uppercase tracking-wide hover:bg-muted"
+                    value={r.slot ?? ""}
+                    onChange={(e) => onRetag(r, e.target.value || null)}
+                    aria-label={`Sitting for ${r.name}`}
+                    title="Which sitting the fill puts this in"
+                  >
+                    {MEAL_SLOTS.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                    <option value="">Any</option>
+                  </select>
+                  <span>·</span>
                   {r.protein_g !== null ? `${r.protein_g} g protein` : "protein ?"}
                   {r.kcal !== null && ` · ${r.kcal} kcal`}
                 </p>

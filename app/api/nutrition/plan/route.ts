@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import { ensureTodaysMeals, suggestMeal } from "@/lib/meal-suggest";
-import { MEAL_SLOT_KEYS, type MealSlot } from "@/lib/nutrition";
-import { clearPlannedMeal, getPlanRange, setPlannedMeal } from "@/lib/nutrition-plan";
-
-// Generating a dish plus its photo takes a while — well inside Vercel's 300s
-// default, but past the Next.js dev default.
-export const maxDuration = 120;
+import { MEAL_SLOTS, MEAL_SLOT_KEYS } from "@/lib/nutrition";
+import { clearPlannedMeal, fillFromBank, getPlanRange, setPlannedMeal } from "@/lib/nutrition-plan";
 
 function localToday() {
   const d = new Date();
@@ -33,28 +28,26 @@ export async function GET(req: Request) {
   }
 }
 
-// POST {}                         fills whatever today is missing (with photos)
-// POST { slot, date?, with_image? } asks Cael for that one sitting. Photos default
-//                                 on for today and off for any other day.
+// POST {}                  fills whatever the day (default today) is missing from the meal bank
+// POST { slot, date? }      swaps that one sitting for a different bank meal
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const slot = body?.slot as string | undefined;
-    const date = body?.date as string | undefined;
-    if (date && !ISO.test(date)) return NextResponse.json({ error: "Bad date" }, { status: 400 });
-    const opts = typeof body?.with_image === "boolean" ? { withImage: body.with_image } : {};
+    const date = (body?.date as string | undefined) ?? localToday();
+    if (!ISO.test(date)) return NextResponse.json({ error: "Bad date" }, { status: 400 });
     if (slot) {
       if (!MEAL_SLOT_KEYS.includes(slot)) {
         return NextResponse.json({ error: "Unknown slot" }, { status: 400 });
       }
-      const row = await suggestMeal(slot as MealSlot, date, opts);
-      return NextResponse.json(row);
+      const { filled } = await fillFromBank([{ date, slot }], { overwrite: true });
+      if (!filled[0]) return NextResponse.json({ error: "Nothing in the meal bank for that sitting" }, { status: 400 });
+      return NextResponse.json(filled[0]);
     }
-    const result = await ensureTodaysMeals(date, opts);
-    return NextResponse.json(result);
+    const result = await fillFromBank(MEAL_SLOTS.map((s) => ({ date, slot: s.key })));
+    return NextResponse.json({ date, filled: result.filled.map((r) => r.slot), skipped: result.skipped });
   } catch (err) {
-    console.error("[api/nutrition/plan]", err);
-    return NextResponse.json({ error: "Couldn't suggest a meal", detail: String(err) }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
   }
 }
 

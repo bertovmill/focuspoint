@@ -1,43 +1,39 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { generateMealImage } from "../../lib/nutrition-art";
-import { setPlannedMeal } from "../../lib/nutrition-plan";
+import { fillFromBank, findRecipeByName, listRecipes, setPlannedMeal } from "../../lib/nutrition-plan";
 
 export default defineTool({
   description:
-    "Set one sitting (lunch, snack, or dinner) on Berto's meal plan — today by default, or any date for the week grid at /nutrition/plan. Saves the dish with its protein and calorie estimate and a shopping list of ingredients, and generates a photo for today's sittings. The app already fills today's three in automatically each morning — use this when Berto asks for a specific dish, wants one changed, or asks you to plan ahead. Call `list_meal_history` first to review recent picks and feedback. Re-calling for the same date and slot overwrites that cell.",
+    "Put a meal from Berto's meal bank on one sitting (lunch, snack, or dinner) of his plan at /meals — today by default, or any date. Every planned meal comes from the bank; never invent a dish. Pass `meal` with the bank entry's name to choose it, or leave it out to rotate in whichever bank meal for that sitting he's had least lately. If the name isn't in the bank the call fails and lists what is — ask Berto to add a new meal to the bank on /meals rather than making one up. Re-calling for the same date and slot overwrites that cell.",
   inputSchema: z.object({
     slot: z
       .enum(["lunch", "snack", "dinner"])
       .describe("Which sitting this is for. Berto eats one lunch, one snack and one dinner a day."),
     date: z.string().optional().describe("ISO date, e.g. '2026-09-28'. Defaults to today."),
-    name: z.string().min(1).describe("Short dish name, e.g. 'Lentil and sweet potato bowl'"),
-    description: z
-      .string()
-      .min(1)
-      .describe("1-2 sentence description of the dish — what it is and why it fits"),
-    cuisine: z.string().min(1).describe("Cuisine, e.g. 'Mediterranean'"),
-    protein_g: z.number().describe("Estimated grams of protein in one serving"),
-    kcal: z.number().int().describe("Estimated calories in one serving"),
-    ingredients: z.array(z.string()).describe("Shopping-list ingredients, one per entry with a rough amount"),
-    image_prompt: z
-      .string()
-      .optional()
-      .describe(
-        "Vivid visual description of the plated dish for photorealistic food photography. Only used for today's sittings; skip it for future days.",
-      ),
+    meal: z.string().optional().describe("Name of a meal in the bank, e.g. 'Rigatoni with Beef & Navy Bean Ragù'. Omit to rotate one in."),
   }),
-  async execute({ slot, date, name, description, cuisine, protein_g, kcal, ingredients, image_prompt }) {
+  async execute({ slot, date, meal }) {
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const day = date ?? today;
-    const image_url = day === today && image_prompt ? await generateMealImage(image_prompt, slot) : null;
-    return setPlannedMeal({ date: day, slot, name, description, cuisine, protein_g, kcal, ingredients, image_url });
+    if (!meal) {
+      const { filled } = await fillFromBank([{ date: day, slot }], { overwrite: true });
+      if (!filled[0]) throw new Error(`Nothing in the meal bank for ${slot}.`);
+      return filled[0];
+    }
+    const recipe = await findRecipeByName(meal);
+    if (!recipe) {
+      const bank = await listRecipes();
+      throw new Error(
+        `"${meal}" isn't in the meal bank. Bank: ${bank.map((r) => `${r.name}${r.slot ? ` (${r.slot})` : ""}`).join("; ") || "empty"}.`,
+      );
+    }
+    return setPlannedMeal({ date: day, slot, name: "", recipe_id: recipe.id });
   },
   toModelOutput(output) {
     return {
       type: "text",
-      value: `${output.meal_date} ${output.slot} set: "${output.name}" (${output.cuisine ?? "—"}, ${output.protein_g ?? "?"} g protein, ${output.kcal ?? "?"} kcal).`,
+      value: `${output.meal_date} ${output.slot} set: "${output.name}" (${output.protein_g ?? "?"} g protein, ${output.kcal ?? "?"} kcal).`,
     };
   },
 });

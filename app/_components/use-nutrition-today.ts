@@ -31,7 +31,7 @@ export interface LoggedMeal {
 /**
  * Today's nutrition state, shared by the full block on the Nutrition screen and
  * the compact strip pinned to the Tasks board: which protocol rules are ticked,
- * what Cael suggested for each sitting, and which sittings have actually been
+ * what is planned for each sitting, and which sittings have actually been
  * eaten. Both views act on the same rows, so whichever one you're looking at is
  * the one you can tick things off in.
  */
@@ -153,7 +153,7 @@ export function useNutritionToday() {
     [plan],
   );
 
-  /** Asks for a fresh suggestion. `slot` omitted fills in whatever's missing. */
+  /** Rotates a bank meal into `slot`; with no slot, fills whatever today is missing. */
   const suggest = useCallback(
     async (slot?: MealSlot) => {
       setBusySlot(slot ?? "all");
@@ -163,11 +163,11 @@ export function useNutritionToday() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(slot ? { slot } : {}),
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error((await res.json().catch(() => null))?.error);
         const fresh = await fetch("/api/nutrition/plan");
         if (fresh.ok) setPlan(await fresh.json());
-      } catch {
-        toast.error("Couldn't get a suggestion — the model may be busy.");
+      } catch (err) {
+        toast.error(err instanceof Error && err.message ? err.message : "Couldn't pick from the bank.");
       } finally {
         setBusySlot(null);
       }

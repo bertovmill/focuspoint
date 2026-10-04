@@ -9588,3 +9588,30 @@ a workout already done that week isn't re-added. `POST /api/training/sessions/fi
 Ran it for Oct 5–11: Stations · Lower · Yoga · Intervals · Upper · Sim · 20K.
 (Tested via a direct script: another session's uncommitted nutrition edits —
 missing meal-prompt-editor — were breaking the local page build.)
+
+## 2026-10-04 — Meals: bank only, tick to log
+
+Berto: no AI-generated meals — every planned sitting comes from the meal bank,
+and logging should be easier.
+
+- **No generation.** Removed `lib/meal-suggest.ts`, `lib/meal-prompt.ts`, the
+  Prompt editor (`meal-prompt-editor.tsx`, `/api/meals/prompt*`), the background
+  fill job and `generateMealImage`. `fillFromBank()` (lib/nutrition-plan.ts)
+  rotates bank meals into cells: tagged for that sitting or untagged ("any"),
+  least-planned over the last three weeks first, ties random; a swap avoids the
+  current pick. Used by "Fill week from bank", the shuffle button on a cell,
+  `POST /api/nutrition/plan` (Nutrition screen) and `/api/nutrition/plan/fill`
+  (now synchronous).
+- **Tick to log.** Cells for today and past days have an "Ate" checkbox: a
+  `nutrition_meals` row for that date + sitting with the meal's protein, so the
+  ring moves on /meals. `GET /api/nutrition/meals?from=&to=` feeds the ticks.
+  Picking for today/past has an "Ate it" toggle (on for past days and sittings up
+  to now) so pick + log is one step; swapping an eaten cell re-logs it.
+- **New meals go into the bank first** ("Add to bank & use" in the picker). The
+  Meal log section is history + thumbs/notes only (its free-text form is gone).
+  "Recipe library" → **Meal bank** (`/meals#meal-bank`), with a sitting dropdown
+  per meal.
+- **Cael:** `set_daily_meal` now takes `meal` (a bank name) or rotates one in;
+  unknown names fail with the bank listed. Instructions updated.
+- Seeded the bank with Berto's four: whole-wheat beef pasta (dinner), chicken &
+  rice (dinner), chicken burritos (lunch), eggs/toast/fruit (lunch). No snack yet.

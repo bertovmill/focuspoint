@@ -19,6 +19,12 @@ export type DailyHabit = {
   name: string;
   minutes: number;
   window: HabitWindow;
+  /**
+   * Why it matters, in Berto's own words only — never generated (his call,
+   * 2026-10-04). Indented sub-bullets under the habit line; failing that, the
+   * lines of a matching "On …" section ("Nap" → "On napping"). Empty if neither.
+   */
+  why: string[];
 };
 
 export type Busy = { start: number; end: number };
@@ -126,6 +132,7 @@ export function parseHabitLine(raw: string): DailyHabit | null {
 
   return {
     key: slugify(name),
+    why: [],
     name,
     minutes: parseDuration(text) ?? DEFAULT_MINUTES,
     window: parseWindow(text) ?? ANYTIME,
@@ -144,16 +151,59 @@ export function parseDailyHabits(markdown: string): DailyHabit[] | null {
 
   const habits: DailyHabit[] = [];
   const seen = new Set<string>();
+  let last: DailyHabit | null = null;
   for (const line of lines.slice(startIdx + 1)) {
     if (/^#{1,6}\s/.test(line.trim())) break;
     if (!/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) continue;
+    // Indented under a habit = that habit's "why", not a habit of its own.
+    if (/^\s+/.test(line)) {
+      const text = cleanLine(line);
+      if (last && text) last.why.push(text);
+      continue;
+    }
     const habit = parseHabitLine(line);
+    last = null;
     if (habit && !seen.has(habit.key)) {
       seen.add(habit.key);
       habits.push(habit);
+      last = habit;
     }
   }
+  for (const habit of habits) {
+    if (habit.why.length === 0) habit.why = matchingSection(lines, habit.name);
+  }
   return habits;
+}
+
+function cleanLine(raw: string): string {
+  return raw
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+    .replace(/^\[[ xX]\]\s*/, "")
+    .replace(/\\([^\w\s])/g, "$1")
+    .trim();
+}
+
+/**
+ * The lines of an "On <word>" section whose word shares the habit name's stem —
+ * "Nap" → "On napping", "Meditate" → "On meditation". Prefix match on the first
+ * word minus a trailing "e", at least three letters, so short names can't match
+ * everything.
+ */
+function matchingSection(lines: string[], name: string): string[] {
+  const stem = name.toLowerCase().split(/\s+/)[0].replace(/e$/, "");
+  if (stem.length < 3) return [];
+  const idx = lines.findIndex((l) => {
+    const m = l.trim().match(/^#{1,6}\s+on\s+(\w+)/i);
+    return Boolean(m && m[1].toLowerCase().startsWith(stem));
+  });
+  if (idx === -1) return [];
+  const out: string[] = [];
+  for (const line of lines.slice(idx + 1)) {
+    if (/^#{1,6}\s/.test(line.trim())) break;
+    const text = cleanLine(line);
+    if (text) out.push(text);
+  }
+  return out;
 }
 
 function merge(busy: Busy[]): Busy[] {

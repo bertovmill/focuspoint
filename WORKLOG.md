@@ -9424,3 +9424,17 @@ of ticks.
 
 **No push device is subscribed yet** (`push_subscriptions` empty) — he needs to
 open Cael from the home-screen app on his phone and turn on the bell in chat.
+
+## 2026-10-04 — Today's plan: info button with "why", in his own words
+
+Asked for an info button per habit. Picked: "why it matters, but in my
+verbiage" — so nothing is generated.
+
+- `lib/day-plan.ts`: `DailyHabit.why: string[]` — indented sub-bullets under the
+  habit line in "On habits" (not habits themselves any more); failing that, the
+  lines of an "On <word>" section sharing the name's stem ("Nap" → "On napping",
+  stem = first word minus trailing "e", ≥3 letters).
+- `day-plan-card.tsx`: ⓘ per habit toggles a muted note under the row with those
+  lines; when there are none it says to add an indented bullet in Principles.
+
+Today: Nap shows his On napping line; Meditate/Read/Workout have no why yet.

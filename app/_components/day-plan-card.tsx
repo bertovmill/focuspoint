@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarIcon, CheckIcon, ChevronRightIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  InfoIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +38,8 @@ type Row =
 export function DayPlanCard() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [failed, setFailed] = useState(false);
+  /** The habit whose "why" is open — one at a time. */
+  const [openWhy, setOpenWhy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,7 +74,15 @@ export function DayPlanCard() {
   const toggle = async (h: Habit) => {
     if (h.auto) return;
     const prev = plan;
-    setPlan((p) => p && { ...p, habits: p.habits.map((x) => (x.key === h.key ? { ...x, done: !h.done } : x)) });
+    setPlan(
+      (p) =>
+        p && {
+          ...p,
+          habits: p.habits.map((x) =>
+            x.key === h.key ? { ...x, done: !h.done } : x,
+          ),
+        },
+    );
     try {
       const res = await fetch("/api/day-plan", {
         method: "PATCH",
@@ -84,7 +99,9 @@ export function DayPlanCard() {
   const rows: Row[] = plan
     ? [
         ...plan.habits.flatMap((h): Row[] =>
-          h.start === null || h.end === null ? [] : [{ kind: "habit", start: h.start, end: h.end, habit: h }],
+          h.start === null || h.end === null
+            ? []
+            : [{ kind: "habit", start: h.start, end: h.end, habit: h }],
         ),
         ...plan.events.map((e): Row => ({ kind: "event", ...e })),
       ].sort((a, b) => a.start - b.start || (a.kind === "event" ? -1 : 1))
@@ -127,7 +144,9 @@ export function DayPlanCard() {
       </div>
       <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
         {failed ? (
-          <p className="text-sm text-muted-foreground">Couldn&apos;t build today&apos;s plan.</p>
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t build today&apos;s plan.
+          </p>
         ) : !plan ? (
           <div className="space-y-2">
             <Skeleton className="h-6 w-2/3" />
@@ -137,49 +156,98 @@ export function DayPlanCard() {
         ) : (
           <div className="space-y-1">
             {rows.length === 0 && unplaced.length === 0 && (
-              <p className="text-sm text-muted-foreground">No daily habits yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No daily habits yet.
+              </p>
             )}
             {rows.map((r) => {
               const current = plan.now >= r.start && plan.now < r.end;
               return r.kind === "event" ? (
-                <div key={`e-${r.start}-${r.title}`} className="flex items-center gap-3 py-1 text-muted-foreground">
-                  <span className="w-14 shrink-0 text-right text-xs tabular-nums">{formatTime(r.start)}</span>
+                <div
+                  key={`e-${r.start}-${r.title}`}
+                  className="flex items-center gap-3 py-1 text-muted-foreground"
+                >
+                  <span className="w-14 shrink-0 text-right text-xs tabular-nums">
+                    {formatTime(r.start)}
+                  </span>
                   <span className="flex size-7 shrink-0 items-center justify-center">
                     <CalendarIcon className="size-3.5" />
                   </span>
-                  <span className={cn("min-w-0 flex-1 truncate text-sm", current && "text-foreground")}>{r.title}</span>
-                  <span className="shrink-0 text-xs tabular-nums">{formatTime(r.end)}</span>
-                </div>
-              ) : (
-                <div
-                  key={`h-${r.habit.key}`}
-                  className={cn("-mx-2 flex items-center gap-3 rounded-md px-2 py-1", current && !r.habit.done && "bg-muted/60")}
-                >
-                  <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums">{formatTime(r.start)}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggle(r.habit)}
-                    disabled={r.habit.auto}
-                    aria-label={r.habit.done ? `Mark ${r.habit.name} not done` : `Mark ${r.habit.name} done`}
-                    title={r.habit.auto ? "Ticked from what you logged today" : undefined}
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-md border-2",
-                      r.habit.done
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-muted-foreground/40 hover:border-foreground",
-                    )}
-                  >
-                    {r.habit.done && <CheckIcon className="size-4" />}
-                  </button>
                   <span
                     className={cn(
-                      "min-w-0 flex-1 truncate text-sm font-medium",
-                      r.habit.done && "text-muted-foreground line-through",
+                      "min-w-0 flex-1 truncate text-sm",
+                      current && "text-foreground",
                     )}
                   >
-                    {r.habit.name}
+                    {r.title}
                   </span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{r.habit.minutes} min</span>
+                  <span className="shrink-0 text-xs tabular-nums">
+                    {formatTime(r.end)}
+                  </span>
+                </div>
+              ) : (
+                <div key={`h-${r.habit.key}`}>
+                  <div
+                    className={cn(
+                      "-mx-2 flex items-center gap-3 rounded-md px-2 py-1",
+                      current && !r.habit.done && "bg-muted/60",
+                    )}
+                  >
+                    <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums">
+                      {formatTime(r.start)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(r.habit)}
+                      disabled={r.habit.auto}
+                      aria-label={
+                        r.habit.done
+                          ? `Mark ${r.habit.name} not done`
+                          : `Mark ${r.habit.name} done`
+                      }
+                      title={
+                        r.habit.auto
+                          ? "Ticked from what you logged today"
+                          : undefined
+                      }
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-md border-2",
+                        r.habit.done
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-muted-foreground/40 hover:border-foreground",
+                      )}
+                    >
+                      {r.habit.done && <CheckIcon className="size-4" />}
+                    </button>
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-sm font-medium",
+                        r.habit.done && "text-muted-foreground line-through",
+                      )}
+                    >
+                      {r.habit.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenWhy((k) =>
+                          k === r.habit.key ? null : r.habit.key,
+                        )
+                      }
+                      aria-expanded={openWhy === r.habit.key}
+                      aria-label={`Why ${r.habit.name} matters`}
+                      className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground",
+                        openWhy === r.habit.key && "text-foreground",
+                      )}
+                    >
+                      <InfoIcon className="size-4" />
+                    </button>
+                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {r.habit.minutes} min
+                    </span>
+                  </div>
+                  {openWhy === r.habit.key && <WhyNote habit={r.habit} />}
                 </div>
               );
             })}
@@ -192,20 +260,52 @@ export function DayPlanCard() {
               <p className="pt-2 text-xs text-muted-foreground">
                 {plan.source === "defaults" && (
                   <>
-                    Default habits. Add a <span className="font-medium">Daily habits</span> list to{" "}
-                    <a href="#principles" className="underline underline-offset-2">
+                    Default habits. Add a{" "}
+                    <span className="font-medium">Daily habits</span> list to{" "}
+                    <a
+                      href="#principles"
+                      className="underline underline-offset-2"
+                    >
                       Principles
                     </a>{" "}
                     to set your own.{" "}
                   </>
                 )}
-                {plan.calendar === "not_connected" && "Calendar isn't connected, so meetings aren't accounted for."}
-                {plan.calendar === "error" && "Couldn't read the calendar, so meetings aren't accounted for."}
+                {plan.calendar === "not_connected" &&
+                  "Calendar isn't connected, so meetings aren't accounted for."}
+                {plan.calendar === "error" &&
+                  "Couldn't read the calendar, so meetings aren't accounted for."}
               </p>
             )}
           </div>
         )}
       </Card>
     </section>
+  );
+}
+
+/**
+ * Why a habit matters — only ever his own words from Principles (sub-bullets
+ * under the habit, or the matching "On …" section). Never generated.
+ */
+function WhyNote({ habit }: { habit: Habit }) {
+  return (
+    <div className="mb-2 ml-[6.25rem] mt-1 rounded-md bg-muted/60 px-3 py-2 text-sm leading-relaxed">
+      {habit.why.length > 0 ? (
+        <ul className="space-y-1">
+          {habit.why.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          No why yet. Add an indented bullet under {habit.name} in{" "}
+          <a href="#principles" className="underline underline-offset-2">
+            Principles
+          </a>
+          , in your own words.
+        </p>
+      )}
+    </div>
   );
 }

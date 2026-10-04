@@ -50,7 +50,7 @@ import save_dream from "@/agent/tools/save_dream";
 import search_memory from "@/agent/tools/search_memory";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
 import set_training_session from "@/agent/tools/set_training_session";
-import sync_strava from "@/agent/tools/sync_strava";
+import sync_workouts from "@/agent/tools/sync_workouts";
 import training_plan_doc from "@/agent/tools/training_plan_doc";
 import set_focus from "@/agent/tools/set_focus";
 import sync_luma from "@/agent/tools/sync_luma";
@@ -115,7 +115,7 @@ export const agentTools = {
   search_memory,
   set_daily_meal,
   set_training_session,
-  sync_strava,
+  sync_workouts,
   training_plan_doc,
   set_focus,
   sync_luma,

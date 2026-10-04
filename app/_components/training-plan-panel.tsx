@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ActivityIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -24,21 +23,19 @@ import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { WorkoutLog } from "@/app/_components/workout-log";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
 import { templateForSession, workoutHref } from "@/lib/workout-templates";
-import type { StravaActivity } from "@/lib/strava";
-import { daysUntil, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import { daysUntil, formatPace, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
-interface StravaStatus {
-  configured: boolean;
+interface SyncStatus {
   connected: boolean;
   last_synced_at: string | null;
 }
 
 /**
- * /training — the week of sessions building toward the races, with Strava
- * marking them done. Sessions are the plan; the Strava strip under each day is
- * what actually happened, matched or not.
+ * /training — the week of sessions building toward the races, with Fitbit
+ * workouts marking them done. Sessions are the plan; the workout strip under each
+ * day is training that happened but matched nothing (walks and bike rides hidden).
  */
 export function TrainingPlanPanel() {
   // /training/workouts/<template>/<date> opens one structured session in place of the week.
@@ -68,9 +65,9 @@ function TrainingWeek() {
   }, []);
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
-  const [activities, setActivities] = useState<StravaActivity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
-  const [strava, setStrava] = useState<StravaStatus>({ configured: false, connected: false, last_synced_at: null });
+  const [watch, setWatch] = useState<SyncStatus>({ connected: false, last_synced_at: null });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [editingEvent, setEditingEvent] = useState<number | "new" | null>(null);
@@ -80,15 +77,15 @@ function TrainingWeek() {
       const [s, e, st] = await Promise.all([
         fetch(`/api/training/sessions?from=${days[0]}&to=${days[6]}`),
         fetch("/api/training/events"),
-        fetch("/api/strava/status"),
+        fetch("/api/training/sync"),
       ]);
       if (s.ok) {
-        const data = (await s.json()) as { sessions: TrainingSession[]; activities: StravaActivity[] };
+        const data = (await s.json()) as { sessions: TrainingSession[]; activities: Activity[] };
         setSessions(data.sessions);
-        setActivities(data.activities);
+        setActivities(data.activities.filter(isTraining));
       }
       if (e.ok) setEvents(await e.json());
-      if (st.ok) setStrava(await st.json());
+      if (st.ok) setWatch(await st.json());
     } catch {
       // leave what's on screen
     } finally {
@@ -100,24 +97,14 @@ function TrainingWeek() {
     load();
   }, [load]);
 
-  // Back from the Strava grant. Read from the URL directly rather than
-  // useSearchParams, which would force a Suspense boundary on the whole shell.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const s = params.get("strava");
-    if (s === "connected") toast.success("Strava connected — activities will mark sessions done.");
-    else if (s === "error") toast.error(`Strava didn't connect (${params.get("reason") ?? "unknown"}).`);
-    if (s) window.history.replaceState(null, "", "/training");
-  }, []);
-
   const sync = useCallback(
     async (quiet = false) => {
       setSyncing(true);
       try {
-        const res = await fetch("/api/strava/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: 14 }) });
+        const res = await fetch("/api/training/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ days: 14 }) });
         if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Sync failed");
         const r = (await res.json()) as { connected: boolean; fetched: number; matched: number };
-        if (!quiet) toast.success(r.connected ? `${r.fetched} activities · ${r.matched} session${r.matched === 1 ? "" : "s"} marked done` : "Strava isn't connected.");
+        if (!quiet) toast.success(r.connected ? `${r.fetched} workouts · ${r.matched} session${r.matched === 1 ? "" : "s"} marked done` : "Your watch isn't connected.");
         await load();
       } catch (err) {
         if (!quiet) toast.error(err instanceof Error ? err.message : "Sync failed");
@@ -130,11 +117,11 @@ function TrainingWeek() {
 
   // A quiet sync on open when the cache is over half an hour old.
   useEffect(() => {
-    if (loading || !strava.connected) return;
-    const age = strava.last_synced_at ? Date.now() - new Date(strava.last_synced_at).getTime() : Infinity;
+    if (loading || !watch.connected) return;
+    const age = watch.last_synced_at ? Date.now() - new Date(watch.last_synced_at).getTime() : Infinity;
     if (age > 30 * 60 * 1000) sync(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, strava.connected]);
+  }, [loading, watch.connected]);
 
   // ── session actions ───────────────────────────────────────────────────
 
@@ -195,22 +182,22 @@ function TrainingWeek() {
     return m;
   }, [sessions]);
   const activitiesByDay = useMemo(() => {
-    const m = new Map<string, StravaActivity[]>();
+    const m = new Map<string, Activity[]>();
     for (const a of activities) {
       const d = a.start_local.slice(0, 10);
       m.set(d, [...(m.get(d) ?? []), a]);
     }
     return m;
   }, [activities]);
-  const linked = useMemo(() => new Set(sessions.map((s) => s.strava_activity_id).filter(Boolean) as number[]), [sessions]);
+  const linked = useMemo(() => new Set(sessions.map((s) => s.activity_id).filter(Boolean) as string[]), [sessions]);
 
   const week = useMemo(() => {
     const real = sessions.filter((s) => s.type !== "rest");
     const done = real.filter((s) => s.done);
     const plannedKm = real.reduce((n, s) => n + (s.target_km ?? 0), 0);
-    const doneKm = activities.filter((a) => a.sport_type !== "Walk").reduce((n, a) => n + a.distance_m / 1000, 0);
-    const effort = activities.reduce((n, a) => n + (a.relative_effort ?? 0), 0);
-    const minutes = activities.filter((a) => a.sport_type !== "Walk").reduce((n, a) => n + a.moving_time_s / 60, 0);
+    const doneKm = activities.reduce((n, a) => n + a.distance_m / 1000, 0);
+    const effort = activities.reduce((n, a) => n + (a.azm ?? 0), 0);
+    const minutes = activities.reduce((n, a) => n + a.moving_time_s / 60, 0);
     return { planned: real.length, done: done.length, plannedKm, doneKm, effort, minutes };
   }, [sessions, activities]);
 
@@ -323,18 +310,12 @@ function TrainingWeek() {
           {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
         <div className="flex flex-wrap gap-2 sm:ml-auto">
-          {strava.connected ? (
-            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={strava.last_synced_at ? `Last synced ${new Date(strava.last_synced_at).toLocaleString()}` : undefined}>
+          {watch.connected && (
+            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={watch.last_synced_at ? `Workouts last synced ${new Date(watch.last_synced_at).toLocaleString()}` : undefined}>
               {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}
-              Sync
+              Sync Fitbit
             </Button>
-          ) : strava.configured ? (
-            <Button className="h-11 gap-2 bg-[#fc4c02] px-4 text-base text-white hover:bg-[#fc4c02]/90" asChild>
-              <a href="/api/strava/connect">
-                <ActivityIcon className="size-4" /> Connect Strava
-              </a>
-            </Button>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -486,13 +467,21 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
           {big && s.notes && !template && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}
           {s.done && (s.actual_km !== null || s.actual_minutes !== null) && (
             <span className={cn("block tabular-nums text-emerald-700 dark:text-emerald-400", big ? "text-base" : "text-xs")}>
-              {s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`}
-              {s.actual_km !== null && s.actual_km > 0 && s.actual_minutes !== null && " · "}
-              {s.actual_minutes !== null && `${s.actual_minutes} min`}
-              {s.actual_effort !== null && ` · RE ${s.actual_effort}`}
-              {s.strava_activity_id && " · Strava"}
+              {[
+                s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`,
+                s.actual_km && s.actual_minutes && `${formatPace((s.actual_minutes * 60) / s.actual_km)}/km`,
+                s.actual_minutes !== null && `${s.actual_minutes} min`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
           )}
+          {s.done && (s.actual_avg_hr !== null || s.actual_effort !== null) && (
+            <span className={cn("block tabular-nums text-muted-foreground", big ? "text-base" : "text-xs")}>
+              {[s.actual_avg_hr !== null && `♥ ${s.actual_avg_hr} avg`, s.actual_effort !== null && `${s.actual_effort} AZM`].filter(Boolean).join(" · ")}
+            </span>
+          )}
+          {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className={big ? "mt-1.5 h-2" : "mt-1 h-1.5"} />}
         </button>
       </div>
       {template && (
@@ -534,15 +523,36 @@ function PastPrograms() {
   );
 }
 
-function ActivityChip({ a }: { a: StravaActivity }) {
+function ActivityChip({ a }: { a: Activity }) {
   const km = a.distance_m / 1000;
   return (
     <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={a.name}>
-      <span className="font-medium">{a.sport_type}</span>
+      <span className="font-medium">{a.name}</span>
       {km >= 0.5 && ` ${km.toFixed(1)} km`}
       {a.moving_time_s >= 60 && ` · ${Math.round(a.moving_time_s / 60)} min`}
-      {a.relative_effort ? ` · RE ${a.relative_effort}` : ""}
+      {a.avg_hr ? ` · ♥ ${a.avg_hr}` : ""}
+      {a.azm ? ` · ${a.azm} AZM` : ""}
+      {a.zones && <ZoneBar zones={a.zones} className="mt-1 h-1" />}
     </div>
+  );
+}
+
+const ZONES = [
+  { label: "Light", color: "bg-sky-400" },
+  { label: "Fat burn", color: "bg-amber-400" },
+  { label: "Cardio", color: "bg-orange-500" },
+  { label: "Peak", color: "bg-rose-600" },
+];
+
+/** Time in each heart-rate zone as one stacked bar, light → peak. */
+function ZoneBar({ zones, className }: { zones: number[]; className?: string }) {
+  const total = zones.reduce((a, b) => a + b, 0);
+  if (!total) return null;
+  const title = zones.map((z, i) => `${ZONES[i]?.label}: ${Math.round(z / 60)} min`).join(" · ");
+  return (
+    <span className={cn("flex w-full overflow-hidden rounded-full bg-muted", className)} title={title} aria-label={title}>
+      {zones.map((z, i) => (z > 0 ? <span key={i} className={ZONES[i]?.color} style={{ width: `${(z / total) * 100}%` }} /> : null))}
+    </span>
   );
 }
 

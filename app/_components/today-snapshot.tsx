@@ -7,8 +7,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
-import type { StravaActivity } from "@/lib/strava";
-import { daysUntil, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
 import { DEFAULT_PROTEIN_TARGET_G, MEAL_SLOTS, currentSlot, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -42,7 +41,7 @@ function Heading({ href, children }: { href: string; children: string }) {
 function TrainingToday() {
   const today = todayISO();
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
-  const [activities, setActivities] = useState<StravaActivity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
 
   const load = useCallback(async () => {
@@ -52,9 +51,9 @@ function TrainingToday() {
         fetch("/api/training/events"),
       ]);
       if (s.ok) {
-        const data = (await s.json()) as { sessions: TrainingSession[]; activities: StravaActivity[] };
+        const data = (await s.json()) as { sessions: TrainingSession[]; activities: Activity[] };
         setSessions(data.sessions);
-        setActivities(data.activities);
+        setActivities(data.activities.filter(isTraining));
       } else setSessions([]);
       if (e.ok) setEvents(await e.json());
     } catch {
@@ -88,8 +87,8 @@ function TrainingToday() {
     .filter((e) => daysUntil(e.event_date) >= 0)
     .sort((a, b) => a.event_date.localeCompare(b.event_date))[0];
   const list = (sessions ?? []).slice().sort((a, b) => a.position - b.position);
-  // Strava activities not already matched to a session — extra work done today.
-  const matched = new Set(list.map((s) => s.strava_activity_id).filter(Boolean));
+  // Fitbit workouts not already matched to a session — extra work done today.
+  const matched = new Set(list.map((s) => s.activity_id).filter(Boolean));
   const extras = activities.filter((a) => !matched.has(a.id));
 
   return (
@@ -144,7 +143,7 @@ function TrainingToday() {
             })}
             {extras.map((a) => (
               <p key={a.id} className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground" title={a.name}>
-                <span className="font-medium">{a.sport_type}</span>
+                <span className="font-medium">{a.name}</span>
                 {a.distance_m >= 500 && ` ${(a.distance_m / 1000).toFixed(1)} km`}
                 {a.moving_time_s >= 60 && ` · ${Math.round(a.moving_time_s / 60)} min`}
               </p>

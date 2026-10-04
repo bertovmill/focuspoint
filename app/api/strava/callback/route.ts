@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { exchangeStravaCode } from "@/lib/strava";
-import { syncStrava } from "@/lib/training";
 
 export const maxDuration = 60;
 
@@ -20,8 +19,7 @@ export async function GET(request: NextRequest) {
   if (!code || !state || !expected || state !== expected) return back("strava=error&reason=state");
   try {
     await exchangeStravaCode(code);
-    // Backfill straight away so the screen isn't empty right after connecting.
-    await syncStrava(28).catch((err) => console.warn("[strava] first sync failed:", err));
+    // Not synced: Strava's API is subscriber-only, so /training reads Fitbit workouts.
     return back("strava=connected");
   } catch (err) {
     console.error("Strava OAuth callback failed:", err);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
@@ -46,7 +46,8 @@ function longDate(iso: string) {
 /**
  * /training/sessions/<id> and /training/sessions/new/<date> — add or edit one
  * session as its own page (it was a modal; Berto, 2026-10-04). Runs get a pace
- * suggested from his Strava history.
+ * suggested from his Fitbit runs. Editing an existing session saves as you type;
+ * a new one is created with Add.
  */
 export function SessionPage({ id, date }: { id?: number; date?: string }) {
   const router = useRouter();
@@ -87,6 +88,44 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
       .catch(() => toast.error("Couldn't find that session."));
   }, [id]);
 
+  // Autosave an existing session ~0.6s after the last change. `saved` is the last
+  // body the server has, so loading the session doesn't count as a change.
+  const saved = useRef<string | null>(null);
+  const pending = useRef<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  useEffect(() => {
+    if (!id || !d) return;
+    const body = payload(d);
+    if (saved.current === null) {
+      saved.current = body;
+      return;
+    }
+    if (body === saved.current || !d.session_date || badPace(d)) return;
+    pending.current = body;
+    const t = setTimeout(async () => {
+      setStatus("saving");
+      try {
+        const res = await fetch(`/api/training/sessions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+        if (!res.ok) throw new Error();
+        saved.current = body;
+        if (pending.current === body) pending.current = null;
+        setStatus("saved");
+      } catch {
+        setStatus("error");
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [id, d]);
+  // Leaving mid-debounce still saves the last edit.
+  useEffect(
+    () => () => {
+      if (id && pending.current) {
+        fetch(`/api/training/sessions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: pending.current, keepalive: true }).catch(() => {});
+      }
+    },
+    [id],
+  );
+
   if (!d) {
     return (
       <div className="mx-auto max-w-xl space-y-4 py-2">
@@ -96,7 +135,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
     );
   }
 
-  const isRun = ["long_run", "intervals", "easy"].includes(d.type);
+  const isRun = isRunType(d.type);
   const paceSec = parsePace(d.target_pace);
   const paceBad = d.target_pace.trim() !== "" && paceSec === null;
   const runMinutes = minutesAtPace(d.target_km === "" ? null : Number(d.target_km), paceSec);
@@ -104,28 +143,18 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
   const back = weekHref(existing?.session_date ?? d.session_date);
   const set = (patch: Partial<SessionDraft>) => setD((x) => (x ? { ...x, ...patch } : x));
 
+  // New sessions only — existing ones autosave (above).
   const save = async () => {
     if (paceBad) return;
-    // Runs are planned by distance + pace; anything else by minutes. Clear the other side.
-    const draft = isRun ? { ...d, target_minutes: "" } : { ...d, target_km: "", target_pace: "" };
     setSaving(true);
     try {
-      const res = await fetch(id ? `/api/training/sessions/${id}` : "/api/training/sessions", {
-        method: id ? "PATCH" : "POST",
+      const res = await fetch("/api/training/sessions", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_date: draft.session_date,
-          type: draft.type,
-          title: draft.title,
-          target_km: draft.target_km === "" ? null : Number(draft.target_km),
-          target_minutes: draft.target_minutes === "" ? null : Number(draft.target_minutes),
-          target_pace_sec: draft.target_pace === "" ? null : parsePace(draft.target_pace),
-          intensity: draft.intensity,
-          notes: draft.notes,
-        }),
+        body: payload(d),
       });
       if (!res.ok) throw new Error();
-      router.push(weekHref(draft.session_date));
+      router.push(weekHref(d.session_date));
     } catch {
       toast.error("Couldn't save that session.");
       setSaving(false);
@@ -159,7 +188,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          save();
+          if (!existing) save();
         }}
       >
         <Field label="Type">
@@ -257,8 +286,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
 
         {isRun && !suggestion && d.type !== "intervals" && (
           <p className="-mt-2 text-sm text-muted-foreground">
-            No recent runs to suggest a pace from.{" "}
-            <a href="/api/strava/connect" className="underline underline-offset-2 hover:text-foreground">Connect Strava</a> and it fills in from your runs.
+            No recent runs on your Fitbit to suggest a pace from yet.
           </p>
         )}
 
@@ -296,9 +324,20 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
               Delete
             </Button>
           )}
-          <Button type="submit" className="ml-auto h-12 min-w-28 text-base" disabled={saving || !d.session_date || paceBad}>
-            {saving ? <Spinner className="size-4" /> : existing ? "Save" : "Add"}
-          </Button>
+          {existing ? (
+            <>
+              <span className={cn("ml-auto text-sm", status === "error" ? "text-destructive" : "text-muted-foreground")} aria-live="polite">
+                {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : status === "error" ? "Couldn't save — check your connection" : ""}
+              </span>
+              <Button asChild variant="outline" className="h-12 min-w-28 text-base">
+                <Link href={weekHref(d.session_date)}>Done</Link>
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" className="ml-auto h-12 min-w-28 text-base" disabled={saving || !d.session_date || paceBad}>
+              {saving ? <Spinner className="size-4" /> : "Add"}
+            </Button>
+          )}
         </div>
       </form>
     </div>
@@ -312,6 +351,29 @@ function Field({ label, className, children }: { label: string; className?: stri
       {children}
     </div>
   );
+}
+
+function isRunType(type: string) {
+  return ["long_run", "intervals", "easy"].includes(type);
+}
+
+function badPace(d: SessionDraft) {
+  return d.target_pace.trim() !== "" && parsePace(d.target_pace) === null;
+}
+
+/** The request body for a draft. Runs are planned by distance + pace; anything else by minutes. */
+function payload(d: SessionDraft): string {
+  const run = isRunType(d.type);
+  return JSON.stringify({
+    session_date: d.session_date,
+    type: d.type,
+    title: d.title,
+    target_km: run && d.target_km !== "" ? Number(d.target_km) : null,
+    target_minutes: !run && d.target_minutes !== "" ? Number(d.target_minutes) : null,
+    target_pace_sec: run && d.target_pace !== "" ? parsePace(d.target_pace) : null,
+    intensity: d.intensity,
+    notes: d.notes,
+  });
 }
 
 function empty(date: string): SessionDraft {

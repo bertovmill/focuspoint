@@ -349,3 +349,85 @@ export async function debugHealthDay(date: string): Promise<Record<string, unkno
   }
   return out;
 }
+
+// ── workouts ──────────────────────────────────────────────────────────────
+
+/** One Fitbit workout (`exercise` data point), flattened for /training. */
+export interface HealthExercise {
+  /** The data point id — a long numeric string, kept as text. */
+  id: string;
+  /** e.g. RUNNING, WALKING, BIKING, OUTDOOR_BIKE, OTHER. */
+  exercise_type: string;
+  /** What the watch calls it: "Run", "Aerobic Workout". */
+  name: string;
+  /** Local wall-clock start, "YYYY-MM-DDTHH:MM:SS". */
+  start_local: string;
+  distance_m: number;
+  active_s: number;
+  avg_hr: number | null;
+  azm: number | null;
+  /** Seconds in the light / moderate / vigorous / peak heart-rate zones. */
+  zones: [number, number, number, number] | null;
+  /** True when the watch auto-detected it rather than him pressing start. */
+  auto: boolean;
+}
+
+const secs = (s: unknown) => (typeof s === "string" ? Number.parseFloat(s) || 0 : 0);
+const intOrNull = (v: unknown) => (v === undefined || v === null || v === "" ? null : Math.round(Number(v)));
+
+/** Shift a UTC instant by its recorded offset ("-14400s") into local wall-clock. */
+function localTime(instant: string, offset: unknown): string {
+  return new Date(new Date(instant).getTime() + secs(offset) * 1000).toISOString().slice(0, 19);
+}
+
+function shapeExercise(p: RollupPoint): HealthExercise | null {
+  const e = p.exercise as Record<string, any> | undefined;
+  if (!e?.interval?.startTime) return null;
+  const m = (e.metricsSummary ?? {}) as Record<string, any>;
+  const z = m.heartRateZoneDurations as Record<string, string> | undefined;
+  const src = p.dataSource as Record<string, any> | undefined;
+  return {
+    id: String(p.name ?? "").split("/").pop() ?? "",
+    exercise_type: String(e.exerciseType ?? "OTHER"),
+    name: String(e.displayName ?? e.exerciseType ?? "Workout"),
+    start_local: localTime(e.interval.startTime, e.interval.startUtcOffset),
+    distance_m: Math.round(Number(m.distanceMillimeters ?? 0) / 1000),
+    active_s: Math.round(secs(e.activeDuration)),
+    avg_hr: intOrNull(m.averageHeartRateBeatsPerMinute),
+    azm: intOrNull(m.activeZoneMinutes),
+    zones: z ? [secs(z.lightTime), secs(z.moderateTime), secs(z.vigorousTime), secs(z.peakTime)] : null,
+    auto: src?.recordingMethod === "PASSIVELY_MEASURED",
+  };
+}
+
+/**
+ * Every workout since `since`, newest first. The list endpoint returns newest
+ * first and won't filter `exercise` on its interval (400 "not supported for
+ * filtering"), so this pages back until it passes `since`.
+ */
+export async function fetchExercises(since: Date): Promise<HealthExercise[]> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("The watch is not connected");
+  const out: HealthExercise[] = [];
+  let page = "";
+  for (let i = 0; i < 20; i++) {
+    const url = `${API}/users/me/dataTypes/exercise/dataPoints?pageSize=50${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Google Health list exercise failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json()) as { dataPoints?: RollupPoint[]; nextPageToken?: string };
+    let older = false;
+    for (const p of json.dataPoints ?? []) {
+      const x = shapeExercise(p);
+      if (!x?.id) continue;
+      const start = p.exercise && (p.exercise as any).interval?.startTime;
+      if (start && new Date(start) < since) {
+        older = true;
+        continue;
+      }
+      out.push(x);
+    }
+    if (older || !json.nextPageToken) break;
+    page = json.nextPageToken;
+  }
+  return out;
+}

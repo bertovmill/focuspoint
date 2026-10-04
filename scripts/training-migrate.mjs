@@ -20,3 +20,9 @@ if (n === 0) {
   console.log("seeded 2 races");
 }
 console.log("training migration done");
+// Fitbit workouts via Google Health replace Strava (subscriber-only API), 2026-10-04.
+await sql`CREATE TABLE IF NOT EXISTS fitbit_exercises (id TEXT PRIMARY KEY, exercise_type TEXT NOT NULL, name TEXT NOT NULL, start_local TIMESTAMP NOT NULL, distance_m INTEGER NOT NULL DEFAULT 0, active_s INTEGER NOT NULL DEFAULT 0, avg_hr INTEGER, azm INTEGER, zones INTEGER[], auto BOOLEAN NOT NULL DEFAULT FALSE, synced_at TIMESTAMPTZ DEFAULT NOW())`;
+await sql`CREATE INDEX IF NOT EXISTS fitbit_exercises_start_idx ON fitbit_exercises (start_local)`;
+await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS activity_id TEXT`;
+await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
+await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;

@@ -9456,3 +9456,36 @@ and a "Use" button:
 - intervals: average 1 km run split from his latest Hyrox result (3:54, Ottawa)
 Strava is not connected right now (no tokens, 0 cached activities), so long and
 easy show a "Connect Strava" hint until it is.
+
+## 2026-10-04 (chat) — Fitbit workouts replace Strava; session page autosaves
+
+Strava connected fine but every data call returned `403 Application Status
+Inactive`: since 2026-06-30 Strava deactivates Standard-tier API apps whose owner
+has no paid subscription. Berto won't pay, so /training now reads workouts off his
+**Fitbit Charge 6 through the Google Health connection** Cael already had for
+steps/sleep (`activity_and_fitness.readonly` already covered `exercise`).
+
+- `lib/google-health.ts` `fetchExercises(since)`: pages `dataTypes/exercise/dataPoints`
+  newest-first (the endpoint 400s on any `exercise.interval.*` filter). Flattens to
+  type, name, local start (startTime + startUtcOffset), distance, activeDuration, avg
+  HR, AZM, zone seconds [light, moderate, vigorous, peak], auto-detected flag.
+- New `fitbit_exercises` table (text ids — data point ids are long numeric strings);
+  `training_sessions` gains `activity_id`, `actual_avg_hr`, `actual_zones`;
+  `actual_effort` now holds AZM. Live Neon migrated (`scripts/training-migrate.mjs`).
+- `syncWorkouts` / `matchActivities` in `lib/training.ts` (renamed from syncStrava);
+  `SESSION_TYPES[].sports` are Fitbit exerciseTypes. Walks, BIKING / OUTDOOR_BIKE (his
+  commute) and ELLIPTICAL never match and are hidden from the day strips.
+- `/api/training/sync` (GET status, POST sync) replaces `/api/strava/{sync,status}`;
+  agent tool `sync_workouts` replaces `sync_strava`. Pace suggestions, the coach's
+  weekly load (km + AZM) and the "trained today" habit read Fitbit.
+- Cards: plan line, then actual "15.8 km · 5:19/km · 84 min", "♥ 147 avg · 166 AZM",
+  and a stacked heart-rate zone bar. "Sync Fitbit" button; quiet sync on open if
+  >30 min stale. Strava Connect button gone; `lib/strava.ts` + connect/callback
+  routes kept in case he ever subscribes.
+- Session page (`session-editor.tsx`): editing an existing session autosaves ~0.6 s
+  after the last change ("Saving… / Saved"), flushes a pending save with `keepalive`
+  on leave; Save → Done. New sessions still use Add.
+
+Verified on :3007 against live data: 67 workouts pulled over 28 days; today's long
+run matched (15.8 km, 84 min, HR 147, 166 AZM, 82 min cardio). Autosave: throwaway
+2021 session, typed 6:00 → PATCH saved 10 km @ 360 s = 60 min; deleted. Typecheck clean.

@@ -1,17 +1,21 @@
-// The training plan on /training: session types, the week's rows, Strava sync
-// with auto-matching, and the weekly draft Cael writes. Date helpers are shared
+// The training plan on /training: session types, the week's rows, Fitbit workout
+// sync (via Google Health) with auto-matching, and the weekly draft Cael writes. Date helpers are shared
 // with the meal plan (lib/nutrition.ts) so both grids run Monday to Sunday.
 import { getDb } from "./db";
 import { addDaysISO, num, todayISO } from "./nutrition";
-import { fetchStravaActivities, isStravaConnected, type StravaActivity } from "./strava";
+import { fetchExercises, isHealthConnected } from "./google-health";
+
+/** Fitbit exerciseType values each session type accepts. */
+const RUNS = ["RUNNING", "TREADMILL", "TREADMILL_RUNNING", "TRAIL_RUNNING"];
+const GYM = ["WEIGHTLIFTING", "WEIGHTS", "STRENGTH_TRAINING", "INTERVAL_WORKOUT", "HIIT", "CROSSFIT", "CIRCUIT_TRAINING", "OTHER", "SPORT"];
 
 export const SESSION_TYPES = [
-  { key: "long_run", label: "Long run", short: "Run", color: "bg-sky-500", strava: ["Run", "TrailRun", "VirtualRun"] },
-  { key: "intervals", label: "Intervals / tempo", short: "Speed", color: "bg-orange-500", strava: ["Run", "TrailRun", "VirtualRun"] },
-  { key: "easy", label: "Easy run / recovery", short: "Easy", color: "bg-teal-500", strava: ["Run", "TrailRun", "VirtualRun", "Walk", "Hike", "Ride"] },
-  { key: "hyrox", label: "Hyrox / hybrid", short: "Hyrox", color: "bg-rose-500", strava: ["Workout", "Crossfit", "HighIntensityIntervalTraining", "WeightTraining", "Run"] },
-  { key: "strength", label: "Strength", short: "Lift", color: "bg-violet-500", strava: ["WeightTraining", "Workout", "Crossfit"] },
-  { key: "rest", label: "Rest", short: "Rest", color: "bg-muted-foreground/40", strava: [] },
+  { key: "long_run", label: "Long run", short: "Run", color: "bg-sky-500", sports: RUNS },
+  { key: "intervals", label: "Intervals / tempo", short: "Speed", color: "bg-orange-500", sports: RUNS },
+  { key: "easy", label: "Easy run / recovery", short: "Easy", color: "bg-teal-500", sports: [...RUNS, "HIKING"] },
+  { key: "hyrox", label: "Hyrox / hybrid", short: "Hyrox", color: "bg-rose-500", sports: [...GYM, "RUNNING"] },
+  { key: "strength", label: "Strength", short: "Lift", color: "bg-violet-500", sports: GYM },
+  { key: "rest", label: "Rest", short: "Rest", color: "bg-muted-foreground/40", sports: [] },
 ] as const;
 
 export type SessionType = (typeof SESSION_TYPES)[number]["key"];
@@ -36,10 +40,29 @@ export interface TrainingSession {
   notes: string | null;
   done: boolean;
   done_at: string | null;
-  strava_activity_id: number | null;
+  /** The Fitbit workout that marked it done. */
+  activity_id: string | null;
   actual_km: number | null;
   actual_minutes: number | null;
+  /** Active Zone Minutes from the workout. */
   actual_effort: number | null;
+  actual_avg_hr: number | null;
+  /** Seconds in light / moderate / vigorous / peak heart-rate zones. */
+  actual_zones: number[] | null;
+}
+
+/** A Fitbit workout as /training shows it. */
+export interface Activity {
+  id: string;
+  /** Fitbit exerciseType: RUNNING, WALKING, BIKING, OTHER… */
+  sport_type: string;
+  name: string;
+  start_local: string;
+  distance_m: number;
+  moving_time_s: number;
+  avg_hr: number | null;
+  azm: number | null;
+  zones: number[] | null;
 }
 
 export interface TrainingEvent {
@@ -51,7 +74,7 @@ export interface TrainingEvent {
 }
 
 const SESSION_COLUMNS = `id, to_char(session_date, 'YYYY-MM-DD') AS session_date, position, type, title, target_km,
-  target_minutes, target_pace_sec, intensity, notes, done, done_at, strava_activity_id, actual_km, actual_minutes, actual_effort`;
+  target_minutes, target_pace_sec, intensity, notes, done, done_at, activity_id, actual_km, actual_minutes, actual_effort, actual_avg_hr, actual_zones`;
 
 function shapeSession(r: Record<string, unknown>): TrainingSession {
   return {
@@ -67,10 +90,12 @@ function shapeSession(r: Record<string, unknown>): TrainingSession {
     notes: (r.notes as string | null) ?? null,
     done: Boolean(r.done),
     done_at: r.done_at ? String(r.done_at) : null,
-    strava_activity_id: num(r.strava_activity_id),
+    activity_id: (r.activity_id as string | null) ?? null,
     actual_km: num(r.actual_km),
     actual_minutes: num(r.actual_minutes),
     actual_effort: num(r.actual_effort),
+    actual_avg_hr: num(r.actual_avg_hr),
+    actual_zones: Array.isArray(r.actual_zones) ? (r.actual_zones as unknown[]).map(Number) : null,
   };
 }
 
@@ -84,18 +109,17 @@ export function shapeEvent(r: Record<string, unknown>): TrainingEvent {
   };
 }
 
-export function shapeActivity(r: Record<string, unknown>): StravaActivity {
+export function shapeActivity(r: Record<string, unknown>): Activity {
   return {
-    id: Number(r.id),
+    id: String(r.id),
+    sport_type: String(r.exercise_type),
     name: String(r.name),
-    sport_type: String(r.sport_type),
     start_local: String(r.start_local),
     distance_m: num(r.distance_m) ?? 0,
-    moving_time_s: num(r.moving_time_s) ?? 0,
-    elapsed_time_s: num(r.elapsed_time_s) ?? 0,
-    elevation_m: num(r.elevation_m),
-    relative_effort: num(r.relative_effort),
-    avg_speed: num(r.avg_speed),
+    moving_time_s: num(r.active_s) ?? 0,
+    avg_hr: num(r.avg_hr),
+    azm: num(r.azm),
+    zones: Array.isArray(r.zones) ? (r.zones as unknown[]).map(Number) : null,
   };
 }
 
@@ -120,12 +144,12 @@ export async function getEvents(): Promise<TrainingEvent[]> {
   return rows.map((r) => shapeEvent(r as Record<string, unknown>));
 }
 
-export async function getActivities(from: string, to: string): Promise<StravaActivity[]> {
+export async function getActivities(from: string, to: string): Promise<Activity[]> {
   const sql = getDb();
   const rows = await sql.query(
-    `SELECT id, name, sport_type, to_char(start_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS start_local, distance_m,
-       moving_time_s, elapsed_time_s, elevation_m, relative_effort, avg_speed
-     FROM strava_activities WHERE start_local >= $1::date AND start_local < ($2::date + 1)
+    `SELECT id, exercise_type, name, to_char(start_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS start_local, distance_m,
+       active_s, avg_hr, azm, zones
+     FROM fitbit_exercises WHERE start_local >= $1::date AND start_local < ($2::date + 1)
      ORDER BY start_local DESC`,
     [from, to],
   );
@@ -214,8 +238,10 @@ export async function setSessionDone(id: number, done: boolean, actual?: { km?: 
     `UPDATE training_sessions SET done = $2, done_at = CASE WHEN $2 THEN COALESCE(done_at, NOW()) ELSE NULL END,
        actual_km = CASE WHEN $2 THEN COALESCE($3, actual_km) ELSE NULL END,
        actual_minutes = CASE WHEN $2 THEN COALESCE($4, actual_minutes) ELSE NULL END,
-       strava_activity_id = CASE WHEN $2 THEN strava_activity_id ELSE NULL END,
+       activity_id = CASE WHEN $2 THEN activity_id ELSE NULL END,
        actual_effort = CASE WHEN $2 THEN actual_effort ELSE NULL END,
+       actual_avg_hr = CASE WHEN $2 THEN actual_avg_hr ELSE NULL END,
+       actual_zones = CASE WHEN $2 THEN actual_zones ELSE NULL END,
        updated_at = NOW()
      WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
     [id, done, actual?.km ?? null, actual?.minutes ?? null],
@@ -276,47 +302,60 @@ export async function setGoal(goal: string) {
   return getGoal();
 }
 
-// ── Strava sync + matching ────────────────────────────────────────────────
+// ── Fitbit sync + matching ────────────────────────────────────────────────
+// Workouts come off his Fitbit through the Google Health connection Cael already
+// has for steps and sleep. Strava was the plan, but its API went subscriber-only.
 
-/** Walks and rides under this are background movement, not a session. */
+/** Short workouts are background movement, not a session. */
 const MIN_SESSION_SECONDS = 15 * 60;
+/** Never a training session: walks and the bike commute. */
+const NOT_TRAINING = ["WALKING", "BIKING", "OUTDOOR_BIKE", "ELLIPTICAL"];
 
-function matchable(a: StravaActivity) {
+export function isTraining(a: Pick<Activity, "sport_type">) {
+  return !NOT_TRAINING.includes(a.sport_type);
+}
+
+function matchable(a: Activity) {
   if (a.moving_time_s < MIN_SESSION_SECONDS && a.distance_m < 2000) return false;
-  return a.sport_type !== "Walk";
+  return isTraining(a);
 }
 
 /**
- * Pulls the last `days` of activities into the cache, then marks planned
- * sessions done: an activity on a day is paired with the first undone session
- * that day whose type accepts that sport (a Run takes a long run before an
- * easy run; a Workout takes a Hyrox before strength), copying distance, time
- * and relative effort onto it. Manual ticks are never overwritten.
+ * Pulls the last `days` of Fitbit workouts into the cache, then marks planned
+ * sessions done: a workout on a day is paired with the first undone session
+ * that day whose type accepts that sport (a run takes a long run before an
+ * easy run; a gym workout takes strength before Hyrox), copying distance, time,
+ * heart rate and Active Zone Minutes onto it. Manual ticks are never overwritten.
  */
-export async function syncStrava(days = 14) {
-  if (!(await isStravaConnected())) return { connected: false, fetched: 0, matched: 0 };
+export async function syncWorkouts(days = 14) {
+  if (!(await isHealthConnected())) return { connected: false, fetched: 0, matched: 0 };
   const since = new Date();
   since.setDate(since.getDate() - days);
   since.setHours(0, 0, 0, 0);
-  const activities = await fetchStravaActivities(since);
+  const workouts = await fetchExercises(since);
   const sql = getDb();
-  for (const a of activities) {
+  for (const w of workouts) {
     await sql`
-      INSERT INTO strava_activities (id, name, sport_type, start_local, distance_m, moving_time_s, elapsed_time_s, elevation_m, relative_effort, avg_speed, synced_at)
-      VALUES (${a.id}, ${a.name}, ${a.sport_type}, ${a.start_local}, ${a.distance_m}, ${a.moving_time_s}, ${a.elapsed_time_s}, ${a.elevation_m}, ${a.relative_effort}, ${a.avg_speed}, NOW())
-      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, sport_type = EXCLUDED.sport_type, distance_m = EXCLUDED.distance_m,
-        moving_time_s = EXCLUDED.moving_time_s, elapsed_time_s = EXCLUDED.elapsed_time_s, elevation_m = EXCLUDED.elevation_m,
-        relative_effort = EXCLUDED.relative_effort, avg_speed = EXCLUDED.avg_speed, synced_at = NOW()
+      INSERT INTO fitbit_exercises (id, exercise_type, name, start_local, distance_m, active_s, avg_hr, azm, zones, auto, synced_at)
+      VALUES (${w.id}, ${w.exercise_type}, ${w.name}, ${w.start_local}, ${w.distance_m}, ${w.active_s}, ${w.avg_hr}, ${w.azm}, ${w.zones}, ${w.auto}, NOW())
+      ON CONFLICT (id) DO UPDATE SET exercise_type = EXCLUDED.exercise_type, name = EXCLUDED.name, start_local = EXCLUDED.start_local,
+        distance_m = EXCLUDED.distance_m, active_s = EXCLUDED.active_s, avg_hr = EXCLUDED.avg_hr, azm = EXCLUDED.azm,
+        zones = EXCLUDED.zones, auto = EXCLUDED.auto, synced_at = NOW()
     `;
   }
   const from = since.toISOString().slice(0, 10);
   const matched = await matchActivities(from, todayISO());
-  return { connected: true, fetched: activities.length, matched };
+  return { connected: true, fetched: workouts.length, matched };
+}
+
+export async function lastWorkoutSync(): Promise<string | null> {
+  const [r] = await getDb()`SELECT MAX(synced_at) AS at FROM fitbit_exercises`;
+  return r?.at ? new Date(r.at as string).toISOString() : null;
 }
 
 export async function matchActivities(from: string, to: string) {
   const [sessions, activities] = await Promise.all([getSessions(from, to), getActivities(from, to)]);
-  const linked = new Set(sessions.map((s) => s.strava_activity_id).filter(Boolean) as number[]);
+  const linked = new Set(sessions.map((s) => s.activity_id).filter(Boolean) as string[]);
   const open = sessions.filter((s) => !s.done && s.type !== "rest");
   const sql = getDb();
   let matched = 0;
@@ -324,14 +363,14 @@ export async function matchActivities(from: string, to: string) {
   for (const a of [...activities].reverse()) {
     if (linked.has(a.id) || !matchable(a)) continue;
     const day = a.start_local.slice(0, 10);
-    const candidates = open.filter((s) => s.session_date === day && (sessionMeta(s.type).strava as readonly string[]).includes(a.sport_type));
+    const candidates = open.filter((s) => s.session_date === day && (sessionMeta(s.type).sports as readonly string[]).includes(a.sport_type));
     // Prefer the type whose accepted sports list is the most specific for this sport.
-    const pick = candidates.sort((x, y) => sessionMeta(x.type).strava.length - sessionMeta(y.type).strava.length)[0];
+    const pick = candidates.sort((x, y) => sessionMeta(x.type).sports.length - sessionMeta(y.type).sports.length)[0];
     if (!pick) continue;
     await sql`
-      UPDATE training_sessions SET done = TRUE, done_at = NOW(), strava_activity_id = ${a.id},
-        actual_km = ${Math.round(a.distance_m / 100) / 10}, actual_minutes = ${Math.round(a.moving_time_s / 60)},
-        actual_effort = ${a.relative_effort}, updated_at = NOW()
+      UPDATE training_sessions SET done = TRUE, done_at = NOW(), activity_id = ${a.id},
+        actual_km = ${a.distance_m ? Math.round(a.distance_m / 100) / 10 : null}, actual_minutes = ${Math.round(a.moving_time_s / 60)},
+        actual_effort = ${a.azm}, actual_avg_hr = ${a.avg_hr}, actual_zones = ${a.zones}, updated_at = NOW()
       WHERE id = ${pick.id}
     `;
     open.splice(open.indexOf(pick), 1);
@@ -348,7 +387,7 @@ export async function matchActivities(from: string, to: string) {
 
 /**
  * Everything the coach needs to write the week starting Monday `weekStart`:
- * the goal, the written plan, races, recent load from Strava, recent notes, his
+ * the goal, the written plan, races, recent load from his Fitbit, recent notes, his
  * weekly routine, and the sessions already on the week (with ids to edit).
  */
 export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
@@ -371,7 +410,7 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     const cur = weekly.get(wk) ?? { km: 0, n: 0, effort: 0 };
     cur.n++;
     cur.km += a.distance_m / 1000;
-    cur.effort += a.relative_effort ?? 0;
+    cur.effort += a.azm ?? 0;
     weekly.set(wk, cur);
   }
   const dayName = (iso: string) => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][daysBetween(weekStart, iso)];
@@ -394,8 +433,8 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     "If a race falls in this week or the next, this is a taper: cut volume, keep one sharp touch, no hard strength in the last 3 days.",
     "",
     weekly.size
-      ? "RECENT WEEKS FROM STRAVA (sessions / km / summed relative effort):\n" + [...weekly.entries()].sort().map(([w, v]) => `- week of ${w}: ${v.n} sessions, ${v.km.toFixed(1)} km, effort ${v.effort}`).join("\n")
-      : "No Strava history yet.",
+      ? "RECENT WEEKS FROM HIS FITBIT (sessions / km / summed Active Zone Minutes):\n" + [...weekly.entries()].sort().map(([w, v]) => `- week of ${w}: ${v.n} sessions, ${v.km.toFixed(1)} km, effort ${v.effort}`).join("\n")
+      : "No workout history yet.",
     "",
     recentSessions.length
       ? "RECENTLY PLANNED (✓ = done):\n" + recentSessions.map((s) => `- ${s.session_date} ${s.type} ${s.title}${s.done ? " ✓" : ""}${s.actual_km ? ` ${s.actual_km}km` : ""}`).join("\n")
@@ -427,7 +466,7 @@ function weekKeyOf(iso: string) {
 
 // ── pace suggestions ──────────────────────────────────────────────────────
 // What pace to put on a planned run, from what he's actually been running on
-// Strava (and, for intervals, his Hyrox race runs). Shown under the pace box on
+// his Fitbit (and, for intervals, his Hyrox race runs). Shown under the pace box on
 // the session page with where it came from, so he can take it or ignore it.
 
 export interface PaceSuggestion {
@@ -435,7 +474,7 @@ export interface PaceSuggestion {
   basis: string;
 }
 
-const RUN_SPORTS = ["Run", "TrailRun", "VirtualRun"];
+const RUN_SPORTS = RUNS;
 const LONG_RUN_M = 14_000;
 
 function median(xs: number[]) {
@@ -448,8 +487,8 @@ export async function paceSuggestions(): Promise<Record<string, PaceSuggestion |
   const { HYROX_RESULTS, hyroxSeconds } = await import("./hyrox");
   const sql = getDb();
   const rows = await sql`
-    SELECT distance_m, moving_time_s FROM strava_activities
-    WHERE sport_type = ANY(${RUN_SPORTS}) AND distance_m >= 3000 AND moving_time_s > 0
+    SELECT distance_m, active_s AS moving_time_s FROM fitbit_exercises
+    WHERE exercise_type = ANY(${RUN_SPORTS}) AND distance_m >= 3000 AND active_s > 0
       AND start_local >= NOW() - INTERVAL '60 days'
   `;
   const runs = rows.map((r) => ({ m: Number(r.distance_m), pace: Number(r.moving_time_s) / (Number(r.distance_m) / 1000) }));
@@ -464,10 +503,10 @@ export async function paceSuggestions(): Promise<Record<string, PaceSuggestion |
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   return {
     long_run: long.length
-      ? { pace_sec: median(long.map((r) => r.pace)), basis: `median of your last ${plural(long.length, "run")} of 14 km+ on Strava (60 days)` }
+      ? { pace_sec: median(long.map((r) => r.pace)), basis: `median of your last ${plural(long.length, "run")} of 14 km+ on your Fitbit (60 days)` }
       : null,
     easy: easy.length
-      ? { pace_sec: median(easy.map((r) => r.pace)), basis: `median of your easier ${plural(easy.length, "run")} under 14 km on Strava (60 days)` }
+      ? { pace_sec: median(easy.map((r) => r.pace)), basis: `median of your easier ${plural(easy.length, "run")} under 14 km on your Fitbit (60 days)` }
       : null,
     intervals: raceRuns.length
       ? { pace_sec: raceRuns.reduce((a, b) => a + b, 0) / raceRuns.length, basis: `your average 1 km run at ${race.event}, the pace to hold every rep` }

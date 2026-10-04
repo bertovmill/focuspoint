@@ -103,11 +103,11 @@ export async function getHabitTicks(sql: Sql, keys: string[], date?: string): Pr
     sql`SELECT 1 FROM daily_journal WHERE entry_date = ${today}::date
         AND array_length(regexp_split_to_array(trim(content), '\\s+'), 1) >= ${JOURNAL_WORD_GOAL} LIMIT 1`,
     sql`SELECT meditated FROM daily_habits WHERE habit_date = ${today}::date`,
-    // Any of: a training session ticked, a strength set logged, a Strava activity.
+    // Any of: a training session ticked, a strength set logged, a Fitbit workout.
     sql`SELECT 1 WHERE
           EXISTS (SELECT 1 FROM training_sessions WHERE session_date = ${today}::date AND done AND type <> 'rest')
        OR EXISTS (SELECT 1 FROM strength_logs WHERE log_date = ${today}::date AND cardinality(reps) > 0)
-       OR EXISTS (SELECT 1 FROM strava_activities WHERE start_local::date = ${today}::date)`,
+       OR EXISTS (SELECT 1 FROM fitbit_exercises WHERE start_local::date = ${today}::date AND exercise_type <> ALL(ARRAY['WALKING','BIKING','OUTDOOR_BIKE']))`,
     // No table until the first tick creates it (the read path skips ensureSchema).
     sql`SELECT habit_key, done FROM habit_checks WHERE habit_date = ${today}::date`.catch(() => []),
   ]);

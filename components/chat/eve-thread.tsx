@@ -8,7 +8,7 @@ import type {
   EveMessagePart,
   UseEveAgentHelpers,
 } from "eve/react";
-import { CheckIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon } from "lucide-react";
+import { AlertCircleIcon, CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import {
   Attachment,
@@ -42,6 +42,7 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CalendarTool, type CalendarResult } from "@/components/chat/calendar-tool";
 import { stripChatContext } from "@/lib/chat-context";
 import { cn } from "@/lib/utils";
@@ -59,11 +60,12 @@ export type SentFile = FileUIPart & { id: string };
 
 // Static welcome prompts for Cael. The eve runtime provides no dynamic
 // suggestions, so the empty state shows these ready-to-send starters.
+// They're the questions Berto actually asks most (from the traces).
 const WELCOME_SUGGESTIONS = [
+  "What's my workout today?",
+  "What should I have for dinner?",
   "What's on my plate today?",
-  "What did I say I wanted to focus on?",
-  "Summarize my recent thoughts",
-  "What's on my calendar today?",
+  "Am I on track for 2030?",
 ] as const;
 
 // eve's summarizeUserContent appends [file: ...] and [image: ...] markers to
@@ -125,7 +127,7 @@ export function EveThread({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-6 px-4">
         {welcome}
-        <Suggestions className="justify-center">
+        <Suggestions className="w-full max-w-md flex-wrap justify-center">
           {suggestions.map((prompt) => (
             <Suggestion
               key={prompt}
@@ -234,7 +236,11 @@ function AssistantMessage({
             <ReasoningContent>{reasoningText}</ReasoningContent>
           </Reasoning>
         ) : null}
-        {message.parts.map((part, i) => {
+        {groupToolRuns(message.parts).map((block, i) => {
+          if (block.kind === "tools") {
+            return <ToolGroup key={block.parts[0]!.toolCallId} parts={block.parts} />;
+          }
+          const part = block.part;
           switch (part.type) {
             case "text":
               return part.text ? (
@@ -281,6 +287,98 @@ function CopyAction({ text, alwaysVisible }: { text: string; alwaysVisible: bool
         {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
       </MessageAction>
     </MessageActions>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tool calls, compacted. A run of consecutive tool calls collapses into one
+// quiet line ("Checked training plan, meal notes ›") that opens on tap to the
+// full per-call cards, the way the Claude app shows tool use. The calendar keeps
+// its own visual card, and a failed call opens its group so the error is seen.
+
+type PartBlock =
+  | { kind: "tools"; parts: EveDynamicToolPart[] }
+  | { kind: "part"; part: EveMessagePart };
+
+function groupToolRuns(parts: readonly EveMessagePart[]): PartBlock[] {
+  const blocks: PartBlock[] = [];
+  for (const part of parts) {
+    const groupable = part.type === "dynamic-tool" && part.toolName !== "list_calendar_events";
+    const prev = blocks.at(-1);
+    if (groupable && prev?.kind === "tools") prev.parts.push(part);
+    else if (groupable) blocks.push({ kind: "tools", parts: [part] });
+    // Nothing visible between two tool calls (an empty text part, a step
+    // boundary, reasoning — which renders above) shouldn't split the run.
+    else if (prev?.kind === "tools" && !rendersInline(part)) continue;
+    else blocks.push({ kind: "part", part });
+  }
+  return blocks;
+}
+
+function rendersInline(part: EveMessagePart): boolean {
+  return (part.type === "text" && part.text.trim().length > 0) || part.type === "authorization" || part.type === "dynamic-tool";
+}
+
+// Plumbing the reader doesn't need to hear about in the summary line.
+const QUIET_TOOLS = new Set(["load_toolset", "load_skill"]);
+
+const TOOL_LABELS: Record<string, string> = {
+  search_memory: "your notes",
+  list_notes: "your notes",
+  meals_doc: "meal notes",
+  list_meal_history: "recent meals",
+  list_nutrition: "nutrition",
+  list_training_plan: "training plan",
+  training_plan_doc: "training plan",
+  principles_doc: "principles",
+  list_vision: "vision",
+  list_todos: "todos",
+  list_github_prs: "GitHub",
+  list_luma_events: "Luma events",
+  get_luma_event: "Luma event",
+  latest_ai_news: "AI news",
+  get_scorecard: "scorecard",
+  list_sketches: "sketches",
+  read_sketch: "sketch",
+  list_posts: "articles",
+  get_post: "article",
+};
+
+function toolLabel(name: string): string {
+  return TOOL_LABELS[name] ?? humanizeToolName(name.replace(/^(list|get|read)_/, ""));
+}
+
+function isReadOnly(name: string): boolean {
+  return /^(list|get|read|search)_/.test(name) || name.endsWith("_doc") || QUIET_TOOLS.has(name);
+}
+
+function ToolGroup({ parts }: { parts: EveDynamicToolPart[] }) {
+  const running = parts.some((p) => isToolRunning(p.state));
+  const failed = parts.some((p) => p.state === "output-error");
+  const labels = [...new Set(parts.filter((p) => !QUIET_TOOLS.has(p.toolName)).map((p) => toolLabel(p.toolName)))];
+  const what = labels.length ? labels.join(", ") : "tools";
+  const verb = parts.every((p) => isReadOnly(p.toolName))
+    ? running ? "Checking" : "Checked"
+    : running ? "Working on" : "Used";
+  const summary = `${verb} ${what}`;
+
+  return (
+    <Collapsible defaultOpen={failed} className="group/tools my-0.5 w-full">
+      <CollapsibleTrigger className="flex max-w-full items-center gap-1.5 rounded-md py-1 text-left text-sm text-muted-foreground transition-colors hover:text-foreground">
+        {failed ? <AlertCircleIcon className="size-3.5 shrink-0 text-destructive" /> : null}
+        {running ? (
+          <Shimmer as="span" className="truncate" duration={1.4}>{`${summary}…`}</Shimmer>
+        ) : (
+          <span className="truncate">{summary}</span>
+        )}
+        <ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-data-[state=open]/tools:rotate-90" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1 space-y-1 border-l border-border pl-3">
+        {parts.map((part) => (
+          <ToolPart key={part.toolCallId} part={part} />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

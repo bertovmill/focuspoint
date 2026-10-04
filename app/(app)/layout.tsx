@@ -216,6 +216,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const [pinned, setPinned] = useState(false);
   const { hydrated, activeId, getThread, newThread } = useThreads();
+  // On the phone a conversation gets the whole screen, the way the Claude and
+  // Muse apps do it: the tab bar steps aside and the chat header's Home button
+  // is the way back (his ask, 2026-10-04).
+  const chatFullScreen = mobileTab === "chat";
 
   // Starting a chat opens the full chat page on a fresh thread. Fired by the C
   // shortcut and every "new chat" button (via NEW_CHAT_EVENT).
@@ -464,7 +468,8 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             <AgentChat
               key={activeId}
               threadId={activeId}
-              hasMobileNav
+              hasMobileNav={!chatFullScreen}
+              onGoHome={() => setMobileTab("home")}
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
               chatSidebarOpen={chatSidebarOpen}
@@ -483,6 +488,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         icons
         className={cn(
           "fixed inset-x-3 z-50 rounded-[2rem] border border-border/60 bg-background/90 shadow-lg shadow-black/10 backdrop-blur-md lg:hidden!",
+          chatFullScreen && "hidden!",
           "bottom-[calc(var(--mobile-nav-gap)_+_var(--safe-bottom))] w-auto!",
         )}
         colors={TABBAR_COLORS}

@@ -4,6 +4,37 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Chat that feels like the Claude app
+
+Berto wants the chat to feel as good as Claude/Muse on his phone so he reaches for it more.
+Picked (quiz): Claude-style composer card, plus compact tool calls, tab bar hidden in chat,
+voice dictation and starter prompts.
+
+- **Composer** (`components/chat/eve-composer.tsx`): soft 28px-radius card, lifted by a
+  shadow instead of the green focus ring; text on top; a round + (attach/screenshot) and
+  the model chip underneath. One round button on the right: **mic** when the box is
+  empty, a **filled ↑ send** once there's text, a **stop ■** while Cael answers. Wrapped in
+  `PromptInputProvider` so the button can see the text. Dictation uses the browser's own
+  SpeechRecognition (Chrome/Edge/Safari), and the mic is hidden where it's missing.
+  It appends to typed text and pulses red while listening.
+- **Compact tool calls** (`components/chat/eve-thread.tsx`): a run of tool calls is one quiet
+  line, "Checked training plan, meal notes ›", which taps open to the old per-call cards.
+  It shimmers ("Checking…") while running, says "Used …" when anything wrote, and opens
+  itself on an error. `load_toolset`/`load_skill` stay out of the label. Step boundaries,
+  empty text and reasoning don't split a run. The calendar keeps its own card.
+- **Full-screen chat on the phone** (`app/(app)/layout.tsx`, `agent-chat.tsx`): the tab bar
+  hides on `/chat`. The header gains ‹ (back to Home) and a new-chat button, both phone only.
+- **Starter prompts** are now his real questions (workout, dinner, plate, 2030) and wrap
+  instead of side-scrolling.
+- Verified in the browser at 375px, light and dark: typing flips mic → send, sending
+  shows stop then returns to mic, and groups expand. Tool calling re-tested end to end
+  (training plan, vision, Luma via on-demand toolset, meals, notes).
+- Note: opening the same thread on two dev servers makes eve 409 the old session; the
+  existing recover-and-resend path then puts the resent message out of order. That's a
+  dev-only quirk, not this change.
+
+---
+
 ## 2026-10-04 — Removed the Dream and scheduled tasks
 
 Berto asked why the nightly Dream had stopped (the last one was 2026-09-10).

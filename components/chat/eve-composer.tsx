@@ -1,7 +1,8 @@
 "use client";
 
 import type { ChatStatus, UserContent } from "ai";
-import { useCallback } from "react";
+import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Attachment,
   AttachmentPreview,
@@ -17,21 +18,27 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputButton,
   PromptInputHeader,
   type PromptInputMessage,
+  PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
+  usePromptInputController,
 } from "@/components/ai-elements/prompt-input";
 import { ModelPicker } from "@/app/_components/model-picker";
 import type { EveAgent, SentFile } from "@/components/chat/eve-thread";
 import { cn } from "@/lib/utils";
 
 /**
- * Cael's composer on AI Elements' PromptInput: text, drag-and-drop or pasted
- * files, a screenshot action, the app-wide model picker, and a submit button
- * that turns into a stop button while a turn is running.
+ * Cael's composer on AI Elements' PromptInput, styled after the Claude mobile
+ * app: a soft rounded card with no coloured focus ring, the text on top, and a
+ * row underneath with a round + (attach / screenshot) and the model as a quiet
+ * chip. On the right one round button does three jobs: a mic to dictate when
+ * the box is empty, a filled send arrow once there's something to send, and a
+ * stop square while Cael is answering.
  */
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -130,14 +137,7 @@ function PendingAttachments() {
   );
 }
 
-export function EveComposer({
-  agent,
-  onSend,
-  className,
-  placeholder = "Message Cael…",
-  autoFocus = true,
-  globalDrop = true,
-}: {
+type EveComposerProps = {
   agent: EveAgent;
   /**
    * Called with the files going out on this message, keyed by the index the
@@ -152,9 +152,33 @@ export function EveComposer({
    * dropped photo belongs in the document, not the chat.
    */
   globalDrop?: boolean;
-}) {
+};
+
+export function EveComposer(props: EveComposerProps) {
+  // The provider lifts the text out of PromptInput so the right-hand button can
+  // tell an empty box (mic) from a typed one (send), and dictation can write in.
+  return (
+    <PromptInputProvider>
+      <ComposerCard {...props} />
+    </PromptInputProvider>
+  );
+}
+
+function ComposerCard({
+  agent,
+  onSend,
+  className,
+  placeholder = "Message Cael…",
+  autoFocus = true,
+  globalDrop = true,
+}: EveComposerProps) {
   const status = toChatStatus(agent.status);
   const busy = status === "submitted" || status === "streaming";
+  const controller = usePromptInputController();
+  const attachments = usePromptInputAttachments();
+  const hasContent = controller.textInput.value.trim().length > 0 || attachments.files.length > 0;
+  const dictation = useDictation(controller.textInput.value, controller.textInput.setInput);
+  const dictationStop = dictation.stop;
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -188,6 +212,7 @@ export function EveComposer({
       }
 
       if (parts.length === 0) return;
+      dictationStop();
       onSend?.(agent.data.messages.length, sent);
 
       // Collapse a lone text part to a plain string (eve's simplest input form).
@@ -195,7 +220,7 @@ export function EveComposer({
         parts.length === 1 && parts[0]!.type === "text" ? parts[0]!.text : parts;
       await agent.send(content);
     },
-    [agent, onSend],
+    [agent, onSend, dictationStop],
   );
 
   return (
@@ -204,21 +229,37 @@ export function EveComposer({
       multiple
       globalDrop={globalDrop}
       maxFileSize={MAX_FILE_BYTES}
-      className={cn("w-full", className)}
+      className={cn(
+        "w-full",
+        // The card: soft, rounded, lifted by a shadow rather than outlined in colour.
+        "[&_[data-slot=input-group]]:rounded-[28px] [&_[data-slot=input-group]]:border-border/70",
+        "[&_[data-slot=input-group]]:bg-card [&_[data-slot=input-group]]:shadow-[0_2px_16px_-4px_rgb(0_0_0/0.12)]",
+        "dark:[&_[data-slot=input-group]]:shadow-[0_2px_16px_-4px_rgb(0_0_0/0.5)]",
+        // Focus deepens the shadow a touch instead of drawing a ring.
+        "[&_[data-slot=input-group]:has(textarea:focus-visible)]:!border-border",
+        "[&_[data-slot=input-group]:has(textarea:focus-visible)]:!ring-0",
+        "[&_[data-slot=input-group]:has(textarea:focus-visible)]:shadow-[0_4px_24px_-6px_rgb(0_0_0/0.2)]",
+        className,
+      )}
     >
       <PendingAttachments />
       <PromptInputBody>
         <PromptInputTextarea
-          placeholder={placeholder}
+          placeholder={dictation.listening ? "Listening…" : placeholder}
           aria-label="Message input"
           autoFocus={autoFocus}
-          className="text-base"
+          className="min-h-12 px-4 pt-3.5 pb-1 text-[17px] leading-snug placeholder:text-muted-foreground/70"
         />
       </PromptInputBody>
-      <PromptInputFooter>
-        <PromptInputTools>
+      <PromptInputFooter className="px-2.5 pt-1 pb-2.5">
+        <PromptInputTools className="gap-1.5">
           <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger />
+            <PromptInputActionMenuTrigger
+              aria-label="Add photos or a screenshot"
+              className="size-8 rounded-full border border-border/70 text-muted-foreground hover:text-foreground"
+            >
+              <PlusIcon className="size-4" />
+            </PromptInputActionMenuTrigger>
             <PromptInputActionMenuContent>
               <PromptInputActionAddAttachments />
               <PromptInputActionAddScreenshot />
@@ -227,12 +268,117 @@ export function EveComposer({
           {/* One global setting — the same picker the floating chat bar shows. */}
           <ModelPicker variant="compact" />
         </PromptInputTools>
-        <PromptInputSubmit
-          status={status}
-          onStop={() => void agent.cancel()}
-          aria-label={busy ? "Stop generating" : "Send message"}
-        />
+        {busy ? (
+          <PromptInputSubmit
+            status={status}
+            onStop={() => void agent.cancel()}
+            aria-label="Stop generating"
+            className="size-8 rounded-full bg-foreground text-background hover:bg-foreground/85"
+          >
+            <SquareIcon className="size-3 fill-current" />
+          </PromptInputSubmit>
+        ) : hasContent || !dictation.supported || dictation.listening ? (
+          dictation.listening && !hasContent ? null : (
+            <PromptInputSubmit
+              status={status}
+              aria-label="Send message"
+              disabled={!hasContent}
+              className={cn(
+                "size-8 rounded-full transition-colors",
+                hasContent
+                  ? "bg-foreground text-background hover:bg-foreground/85"
+                  : "bg-muted text-muted-foreground/60",
+              )}
+            >
+              <ArrowUpIcon className="size-4" strokeWidth={2.5} />
+            </PromptInputSubmit>
+          )
+        ) : null}
+        {!busy && dictation.supported && (dictation.listening || !hasContent) ? (
+          <PromptInputButton
+            aria-label={dictation.listening ? "Stop dictation" : "Dictate"}
+            aria-pressed={dictation.listening}
+            onClick={dictation.toggle}
+            className={cn(
+              "size-8 rounded-full transition-colors",
+              dictation.listening
+                ? "animate-pulse bg-red-500 text-white hover:bg-red-500/90"
+                : "bg-muted text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <MicIcon className="size-4" />
+          </PromptInputButton>
+        ) : null}
       </PromptInputFooter>
     </PromptInput>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Dictation via the browser's own speech recognition (Chrome, Edge, Safari).
+// Where it isn't available the mic never shows and the send button sits there
+// dimmed instead. Speech is appended to whatever is already typed.
+
+type SpeechResultList = ArrayLike<ArrayLike<{ transcript: string }>>;
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: { results: SpeechResultList }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as Record<string, unknown>;
+  return ((w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => SpeechRecognitionLike) | undefined) ?? null;
+}
+
+function useDictation(value: string, setValue: (v: string) => void) {
+  const [supported, setSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const baseRef = useRef("");
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  // Checked after mount so the server and first client render agree.
+  useEffect(() => setSupported(speechRecognitionCtor() !== null), []);
+
+  const stop = useCallback(() => recognitionRef.current?.stop(), []);
+
+  const start = useCallback(() => {
+    const Ctor = speechRecognitionCtor();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = navigator.language || "en-US";
+    const typed = valueRef.current.trim();
+    baseRef.current = typed ? `${typed} ` : "";
+    rec.onresult = (event) => {
+      let heard = "";
+      for (let i = 0; i < event.results.length; i++) heard += event.results[i]![0]!.transcript;
+      setValue(baseRef.current + heard.trimStart());
+    };
+    const finish = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+    rec.onend = finish;
+    rec.onerror = finish;
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+  }, [setValue]);
+
+  const toggle = useCallback(() => (recognitionRef.current ? stop() : start()), [start, stop]);
+
+  useEffect(() => () => recognitionRef.current?.stop(), []);
+
+  return { supported, listening, toggle, stop };
 }

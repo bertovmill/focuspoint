@@ -1,7 +1,7 @@
 "use client";
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
-import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, ChevronLeftIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { PushBell } from "@/app/_components/push-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
@@ -21,6 +21,8 @@ export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
 type AgentChatProps = {
   hasMobileNav?: boolean;
+  /** Phone only: the way back out of a full-screen conversation. */
+  onGoHome?: () => void;
   threadId: string;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
@@ -56,6 +58,7 @@ function ChatSession({
   busyRef,
   resuming,
   hasMobileNav,
+  onGoHome,
   threadId,
   sidebarOpen,
   onToggleSidebar,
@@ -122,11 +125,20 @@ function ChatSession({
     <main
       className={cn(
         "relative flex h-dvh flex-col overflow-hidden bg-background text-foreground",
-        hasMobileNav && "pb-[var(--mobile-nav-h)] lg:pb-0",
+        hasMobileNav ? "pb-[var(--mobile-nav-h)] lg:pb-0" : "pb-[var(--safe-bottom)] lg:pb-0",
       )}
     >
       <header className="flex h-14 shrink-0 items-center justify-between pl-2 pr-3 border-b border-border">
         <span className="flex min-w-0 items-center gap-1">
+          {onGoHome && !hasMobileNav ? (
+            <button
+              onClick={onGoHome}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
+              aria-label="Back to Home"
+            >
+              <ChevronLeftIcon className="size-5" />
+            </button>
+          ) : null}
           <button
             onClick={() => setHistoryOpen(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
@@ -171,6 +183,13 @@ function ChatSession({
           <StatusDot status={agent.status} />
         </span>
         <span className="flex items-center gap-1">
+          <button
+            onClick={() => requestNewChat()}
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
+            aria-label="New chat"
+          >
+            <SquarePenIcon className="size-4" />
+          </button>
           <PushBell />
           <PinButton className="p-2" />
           <button

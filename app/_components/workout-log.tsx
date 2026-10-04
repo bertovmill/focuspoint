@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import {
+  checklistParts,
   formatTime,
   hitAll,
   hitSet,
@@ -26,6 +27,8 @@ interface DayData {
   logs: StrengthLog[];
   prescriptions: Record<string, Prescription & { last: StrengthLog | null }>;
   history: StrengthLog[];
+  /** Warm-up / cool-down ticks for the day, one per part. */
+  checks?: Record<string, boolean[]>;
 }
 
 interface Row {
@@ -71,7 +74,7 @@ function initialRows(t: WorkoutTemplate, data: DayData): Record<string, Row> {
     const log = data.logs.find((l) => l.exercise === ex.key);
     const p = data.prescriptions[ex.key];
     rows[ex.key] = log
-      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: ex.sets }, (_, i) => display(ex, log.reps[i])) }
+      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: Math.max(ex.sets, log.reps.length) }, (_, i) => display(ex, log.reps[i])) }
       : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill("") };
   }
   return rows;
@@ -221,11 +224,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </div>
       </header>
 
-      {t.warmup && (
-        <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Warm-up</span> · {t.warmup}
-        </p>
-      )}
+      {t.warmup && <Checklist key={`warmup-${date}`} id="warm-up" label="Warm-up" part="warmup" text={t.warmup} slug={t.slug} date={date} initial={data.checks?.warmup} />}
 
       {t.blocks.map((b) =>
           b.exercises.every(isTime) ? (
@@ -267,11 +266,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
           ),
       )}
 
-      {t.cooldown && (
-        <p className="rounded-lg bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Cool-down</span> · {t.cooldown}
-        </p>
-      )}
+      {t.cooldown && <Checklist key={`cooldown-${date}`} id="cool-down" label="Cool-down" part="cooldown" text={t.cooldown} slug={t.slug} date={date} initial={data.checks?.cooldown} />}
 
       {t.blocks.some((b) => b.exercises.some((e) => e.tracked)) && (
         <section id="progress" className="space-y-3">
@@ -479,7 +474,7 @@ function TimeRow({ ex, row, p, onChange }: { ex: TemplateExercise; row: Row | un
           </span>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
             <span className="font-medium tabular-nums text-foreground/80">{row.target ? `≤ ${formatTime(row.target)}` : "log the time"}</span>
-            {ex.sets > 1 && <span>· {ex.sets} sets</span>}
+            {!single && <span>· {row.reps.length} {row.reps.length === 1 ? "rep" : "reps"}{row.reps.length !== ex.sets ? ` (plan ${ex.sets})` : ""}</span>}
             {(ex.weight !== null || ex.loaded) && (
               <>
                 <span aria-hidden>·</span>
@@ -499,16 +494,77 @@ function TimeRow({ ex, row, p, onChange }: { ex: TemplateExercise; row: Row | un
         )}
       </div>
       {!single && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap items-end gap-2">
           {row.reps.map((v, i) => (
             <label key={i} className="flex flex-col items-center gap-0.5">
               <span className="text-[11px] tabular-nums text-muted-foreground">{i + 1}</span>
               {box(v, i)}
             </label>
           ))}
+          {/* Some days are 8 or 10 reps instead of the planned 6 (Berto, 2026-10-04). */}
+          <button
+            type="button"
+            onClick={() => onChange((r) => ({ ...r, reps: [...r.reps, ""] }))}
+            className="flex h-11 items-center gap-1 rounded-md border border-dashed px-3 text-sm text-muted-foreground hover:border-solid hover:text-foreground"
+            aria-label={`Add a ${ex.name}`}
+          >
+            <PlusIcon className="size-4" /> Rep
+          </button>
+          {row.reps.length > ex.sets && (
+            <button
+              type="button"
+              onClick={() => onChange((r) => ({ ...r, reps: r.reps.slice(0, -1) }))}
+              className="flex size-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={`Remove the last ${ex.name}`}
+              title="Remove the last rep"
+            >
+              <MinusIcon className="size-4" />
+            </button>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The warm-up or cool-down as tick boxes, one per part ("15 min easy", "4 × 20 s
+ * strides"). Saved per day straight away.
+ */
+function Checklist({ id, label, part, text, slug, date, initial }: { id: string; label: string; part: "warmup" | "cooldown"; text: string; slug: string; date: string; initial?: boolean[] }) {
+  const parts = checklistParts(text);
+  const [done, setDone] = useState<boolean[]>(() => parts.map((_, i) => Boolean(initial?.[i])));
+  const all = parts.length > 0 && done.every(Boolean);
+  const toggle = async (i: number) => {
+    const next = parts.map((_, j) => (j === i ? !done[j] : Boolean(done[j])));
+    setDone(next);
+    try {
+      const res = await fetch(`/api/training/workouts/${slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, part, done: next }) });
+      if (!res.ok) throw new Error();
+    } catch {
+      setDone(done);
+      toast.error(`Couldn't save the ${label.toLowerCase()}`);
+    }
+  };
+  return (
+    <section id={id} className={cn("overflow-hidden rounded-xl border", all && "border-emerald-500/40")}>
+      <h2 className={cn("flex items-center justify-between border-b px-4 py-2 text-sm font-semibold uppercase tracking-wide", all ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted/40 text-muted-foreground")}>
+        {label}
+        {all && <CheckIcon className="size-4" />}
+      </h2>
+      <ul>
+        {parts.map((p, i) => (
+          <li key={i} className="border-t first:border-t-0">
+            <button type="button" onClick={() => toggle(i)} className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted/40" aria-pressed={done[i]} aria-label={p}>
+              <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md border-2", done[i] ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}>
+                {done[i] && <CheckIcon className="size-4" />}
+              </span>
+              <span className={cn("text-base", done[i] && "text-muted-foreground line-through")}>{p}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

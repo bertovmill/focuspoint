@@ -9805,3 +9805,21 @@ Berto found Meal log next to Meal bank confusing, so /meals now shows only the
 bank under the grid. `meal-log.tsx` is gone; eaten ticks still write
 `nutrition_meals` rows (the history and Cael's `log_meal` / `list_nutrition`
 are unchanged).
+
+## 2026-10-04 (chat) — Workout page: add reps, warm-up / cool-down checklists
+
+On Threshold Intervals Berto may run 8 or 10 reps instead of 6, and wanted the
+warm-up and cool-down to be real tick-offs. Week-over-week measure stays simple:
+**average time per rep** (the existing Progress chart already plots that).
+
+- Timed multi-set exercises (1 km reps, 5 km splits) get **+ Rep** and, past the
+  planned count, a remove button; the label reads "8 reps (plan 6)". A day's log
+  keeps however many reps he did (`initialRows` reads `max(sets, logged)`); trailing
+  empty boxes are dropped on save as before.
+- Warm-up / cool-down render as checklists, one box per " + " part
+  (`checklistParts`): "15 min easy", "4 × 20 s strides". Stored in new
+  `workout_checks (template, log_date, part, done BOOLEAN[])`, returned as `checks`
+  by `getWorkoutDay`, ticked via PATCH `/api/training/workouts/<slug>`.
+
+Verified on :3007 with a 2021 date: ticked a warm-up part, added reps 7–8, typed
+3:50 and 3:40 → reload kept all of it, chart showed avg 3:45. Test rows deleted.

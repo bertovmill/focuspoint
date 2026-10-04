@@ -289,6 +289,11 @@ WORKOUT_TEMPLATES.push({
   ],
 });
 
+/** "15 min easy + 4 × 20 s strides" → the parts he ticks off one by one. */
+export function checklistParts(text: string | undefined): string[] {
+  return (text ?? "").split(/\s+\+\s+/).map((p) => p.trim()).filter(Boolean);
+}
+
 /** The bank's first-run contents. */
 export const SEED_WORKOUTS = WORKOUT_TEMPLATES;
 

@@ -615,6 +615,16 @@ export async function ensureSchema() {
   `;
   await sql`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
   await sql`
+    CREATE TABLE IF NOT EXISTS workout_checks (
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      part TEXT NOT NULL,
+      done BOOLEAN[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template, log_date, part)
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS strava_activities (
       id BIGINT PRIMARY KEY,
       name TEXT NOT NULL,

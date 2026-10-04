@@ -26,6 +26,17 @@ async function ensureTable() {
   // How many reps / metres a timed set was (100 wall balls, later 120) — the
   // time only means something next to it.
   await getDb()`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
+  // Warm-up / cool-down ticks: one boolean per part ("15 min easy", "4 × 20 s strides").
+  await getDb()`
+    CREATE TABLE IF NOT EXISTS workout_checks (
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      part TEXT NOT NULL,
+      done BOOLEAN[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template, log_date, part)
+    )
+  `;
   tableReady = true;
 }
 
@@ -67,7 +78,25 @@ export async function getWorkoutDay(requested: string, date: string) {
     const last = before[before.length - 1] ?? null;
     prescriptions[ex.key] = { ...nextPrescription(ex, last), last };
   }
-  return { template: t, date, logs: history.filter((l) => l.log_date === date), prescriptions, history };
+  const checkRows = await getDb()`SELECT part, done FROM workout_checks WHERE template = ${slug} AND log_date = ${date}`;
+  const checks: Record<string, boolean[]> = {};
+  for (const r of checkRows) checks[String(r.part)] = (r.done as boolean[]) ?? [];
+  return { template: t, date, logs: history.filter((l) => l.log_date === date), prescriptions, history, checks };
+}
+
+export type CheckPart = "warmup" | "cooldown";
+
+/** Tick or untick the parts of a session's warm-up or cool-down. */
+export async function saveWorkoutCheck(requested: string, date: string, part: CheckPart, done: boolean[]) {
+  const t = await getWorkout(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  await ensureTable();
+  await getDb()`
+    INSERT INTO workout_checks (template, log_date, part, done, updated_at)
+    VALUES (${t.slug}, ${date}, ${part}, ${done}, NOW())
+    ON CONFLICT (template, log_date, part) DO UPDATE SET done = EXCLUDED.done, updated_at = NOW()
+  `;
+  return { part, done };
 }
 
 export interface StrengthEntry {

@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Notes: attach a photo
+
+- One photo per note, on the existing `thoughts.image_url` column (Berto picked one over
+  several, so no schema change). A **Photo** button sits next to "Add note" and next to
+  Save/Cancel when editing; pasting an image into either box attaches it too. A small
+  thumbnail with an × shows what's attached. "Change photo" replaces it.
+- `lib/upload-photo.ts` re-encodes anything the browser can decode to a ≤2000px JPEG
+  before `/api/upload`, because iPhone shots routinely exceed the 5 MB cap. GIFs skip
+  this so they keep animating. HEIC outside Safari falls through to the server, which rejects it.
+- A photo-only note is allowed (empty `content`, no embedding, so it won't show in
+  semantic search). `POST /api/thoughts` takes `image_url`. `PATCH /api/thoughts/[id]` takes
+  an optional `image_url` (left out = keep, `null` = remove) and now returns `image_url`.
+- Files: `app/_components/dashboard.tsx`, `app/api/thoughts/route.ts`,
+  `app/api/thoughts/[id]/route.ts`, `lib/upload-photo.ts`.
+- Next: removing a photo leaves its blob in storage (harmless, small). Not yet tried on a phone.
+
+---
+
 ## 2026-10-03 — Mobile pass: tab bar, notes, chat that survives app switching, web push
 
 Berto uses Cael mostly on his phone, from a home-screen icon.

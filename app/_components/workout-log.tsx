@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WorkoutTimer, useSegments, type Segment } from "@/app/_components/workout-timer";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import {
@@ -147,6 +148,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
 
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const segments = useSegments(t);
+  const [active, setActive] = useState<Segment | null>(null);
 
   const update = (key: string, fn: (r: Row) => Row) => {
     const next = { ...rowsRef.current, [key]: fn(rowsRef.current[key]) };
@@ -171,6 +174,10 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
     },
     [save],
   );
+
+  // The lap timer writes each split straight into its time box (and so autosaves).
+  const onSplit = (seg: Segment, seconds: number) =>
+    update(seg.exKey, (r) => ({ ...r, reps: r.reps.map((x, j) => (j === seg.set ? formatTime(seconds) : x)) }));
 
   if (missing) {
     return (
@@ -231,7 +238,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
               <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
               {b.exercises.map((ex) => (
-                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} onChange={(fn) => update(ex.key, fn)} />
+                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} />
               ))}
             </section>
           ) : (
@@ -283,6 +290,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
           </div>
         </section>
       )}
+
+      {segments.length > 0 && <WorkoutTimer slug={t.slug} date={date} segments={segments} onSplit={onSplit} onActive={setActive} />}
 
       {pastDates.length > 0 && (
         <section id="past-sessions" className="space-y-2">
@@ -411,7 +420,7 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, row, p, onChange }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; onChange: (fn: (r: Row) => Row) => void }) {
+function TimeRow({ ex, row, p, activeSet, onChange }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void }) {
   if (!row) return null;
   const values = row.reps.map((v) => parseTime(v));
   const done = values.filter((v): v is number => v !== null);
@@ -440,6 +449,7 @@ function TimeRow({ ex, row, p, onChange }: { ex: TemplateExercise; row: Row | un
       className={cn(
         "h-11 w-[4.75rem] shrink-0 rounded-md border bg-background text-center text-lg tabular-nums placeholder:text-muted-foreground/40 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30",
         hitSet(ex, values[i], row.target) && "border-emerald-500/60 bg-emerald-500/10",
+        activeSet === i && "ring-2 ring-primary",
       )}
       aria-label={`${ex.name}${ex.sets > 1 ? ` set ${i + 1}` : ""} time`}
     />

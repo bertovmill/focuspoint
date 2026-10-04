@@ -9836,3 +9836,21 @@ Berto recognises a meal by its picture faster than its name.
 - The grid shows the photo as a real thumbnail (beside the name on phones, a
   strip on top on desktop) instead of a 15% background; the picker lists show it
   too. Generated photos for all four bank meals.
+## 2026-10-05 — Lap timer on timed workouts
+
+Berto wanted start/stop instead of typing times, worried about the screen going
+off. `app/_components/workout-timer.tsx`, pinned above the tab bar on any
+workout with timed sets: Start once, then one big "Done → next" button per
+segment (each timed set, in block order); each tap writes the split into its
+time box, which autosaves. Pause/Resume for talking to someone or loading the
+sled — paused time never counts. Exercises with `waitBetweenSets` (the interval
+reps) wait for "Start rep N" so the 90 s jog isn't timed. Stop drops only the
+split in progress.
+- Robust to sleep/kill: state is timestamps (segment start, paused ms, paused
+  at) in localStorage per workout + date; elapsed = now − start − paused, so a
+  frozen or reloaded page is exact. Screen Wake Lock held while it runs (re-taken
+  on visibilitychange). Same device only — not synced to the server.
+- Current segment's box gets a ring. Tested: pause excluded (2.0 s), reload
+  mid-rep kept timing, rep 1 survived reload, interval wait state.
+Note: Wake Lock inside the Capacitor iOS shell's WKWebView is unverified; timing
+stays correct regardless, the screen may just sleep there.

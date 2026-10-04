@@ -29,6 +29,8 @@ export interface TemplateExercise {
   amountUnit?: "reps" | "m";
   /** Each set is a time in seconds (lower is better) instead of a rep count. */
   measure?: "time";
+  /** Timer: after each set, wait for a tap before timing the next (the jog between interval reps). */
+  waitBetweenSets?: boolean;
   /** One line under the name: how to do it ("90 s easy jog between"). */
   note?: string;
   perSide?: boolean;
@@ -212,7 +214,7 @@ WORKOUT_TEMPLATES.push(
         key: "main-set",
         label: "Main set",
         exercises: [
-          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, note: "Hold 3:45 on every rep · 90 s easy jog between" },
+          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, note: "Hold 3:45 on every rep · 90 s easy jog between" },
         ],
       },
     ],

@@ -117,8 +117,14 @@ export async function saveWorkout(input: Partial<WorkoutTemplate> & { name: stri
     VALUES (${finalSlug}, (SELECT COALESCE(MAX(position), -1) + 1 FROM workout_bank), ${JSON.stringify(def)}, NOW())
     ON CONFLICT (slug) DO UPDATE SET definition = EXCLUDED.definition, archived = FALSE, updated_at = NOW()
   `;
-  // Keep planned sessions' titles in step with a rename.
-  await sql`UPDATE training_sessions SET title = ${name}, updated_at = NOW() WHERE workout_slug = ${finalSlug} AND done = FALSE AND title <> ${name}`;
+  // Keep upcoming, unfinished sessions in step with the bank: name, type and targets.
+  const p = def.plan ?? {};
+  await sql`
+    UPDATE training_sessions SET title = ${name}, type = ${sessionType}, target_km = ${p.km ?? null},
+      target_minutes = ${minutesAtPace(p.km ?? null, p.pace_sec ?? null) ?? p.minutes ?? null},
+      target_pace_sec = ${p.pace_sec ?? null}, intensity = ${p.intensity ?? null}, updated_at = NOW()
+    WHERE workout_slug = ${finalSlug} AND done = FALSE AND session_date >= ${todayISO()}
+  `;
   return def;
 }
 

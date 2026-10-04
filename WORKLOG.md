@@ -9766,3 +9766,13 @@ editable box; the next session starts from the last one's count, so bumping to
 tooltip; duplicate exercise charts are titled by round. Editor: "Count" field +
 reps/metres for timed exercises. Timed targets now always come from the bank
 (not the last log), so editing a target takes effect next session.
+
+## 2026-10-05 — Stations: 3 rounds, Berto's targets
+
+Three rounds (2 min rest before rounds 2 and 3) of run 1 km ≤ 4:00 → wall balls
+× 100 ≤ 5:00 → farmers 200 m ≤ 2:00 → sled push 50 m ≤ 3:00. ~15:30 a round,
+~51 min of work with rests, ~65 min with warm-up/cool-down (plan 65 min, hard).
+Wall balls charted every round; farmers/sled round 1. Flagged: 300 + Tuesday's 60
+wall balls is big shoulder volume — cut round 3's count on the day if form goes.
+`saveWorkout` now also syncs type/targets/intensity (not just the title) onto
+upcoming unfinished sessions linked to that workout.

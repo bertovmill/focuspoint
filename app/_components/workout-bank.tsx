@@ -135,7 +135,7 @@ function BankCard({ w, today }: { w: WorkoutTemplate; today: string }) {
 // ── the editor ────────────────────────────────────────────────────────────
 
 /** An exercise while it's being edited: targets and weight as typed text. */
-type DraftExercise = TemplateExercise & { targetsText: string; weightText: string };
+type DraftExercise = TemplateExercise & { targetsText: string; weightText: string; amountText: string };
 type DraftBlock = Omit<TemplateBlock, "exercises"> & { exercises: DraftExercise[] };
 type Draft = Omit<WorkoutTemplate, "blocks"> & { blocks: DraftBlock[]; kmText: string; paceText: string; minutesText: string };
 
@@ -144,6 +144,7 @@ function toDraftExercise(e: TemplateExercise): DraftExercise {
     ...e,
     targetsText: e.ladder.map((n) => (e.measure === "time" ? formatTime(n) : String(n))).join(", "),
     weightText: e.weight === null ? "" : String(e.weight),
+    amountText: e.amount == null ? "" : String(e.amount),
   };
 }
 
@@ -159,7 +160,7 @@ function toDraft(w: WorkoutTemplate): Draft {
 }
 
 function blankExercise(): DraftExercise {
-  return { key: "", name: "", sets: 4, ladder: [10, 15, 20], weight: null, targetsText: "10, 15, 20", weightText: "" };
+  return { key: "", name: "", sets: 4, ladder: [10, 15, 20], weight: null, targetsText: "10, 15, 20", weightText: "", amountText: "" };
 }
 
 function blankDraft(): Draft {
@@ -191,8 +192,9 @@ function fromDraft(d: Draft): Partial<WorkoutTemplate> & { name: string } {
     blocks: d.blocks.map((b) => ({
       key: b.key,
       label: b.label,
-      exercises: b.exercises.map(({ targetsText, weightText, ...e }) => ({
+      exercises: b.exercises.map(({ targetsText, weightText, amountText, ...e }) => ({
         ...e,
+        amount: e.measure === "time" ? (num(amountText) ?? undefined) : undefined,
         ladder: targetsText
           .split(/[,\s]+/)
           .map((t) => (e.measure === "time" ? parseTime(t) : num(t)))
@@ -473,6 +475,22 @@ function ExerciseEditor({
           />
         </Field>
       </div>
+      {timed && (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Count (changeable on the day)">
+            <Input className="h-11 w-28 text-base" inputMode="numeric" placeholder="e.g. 100" value={e.amountText} onChange={(ev) => onChange({ amountText: ev.target.value.replace(/\D/g, "") })} />
+          </Field>
+          <Chips
+            small
+            options={[
+              { value: "reps", label: "reps" },
+              { value: "m", label: "metres" },
+            ]}
+            value={e.amountUnit ?? "reps"}
+            onChange={(v) => onChange({ amountUnit: v === "m" ? "m" : "reps" })}
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex h-11 items-center gap-2 text-sm">
           <input type="checkbox" className="size-5" checked={weighted} onChange={(ev) => onChange(ev.target.checked ? { loaded: true } : { loaded: false, weightText: "" })} />

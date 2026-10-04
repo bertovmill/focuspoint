@@ -9750,3 +9750,19 @@ eaten/planned).
   before 2026-10-04 were relabelled `archived_snack`
   (scripts/meals-numbered-migrate.mjs, already run: 23 plans).
 - Cael: `set_daily_meal` / `log_meal` take `meal1`–`meal3` | `snack`.
+
+## 2026-10-05 — Stations: 2 heavy rounds, 100 wall balls, count editable on the day
+
+Berto: race volume on wall balls (100, later maybe 120), more station work and
+less running (Monday was 4 km on top of Thu intervals, Sat sim, Sun 20K — hard
+on ankles and knees). **Stations** is now 2 rounds of: run 1 km (≤ 4:10) →
+wall balls × 100 (9 kg, ≤ 7:38) → farmers carry 200 m (≤ 1:46) → sled push
+50 m (≤ 3:18). 2 km of running instead of 4.
+
+New per-log **amount** for timed sets (`amount`/`amountUnit` on a template
+exercise; `strength_logs.amount`): the log row shows "× [100] reps" as an
+editable box; the next session starts from the last one's count, so bumping to
+120 sticks. Charts mark a count change like a weight change and show it in the
+tooltip; duplicate exercise charts are titled by round. Editor: "Count" field +
+reps/metres for timed exercises. Timed targets now always come from the bank
+(not the last log), so editing a target takes effect next session.

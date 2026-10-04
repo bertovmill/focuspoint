@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: Params) {
   }
 }
 
-// PUT { date, entries: [{ exercise, weight, target_reps, reps: (number|null)[] }] }
+// PUT { date, entries: [{ exercise, weight, amount?, target_reps, reps: (number|null)[] }] }
 export async function PUT(req: Request, { params }: Params) {
   try {
     const { template } = await params;
@@ -26,6 +26,7 @@ export async function PUT(req: Request, { params }: Params) {
     const entries: StrengthEntry[] = (Array.isArray(body.entries) ? body.entries : []).map((e: Record<string, unknown>) => ({
       exercise: String(e.exercise),
       weight: e.weight === null || e.weight === "" || e.weight === undefined ? null : Number(e.weight),
+      amount: e.amount === null || e.amount === "" || e.amount === undefined ? null : Number(e.amount),
       target_reps: Number(e.target_reps),
       reps: (Array.isArray(e.reps) ? e.reps : []).map((r: unknown) => (r === null || r === "" ? null : Number(r))),
     }));

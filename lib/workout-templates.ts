@@ -23,6 +23,10 @@ export interface TemplateExercise {
   weightUnit?: "kg";
   /** What a "rep" is. Defaults to reps; the sled counts metres. */
   unit?: "m";
+  /** For a timed set: how much it is (100 wall balls, 200 m). Changeable on the
+   *  day; each log keeps its own, and the next session starts from the last one. */
+  amount?: number;
+  amountUnit?: "reps" | "m";
   /** Each set is a time in seconds (lower is better) instead of a rep count. */
   measure?: "time";
   /** One line under the name: how to do it ("90 s easy jog between"). */
@@ -303,6 +307,7 @@ export interface StrengthLog {
   weight: number | null;
   target_reps: number;
   reps: (number | null)[];
+  amount?: number | null;
 }
 
 export function hitAll(ex: TemplateExercise, log: Pick<StrengthLog, "reps" | "target_reps">) {
@@ -362,6 +367,8 @@ export function normalizeTemplate(t: WorkoutTemplate): WorkoutTemplate {
 
 export interface Prescription {
   weight: number | null;
+  /** Timed sets: the reps / metres to do, carried from the last session. */
+  amount?: number | null;
   target: number;
   /** Top rung cleared on every set — time to add weight. */
   bumpSuggested: boolean;
@@ -369,7 +376,10 @@ export interface Prescription {
 
 /** What to aim for next time, from the last session's log of this exercise. */
 export function nextPrescription(ex: TemplateExercise, last: StrengthLog | null): Prescription {
-  if (!last) return { weight: ex.weight, target: ex.ladder[0] ?? 0, bumpSuggested: false };
+  const amount = last?.amount ?? ex.amount ?? null;
+  if (!last) return { weight: ex.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
+  // Time targets come from the bank, so changing one there (e.g. to a race time) takes effect next session.
+  if (ex.measure === "time") return { weight: last.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
   if (!hitAll(ex, last)) return { weight: last.weight, target: last.target_reps, bumpSuggested: false };
   const i = ex.ladder.indexOf(last.target_reps);
   if (i >= 0 && i < ex.ladder.length - 1) return { weight: last.weight, target: ex.ladder[i + 1], bumpSuggested: false };

@@ -30,6 +30,8 @@ interface DayData {
 
 interface Row {
   weight: string;
+  /** Timed sets: how many reps / metres, e.g. "100". */
+  amount: string;
   target: number;
   reps: string[];
 }
@@ -69,8 +71,8 @@ function initialRows(t: WorkoutTemplate, data: DayData): Record<string, Row> {
     const log = data.logs.find((l) => l.exercise === ex.key);
     const p = data.prescriptions[ex.key];
     rows[ex.key] = log
-      ? { weight: log.weight === null ? "" : String(log.weight), target: log.target_reps, reps: Array.from({ length: ex.sets }, (_, i) => display(ex, log.reps[i])) }
-      : { weight: p?.weight == null ? "" : String(p.weight), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill("") };
+      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: ex.sets }, (_, i) => display(ex, log.reps[i])) }
+      : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill("") };
   }
   return rows;
 }
@@ -123,7 +125,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             date,
             entries: Object.entries(next).map(([exercise, r]) => {
               const ex = tRef.current?.blocks.flatMap((b) => b.exercises).find((e) => e.key === exercise);
-              return { exercise, weight: parseNum(r.weight), target_reps: r.target, reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
+              return { exercise, weight: parseNum(r.weight), amount: parseNum(r.amount), target_reps: r.target, reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
             }),
           }),
         });
@@ -275,9 +277,14 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         <section id="progress" className="space-y-3">
           <h2 className="text-xl font-semibold">Progress</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {t.blocks.flatMap((b) => b.exercises).filter((e) => e.tracked).map((ex) => (
-              <RepsChart key={ex.key} ex={ex} logs={data.history.filter((l) => l.exercise === ex.key)} />
-            ))}
+            {(() => {
+              // Same exercise in two rounds (wall balls) → title each chart with its round.
+              const tracked = t.blocks.flatMap((b) => b.exercises.filter((e) => e.tracked).map((ex) => ({ ex, block: b.label })));
+              const dup = (name: string) => tracked.filter((x) => x.ex.name === name).length > 1;
+              return tracked.map(({ ex, block }) => (
+                <RepsChart key={ex.key} ex={dup(ex.name) ? { ...ex, name: `${ex.name} · ${block}` } : ex} logs={data.history.filter((l) => l.exercise === ex.key)} />
+              ));
+            })()}
           </div>
         </section>
       )}
@@ -446,7 +453,30 @@ function TimeRow({ ex, row, p, onChange }: { ex: TemplateExercise; row: Row | un
     <div className="border-t px-3 py-3 first:border-t-0 sm:px-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="block font-medium leading-snug">{ex.name}</span>
+          <span className="flex flex-wrap items-center gap-x-1.5 font-medium leading-snug">
+            {ex.name}
+            {ex.amount !== undefined && (
+              // The count is his to change on the day (100 wall balls → 120).
+              <span className="inline-flex items-center gap-1 whitespace-nowrap font-normal text-muted-foreground">
+                ×
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onClick={(e) => e.currentTarget.select()}
+                  value={row.amount}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    onChange((r) => ({ ...r, amount: v }));
+                  }}
+                  className="h-8 w-14 rounded border bg-background text-center text-base tabular-nums focus:border-ring focus:outline-none"
+                  aria-label={`${ex.name} ${ex.amountUnit ?? "reps"}`}
+                />
+                {ex.amountUnit ?? "reps"}
+              </span>
+            )}
+          </span>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
             <span className="font-medium tabular-nums text-foreground/80">{row.target ? `≤ ${formatTime(row.target)}` : "log the time"}</span>
             {ex.sets > 1 && <span>· {ex.sets} sets</span>}
@@ -497,8 +527,8 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
       logs.map((l) => {
         const done = l.reps.filter((r): r is number => r !== null);
         return isTime(ex)
-          ? { date: l.log_date, total: done.length ? totalReps(done) / done.length : 0, goal: l.target_reps, weight: l.weight, target: l.target_reps }
-          : { date: l.log_date, total: totalReps(l.reps), goal: l.target_reps * ex.sets, weight: l.weight, target: l.target_reps };
+          ? { date: l.log_date, total: done.length ? totalReps(done) / done.length : 0, goal: l.target_reps, weight: l.weight, target: l.target_reps, amount: l.amount ?? null }
+          : { date: l.log_date, total: totalReps(l.reps), goal: l.target_reps * ex.sets, weight: l.weight, target: l.target_reps, amount: null };
       }),
     [logs, ex],
   );
@@ -551,7 +581,8 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
       return `M ${x0} ${y(p.goal)} L ${x1} ${y(p.goal)}`;
     })
     .join(" ");
-  const weightJumps = points.map((p, i) => (i > 0 && p.weight !== points[i - 1].weight ? i : -1)).filter((i) => i > 0);
+  // A new weight — or, for a timed station, a new count (100 → 120 wall balls) — starts a new segment.
+  const weightJumps = points.map((p, i) => (i > 0 && (p.weight !== points[i - 1].weight || p.amount !== points[i - 1].amount) ? i : -1)).filter((i) => i > 0);
   const h = hover === null ? null : points[hover];
 
   return (
@@ -567,7 +598,7 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
         {weightJumps.map((i) => (
           <g key={i}>
             <line x1={x(i) - (CW - M.left - M.right) / Math.max(1, n - 1) / 2} x2={x(i) - (CW - M.left - M.right) / Math.max(1, n - 1) / 2} y1={M.top} y2={CH - M.bottom} stroke="var(--muted-foreground)" strokeOpacity={0.4} />
-            <text x={x(i)} y={M.top - 4} textAnchor="middle" fontSize={10} fill="var(--muted-foreground)">{points[i].weight}</text>
+            <text x={x(i)} y={M.top - 4} textAnchor="middle" fontSize={10} fill="var(--muted-foreground)">{points[i].amount !== points[i - 1].amount ? `× ${points[i].amount}` : points[i].weight}</text>
           </g>
         ))}
         <path d={points.some((p) => p.goal > 0) ? goalPath : ""} fill="none" stroke="var(--muted-foreground)" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="4 3" />
@@ -584,7 +615,7 @@ function RepsChart({ ex, logs }: { ex: TemplateExercise; logs: StrengthLog[] }) 
       </svg>
       <p className="mt-1 min-h-5 text-xs tabular-nums text-muted-foreground">
         {h
-          ? `${shortDate(h.date)} · ${timed ? `${ex.sets > 1 ? "avg " : ""}${fmt(h.total)}${h.goal ? ` vs ${fmt(h.goal)}` : ""}` : `${h.total}/${h.goal} reps (× ${h.target})`}${h.weight !== null ? ` at ${h.weight}${ex.perSide ? "/side" : ` ${ex.weightUnit ?? "lbs"}`}` : ""}`
+          ? `${shortDate(h.date)} · ${h.amount ? `× ${h.amount} ${ex.amountUnit ?? "reps"} · ` : ""}${timed ? `${ex.sets > 1 ? "avg " : ""}${fmt(h.total)}${h.goal ? ` vs ${fmt(h.goal)}` : ""}` : `${h.total}/${h.goal} reps (× ${h.target})`}${h.weight !== null ? ` at ${h.weight}${ex.perSide ? "/side" : ` ${ex.weightUnit ?? "lbs"}`}` : ""}`
           : timed ? `${ex.sets > 1 ? "Average per set · " : ""}lower is faster · dashed: target` : "Dashed line: the target (sets × rung)"}
       </p>
     </div>

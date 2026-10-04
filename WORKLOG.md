@@ -9895,3 +9895,11 @@ split in progress.
   mid-rep kept timing, rep 1 survived reload, interval wait state.
 Note: Wake Lock inside the Capacitor iOS shell's WKWebView is unverified; timing
 stays correct regardless, the screen may just sleep there.
+
+## 2026-10-04 — Meals: one day at a time on phones, swipe between days
+
+- Phones show a Mo–Su day strip and one day's meals (today by default). Swipe
+  left/right moves a day and crosses into the next/previous week; only clear
+  sideways swipes count, so scrolling never flips the day. Week arrows are bigger
+  on phones; "This week" became "Today".
+- Trimmed the protein card copy to "N g to go" / "Planned N g · kcal".

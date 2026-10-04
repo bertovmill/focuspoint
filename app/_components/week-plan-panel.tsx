@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookmarkIcon,
   CheckIcon,
@@ -53,6 +53,15 @@ export function WeekPlanPanel() {
   const today = todayISO();
   const [weekStart, setWeekStart] = useState(() => weekStartISO(today));
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
+  // Phones show one day at a time; swiping moves it, crossing into the next or
+  // previous week at the ends.
+  const [selected, setSelected] = useState(today);
+  const goTo = (date: string) => {
+    setSelected(date);
+    setWeekStart(weekStartISO(date));
+  };
+  const shiftWeek = (n: number) => goTo(addDaysISO(selected, 7 * n));
+  const swipe = useRef<{ x: number; y: number } | null>(null);
   const [cells, setCells] = useState<Cells>(new Map());
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [target, setTarget] = useState(DEFAULT_PROTEIN_TARGET_G);
@@ -452,27 +461,29 @@ export function WeekPlanPanel() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Meals</h1>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1.5 md:gap-1">
           <button
             type="button"
-            onClick={() => setWeekStart((w) => addDaysISO(w, -7))}
-            className="tap-target rounded-md border p-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => shiftWeek(-1)}
+            className="tap-target rounded-lg border p-2.5 text-muted-foreground hover:text-foreground md:rounded-md md:p-1.5"
             aria-label="Previous week"
           >
-            <ChevronLeftIcon className="size-3.5" />
+            <ChevronLeftIcon className="size-5 md:size-3.5" />
           </button>
-          <span className="min-w-28 text-center text-sm tabular-nums md:text-xs">{weekRangeLabel(weekStart)}</span>
+          <span className="min-w-32 text-center text-base font-medium tabular-nums md:min-w-28 md:text-xs md:font-normal">
+            {weekRangeLabel(weekStart)}
+          </span>
           <button
             type="button"
-            onClick={() => setWeekStart((w) => addDaysISO(w, 7))}
-            className="tap-target rounded-md border p-1.5 text-muted-foreground hover:text-foreground"
+            onClick={() => shiftWeek(1)}
+            className="tap-target rounded-lg border p-2.5 text-muted-foreground hover:text-foreground md:rounded-md md:p-1.5"
             aria-label="Next week"
           >
-            <ChevronRightIcon className="size-3.5" />
+            <ChevronRightIcon className="size-5 md:size-3.5" />
           </button>
           {!isCurrentWeek && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setWeekStart(weekStartISO(today))}>
-              This week
+            <Button size="sm" variant="ghost" className="h-10 text-sm md:h-7 md:text-xs" onClick={() => goTo(today)}>
+              Today
             </Button>
           )}
         </div>
@@ -524,13 +535,12 @@ export function WeekPlanPanel() {
           <p className="text-sm text-muted-foreground md:text-xs">
             {eaten >= target
               ? "Target cleared. Nice."
-              : `${Math.max(0, Math.round(target - eaten))} g to go. Tick a meal below once you've eaten it.`}
+              : `${Math.max(0, Math.round(target - eaten))} g to go`}
           </p>
           {plannedToday && plannedToday.n > 0 && (
             <p className="text-sm tabular-nums text-muted-foreground md:text-xs">
-              Planned today: <span className="font-medium text-foreground">{plannedToday.protein} g</span>
+              Planned <span className="font-medium text-foreground">{plannedToday.protein} g</span>
               {plannedToday.kcal > 0 && ` · ${plannedToday.kcal} kcal`}
-              {plannedToday.protein < target && ` — ${target - plannedToday.protein} g short of target`}
             </p>
           )}
         </div>
@@ -606,9 +616,50 @@ export function WeekPlanPanel() {
         </div>
       </section>
 
-      {/* Week — stacked on phones */}
-      <section className="space-y-3 md:hidden">
-        {days.map((d) => {
+      {/* Phones — one day at a time: tap a day, or swipe left/right. */}
+      <section
+        className="space-y-3 md:hidden"
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          swipe.current = { x: t.clientX, y: t.clientY };
+        }}
+        onTouchEnd={(e) => {
+          const start = swipe.current;
+          swipe.current = null;
+          if (!start) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - start.x;
+          const dy = t.clientY - start.y;
+          // A clear sideways swipe only, so scrolling the page never flips the day.
+          if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          goTo(addDaysISO(selected, dx < 0 ? 1 : -1));
+        }}
+      >
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((d) => {
+            const [yy, mm, dd] = d.split("-").map(Number);
+            const weekday = new Date(yy, mm - 1, dd).toLocaleDateString("en-US", { weekday: "short" });
+            const n = ALL_SLOTS.filter((s) => cells.has(key(d, s.key))).length;
+            const on = d === selected;
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setSelected(d)}
+                aria-pressed={on}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-lg py-1.5",
+                  on ? "bg-foreground text-background" : d === today ? "border border-foreground/40" : "text-muted-foreground",
+                )}
+              >
+                <span className="text-[11px] font-semibold uppercase">{weekday.slice(0, 2)}</span>
+                <span className="text-base font-medium tabular-nums">{dd}</span>
+                <span className={cn("size-1 rounded-full", n > 0 ? (on ? "bg-background" : "bg-foreground/50") : "bg-transparent")} />
+              </button>
+            );
+          })}
+        </div>
+        {days.filter((d) => d === selected).map((d) => {
           const t = plannedByDay.get(d);
           return (
             <div key={d} className={cn("rounded-lg border", d === today && "border-foreground/40")}>

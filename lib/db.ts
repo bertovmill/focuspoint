@@ -593,6 +593,7 @@ export async function ensureSchema() {
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS activity_id TEXT`;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_pace_sec INTEGER`;
   await sql`CREATE INDEX IF NOT EXISTS training_sessions_date_idx ON training_sessions (session_date)`;
   // Which workout-bank entry a session logs into (lib/workout-bank.ts).
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS workout_slug TEXT`;

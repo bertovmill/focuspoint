@@ -9766,3 +9766,26 @@ editable box; the next session starts from the last one's count, so bumping to
 tooltip; duplicate exercise charts are titled by round. Editor: "Count" field +
 reps/metres for timed exercises. Timed targets now always come from the bank
 (not the last log), so editing a target takes effect next session.
+
+## 2026-10-04 (chat) — Actual distance + pace are typed in; Fitbit gives heart rate only
+
+Fitbit had his long run at 15.8 km / 5:19 while Strava had it nearer 4:50/km, so
+Berto doesn't trust the watch's distance or time. He chose: **he ticks sessions
+himself** and **types actual distance + pace** (time worked out); Fitbit only
+contributes **avg HR, AZM and zone time**.
+
+- `setSessionDone` attaches that day's Fitbit workout HR on tick (`attachHeartRate`,
+  replaces `matchActivities`); `syncWorkouts` now only attaches HR to ticked
+  sessions with none — it never ticks or writes km/minutes.
+- New `training_sessions.actual_pace_sec`; `setActuals(id, km, pace)` + PATCH
+  `{ actuals: { km, pace_sec } }`. Session page "What you ran" block: Distance +
+  Pace inputs that autosave, "Xh Ym total", then "Heart rate · from your Fitbit".
+- Week totals use logged actual km/minutes; Fitbit chips show name · ♥ · AZM only.
+  Pace suggestions are the median of his logged paces (60 days), not Fitbit's.
+  Coach brief: sessions + logged km, AZM from Fitbit. Agent told never to take km
+  or pace from the watch; `set_training_session` takes `actual_pace_sec`.
+- Cleared the watch km/minutes from the one auto-matched session (Oct 4 long run),
+  keeping its HR. Live Neon migrated.
+
+Verified on :3007: throwaway 2021 session ticked → typed 17.4 / 4:50 → saved 290 s,
+84 min, plan untouched; deleted. Sync over 28 days attached HR to nothing new.

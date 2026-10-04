@@ -144,8 +144,8 @@ function TrainingToday() {
             {extras.map((a) => (
               <p key={a.id} className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs text-muted-foreground" title={a.name}>
                 <span className="font-medium">{a.name}</span>
-                {a.distance_m >= 500 && ` ${(a.distance_m / 1000).toFixed(1)} km`}
-                {a.moving_time_s >= 60 && ` · ${Math.round(a.moving_time_s / 60)} min`}
+                {a.avg_hr ? ` · ♥ ${a.avg_hr}` : ""}
+                {a.azm ? ` · ${a.azm} AZM` : ""}
               </p>
             ))}
           </div>

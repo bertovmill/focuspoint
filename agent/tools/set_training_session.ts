@@ -21,6 +21,7 @@ export default defineTool({
     done: z.boolean().optional().describe("Mark done (true) or not done (false)"),
     actual_km: z.number().optional(),
     actual_minutes: z.number().int().optional(),
+    actual_pace_sec: z.number().int().optional().describe("Pace he actually ran, seconds per km. With actual_km, time is worked out."),
   }),
   async execute(input) {
     if (input.id && input.delete) {
@@ -50,7 +51,7 @@ export default defineTool({
       });
     }
     if (typeof input.done === "boolean") {
-      row = await setSessionDone(row?.id ?? input.id!, input.done, { km: input.actual_km ?? null, minutes: input.actual_minutes ?? null });
+      row = await setSessionDone(row?.id ?? input.id!, input.done, { km: input.actual_km ?? null, minutes: input.actual_minutes ?? null, pace_sec: input.actual_pace_sec ?? null });
     }
     return jsonSafe(row);
   },

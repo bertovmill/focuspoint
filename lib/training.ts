@@ -46,6 +46,8 @@ export interface TrainingSession {
   activity_id: string | null;
   actual_km: number | null;
   actual_minutes: number | null;
+  /** The pace he says he ran, seconds per km — typed in, not from the watch. */
+  actual_pace_sec: number | null;
   /** Active Zone Minutes from the workout. */
   actual_effort: number | null;
   actual_avg_hr: number | null;
@@ -78,7 +80,7 @@ export interface TrainingEvent {
 }
 
 const SESSION_COLUMNS = `id, to_char(session_date, 'YYYY-MM-DD') AS session_date, position, type, title, target_km,
-  target_minutes, target_pace_sec, intensity, notes, done, done_at, activity_id, actual_km, actual_minutes, actual_effort, actual_avg_hr, actual_zones, workout_slug`;
+  target_minutes, target_pace_sec, intensity, notes, done, done_at, activity_id, actual_km, actual_minutes, actual_pace_sec, actual_effort, actual_avg_hr, actual_zones, workout_slug`;
 
 function shapeSession(r: Record<string, unknown>): TrainingSession {
   return {
@@ -98,6 +100,7 @@ function shapeSession(r: Record<string, unknown>): TrainingSession {
     actual_km: num(r.actual_km),
     actual_minutes: num(r.actual_minutes),
     actual_effort: num(r.actual_effort),
+    actual_pace_sec: num(r.actual_pace_sec),
     actual_avg_hr: num(r.actual_avg_hr),
     actual_zones: Array.isArray(r.actual_zones) ? (r.actual_zones as unknown[]).map(Number) : null,
     workout_slug: (r.workout_slug as string | null) ?? null,
@@ -240,19 +243,47 @@ export async function saveSession(input: SessionInput): Promise<TrainingSession>
   return shapeSession(row as Record<string, unknown>);
 }
 
-export async function setSessionDone(id: number, done: boolean, actual?: { km?: number | null; minutes?: number | null }) {
+/**
+ * Tick or untick a session. He ticks it himself (Fitbit's distance and time were
+ * off — 5:19/km on the watch for a run Strava had at ~4:50), so the watch only
+ * contributes heart rate: ticking attaches that day's Fitbit workout HR if there is
+ * one. Unticking clears everything that came with done.
+ */
+export async function setSessionDone(id: number, done: boolean, actual?: { km?: number | null; minutes?: number | null; pace_sec?: number | null }) {
   const sql = getDb();
+  const km = actual?.km ?? null;
+  const pace = actual?.pace_sec ? Math.round(actual.pace_sec) : null;
+  const minutes = minutesAtPace(km, pace) ?? actual?.minutes ?? null;
   const [row] = await sql.query(
     `UPDATE training_sessions SET done = $2, done_at = CASE WHEN $2 THEN COALESCE(done_at, NOW()) ELSE NULL END,
        actual_km = CASE WHEN $2 THEN COALESCE($3, actual_km) ELSE NULL END,
        actual_minutes = CASE WHEN $2 THEN COALESCE($4, actual_minutes) ELSE NULL END,
+       actual_pace_sec = CASE WHEN $2 THEN COALESCE($5, actual_pace_sec) ELSE NULL END,
        activity_id = CASE WHEN $2 THEN activity_id ELSE NULL END,
        actual_effort = CASE WHEN $2 THEN actual_effort ELSE NULL END,
        actual_avg_hr = CASE WHEN $2 THEN actual_avg_hr ELSE NULL END,
        actual_zones = CASE WHEN $2 THEN actual_zones ELSE NULL END,
        updated_at = NOW()
      WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
-    [id, done, actual?.km ?? null, actual?.minutes ?? null],
+    [id, done, km, minutes, pace],
+  );
+  if (!row) throw new Error("Session not found");
+  const s = shapeSession(row as Record<string, unknown>);
+  if (done && !s.activity_id) {
+    await attachHeartRate(s.session_date, s.session_date).catch((err) => console.warn("[training] heart rate attach failed:", err));
+    return (await getSessions(s.session_date, s.session_date)).find((x) => x.id === id) ?? s;
+  }
+  return s;
+}
+
+/** What he actually ran, typed in: distance + pace, time worked out. Null clears. */
+export async function setActuals(id: number, km: number | null, paceSec: number | null) {
+  const sql = getDb();
+  const pace = paceSec ? Math.round(paceSec) : null;
+  const [row] = await sql.query(
+    `UPDATE training_sessions SET actual_km = $2, actual_pace_sec = $3, actual_minutes = $4, updated_at = NOW()
+     WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
+    [id, km, pace, minutesAtPace(km, pace)],
   );
   if (!row) throw new Error("Session not found");
   return shapeSession(row as Record<string, unknown>);
@@ -329,11 +360,8 @@ function matchable(a: Activity) {
 }
 
 /**
- * Pulls the last `days` of Fitbit workouts into the cache, then marks planned
- * sessions done: a workout on a day is paired with the first undone session
- * that day whose type accepts that sport (a run takes a long run before an
- * easy run; a gym workout takes strength before Hyrox), copying distance, time,
- * heart rate and Active Zone Minutes onto it. Manual ticks are never overwritten.
+ * Pulls the last `days` of Fitbit workouts into the cache, then attaches heart
+ * rate to sessions he has ticked (see attachHeartRate). Nothing gets ticked here.
  */
 export async function syncWorkouts(days = 14) {
   if (!(await isHealthConnected())) return { connected: false, fetched: 0, matched: 0 };
@@ -352,7 +380,7 @@ export async function syncWorkouts(days = 14) {
     `;
   }
   const from = since.toISOString().slice(0, 10);
-  const matched = await matchActivities(from, todayISO());
+  const matched = await attachHeartRate(from, todayISO());
   return { connected: true, fetched: workouts.length, matched };
 }
 
@@ -361,13 +389,18 @@ export async function lastWorkoutSync(): Promise<string | null> {
   return r?.at ? new Date(r.at as string).toISOString() : null;
 }
 
-export async function matchActivities(from: string, to: string) {
+/**
+ * Heart rate only: each ticked session with no workout attached gets the day's
+ * Fitbit workout whose sport fits its type — avg HR, Active Zone Minutes and zone
+ * time. Never ticks anything and never touches distance or time.
+ */
+export async function attachHeartRate(from: string, to: string) {
   const [sessions, activities] = await Promise.all([getSessions(from, to), getActivities(from, to)]);
   const linked = new Set(sessions.map((s) => s.activity_id).filter(Boolean) as string[]);
-  const open = sessions.filter((s) => !s.done && s.type !== "rest");
+  const open = sessions.filter((s) => s.done && !s.activity_id && s.type !== "rest");
   const sql = getDb();
   let matched = 0;
-  // Oldest first so a morning run claims the long run before the evening one does.
+  // Oldest first so a morning run pairs with the first session of the day.
   for (const a of [...activities].reverse()) {
     if (linked.has(a.id) || !matchable(a)) continue;
     const day = a.start_local.slice(0, 10);
@@ -376,9 +409,8 @@ export async function matchActivities(from: string, to: string) {
     const pick = candidates.sort((x, y) => sessionMeta(x.type).sports.length - sessionMeta(y.type).sports.length)[0];
     if (!pick) continue;
     await sql`
-      UPDATE training_sessions SET done = TRUE, done_at = NOW(), activity_id = ${a.id},
-        actual_km = ${a.distance_m ? Math.round(a.distance_m / 100) / 10 : null}, actual_minutes = ${Math.round(a.moving_time_s / 60)},
-        actual_effort = ${a.azm}, actual_avg_hr = ${a.avg_hr}, actual_zones = ${a.zones}, updated_at = NOW()
+      UPDATE training_sessions SET activity_id = ${a.id}, actual_effort = ${a.azm}, actual_avg_hr = ${a.avg_hr},
+        actual_zones = ${a.zones}, updated_at = NOW()
       WHERE id = ${pick.id}
     `;
     open.splice(open.indexOf(pick), 1);
@@ -415,12 +447,19 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     sql`SELECT title, content FROM vision_items WHERE kind = 'routine' ORDER BY created_at ASC`,
   ]);
   const weekly = new Map<string, { km: number; n: number; effort: number }>();
+  // Sessions and km from what he ticked and typed in; effort from his Fitbit.
+  for (const s of recentSessions) {
+    if (!s.done || s.type === "rest") continue;
+    const wk = weekKeyOf(s.session_date);
+    const cur = weekly.get(wk) ?? { km: 0, n: 0, effort: 0 };
+    cur.n++;
+    cur.km += s.actual_km ?? 0;
+    weekly.set(wk, cur);
+  }
   for (const a of recentActivities) {
     if (!matchable(a)) continue;
     const wk = weekKeyOf(a.start_local.slice(0, 10));
     const cur = weekly.get(wk) ?? { km: 0, n: 0, effort: 0 };
-    cur.n++;
-    cur.km += a.distance_m / 1000;
     cur.effort += a.azm ?? 0;
     weekly.set(wk, cur);
   }
@@ -447,7 +486,7 @@ export async function weekDraftContext(weekStart: string, sessionsPerWeek = 6) {
     "If a race falls in this week or the next, this is a taper: cut volume, keep one sharp touch, no hard strength in the last 3 days.",
     "",
     weekly.size
-      ? "RECENT WEEKS FROM HIS FITBIT (sessions / km / summed Active Zone Minutes):\n" + [...weekly.entries()].sort().map(([w, v]) => `- week of ${w}: ${v.n} sessions, ${v.km.toFixed(1)} km, effort ${v.effort}`).join("\n")
+      ? "RECENT WEEKS (sessions done / km he logged / Fitbit Active Zone Minutes):\n" + [...weekly.entries()].sort().map(([w, v]) => `- week of ${w}: ${v.n} sessions, ${v.km.toFixed(1)} km, effort ${v.effort}`).join("\n")
       : "No workout history yet.",
     "",
     recentSessions.length
@@ -488,7 +527,7 @@ export interface PaceSuggestion {
   basis: string;
 }
 
-const RUN_SPORTS = RUNS;
+const RUN_TYPES = ["long_run", "intervals", "easy"];
 const LONG_RUN_M = 14_000;
 
 function median(xs: number[]) {
@@ -500,12 +539,15 @@ function median(xs: number[]) {
 export async function paceSuggestions(): Promise<Record<string, PaceSuggestion | null>> {
   const { HYROX_RESULTS, hyroxSeconds } = await import("./hyrox");
   const sql = getDb();
+  // From the paces he typed in on done runs — the watch's distances run short.
   const rows = await sql`
-    SELECT distance_m, active_s AS moving_time_s FROM fitbit_exercises
-    WHERE exercise_type = ANY(${RUN_SPORTS}) AND distance_m >= 3000 AND active_s > 0
-      AND start_local >= NOW() - INTERVAL '60 days'
+    SELECT actual_km, COALESCE(actual_pace_sec, actual_minutes * 60.0 / NULLIF(actual_km, 0)) AS pace
+    FROM training_sessions
+    WHERE done AND type = ANY(${RUN_TYPES}) AND actual_km >= 3
+      AND COALESCE(actual_pace_sec, actual_minutes) IS NOT NULL
+      AND session_date >= CURRENT_DATE - 60
   `;
-  const runs = rows.map((r) => ({ m: Number(r.distance_m), pace: Number(r.moving_time_s) / (Number(r.distance_m) / 1000) }));
+  const runs = rows.map((r) => ({ m: Number(r.actual_km) * 1000, pace: Number(r.pace) }));
   const long = runs.filter((r) => r.m >= LONG_RUN_M);
   const short = runs.filter((r) => r.m < LONG_RUN_M);
   // Easy runs: the slower half of his shorter runs, so tempo days don't drag it fast.
@@ -517,10 +559,10 @@ export async function paceSuggestions(): Promise<Record<string, PaceSuggestion |
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   return {
     long_run: long.length
-      ? { pace_sec: median(long.map((r) => r.pace)), basis: `median of your last ${plural(long.length, "run")} of 14 km+ on your Fitbit (60 days)` }
+      ? { pace_sec: median(long.map((r) => r.pace)), basis: `median of your last ${plural(long.length, "run")} of 14 km+ you logged (60 days)` }
       : null,
     easy: easy.length
-      ? { pace_sec: median(easy.map((r) => r.pace)), basis: `median of your easier ${plural(easy.length, "run")} under 14 km on your Fitbit (60 days)` }
+      ? { pace_sec: median(easy.map((r) => r.pace)), basis: `median of your easier ${plural(easy.length, "run")} under 14 km you logged (60 days)` }
       : null,
     intervals: raceRuns.length
       ? { pace_sec: raceRuns.reduce((a, b) => a + b, 0) / raceRuns.length, basis: `your average 1 km run at ${race.event}, the pace to hold every rep` }

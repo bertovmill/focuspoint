@@ -240,9 +240,10 @@ function TrainingWeek() {
     const real = sessions.filter((s) => s.type !== "rest");
     const done = real.filter((s) => s.done);
     const plannedKm = real.reduce((n, s) => n + (s.target_km ?? 0), 0);
-    const doneKm = activities.reduce((n, a) => n + a.distance_m / 1000, 0);
+    // Distance and time are what he typed in; the watch only supplies effort.
+    const doneKm = done.reduce((n, s) => n + (s.actual_km ?? 0), 0);
     const effort = activities.reduce((n, a) => n + (a.azm ?? 0), 0);
-    const minutes = activities.reduce((n, a) => n + a.moving_time_s / 60, 0);
+    const minutes = done.reduce((n, s) => n + (s.actual_minutes ?? 0), 0);
     return { planned: real.length, done: done.length, plannedKm, doneKm, effort, minutes };
   }, [sessions, activities]);
 
@@ -584,7 +585,7 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
             <span className={cn("block tabular-nums text-emerald-700 dark:text-emerald-400", big ? "text-base" : "text-xs")}>
               {[
                 s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`,
-                s.actual_km && s.actual_minutes && `${formatPace((s.actual_minutes * 60) / s.actual_km)}/km`,
+                s.actual_pace_sec ? `${formatPace(s.actual_pace_sec)}/km` : s.actual_km && s.actual_minutes && `${formatPace((s.actual_minutes * 60) / s.actual_km)}/km`,
                 s.actual_minutes !== null && `${s.actual_minutes} min`,
               ]
                 .filter(Boolean)
@@ -638,13 +639,11 @@ function PastPrograms() {
   );
 }
 
+/** A Fitbit workout no ticked session has claimed. Heart rate only — its distance and time aren't trusted. */
 function ActivityChip({ a }: { a: Activity }) {
-  const km = a.distance_m / 1000;
   return (
-    <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={a.name}>
+    <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={`${a.name} on your Fitbit — tick the session to attach its heart rate`}>
       <span className="font-medium">{a.name}</span>
-      {km >= 0.5 && ` ${km.toFixed(1)} km`}
-      {a.moving_time_s >= 60 && ` · ${Math.round(a.moving_time_s / 60)} min`}
       {a.avg_hr ? ` · ♥ ${a.avg_hr}` : ""}
       {a.azm ? ` · ${a.azm} AZM` : ""}
       {a.zones && <ZoneBar zones={a.zones} className="mt-1 h-1" />}

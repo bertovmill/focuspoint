@@ -185,7 +185,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
         {d.session_date && <p className="text-lg text-muted-foreground">{longDate(d.session_date)}</p>}
       </header>
 
-      {existing?.done && <Actuals s={existing} />}
+      {existing?.done && <Actuals key={existing.id} s={existing} />}
       {existing?.done && <h2 className="border-t pt-5 text-lg font-semibold">Plan</h2>}
 
       <form
@@ -290,7 +290,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
 
         {isRun && !suggestion && d.type !== "intervals" && (
           <p className="-mt-2 text-sm text-muted-foreground">
-            No recent runs on your Fitbit to suggest a pace from yet.
+            Log distance + pace on a few done runs and a pace gets suggested from them.
           </p>
         )}
 
@@ -349,45 +349,100 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
 }
 
 /**
- * What actually happened, from the Fitbit workout that marked it done (or his manual
- * tick). Read-only and separate from the plan fields below, so the plan survives.
+ * What actually happened. Distance and pace are his to type in (the watch's distance
+ * runs short: 15.8 km / 5:19 on the Fitbit for a run Strava had nearer 4:50), time is
+ * worked out, and they save as he types. Heart rate, AZM and zones come from the
+ * Fitbit workout attached when he ticked it.
  */
 function Actuals({ s }: { s: TrainingSession }) {
-  const pace = s.actual_km && s.actual_minutes ? formatPace((s.actual_minutes * 60) / s.actual_km) : null;
-  const stats = [
-    s.actual_km ? { label: "Distance", value: `${s.actual_km} km` } : null,
-    pace ? { label: "Pace", value: `${pace}/km` } : null,
-    s.actual_minutes !== null ? { label: "Time", value: fmtDuration(s.actual_minutes) } : null,
+  const run = isRunType(s.type);
+  const [km, setKm] = useState(s.actual_km?.toString() ?? "");
+  const [pace, setPace] = useState(
+    s.actual_pace_sec ? formatPace(s.actual_pace_sec) : s.actual_km && s.actual_minutes ? formatPace((s.actual_minutes * 60) / s.actual_km) : "",
+  );
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const paceSec = parsePace(pace);
+  const paceBad = pace.trim() !== "" && paceSec === null;
+  const kmNum = km === "" ? null : Number(km);
+  const minutes = minutesAtPace(kmNum, paceSec);
+  const body = JSON.stringify({ actuals: { km: kmNum, pace_sec: pace.trim() === "" ? null : paceSec } });
+  const saved = useRef(body);
+  useEffect(() => {
+    if (!run || body === saved.current || paceBad) return;
+    const t = setTimeout(async () => {
+      setStatus("saving");
+      try {
+        const res = await fetch(`/api/training/sessions/${s.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+        if (!res.ok) throw new Error();
+        saved.current = body;
+        setStatus("saved");
+      } catch {
+        setStatus("error");
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [body, paceBad, run, s.id]);
+
+  const heart = [
     s.actual_avg_hr !== null ? { label: "Avg heart rate", value: `${s.actual_avg_hr} bpm` } : null,
     s.actual_effort !== null ? { label: "Active Zone Min", value: String(s.actual_effort) } : null,
   ].filter(Boolean) as { label: string; value: string }[];
-  if (!stats.length && !s.actual_zones) return null;
+  const zones = s.actual_zones && s.actual_zones.some((z) => z > 0) ? s.actual_zones : null;
+  if (!run && !heart.length && !zones) return null;
+
   return (
-    <section id="actual" className="space-y-3 rounded-xl border border-emerald-600/30 bg-emerald-500/5 p-4">
-      <h2 className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-        Actual{s.activity_id ? " · from your Fitbit" : ""}
-      </h2>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-        {stats.map((x) => (
-          <div key={x.label}>
-            <dt className="text-xs text-muted-foreground">{x.label}</dt>
-            <dd className="text-xl font-semibold tabular-nums">{x.value}</dd>
+    <section id="actual" className="space-y-4 rounded-xl border border-emerald-600/30 bg-emerald-500/5 p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold">What you ran</h2>
+        <span className={cn("text-sm", status === "error" ? "text-destructive" : "text-muted-foreground")} aria-live="polite">
+          {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : status === "error" ? "Couldn't save" : ""}
+        </span>
+      </div>
+      {run && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Distance (km)">
+              <Input className="h-12 bg-background text-base" type="number" inputMode="decimal" min={0} step="0.1" placeholder="17.4" value={km} onChange={(e) => setKm(e.target.value)} />
+            </Field>
+            <Field label="Pace (per km)">
+              <Input className="h-12 bg-background text-base" inputMode="decimal" placeholder="4:50" aria-invalid={paceBad || undefined} value={pace} onChange={(e) => setPace(e.target.value)} />
+            </Field>
           </div>
-        ))}
-      </dl>
-      {s.actual_zones && s.actual_zones.some((z) => z > 0) && (
-        <div className="space-y-1.5">
-          <ZoneBar zones={s.actual_zones} className="h-2.5" />
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            {s.actual_zones.map((z, i) =>
-              z > 0 ? (
-                <span key={i} className="inline-flex items-center gap-1.5 tabular-nums">
-                  <span className={cn("size-2 rounded-full", ZONES[i]?.color)} />
-                  {ZONES[i]?.label} {Math.round(z / 60)} min
-                </span>
-              ) : null,
-            )}
-          </div>
+          {(paceBad || minutes !== null) && (
+            <p className={cn("-mt-2 text-sm", paceBad ? "text-destructive" : "text-muted-foreground")}>
+              {paceBad ? "Pace as min:sec per km, e.g. 4:50" : `${fmtDuration(minutes!)} total`}
+            </p>
+          )}
+        </>
+      )}
+      {(heart.length > 0 || zones) && (
+        <div className="space-y-3 border-t border-emerald-600/20 pt-3">
+          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Heart rate · from your Fitbit</p>
+          {heart.length > 0 && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {heart.map((x) => (
+                <div key={x.label}>
+                  <dt className="text-xs text-muted-foreground">{x.label}</dt>
+                  <dd className="text-xl font-semibold tabular-nums">{x.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {zones && (
+            <div className="space-y-1.5">
+              <ZoneBar zones={zones} className="h-2.5" />
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {zones.map((z, i) =>
+                  z > 0 ? (
+                    <span key={i} className="inline-flex items-center gap-1.5 tabular-nums">
+                      <span className={cn("size-2 rounded-full", ZONES[i]?.color)} />
+                      {ZONES[i]?.label} {Math.round(z / 60)} min
+                    </span>
+                  ) : null,
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

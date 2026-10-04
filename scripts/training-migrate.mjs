@@ -26,3 +26,5 @@ await sql`CREATE INDEX IF NOT EXISTS fitbit_exercises_start_idx ON fitbit_exerci
 await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS activity_id TEXT`;
 await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
 await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;
+// Actual pace is typed in (Fitbit distance/time were off), 2026-10-04.
+await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_pace_sec INTEGER`;

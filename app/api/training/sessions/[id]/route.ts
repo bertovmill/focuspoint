@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { deleteSession, getSessions, saveSession, setSessionDone } from "@/lib/training";
+import { deleteSession, getSessions, saveSession, setActuals, setSessionDone } from "@/lib/training";
 import { getDb } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
 
-// PATCH { done, actual_km?, actual_minutes? } toggles completion;
+// PATCH { done, actual_km?, actual_pace_sec?, actual_minutes? } toggles completion;
+// PATCH { actuals: { km, pace_sec } } sets what he actually ran (typed in);
 // PATCH { session_date?, type?, title?, target_km?, target_minutes?, target_pace_sec?, intensity?, notes? } edits.
 export async function PATCH(req: Request, { params }: Params) {
   try {
@@ -14,8 +15,13 @@ export async function PATCH(req: Request, { params }: Params) {
       const row = await setSessionDone(Number(id), body.done, {
         km: body.actual_km == null || body.actual_km === "" ? null : Number(body.actual_km),
         minutes: body.actual_minutes == null || body.actual_minutes === "" ? null : Math.round(Number(body.actual_minutes)),
+        pace_sec: body.actual_pace_sec == null || body.actual_pace_sec === "" ? null : Number(body.actual_pace_sec),
       });
       return NextResponse.json(row);
+    }
+    if (body?.actuals && typeof body.actuals === "object") {
+      const n = (v: unknown) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+      return NextResponse.json(await setActuals(Number(id), n(body.actuals.km), n(body.actuals.pace_sec)));
     }
     const [cur] = await getDb()`SELECT to_char(session_date, 'YYYY-MM-DD') AS d, type, title, target_km, target_minutes, target_pace_sec, intensity, notes FROM training_sessions WHERE id = ${id}`;
     if (!cur) return NextResponse.json({ error: "Not found" }, { status: 404 });

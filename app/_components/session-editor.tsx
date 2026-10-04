@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { INTENSITIES, SESSION_TYPES, type TrainingSession } from "@/lib/training";
+import { INTENSITIES, SESSION_TYPES, formatPace, minutesAtPace, parsePace, type TrainingSession } from "@/lib/training";
 import { shortDayLabel } from "@/lib/nutrition";
 
 export interface SessionDraft {
@@ -14,6 +14,8 @@ export interface SessionDraft {
   title: string;
   target_km: string;
   target_minutes: string;
+  /** "5:30" — min:sec per km. */
+  target_pace: string;
   intensity: string;
   notes: string;
 }
@@ -44,6 +46,12 @@ export function SessionEditor({
         title: existing.title,
         target_km: existing.target_km?.toString() ?? "",
         target_minutes: existing.target_minutes?.toString() ?? "",
+        // Older runs were planned as km + minutes; show that as a pace so it carries over.
+        target_pace: existing.target_pace_sec
+          ? formatPace(existing.target_pace_sec)
+          : existing.target_km && existing.target_minutes
+            ? formatPace((existing.target_minutes * 60) / existing.target_km)
+            : "",
         intensity: existing.intensity ?? "moderate",
         notes: existing.notes ?? "",
       });
@@ -54,6 +62,9 @@ export function SessionEditor({
   }, [target]);
 
   const isRun = ["long_run", "intervals", "easy"].includes(d.type);
+  const paceSec = parsePace(d.target_pace);
+  const paceBad = d.target_pace.trim() !== "" && paceSec === null;
+  const runMinutes = minutesAtPace(d.target_km === "" ? null : Number(d.target_km), paceSec);
 
   return (
     <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
@@ -67,7 +78,9 @@ export function SessionEditor({
           className="space-y-2"
           onSubmit={(e) => {
             e.preventDefault();
-            onSave(d, existing?.id);
+            if (paceBad) return;
+            // Runs are planned by distance + pace; anything else by minutes. Clear the other side.
+            onSave(isRun ? { ...d, target_minutes: "" } : { ...d, target_km: "", target_pace: "" }, existing?.id);
           }}
         >
           <div className="flex flex-wrap gap-1">
@@ -90,24 +103,38 @@ export function SessionEditor({
           />
           {d.type !== "rest" && (
             <div className="grid grid-cols-3 gap-2">
-              <Input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.5"
-                placeholder="km"
-                disabled={!isRun}
-                value={d.target_km}
-                onChange={(e) => setD((x) => ({ ...x, target_km: e.target.value }))}
-              />
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                placeholder="minutes"
-                value={d.target_minutes}
-                onChange={(e) => setD((x) => ({ ...x, target_minutes: e.target.value }))}
-              />
+              {isRun ? (
+                <>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.5"
+                    placeholder="km"
+                    aria-label="Distance (km)"
+                    value={d.target_km}
+                    onChange={(e) => setD((x) => ({ ...x, target_km: e.target.value }))}
+                  />
+                  <Input
+                    inputMode="numeric"
+                    placeholder="pace 5:30"
+                    aria-label="Pace (min:sec per km)"
+                    aria-invalid={paceBad || undefined}
+                    value={d.target_pace}
+                    onChange={(e) => setD((x) => ({ ...x, target_pace: e.target.value }))}
+                  />
+                </>
+              ) : (
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  placeholder="minutes"
+                  className="col-span-2"
+                  value={d.target_minutes}
+                  onChange={(e) => setD((x) => ({ ...x, target_minutes: e.target.value }))}
+                />
+              )}
               <select
                 className="h-9 rounded-md border bg-transparent px-2 text-sm"
                 value={d.intensity}
@@ -122,6 +149,11 @@ export function SessionEditor({
               </select>
             </div>
           )}
+          {isRun && (paceBad || runMinutes !== null) && (
+            <p className={`px-1 text-xs ${paceBad ? "text-destructive" : "text-muted-foreground"}`}>
+              {paceBad ? "Pace as min:sec per km, e.g. 5:30" : `≈ ${fmtDuration(runMinutes!)} at that pace`}
+            </p>
+          )}
           <textarea
             className="w-full min-h-16 rounded-md border bg-transparent px-3 py-2 text-sm"
             placeholder="Notes — the point of the session, how to run it"
@@ -135,7 +167,7 @@ export function SessionEditor({
                 Delete
               </Button>
             )}
-            <Button type="submit" size="sm" className="ml-auto h-8 text-xs" disabled={saving || !d.session_date}>
+            <Button type="submit" size="sm" className="ml-auto h-8 text-xs" disabled={saving || !d.session_date || paceBad}>
               {saving ? <Spinner className="size-3" /> : existing ? "Save" : "Add"}
             </Button>
           </div>
@@ -146,5 +178,10 @@ export function SessionEditor({
 }
 
 function empty(date: string): SessionDraft {
-  return { session_date: date, type: "long_run", title: "", target_km: "", target_minutes: "", intensity: "moderate", notes: "" };
+  return { session_date: date, type: "long_run", title: "", target_km: "", target_minutes: "", target_pace: "", intensity: "moderate", notes: "" };
+}
+
+function fmtDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  return h ? `${h}h ${String(min % 60).padStart(2, "0")}m` : `${min} min`;
 }

@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import type { StravaActivity } from "@/lib/strava";
-import { daysUntil, sessionMeta, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import { daysUntil, sessionMeta, targetLabel, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
 import { DEFAULT_PROTEIN_TARGET_G, MEAL_SLOTS, currentSlot, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -133,11 +133,9 @@ function TrainingToday() {
                       {s.intensity === "hard" && <span className="text-xs text-rose-500">hard</span>}
                     </span>
                     <p className={cn("text-sm font-medium leading-snug", s.done && "text-muted-foreground line-through")}>{s.title}</p>
-                    {(s.target_km !== null || s.target_minutes !== null) && (
+                    {targetLabel(s) && (
                       <p className="text-xs tabular-nums text-muted-foreground">
-                        {[s.target_km !== null && `${s.target_km} km`, s.target_minutes !== null && `${s.target_minutes} min`]
-                          .filter(Boolean)
-                          .join(" · ")}
+                        {targetLabel(s)}
                       </p>
                     )}
                   </div>

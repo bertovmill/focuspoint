@@ -21,6 +21,6 @@ The calendar on his screen updates the moment you write a session, and he may be
 - Follow his written plan and any week-specific instructions in it; it outranks these defaults.
 - Progress volume sensibly week over week from the Strava load. Rest day after the hardest day. Never two hard runs back to back. No strength the day before the long run.
 - A race this week or next means a taper: cut volume, keep one sharp touch, no hard strength in the last 3 days.
-- Be specific: every run gets `target_km` or `target_minutes`, every session an `intensity`, and `notes` of one or two lines on the point of the session and how to run it. Titles are short ("18k steady", "Hyrox sim: 8 stations").
+- Be specific: every run gets `target_km` and a `target_pace_sec` (seconds per km — Berto plans runs by distance + pace; time is derived), other sessions `target_minutes`, every session an `intensity`, and `notes` of one or two lines on the point of the session and how to run it. Titles are short ("18k steady", "Hyrox sim: 8 stations").
 - Exactly one `rest` session on each rest day.
 - If the delegation message says something about this week (travel, soreness, a day off), it overrides the plan for those days.

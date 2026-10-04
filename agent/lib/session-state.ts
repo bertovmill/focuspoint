@@ -8,7 +8,7 @@ import { defineState } from "eve/context";
 export interface SessionMemory {
   focus: string | null;
   thoughtsCaptured: number;
-  /** Toolsets loaded this session (agent/toolsets) — they stay loaded once in. */
+  /** Toolsets loaded this session (agent/lib/toolsets) — they stay loaded once in. */
   toolsets: string[];
 }
 

@@ -6,7 +6,6 @@ import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
 import { useIsDesktop } from "@/hooks/use-is-desktop";
-import { ScheduledTasksPanel } from "@/app/_components/scheduled-tasks-panel";
 import { VisionPanel } from "@/app/_components/vision-panel";
 import { FamilyPanel } from "@/app/_components/family-panel";
 import { NutritionPanel } from "@/app/_components/nutrition-panel";
@@ -105,16 +104,6 @@ interface Measure {
   created_at: string;
 }
 
-interface DreamReport {
-  dream_date: string;
-  summary: string;
-  patterns: Array<{ theme: string; evidence: string; frequency: number }>;
-  insights: string[];
-  thoughts_analyzed: number;
-  todos_analyzed: number;
-  created_at: string;
-}
-
 function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -192,9 +181,9 @@ interface UploadedImage {
   uploadedAt: number;
 }
 
-type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual" | "nutrition";
+type DashboardTab = "home" | "todos" | "notes" | "lists" | "calendar" | "journal-templates" | "media" | "sketches" | "schedule" | "measures" | "vision" | "family" | "manual" | "nutrition";
 
-export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabChange, focusNewTaskSignal }: { activeTab?: DashboardTab; onRunJobWithChat?: (message: string) => void; onTabChange?: (tab: DashboardTab) => void; focusNewTaskSignal?: number }) {
+export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskSignal }: { activeTab?: DashboardTab; onTabChange?: (tab: DashboardTab) => void; focusNewTaskSignal?: number }) {
   // Gates the Tasks screen between the canvas and the mobile list — see the
   // `activeTab === "todos"` branch below for why it's a mount, not a `lg:hidden`.
   const isDesktop = useIsDesktop();
@@ -213,7 +202,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const [measureDate, setMeasureDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [measureNotes, setMeasureNotes] = useState("");
   const [savingMeasure, setSavingMeasure] = useState(false);
-  const [dream, setDream] = useState<DreamReport | null | undefined>(undefined);
   // Null = show every task; otherwise only tasks with that category.
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<DashboardTab>(controlledTab ?? "todos");
@@ -222,7 +210,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
   const [dragOver, setDragOver] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [runningDream, setRunningDream] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   // Notes list is compact: each note clamps to two lines until clicked open.
   const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
@@ -360,15 +347,13 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
 
   const fetchData = useCallback(async () => {
     try {
-      const [todosRes, thoughtsRes, dreamRes, measuresRes] = await Promise.all([
+      const [todosRes, thoughtsRes, measuresRes] = await Promise.all([
         fetch("/api/todos?include_completed=today&limit=200"),
         fetch("/api/thoughts"),
-        fetch("/api/dreams"),
         fetch("/api/measures"),
       ]);
       if (todosRes.ok) setTodos(await todosRes.json());
       if (thoughtsRes.ok) setThoughts(await thoughtsRes.json());
-      if (dreamRes.ok) setDream(await dreamRes.json());
       if (measuresRes.ok) setMeasures(await measuresRes.json());
     } catch {
       // silently fail — agent can still be used
@@ -552,31 +537,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
       toast.error("Couldn't delete note.");
     }
   };
-
-  const handleRunDream = async () => {
-    setRunningDream(true);
-    try {
-      const res = await fetch("/api/dream", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      if (data.message) {
-        toast.info(data.message);
-      } else {
-        toast.success(`Dream complete — ${data.patterns_found} patterns, ${data.insights_written} insights`);
-        await fetchData();
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Dream failed. Check console.");
-    } finally {
-      setRunningDream(false);
-    }
-  };
-
-
-
-
-
-
 
   const handleToggleInProgress = async (id: number, in_progress: boolean) => {
     const prev = todos;
@@ -1224,100 +1184,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
           </div>
         )}
 
-        {/* Dreams */}
-        {activeTab === "dreams" && (
-          <div className="px-5 py-4">
-            {loading || dream === undefined ? (
-              <div className="space-y-3">
-                <Skeleton className="h-20 rounded-xl" />
-                <Skeleton className="h-32 rounded-xl" />
-                <Skeleton className="h-24 rounded-xl" />
-              </div>
-            ) : dream === null ? (
-              <Empty className="py-12">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <BrainIcon className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>No dreams yet</EmptyTitle>
-                  <EmptyDescription>
-                    Cael consolidates your notes and surfaces patterns nightly. Run one now to start.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button
-                  onClick={handleRunDream}
-                  disabled={runningDream}
-                  className="mt-4"
-                  size="sm"
-                >
-                  {runningDream ? <Spinner className="size-3.5 mr-2" /> : <BrainIcon className="size-3.5 mr-2" />}
-                  {runningDream ? "Dreaming…" : "Run dream now"}
-                </Button>
-              </Empty>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(dream.dream_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      {dream.thoughts_analyzed} notes · {dream.todos_analyzed} tasks
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6"
-                      onClick={handleRunDream}
-                      disabled={runningDream}
-                      title="Re-run dream"
-                    >
-                      {runningDream ? <Spinner className="size-3" /> : <RepeatIcon className="size-3" />}
-                    </Button>
-                  </div>
-                </div>
-
-                <Card className="p-4">
-                  <p className="text-sm leading-relaxed text-foreground">{dream.summary}</p>
-                </Card>
-
-                {dream.patterns.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Patterns</h3>
-                    <div className="space-y-2">
-                      {dream.patterns.map((p, i) => (
-                        <Card key={i} className="p-3">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="text-sm font-medium">{p.theme}</p>
-                            <Badge variant="secondary" className="shrink-0 text-xs">{p.frequency}×</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">{p.evidence}</p>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {dream.insights.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Insights</h3>
-                    <Card className="p-3">
-                      <ul className="space-y-2">
-                        {dream.insights.map((insight, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="text-primary mt-0.5 shrink-0">·</span>
-                            <span className="leading-relaxed">{insight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Card>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Journal Templates */}
         {activeTab === "journal-templates" && (
           <div className="px-5 py-4">
@@ -1328,11 +1194,6 @@ export function Dashboard({ activeTab: controlledTab, onRunJobWithChat, onTabCha
         {/* Scheduled Tasks */}
         {activeTab === "schedule" && (
           <div className="px-5 py-4 space-y-6">
-
-            {/* Scheduled tasks — all editable at runtime, including the built-in ones */}
-            <div>
-              <ScheduledTasksPanel onRunNow={onRunJobWithChat} />
-            </div>
 
             {/* Recurring todos */}
             <div>

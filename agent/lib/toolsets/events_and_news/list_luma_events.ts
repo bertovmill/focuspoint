@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../../lib/db";
-import { jsonSafe } from "../../../lib/json-safe";
+import { getDb } from "../../../../lib/db";
+import { jsonSafe } from "../../../../lib/json-safe";
 
 /**
  * The MakersLounge calendar, from Cael's own mirror of Luma (see lib/luma-sync.ts).

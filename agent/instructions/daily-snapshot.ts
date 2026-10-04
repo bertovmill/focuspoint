@@ -3,9 +3,8 @@ import { defineDynamic, defineInstructions } from "eve/instructions";
 import { buildDailySnapshot, snapshotMarker } from "../lib/daily-snapshot";
 import { todayISO } from "../lib/now";
 
-// Pins today's brief (principles, training, food, calendar, todos, latest
-// dream) into the conversation as a user-role message, once per day of a
-// session: on its first turn, and again on the first turn after midnight in a
+// Pins today's brief (principles, training, food, calendar, todos) into the
+// conversation as a user-role message, once per day of a session: on its first turn, and again on the first turn after midnight in a
 // conversation that runs for days. User-role, not system, so it joins the
 // append-only history and never invalidates the provider's cached prefix.
 // If compaction summarised the last one away, the marker is gone and a fresh

@@ -28,8 +28,8 @@ import { agentTools } from "@/lib/agent-tool-registry";
 // will otherwise answer from that empty list instead of from this board.
 //
 // Since 2026-09-14 it also carries every tool Cael itself has (agent/tools/*.ts) —
-// notes, sketches, journal, dreams, measures, vision, nutrition, workouts, reading,
-// calendar, schedules, Luma, X/LinkedIn posting — bridged straight from their eve
+// notes, sketches, journal, measures, vision, nutrition, workouts, reading,
+// calendar, Luma, X/LinkedIn posting — bridged straight from their eve
 // definitions, so any MCP client is as capable as the in-app chat. The six task
 // tools above keep their hand-written descriptions; the eve equivalents that
 // would duplicate them are skipped.
@@ -385,9 +385,9 @@ const handler = createMcpHandler(
       "him to take the next one, and complete_task only when the work is genuinely done. " +
       "Beyond tasks, this server carries everything Cael can do in the app: notes " +
       "(list_folders, capture_thought, list_notes, search_memory), sketches (list_sketches, " +
-      "read_sketch), journal and dreams, the daily scorecard and measures (get_scorecard, " +
+      "read_sketch), journal, the daily scorecard and measures (get_scorecard, " +
       "log_metrics), vision items, nutrition and workouts, reading logs, Google Calendar, " +
-      "scheduled tasks, Luma events, and posting to X/LinkedIn. Tools named list_/get_/read_/" +
+      "Luma events, and posting to X/LinkedIn. Tools named list_/get_/read_/" +
       "search_ only read; the rest write to Berto's real data, so use them when he asks, " +
       "not speculatively — and post_tweet/post_linkedin publish publicly.",
   },

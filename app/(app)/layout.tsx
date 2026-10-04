@@ -36,7 +36,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "dreams" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -49,7 +49,6 @@ const TAB_PATHS: Record<MobileTab, string> = {
   lists: "/lists",
   calendar: "/calendar",
   "journal-templates": "/journal",
-  dreams: "/dreams",
   schedule: "/schedule",
   media: "/media",
   sketches: "/sketches",
@@ -214,7 +213,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
-  const [pendingMessage, setPendingMessage] = useState<string | undefined>();
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const [pinned, setPinned] = useState(false);
   const { hydrated, activeId, getThread, newThread } = useThreads();
@@ -277,12 +275,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openNewChat, pinned]);
-
-  const handleRunJobWithChat = useCallback((message: string) => {
-    newThread();
-    setPendingMessage(message);
-    setMobileTab("chat");
-  }, [newThread]);
 
   if (pinned) {
     return <PinView onUnpin={handleUnpin} />;
@@ -426,8 +418,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             </div>
           ) : (
           <Dashboard
-            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "dreams" ? "dreams" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "nutrition" ? "nutrition" : mobileTab === "manual" ? "manual" : "todos"}
-            onRunJobWithChat={handleRunJobWithChat}
+            activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "nutrition" ? "nutrition" : mobileTab === "manual" ? "manual" : "todos"}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
             focusNewTaskSignal={focusNewTaskSignal}
           />
@@ -478,8 +469,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
               chatSidebarOpen={chatSidebarOpen}
               onToggleChatSidebar={() => setChatSidebarOpen((v) => !v)}
-              initialMessage={pendingMessage}
-              onInitialMessageSent={() => setPendingMessage(undefined)}
             />
           ) : null}
         </div>

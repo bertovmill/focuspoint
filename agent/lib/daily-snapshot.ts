@@ -7,7 +7,7 @@ import { TIME_ZONE, todayISO, zonedDayBounds } from "./now";
 
 // The "today" brief Cael starts each day of a conversation with: the handful of
 // things that shape almost any answer (his principles, today's training and
-// meals, what's on the calendar and the todo list, the latest dream). Pinning
+// meals, what's on the calendar and the todo list). Pinning
 // these up front means Cael doesn't have to remember to go and fetch them — the
 // traces showed it often didn't. Everything else stays behind tools.
 //
@@ -96,17 +96,6 @@ async function calendar(today: string): Promise<string | null> {
   return `## Calendar today\n${lines.length ? lines.join("\n") : "- Nothing scheduled."}`;
 }
 
-async function dream(today: string): Promise<string | null> {
-  const sql = getDb();
-  const [row] = await sql`
-    SELECT summary, to_char(dream_date, 'YYYY-MM-DD') AS dream_date FROM dreams ORDER BY created_at DESC LIMIT 1
-  `;
-  if (!row) return null;
-  const age = Math.round((Date.parse(today) - Date.parse(String(row.dream_date))) / 86_400_000);
-  const stale = age > 2 ? ` — ${age} days old, so treat it as background` : "";
-  return `## Latest dream (${row.dream_date}${stale})\n${String(row.summary).trim()}`;
-}
-
 /** The whole brief as one markdown message, or null if every source failed. */
 export async function buildDailySnapshot(): Promise<string | null> {
   const today = todayISO();
@@ -117,7 +106,6 @@ export async function buildDailySnapshot(): Promise<string | null> {
       section(() => meals(today)),
       section(() => calendar(today)),
       section(todos),
-      section(() => dream(today)),
     ])
   ).filter((s): s is string => Boolean(s));
   if (!sections.length) return null;

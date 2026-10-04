@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { postTweet } from "../../../lib/x-api";
-import { estimateTweetCost, formatUsd } from "../../../lib/x-shared";
+import { postTweet } from "../../../../lib/x-api";
+import { estimateTweetCost, formatUsd } from "../../../../lib/x-shared";
 
 export default defineTool({
   description:

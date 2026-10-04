@@ -2,7 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 
 import { sessionMemory } from "../lib/session-state";
-import { TOOLSET_NAMES, TOOLSETS } from "../toolsets";
+import { TOOLSET_NAMES, TOOLSETS } from "../lib/toolsets";
 
 const catalog = TOOLSET_NAMES.map(
   (name) => `- ${name}: ${TOOLSETS[name].summary} (${Object.keys(TOOLSETS[name].tools).join(", ")})`,

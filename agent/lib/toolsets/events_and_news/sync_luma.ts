@@ -1,13 +1,13 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { lastLumaSync, syncLuma } from "../../../lib/luma-sync";
+import { lastLumaSync, syncLuma } from "../../../../lib/luma-sync";
 
 /**
  * Refresh the Luma mirror on demand.
  *
- * The daily dispatcher already re-pulls everything (agent/schedules/dispatcher.ts),
- * so this is for the moments in between — a new event was just published, or
- * signups moved since this morning.
+ * Nothing re-pulls the mirror on a schedule any more (the daily dispatcher was
+ * removed on 2026-09-12 to cut CPU), so this and POST /api/luma/sync are the only
+ * ways it updates — run it whenever the data might be stale.
  */
 export default defineTool({
   description:

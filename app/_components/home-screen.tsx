@@ -8,7 +8,6 @@ import {
   FileTextIcon,
   ListChecksIcon,
   BookOpenIcon,
-  BrainIcon,
   BrushIcon,
   CalendarClockIcon,
   CalendarDaysIcon,
@@ -44,7 +43,6 @@ export type HomeTarget =
   | "lists"
   | "calendar"
   | "journal-templates"
-  | "dreams"
   | "schedule"
   | "media"
   | "sketches"
@@ -77,7 +75,6 @@ const SECTIONS: { tab: HomeTarget; label: string; icon: typeof BookOpenIcon; hot
   { tab: "notes", label: "Notes", icon: FileTextIcon, hotkey: "3" },
   { tab: "lists", label: "Lists", icon: ListChecksIcon, hotkey: "4" },
   { tab: "journal-templates", label: "Journal", icon: BookOpenIcon, hotkey: "5" },
-  { tab: "dreams", label: "Dreams", icon: BrainIcon, hotkey: "6" },
   { tab: "schedule", label: "Schedule", icon: CalendarClockIcon, hotkey: "7" },
   { tab: "media", label: "Media", icon: ImageIcon, hotkey: "8" },
   { tab: "measures", label: "Measures", icon: GaugeIcon, hotkey: "9" },
@@ -130,7 +127,7 @@ const WEALTH_FORMS: { label: string; icon: PhosphorIcon; target: HomeTarget }[] 
   { label: "Craft", icon: PenNibIcon, target: "vision" },
   { label: "Money", icon: CoinsIcon, target: "measures" },
   { label: "Community", icon: HandsClappingIcon, target: "vision" },
-  { label: "Adventure", icon: CompassIcon, target: "dreams" },
+  { label: "Adventure", icon: CompassIcon, target: "vision" },
   { label: "Service", icon: HandHeartIcon, target: "vision" },
 ];
 

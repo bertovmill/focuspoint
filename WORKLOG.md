@@ -4,6 +4,36 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Removed the Dream and scheduled tasks
+
+Berto asked why the nightly Dream had stopped (the last one was 2026-09-10).
+
+**What had happened.** On 2026-09-12 a session deleted `agent/schedules/dispatcher.ts`
+(commit `684531e`) to cut Fluid CPU, without a worklog entry. That daily tick was the
+only clock for *every* row in `scheduled_tasks` (Dream Analysis, Daily Tweet, Daily
+Note, Weekly Katy Idea, Perfect Day Reminder) and for the daily Luma, meal, GitHub PR
+and Google Health syncs, so all of them went quiet after 2026-09-13. The Dream had
+already been failing for its last three runs: the agent-run task called `list_todos`,
+which hit the Date-serialization bug fixed earlier today.
+
+**Berto's call:** he doesn't want the Dream or the scheduled tasks; they spend tokens
+for little return. So both are removed:
+
+- Dream: `/api/dream`, `/api/dreams`, the `/dreams` page and tab, `save_dream` /
+  `get_dream_summary`, the Dreaming section and dream rows in `instructions.md`, and
+  the dream section of the Daily snapshot. The Home "Adventure" card now opens Vision.
+- Scheduled tasks: the four `*_scheduled_task` tools, `/api/scheduled-tasks`,
+  `scheduled-tasks-panel.tsx`, the "Run now" → chat wiring in `app/(app)/layout.tsx`,
+  and the instruction lines. **`/schedule` stays**: it also lists recurring todos, which
+  is now all it shows.
+- Data kept: the `dreams` and `scheduled_tasks` tables and their rows are untouched,
+  except that every `scheduled_tasks` row is set `enabled = false`.
+- Nothing refreshes the Luma mirror, GitHub PRs or Google Health on a schedule any
+  more; `sync_luma`'s description and the instructions now say to sync when stale.
+- Routing evals: 17/17 still pass.
+
+---
+
 ## 2026-10-04 — Right context at the right time: daily snapshot, context map, on-demand toolsets, routing evals
 
 Berto wanted to be sure Cael finds the right context (meals, principles, training, …)
@@ -26,7 +56,7 @@ keep the prompt prefix stable; trim the always-on tool list; verify with evals.
   read-this-first table, which replaces the scattered "check memory first" lines.
   `get_dream_summary` is no longer a must-call at session start (the dream is in the
   snapshot).
-- **On-demand toolsets** (`agent/toolsets/`): `publishing` (posts, images, X, LinkedIn,
+- **On-demand toolsets** (`agent/lib/toolsets/`, moved there the same day because eve ignores unknown agent-root dirs): `publishing` (posts, images, X, LinkedIn,
   portfolio/capabilities) and `events_and_news` (Luma ×3, AI news, reading list) no
   longer ride on every call. `load_toolset` loads one for the rest of the session.
   `agent/tools/toolsets.ts` (a `step.started` dynamic resolver) also auto-loads a set

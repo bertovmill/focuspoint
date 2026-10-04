@@ -1,9 +1,9 @@
 import { defineDynamic } from "eve/tools";
 
 import { sessionMemory } from "../lib/session-state";
-import { matchesToolset, TOOLSET_NAMES, TOOLSETS, type ToolsetName } from "../toolsets";
+import { matchesToolset, TOOLSET_NAMES, TOOLSETS, type ToolsetName } from "../lib/toolsets";
 
-// Hands eve the on-demand toolsets (agent/toolsets) that this session has
+// Hands eve the on-demand toolsets (agent/lib/toolsets) that this session has
 // loaded, right before each model call — so a `load_toolset` call mid-turn is
 // usable on the very next step. A toolset counts as loaded when the model asked
 // for it, or when any user message so far plainly needs it (the Writing editor

@@ -4,7 +4,15 @@ import { gcalFetch, GoogleNotConnectedError } from "@/lib/google";
 import { getPrinciples } from "@/lib/principles";
 import { getHabitTicks, setHabitTick } from "@/lib/habits";
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
-import { DEFAULT_HABITS_MARKDOWN, parseDailyHabits, planDay, type Busy } from "@/lib/day-plan";
+import {
+  DEFAULT_DAY_START,
+  DEFAULT_HABITS_MARKDOWN,
+  parseClock,
+  parseDailyHabits,
+  planDay,
+  toClock,
+  type Busy,
+} from "@/lib/day-plan";
 
 // The Today timeline on Home: the Principles doc's "Daily habits" slotted around
 // today's calendar (lib/day-plan.ts), with each habit's tick. Read-only against
@@ -22,6 +30,14 @@ interface GoogleEvent {
 }
 
 type CalendarState = "ok" | "not_connected" | "error";
+
+/** When his day starts, "HH:MM" in app_settings; adjusted from the card. */
+const DAY_START_KEY = "day_plan.start";
+
+async function getDayStart(): Promise<number> {
+  const [row] = await getDb()`SELECT value FROM app_settings WHERE key = ${DAY_START_KEY}`;
+  return (row && parseClock(String(row.value))) ?? DEFAULT_DAY_START;
+}
 
 /** An instant → its local day key and minutes since local midnight. */
 function localParts(d: Date): { day: string; minutes: number } {
@@ -73,16 +89,21 @@ async function todaysEvents(today: string): Promise<{ events: (Busy & { title: s
 export async function GET() {
   try {
     const today = dayKey(new Date());
-    const [doc, { events, calendar }] = await Promise.all([getPrinciples(), todaysEvents(today)]);
+    const [doc, { events, calendar }, dayStart] = await Promise.all([
+      getPrinciples(),
+      todaysEvents(today),
+      getDayStart(),
+    ]);
 
     const fromDoc = parseDailyHabits(doc.content);
     const habits = fromDoc ?? parseDailyHabits(DEFAULT_HABITS_MARKDOWN)!;
-    const plan = planDay(habits, events);
+    const plan = planDay(habits, events, dayStart);
     const ticks = await getHabitTicks(getDb(), plan.map((p) => p.key), today);
 
     return NextResponse.json({
       date: today,
       now: localParts(new Date()).minutes,
+      dayStart: toClock(dayStart),
       source: fromDoc ? "doc" : "defaults",
       calendar,
       events,
@@ -110,6 +131,23 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("day-plan tick failed:", err);
+    return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+  }
+}
+
+// PUT { dayStart: "HH:MM" } — when the day starts. Standing, not per day.
+export async function PUT(req: Request) {
+  try {
+    const { dayStart } = (await req.json()) as { dayStart?: unknown };
+    const minutes = typeof dayStart === "string" ? parseClock(dayStart) : null;
+    if (minutes === null) return NextResponse.json({ error: "dayStart must be HH:MM" }, { status: 400 });
+    await getDb()`
+      INSERT INTO app_settings (key, value, updated_at) VALUES (${DAY_START_KEY}, ${toClock(minutes)}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `;
+    return NextResponse.json({ dayStart: toClock(minutes) });
+  } catch (err) {
+    console.error("day-plan start save failed:", err);
     return NextResponse.json({ error: "Failed to save" }, { status: 500 });
   }
 }

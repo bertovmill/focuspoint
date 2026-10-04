@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 type Habit = PlannedHabit & { done: boolean; auto: boolean };
 type Plan = {
   now: number;
+  /** "HH:MM" — when the morning block begins. */
+  dayStart: string;
   source: "doc" | "defaults";
   calendar: "ok" | "not_connected" | "error";
   events: { title: string; start: number; end: number }[];
@@ -45,6 +47,22 @@ export function DayPlanCard() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // A standing setting, not a morning tap — he doesn't open Cael first thing.
+  const saveDayStart = async (value: string) => {
+    if (!value || value === plan?.dayStart) return;
+    try {
+      const res = await fetch("/api/day-plan", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dayStart: value }),
+      });
+      if (!res.ok) throw new Error();
+      await load();
+    } catch {
+      toast.error("Couldn't save the start time.");
+    }
+  };
 
   const toggle = async (h: Habit) => {
     if (h.auto) return;
@@ -84,9 +102,26 @@ export function DayPlanCard() {
           Today&apos;s plan
           <ChevronRightIcon className="size-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
-        {plan && plan.habits.length > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {doneCount}/{plan.habits.length} habits
+        {plan && (
+          <span className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+            <label className="flex items-center gap-1.5">
+              Day starts
+              <input
+                key={plan.dayStart}
+                type="time"
+                step={300}
+                defaultValue={plan.dayStart}
+                onBlur={(e) => saveDayStart(e.currentTarget.value)}
+                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                aria-label="When the day starts"
+                className="rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs font-medium text-foreground tabular-nums hover:border-border focus:border-border focus:outline-none"
+              />
+            </label>
+            {plan.habits.length > 0 && (
+              <span>
+                {doneCount}/{plan.habits.length} habits
+              </span>
+            )}
           </span>
         )}
       </div>

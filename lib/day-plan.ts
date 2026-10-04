@@ -31,12 +31,18 @@ export type PlannedHabit = DailyHabit & {
 
 const h = (hours: number, mins = 0) => hours * 60 + mins;
 
-/** The planner never schedules before or after these. */
-export const DAY_START = h(6);
+/**
+ * When the day starts. Berto usually starts around 5:30 but not always, and he
+ * doesn't open Cael in the morning — so it's a standing setting he adjusts on the
+ * card (app_settings `day_plan.start`), not a "I'm up" tap. The morning window
+ * opens here and nothing is scheduled before it.
+ */
+export const DEFAULT_DAY_START = h(5, 30);
 export const DAY_END = h(22);
 
 const NAMED_WINDOWS: Record<string, HabitWindow> = {
-  morning: { start: h(6), end: h(11), label: "morning" },
+  // Its start is replaced by the day start at plan time (see planDay).
+  morning: { start: DEFAULT_DAY_START, end: h(11), label: "morning" },
   midday: { start: h(11, 30), end: h(14, 30), label: "midday" },
   lunch: { start: h(11, 30), end: h(14, 30), label: "midday" },
   noon: { start: h(11, 30), end: h(14, 30), label: "midday" },
@@ -44,7 +50,8 @@ const NAMED_WINDOWS: Record<string, HabitWindow> = {
   evening: { start: h(17), end: h(21, 30), label: "evening" },
   night: { start: h(19), end: h(DAY_END / 60), label: "evening" },
 };
-const ANYTIME: HabitWindow = { start: h(7), end: h(21, 30), label: "anytime" };
+// Its start is replaced by the day start at plan time (see planDay).
+const ANYTIME: HabitWindow = { start: DEFAULT_DAY_START, end: h(21, 30), label: "anytime" };
 
 /** An explicit "1pm" means start there, with a three-hour grace if a meeting is in the way. */
 const AT_TIME_GRACE = 180;
@@ -151,7 +158,7 @@ export function parseDailyHabits(markdown: string): DailyHabit[] | null {
 
 function merge(busy: Busy[]): Busy[] {
   const sorted = busy
-    .map((b) => ({ start: Math.max(b.start, DAY_START), end: Math.min(b.end, DAY_END) }))
+    .map((b) => ({ start: Math.max(b.start, 0), end: Math.min(b.end, DAY_END) }))
     .filter((b) => b.end > b.start)
     .sort((a, b) => a.start - b.start);
   const out: Busy[] = [];
@@ -179,13 +186,21 @@ function firstFit(busy: Busy[], minutes: number, from: number, until: number): n
  * its window; failing that, the first gap later in the day. Placed habits become
  * busy for the ones after them.
  */
-export function planDay(habits: DailyHabit[], events: Busy[]): PlannedHabit[] {
+export function planDay(habits: DailyHabit[], events: Busy[], dayStart = DEFAULT_DAY_START): PlannedHabit[] {
   let busy = merge(events);
   const placed: PlannedHabit[] = [];
   for (const habit of habits) {
+    // "Morning" means from whenever the day starts, and keeps at least five hours;
+    // a habit with no time can go any time after the day starts.
+    const window =
+      habit.window.label === "morning"
+        ? { ...habit.window, start: dayStart, end: Math.max(habit.window.end, dayStart + 300) }
+        : habit.window.label === "anytime"
+          ? { ...habit.window, start: dayStart }
+          : habit.window;
     const start =
-      firstFit(busy, habit.minutes, Math.max(habit.window.start, DAY_START), habit.window.end) ??
-      firstFit(busy, habit.minutes, habit.window.end, DAY_END);
+      firstFit(busy, habit.minutes, Math.max(window.start, dayStart), window.end) ??
+      firstFit(busy, habit.minutes, Math.max(window.end, dayStart), DAY_END);
     if (start === null) {
       placed.push({ ...habit, start: null, end: null });
       continue;
@@ -202,4 +217,15 @@ export function formatTime(minutes: number): string {
   const min = minutes % 60;
   const hour12 = hour24 % 12 || 12;
   return `${hour12}${min ? `:${String(min).padStart(2, "0")}` : ""}${hour24 < 12 ? "am" : "pm"}`;
+}
+
+/** "05:30" → 330; null for anything that isn't a clock time. */
+export function parseClock(value: string): number | null {
+  const m = value.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  return m ? h(Number(m[1]), Number(m[2])) : null;
+}
+
+/** 330 → "05:30", the value an <input type="time"> takes. */
+export function toClock(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }

@@ -9359,3 +9359,19 @@ aren't factored in until he reconnects at `/api/google/connect`.
 
 Next: his "On habits" list has no nap line yet; Cael could get a tool to read
 the day plan.
+
+## 2026-10-04 — Today's plan: adjustable day start (default 5:30)
+
+Berto usually starts around 5:30am but not always, and doesn't open Cael in the
+morning — so no "I'm up" tap; a standing start time he can adjust instead.
+
+- `lib/day-plan.ts`: `DEFAULT_DAY_START` 5:30; `planDay(habits, events, dayStart)`
+  — "morning" and untimed habits open at the day start (morning keeps ≥5h);
+  nothing is placed before it. `parseClock`/`toClock` helpers.
+- `app/api/day-plan/route.ts`: start stored in app_settings `day_plan.start`
+  ("HH:MM"); GET returns `dayStart`, PUT `{ dayStart }` saves it (400 on junk).
+- `day-plan-card.tsx`: "Day starts [05:30]" time input in the card header;
+  saves on blur/Enter and re-plans.
+
+Verified locally: 5:30 → Meditate 5:30, Read 5:50, Workout 5:52; PUT 06:15
+re-plans from 6:15; set back to 05:30; bad time → 400.

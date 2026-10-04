@@ -9395,3 +9395,13 @@ renders. Typecheck clean.
 
 Strava: still not connected — `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` are
 missing from `.env.local` and Vercel. The integration code is ready.
+
+## 2026-10-04 (chat) — Strava keys in, Connect pinned to cael.bertomill.com
+
+`STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` added to Vercel production (Secret
+type); Strava app callback domain set to `cael.bertomill.com`. First Connect
+failed with `redirect_uri invalid` because it was started from
+`cael-agent-seven.vercel.app` and the redirect is built from the request origin.
+Strava allows one callback domain, so `/api/strava/connect` now bounces any
+`*.vercel.app` host to `https://cael.bertomill.com/api/strava/connect` first
+(state cookie and callback then share a host). localhost still works.

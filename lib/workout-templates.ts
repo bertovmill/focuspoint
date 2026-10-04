@@ -269,6 +269,22 @@ WORKOUT_TEMPLATES.push(
   },
 );
 
+// Wednesday: restorative yoga instead of a full rest day (Berto, 2026-10-04).
+WORKOUT_TEMPLATES.push({
+  slug: "restorative-yoga",
+  name: "Restorative Yoga",
+  session_type: "yoga",
+  default_day: 2,
+  plan: { minutes: 45, intensity: "easy" },
+  blocks: [
+    {
+      key: "session",
+      label: "Session",
+      exercises: [{ key: "yoga", name: "Restorative yoga", sets: 1, ladder: [], weight: null, measure: "time", note: "Long supported holds, slow breathing — recovery, not a workout" }],
+    },
+  ],
+});
+
 /** The bank's first-run contents. */
 export const SEED_WORKOUTS = WORKOUT_TEMPLATES;
 

@@ -4,12 +4,12 @@ import { deleteSession, saveSession, setSessionDone } from "../../lib/training";
 
 export default defineTool({
   description:
-    "Add, edit, complete or delete one session on Berto's training plan (/training). To add: give date, type and a title. To edit or complete: give the id (from list_training_plan). Types: long_run, intervals, easy, hyrox, strength, rest. When he says he did a session that isn't on the plan, add it with done=true and the actuals.",
+    "Add, edit, complete or delete one session on Berto's training plan (/training). To add: give date, type and a title. To edit or complete: give the id (from list_training_plan). Types: long_run, intervals, easy, hyrox, strength, yoga, rest. When he says he did a session that isn't on the plan, add it with done=true and the actuals.",
   inputSchema: z.object({
     id: z.number().int().optional().describe("Existing session id to edit, complete, or delete"),
     delete: z.boolean().optional().describe("Remove the session with this id"),
     session_date: z.string().optional().describe("ISO date. Required when adding."),
-    type: z.enum(["long_run", "intervals", "easy", "hyrox", "strength", "rest"]).optional(),
+    type: z.enum(["long_run", "intervals", "easy", "hyrox", "strength", "yoga", "rest"]).optional(),
     title: z.string().optional().describe("Short name, e.g. '18k steady' or 'Hyrox sim'"),
     target_km: z.number().nullable().optional(),
     target_minutes: z.number().int().nullable().optional().describe("For non-run sessions. Runs derive it from target_km × target_pace_sec."),

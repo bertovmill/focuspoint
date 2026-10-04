@@ -15,6 +15,8 @@ export const SESSION_TYPES = [
   { key: "easy", label: "Easy run / recovery", short: "Easy", color: "bg-teal-500", sports: [...RUNS, "HIKING"] },
   { key: "hyrox", label: "Hyrox / hybrid", short: "Hyrox", color: "bg-rose-500", sports: [...GYM, "RUNNING"] },
   { key: "strength", label: "Strength", short: "Lift", color: "bg-violet-500", sports: GYM },
+  // Restorative yoga took Wednesday's rest day (Berto, 2026-10-04): a real session, ticked off like one.
+  { key: "yoga", label: "Yoga / mobility", short: "Yoga", color: "bg-lime-500", sports: ["YOGA", "PILATES", "STRETCHING"] },
   { key: "rest", label: "Rest", short: "Rest", color: "bg-muted-foreground/40", sports: [] },
 ] as const;
 

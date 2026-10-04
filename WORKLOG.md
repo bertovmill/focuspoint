@@ -9567,3 +9567,12 @@ days, and the default week auto-filling each new week.
 
 Open: a 4 × 20 tricep-extension row reappeared on 2026-10-03 from a whole-page
 save at 17:29 — left in place, asked Berto whether he logged it.
+
+## 2026-10-04 — Wednesday: restorative yoga instead of rest
+
+Berto: restorative yoga beats a full rest day. New session type `yoga`
+("Yoga / mobility", lime; Fitbit YOGA / PILATES / STRETCHING tick it off) and a
+bank workout "Restorative Yoga" (slug `restorative-yoga`, Wednesday, 45 min easy,
+one timed row to log how long). Added to the live bank (and the seed); the
+already-filled Wed Oct 14 rest switched to it. With all seven days taken, filled
+weeks no longer get a rest session. set_training_session accepts `yoga`.

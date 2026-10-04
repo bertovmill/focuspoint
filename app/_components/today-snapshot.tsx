@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
-import { DEFAULT_PROTEIN_TARGET_G, MEAL_SLOTS, currentSlot, todayISO } from "@/lib/nutrition";
+import { DEFAULT_PROTEIN_TARGET_G, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 /**
@@ -192,8 +192,9 @@ function MealsToday() {
     })();
   }, [today]);
 
-  const live = currentSlot();
   const bySlot = new Map((meals ?? []).map((m) => [m.slot, m]));
+  // The first meal still to plan — no clock: his meal times move around.
+  const live = slotsShown(false).find((s) => !bySlot.has(s.key))?.key;
 
   return (
     <div>
@@ -208,7 +209,7 @@ function MealsToday() {
         ) : (
           <div className="flex items-start gap-4">
             <ul className="min-w-0 flex-1 space-y-3">
-              {MEAL_SLOTS.map(({ key, label }) => {
+              {slotsShown(bySlot.has("snack")).map(({ key, label }) => {
                 const m = bySlot.get(key);
                 return (
                   <li key={key} className="flex items-center gap-3">
@@ -226,7 +227,7 @@ function MealsToday() {
                         )}
                       >
                         {label}
-                        {key === live && <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald-600 dark:text-emerald-400">now</span>}
+                        {key === live && <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald-600 dark:text-emerald-400">next</span>}
                       </p>
                       <p className={cn("line-clamp-2 text-sm leading-snug", m ? "font-medium" : "text-muted-foreground")}>
                         {m?.name ?? "Not planned"}

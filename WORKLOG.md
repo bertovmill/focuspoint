@@ -9702,3 +9702,21 @@ from your Fitbit** block (`#actual`): distance, pace, time, avg HR, AZM, and the
 heart-rate zone bar with minutes per zone; the editable fields below sit under a
 **Plan** heading. `ZoneBar` moved to `app/_components/zone-bar.tsx` (shared by the
 week cards and the session page). Checked on :3007 against his Oct 4 long run.
+
+## 2026-10-04 — Meals: Meal 1 / 2 / 3 + optional snack
+
+Berto doesn't eat "lunch" and "dinner" — his first meal might be at noon, and
+some days there are only two. Sittings are now **Meal 1, Meal 2, Meal 3** and an
+optional **Snack** (`meal1`–`meal3`, `snack`; `MEAL_SLOTS` / `ALL_SLOTS` in
+lib/nutrition.ts). No clock: the "now" marker became "next" (first meal not yet
+eaten/planned).
+
+- Bank meals aren't tied to a sitting any more (dropdown removed). The fill picks
+  from the whole bank, least-planned first, never the same meal twice in a day,
+  and only fills Meals 1–3. × on a meal removes it (a two-meal day).
+- Snack: a slim row on desktop; on phones a "+ Snack" button opens it.
+- Bigger type and icons on phones (cells text-sm, headers, buttons).
+- Old lunch/dinner rows are left as an archive outside the grid; old AI snacks
+  before 2026-10-04 were relabelled `archived_snack`
+  (scripts/meals-numbered-migrate.mjs, already run: 23 plans).
+- Cael: `set_daily_meal` / `log_meal` take `meal1`–`meal3` | `snack`.

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const rows = await sql`
       SELECT id, meal_date, slot, name, description, cuisine, image_url, feedback, feedback_at, created_at
       FROM meal_recommendations
-      ORDER BY meal_date DESC, CASE slot WHEN 'lunch' THEN 1 WHEN 'snack' THEN 2 ELSE 3 END
+      ORDER BY meal_date DESC, CASE slot WHEN 'meal1' THEN 1 WHEN 'meal2' THEN 2 WHEN 'meal3' THEN 3 WHEN 'snack' THEN 4 ELSE 5 END
       LIMIT ${limit}
     `;
     return NextResponse.json(rows);

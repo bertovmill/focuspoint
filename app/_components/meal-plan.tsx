@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CalendarDaysIcon, CheckIcon, ShuffleIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { MEAL_SLOTS, currentSlot } from "@/lib/nutrition";
+import { MEAL_SLOTS, slotsShown } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import { useNutritionToday } from "@/app/_components/use-nutrition-today";
 
@@ -16,7 +16,8 @@ import { useNutritionToday } from "@/app/_components/use-nutrition-today";
  */
 export function MealPlan() {
   const { bySlot, eatenSlots, loading, busySlot, toggleAte, setFeedback, suggest } = useNutritionToday();
-  const live = currentSlot();
+  const shown = slotsShown(bySlot.has("snack"));
+  const live = shown.find((s) => !eatenSlots.has(s.key))?.key;
   const missing = MEAL_SLOTS.filter((s) => !bySlot.has(s.key));
 
   return (
@@ -46,8 +47,8 @@ export function MealPlan() {
         )}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        {MEAL_SLOTS.map((slotMeta) => {
+      <div className={cn("grid gap-2", shown.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
+        {shown.map((slotMeta) => {
           const rec = bySlot.get(slotMeta.key);
           const ate = eatenSlots.has(slotMeta.key);
           const busy = busySlot === slotMeta.key;
@@ -62,7 +63,7 @@ export function MealPlan() {
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b">
                 <span className="text-xs font-semibold uppercase tracking-wide">{slotMeta.label}</span>
                 {slotMeta.key === live && !ate && (
-                  <span className="text-xs text-muted-foreground">now</span>
+                  <span className="text-xs text-muted-foreground">next</span>
                 )}
                 {rec && (
                   <button

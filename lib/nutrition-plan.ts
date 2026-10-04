@@ -7,6 +7,7 @@ import {
   DEFAULT_PROTEIN_TARGET_G,
   addDaysISO,
   MEAL_SLOT_KEYS,
+  SLOT_ORDER_SQL,
   PROTEIN_TARGET_SETTING_KEY,
   normalizeIngredients,
   num,
@@ -80,7 +81,7 @@ export async function getPlanRange(from: string, to: string): Promise<PlannedMea
   const rows = await sql.query(
     `SELECT ${PLAN_COLUMNS} FROM meal_recommendations
      WHERE meal_date BETWEEN $1 AND $2
-     ORDER BY meal_date ASC, CASE slot WHEN 'lunch' THEN 1 WHEN 'snack' THEN 2 ELSE 3 END`,
+     ORDER BY meal_date ASC, ${SLOT_ORDER_SQL}`,
     [from, to],
   );
   return (rows as Record<string, unknown>[]).map(shapePlan);
@@ -225,9 +226,9 @@ export async function addPlanToGroceries(from: string, to: string) {
 
 // ── filling from the bank ─────────────────────────────────────────────
 // Berto rarely strays from his meal bank, so every planned sitting comes from
-// nutrition_recipes — no model calls. The rotation reaches the whole bank: each
-// cell takes the entry for that sitting planned least often over the last three
-// weeks, ties broken at random.
+// nutrition_recipes — no model calls. Bank meals aren't tied to a sitting. The
+// rotation reaches the whole bank: each cell takes the meal planned least often
+// over the last three weeks that isn't already on that day, ties at random.
 
 export interface BankFillResult {
   filled: PlannedMeal[];
@@ -267,8 +268,12 @@ export async function fillFromBank(
       skipped++;
       continue;
     }
-    // Entries tagged for this sitting, plus untagged ones ("any sitting").
-    let pool = recipes.filter((r) => r.slot === c.slot || !r.slot);
+    // Any bank meal fits any sitting — but not one already on that day.
+    const sameDay = new Set(
+      [...current.entries()].filter(([ck, id]) => ck.startsWith(`${c.date}:`) && ck !== k && id).map(([, id]) => id),
+    );
+    let pool = recipes.filter((r) => !sameDay.has(r.id));
+    if (pool.length === 0) pool = recipes;
     // A swap should land on something different when there's anything else.
     const was = current.get(k);
     if (was && pool.length > 1) pool = pool.filter((r) => r.id !== was);

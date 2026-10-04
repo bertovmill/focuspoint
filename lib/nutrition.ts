@@ -53,32 +53,41 @@ export function isOnProtocol(rules: readonly string[] | null | undefined) {
   return PROTOCOL_RULE_KEYS.every((k) => rules?.includes(k));
 }
 
-// The three sittings Berto eats: one lunch, one snack, one dinner, each
-// planned from the meal bank (fillFromBank in lib/nutrition-plan.ts).
+// A day is Meal 1, Meal 2, Meal 3 and an optional Snack — numbered, not
+// breakfast/lunch/dinner, because when he eats moves around. Every one is a
+// meal from the bank (fillFromBank in lib/nutrition-plan.ts). Days before
+// 2026-10-04 used lunch/snack/dinner; those rows stay in the tables as an
+// archive and the grid doesn't show them (old snacks became 'archived_snack',
+// scripts/meals-numbered-migrate.mjs).
 export const MEAL_SLOTS = [
-  { key: "lunch", label: "Lunch", guidance: "Light and whole-food — this is the day-time sitting, so it must not sit heavy or spike blood sugar." },
-  { key: "snack", label: "Snack", guidance: "A small afternoon snack for mental performance — think avocado, dark chocolate, almonds. Not a meal." },
-  { key: "dinner", label: "Dinner", guidance: "The real meal of the day, eaten in the evening. Protein + fat + fibre, substantial and satisfying." },
+  { key: "meal1", label: "Meal 1" },
+  { key: "meal2", label: "Meal 2" },
+  { key: "meal3", label: "Meal 3" },
 ] as const;
 
-export type MealSlot = (typeof MEAL_SLOTS)[number]["key"];
+export const SNACK_SLOT = { key: "snack", label: "Snack" } as const;
 
-export const MEAL_SLOT_KEYS = MEAL_SLOTS.map((s) => s.key) as readonly string[];
+/** Every sitting a plan or log row can carry: the three meals, then the snack. */
+export const ALL_SLOTS = [...MEAL_SLOTS, SNACK_SLOT] as const;
+
+export type MealSlot = (typeof ALL_SLOTS)[number]["key"];
+
+export const MEAL_SLOT_KEYS = ALL_SLOTS.map((s) => s.key) as readonly string[];
+
+const LEGACY_LABELS: Record<string, string> = { lunch: "Lunch", dinner: "Dinner", archived_snack: "Snack" };
 
 export function slotLabel(slot: string | null | undefined) {
-  return MEAL_SLOTS.find((s) => s.key === slot)?.label ?? null;
+  if (!slot) return null;
+  return ALL_SLOTS.find((s) => s.key === slot)?.label ?? LEGACY_LABELS[slot] ?? null;
 }
 
-/**
- * Which sitting is the live one right now: lunch through the afternoon, the snack
- * in the 3–6pm dip he's written about, dinner in the evening.
- */
-export function currentSlot(now: Date = new Date()): MealSlot {
-  const h = now.getHours();
-  if (h < 15) return "lunch";
-  if (h < 18) return "snack";
-  return "dinner";
+/** The meals to show for a day: always the three, plus the snack once there's one. */
+export function slotsShown(hasSnack: boolean) {
+  return hasSnack ? ALL_SLOTS : MEAL_SLOTS;
 }
+
+/** SQL ORDER BY fragment for the slot column: meals in order, snack, then archived sittings. */
+export const SLOT_ORDER_SQL = "CASE slot WHEN 'meal1' THEN 1 WHEN 'meal2' THEN 2 WHEN 'meal3' THEN 3 WHEN 'snack' THEN 4 ELSE 5 END";
 
 /** Tags that mark a thought as belonging to the food/energy body of notes. */
 export const NUTRITION_TAGS = [

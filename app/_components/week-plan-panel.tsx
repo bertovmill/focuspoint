@@ -26,9 +26,9 @@ import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { PlannedMeal, Recipe } from "@/lib/nutrition-plan";
 import {
   DEFAULT_PROTEIN_TARGET_G,
+  ALL_SLOTS,
   MEAL_SLOTS,
   addDaysISO,
-  currentSlot,
   shortDayLabel,
   todayISO,
   weekDates,
@@ -40,7 +40,6 @@ import { cn } from "@/lib/utils";
 type Cells = Map<string, PlannedMeal>;
 type Logged = { id: number; name: string; slot: string | null; eaten_date: string; protein_g: number | string | null };
 const key = (date: string, slot: string) => `${date}:${slot}`;
-const SLOT_ORDER: string[] = MEAL_SLOTS.map((s) => s.key);
 
 /**
  * /meals — the week: seven days by three sittings, every one a meal from the
@@ -62,6 +61,8 @@ export function WeekPlanPanel() {
   const [ate, setAte] = useState<Map<string, Logged>>(new Map());
   const [logVersion, setLogVersion] = useState(0);
   const [filling, setFilling] = useState(false);
+  // Days where the optional snack row is open on phones before anything is in it.
+  const [snackOpen, setSnackOpen] = useState<Set<string>>(new Set());
   const [sendingGroceries, setSendingGroceries] = useState(false);
   const [picker, setPicker] = useState<{ date: string; slot: string } | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
@@ -414,23 +415,6 @@ export function WeekPlanPanel() {
     }
   };
 
-  /** Moves a bank meal to another sitting (or "any"), which is what the fill rotates by. */
-  const retagRecipe = async (r: Recipe, slot: string | null) => {
-    const prev = recipes;
-    setRecipes((rs) => rs.map((x) => (x.id === r.id ? { ...x, slot } : x)));
-    try {
-      const res = await fetch(`/api/nutrition/recipes/${r.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slot }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setRecipes(prev);
-      toast.error("Couldn't change that.");
-    }
-  };
-
   // ── derived ───────────────────────────────────────────────────────────
 
   const plannedByDay = useMemo(() => {
@@ -439,7 +423,7 @@ export function WeekPlanPanel() {
       let protein = 0;
       let kcal = 0;
       let n = 0;
-      for (const s of MEAL_SLOTS) {
+      for (const s of ALL_SLOTS) {
         const c = cells.get(key(d, s.key));
         if (!c) continue;
         n++;
@@ -479,7 +463,7 @@ export function WeekPlanPanel() {
           >
             <ChevronLeftIcon className="size-3.5" />
           </button>
-          <span className="min-w-28 text-center text-xs tabular-nums">{weekRangeLabel(weekStart)}</span>
+          <span className="min-w-28 text-center text-sm tabular-nums md:text-xs">{weekRangeLabel(weekStart)}</span>
           <button
             type="button"
             onClick={() => setWeekStart((w) => addDaysISO(w, 7))}
@@ -531,7 +515,7 @@ export function WeekPlanPanel() {
                   setTargetDraft(String(target));
                   setEditingTarget(true);
                 }}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground md:text-xs"
                 title="Change the daily target"
               >
                 <PencilIcon className="size-3" />
@@ -539,13 +523,13 @@ export function WeekPlanPanel() {
               </button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:text-xs">
             {eaten >= target
               ? "Target cleared. Nice."
-              : `${Math.max(0, Math.round(target - eaten))} g to go. Tick a sitting below once you've eaten it.`}
+              : `${Math.max(0, Math.round(target - eaten))} g to go. Tick a meal below once you've eaten it.`}
           </p>
           {plannedToday && plannedToday.n > 0 && (
-            <p className="text-xs tabular-nums text-muted-foreground">
+            <p className="text-sm tabular-nums text-muted-foreground md:text-xs">
               Planned today: <span className="font-medium text-foreground">{plannedToday.protein} g</span>
               {plannedToday.kcal > 0 && ` · ${plannedToday.kcal} kcal`}
               {plannedToday.protein < target && ` — ${target - plannedToday.protein} g short of target`}
@@ -556,7 +540,7 @@ export function WeekPlanPanel() {
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1 text-xs"
+            className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs"
             disabled={filling || emptyAhead === 0 || recipes.length === 0}
             onClick={fillWeek}
             title={
@@ -570,7 +554,7 @@ export function WeekPlanPanel() {
             {filling ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
             Fill week from bank
           </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={sendingGroceries} onClick={sendGroceries}>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs" disabled={sendingGroceries} onClick={sendGroceries}>
             {sendingGroceries ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
             Week → Groceries
           </Button>
@@ -592,7 +576,7 @@ export function WeekPlanPanel() {
               {shortDayLabel(d)}
             </div>
           ))}
-          {MEAL_SLOTS.map((slot) => (
+          {ALL_SLOTS.map((slot) => (
             <div key={slot.key} className="contents">
               <div className="flex items-start pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {slot.label}
@@ -602,6 +586,7 @@ export function WeekPlanPanel() {
                   key={key(d, slot.key)}
                   date={d}
                   slot={slot.key}
+                  compact={slot.key === "snack"}
                   cell={cells.get(key(d, slot.key))}
                   busy={busy.has(key(d, slot.key))}
                   past={d < today}
@@ -629,21 +614,21 @@ export function WeekPlanPanel() {
           const t = plannedByDay.get(d);
           return (
             <div key={d} className={cn("rounded-lg border", d === today && "border-foreground/40")}>
-              <div className="flex items-center justify-between border-b px-2.5 py-1.5">
-                <span className={cn("text-xs font-semibold uppercase tracking-wide", d < today && "text-muted-foreground/60")}>
+              <div className="flex items-center justify-between border-b px-3 py-2">
+                <span className={cn("text-sm font-semibold uppercase tracking-wide", d < today && "text-muted-foreground/60")}>
                   {shortDayLabel(d)}
                   {d === today && <span className="ml-1.5 font-normal normal-case text-muted-foreground">today</span>}
                 </span>
                 {t && t.n > 0 && (
-                  <span className={cn("text-xs tabular-nums", t.protein >= target ? "text-emerald-600" : "text-muted-foreground")}>
+                  <span className={cn("text-sm tabular-nums", t.protein >= target ? "text-emerald-600" : "text-muted-foreground")}>
                     {t.protein} g{t.kcal > 0 && ` · ${t.kcal} kcal`}
                   </span>
                 )}
               </div>
-              <div className="grid gap-1.5 p-1.5">
-                {MEAL_SLOTS.map((slot) => (
-                  <div key={slot.key} className="grid grid-cols-[52px_1fr] items-stretch gap-1.5">
-                    <div className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{slot.label}</div>
+              <div className="grid gap-2 p-2">
+                {(cells.has(key(d, "snack")) || snackOpen.has(d) ? ALL_SLOTS : MEAL_SLOTS).map((slot) => (
+                  <div key={slot.key} className="grid grid-cols-[60px_1fr] items-stretch gap-2">
+                    <div className="pt-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{slot.label}</div>
                     <PlanCell
                       date={d}
                       slot={slot.key}
@@ -660,6 +645,16 @@ export function WeekPlanPanel() {
                     />
                   </div>
                 ))}
+                {!cells.has(key(d, "snack")) && !snackOpen.has(d) && (
+                  <button
+                    type="button"
+                    onClick={() => setSnackOpen((prev) => new Set(prev).add(d))}
+                    className="tap-target ml-[68px] flex items-center gap-1 justify-self-start rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <PlusIcon className="size-3.5" />
+                    Snack
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -687,7 +682,6 @@ export function WeekPlanPanel() {
       <RecipeLibrary
         recipes={recipes}
         onAdd={(r) => setRecipes((rs) => [...rs, r].sort((a, b) => a.name.localeCompare(b.name)))}
-        onRetag={retagRecipe}
         onDelete={deleteRecipe}
       />
 
@@ -696,9 +690,7 @@ export function WeekPlanPanel() {
         recipes={recipes}
         eatenDefault={
           !!picker &&
-          (picker.date < today ||
-            (picker.date === today && SLOT_ORDER.indexOf(picker.slot) <= SLOT_ORDER.indexOf(currentSlot())) ||
-            ate.has(key(picker.date, picker.slot)))
+          (picker.date <= today || ate.has(key(picker.date, picker.slot)))
         }
         onClose={() => setPicker(null)}
         onPick={onPickRecipe}
@@ -714,6 +706,7 @@ function PlanCell({
   past,
   today,
   eaten,
+  compact = false,
   onPick,
   onRotate,
   onToggleEaten,
@@ -727,6 +720,8 @@ function PlanCell({
   past: boolean;
   today: boolean;
   eaten: boolean;
+  /** The optional snack row on wide screens: a slim + until there's one. */
+  compact?: boolean;
   onPick: () => void;
   onRotate: () => void;
   onToggleEaten: () => void;
@@ -738,7 +733,8 @@ function PlanCell({
     return (
       <div
         className={cn(
-          "flex min-h-[76px] items-center justify-center gap-1 rounded-md border border-dashed",
+          "flex items-center justify-center gap-1 rounded-md border border-dashed",
+          compact ? "min-h-9" : "min-h-[60px] md:min-h-[76px]",
           today ? "border-foreground/30" : "border-border",
           past && "opacity-50",
         )}
@@ -754,17 +750,17 @@ function PlanCell({
               aria-label={loggable ? "Pick or log a meal" : "Pick a meal"}
               title={loggable ? "Pick a bank meal (and log it as eaten)" : "Pick a meal from the bank"}
             >
-              <PlusIcon className="size-3.5" />
+              <PlusIcon className="size-4 md:size-3.5" />
             </button>
-            <button
+            {!compact && <button
               type="button"
               onClick={onRotate}
               className="tap-target rounded-md p-1.5 text-muted-foreground hover:text-foreground"
               aria-label="Rotate one in"
               title="Rotate in a bank meal you haven't had lately"
             >
-              <ShuffleIcon className="size-3.5" />
-            </button>
+              <ShuffleIcon className="size-4 md:size-3.5" />
+            </button>}
           </>
         )}
       </div>
@@ -786,10 +782,10 @@ function PlanCell({
           aria-hidden
         />
       )}
-      <p className="relative line-clamp-2 text-xs font-medium leading-snug" title={cell.description ?? cell.name}>
+      <p className="relative line-clamp-2 text-sm font-medium leading-snug md:text-xs" title={cell.description ?? cell.name}>
         {cell.name}
       </p>
-      <p className="relative mt-auto pt-1 text-[11px] tabular-nums text-muted-foreground">
+      <p className="relative mt-auto pt-1 text-xs tabular-nums text-muted-foreground md:text-[11px]">
         {cell.protein_g !== null ? <span className="font-medium text-foreground">{cell.protein_g} g</span> : "? g"}
         {cell.kcal !== null && ` · ${cell.kcal} kcal`}
       </p>
@@ -799,7 +795,7 @@ function PlanCell({
             type="button"
             onClick={onToggleEaten}
             className={cn(
-              "tap-target mr-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-[11px]",
+              "tap-target mr-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-xs md:text-[11px]",
               eaten ? "text-emerald-600" : "text-muted-foreground hover:text-foreground",
             )}
             aria-pressed={eaten}
@@ -808,7 +804,7 @@ function PlanCell({
           >
             <span
               className={cn(
-                "flex size-3.5 items-center justify-center rounded border",
+                "flex size-4 items-center justify-center rounded border md:size-3.5",
                 eaten ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/50",
               )}
             >
@@ -818,10 +814,10 @@ function PlanCell({
           </button>
         )}
         <button type="button" onClick={onPick} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Swap" title="Swap for another bank meal">
-          <RefreshCwIcon className="size-3" />
+          <RefreshCwIcon className="size-4 md:size-3" />
         </button>
         <button type="button" onClick={onRotate} disabled={busy} className="tap-target rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Rotate" title="Rotate in a different bank meal">
-          {busy ? <Spinner className="size-3" /> : <ShuffleIcon className="size-3" />}
+          {busy ? <Spinner className="size-3" /> : <ShuffleIcon className="size-4 md:size-3" />}
         </button>
         {!cell.recipe_id && (
           <button
@@ -831,11 +827,11 @@ function PlanCell({
             aria-label="Add to the meal bank"
             title="Not in the bank — add it"
           >
-            <BookmarkIcon className="size-3" />
+            <BookmarkIcon className="size-4 md:size-3" />
           </button>
         )}
-        <button type="button" onClick={onClear} className="tap-target ml-auto rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Clear" title="Clear this cell">
-          <XIcon className="size-3" />
+        <button type="button" onClick={onClear} className="tap-target ml-auto rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Remove this meal" title="Remove this meal (a two-meal day)">
+          <XIcon className="size-4 md:size-3" />
         </button>
       </div>
     </div>
@@ -860,17 +856,14 @@ function DayTotal({ total, target, past }: { total?: { protein: number; kcal: nu
 function RecipeLibrary({
   recipes,
   onAdd,
-  onRetag,
   onDelete,
 }: {
   recipes: Recipe[];
   onAdd: (r: Recipe) => void;
-  onRetag: (r: Recipe, slot: string | null) => void;
   onDelete: (r: Recipe) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [slot, setSlot] = useState<string>("dinner");
   const [protein, setProtein] = useState("");
   const [kcal, setKcal] = useState("");
   const [ingredients, setIngredients] = useState("");
@@ -884,7 +877,7 @@ function RecipeLibrary({
       const res = await fetch("/api/nutrition/recipes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), slot, protein_g: protein || null, kcal: kcal || null, ingredients }),
+        body: JSON.stringify({ name: name.trim(), protein_g: protein || null, kcal: kcal || null, ingredients }),
       });
       if (!res.ok) throw new Error();
       onAdd((await res.json()) as Recipe);
@@ -918,29 +911,17 @@ function RecipeLibrary({
       </div>
 
       {open && (
-        <form onSubmit={submit} className="mb-3 grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_110px_100px_90px]">
+        <form onSubmit={submit} className="mb-3 grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_110px_90px]">
           <Input autoFocus placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select
-            className="h-9 rounded-md border bg-transparent px-2 text-sm"
-            value={slot}
-            onChange={(e) => setSlot(e.target.value)}
-            aria-label="Sitting"
-          >
-            {MEAL_SLOTS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
           <Input type="number" inputMode="decimal" min={0} placeholder="Protein g" value={protein} onChange={(e) => setProtein(e.target.value)} />
           <Input type="number" inputMode="numeric" min={0} placeholder="kcal" value={kcal} onChange={(e) => setKcal(e.target.value)} />
           <textarea
-            className="min-h-16 rounded-md border bg-transparent px-3 py-2 text-sm sm:col-span-4"
+            className="min-h-16 rounded-md border bg-transparent px-3 py-2 text-sm sm:col-span-3"
             placeholder="Ingredients, one per line — these become the grocery list"
             value={ingredients}
             onChange={(e) => setIngredients(e.target.value)}
           />
-          <div className="flex justify-end gap-2 sm:col-span-4">
+          <div className="flex justify-end gap-2 sm:col-span-3">
             <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -957,22 +938,7 @@ function RecipeLibrary({
             <div key={r.id} className="flex items-start gap-2 rounded-md border px-2.5 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{r.name}</p>
-                <p className="flex flex-wrap items-center gap-x-1 text-xs tabular-nums text-muted-foreground">
-                  <select
-                    className="-ml-0.5 rounded bg-transparent py-0.5 text-xs uppercase tracking-wide hover:bg-muted"
-                    value={r.slot ?? ""}
-                    onChange={(e) => onRetag(r, e.target.value || null)}
-                    aria-label={`Sitting for ${r.name}`}
-                    title="Which sitting the fill puts this in"
-                  >
-                    {MEAL_SLOTS.map((s) => (
-                      <option key={s.key} value={s.key}>
-                        {s.label}
-                      </option>
-                    ))}
-                    <option value="">Any</option>
-                  </select>
-                  <span>·</span>
+                <p className="text-xs tabular-nums text-muted-foreground">
                   {r.protein_g !== null ? `${r.protein_g} g protein` : "protein ?"}
                   {r.kcal !== null && ` · ${r.kcal} kcal`}
                 </p>

@@ -59,16 +59,11 @@ export function RecipePicker({
 
   const loggable = !!target && target.date <= todayISO();
 
-  // Library entries hinted for this sitting float to the top; the rest follow.
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = needle ? recipes.filter((r) => r.name.toLowerCase().includes(needle)) : recipes;
-    return [...list].sort((a, b) => {
-      const as = a.slot === target?.slot ? 0 : 1;
-      const bs = b.slot === target?.slot ? 0 : 1;
-      return as - bs || a.name.localeCompare(b.name);
-    });
-  }, [recipes, q, target?.slot]);
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }, [recipes, q]);
 
   const title = target ? `${slotLabel(target.slot)} · ${shortDayLabel(target.date)}` : "";
 
@@ -175,23 +170,13 @@ export function RecipePicker({
                   className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left hover:bg-muted/60"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{r.name}</span>
-                    <span className="block text-xs text-muted-foreground tabular-nums">
+                    <span className="block truncate text-base md:text-sm">{r.name}</span>
+                    <span className="block text-sm text-muted-foreground tabular-nums md:text-xs">
                       {r.protein_g !== null ? `${r.protein_g} g protein` : "protein ?"}
                       {r.kcal !== null && ` · ${r.kcal} kcal`}
                       {r.ingredients.length > 0 && ` · ${r.ingredients.length} ingredients`}
                     </span>
                   </span>
-                  {r.slot && (
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide",
-                        r.slot === target?.slot ? "border-foreground/40" : "text-muted-foreground",
-                      )}
-                    >
-                      {r.slot}
-                    </span>
-                  )}
                 </button>
               ))}
             </div>

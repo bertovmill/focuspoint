@@ -10,9 +10,9 @@ export default defineTool({
     name: z.string().min(1).describe("Short name of the meal, e.g. 'Beans, brown rice and avocado'"),
     notes: z.string().optional().describe("How it made them feel, or anything worth remembering about it"),
     slot: z
-      .enum(["lunch", "snack", "dinner"])
+      .enum(["meal1", "meal2", "meal3", "snack"])
       .optional()
-      .describe("Which sitting it was. Set this when it's clear — it's how the Nutrition screen knows a sitting was eaten."),
+      .describe("Which of the day's meals it was — Meal 1, 2 or 3 in the order he ate them, or the optional snack. Set it when it's clear; it ticks that meal on the /meals grid."),
     felt_good: z.boolean().optional().describe("Defaults to true"),
     protein_g: z.number().optional().describe("Grams of protein in the meal, if known or estimable — this feeds the daily protein ring on /nutrition/plan"),
     kcal: z.number().int().optional().describe("Calories, if known or estimable"),

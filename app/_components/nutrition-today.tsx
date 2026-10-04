@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { AppleIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
-import { MEAL_SLOTS, PROTOCOL_RULES, currentSlot } from "@/lib/nutrition";
+import { PROTOCOL_RULES, slotsShown } from "@/lib/nutrition";
 import { RuleImage } from "@/app/_components/rule-image";
 import { cn } from "@/lib/utils";
 import { useNutritionToday } from "@/app/_components/use-nutrition-today";
@@ -17,9 +17,11 @@ import { useNutritionToday } from "@/app/_components/use-nutrition-today";
 export function NutritionToday() {
   const { rules, bySlot, eatenSlots, toggleRule, toggleAte, proteinToday, proteinTarget } = useNutritionToday();
   const [open, setOpen] = useState(true);
-  const live = currentSlot();
-  const done = rules.length + eatenSlots.size;
-  const total = PROTOCOL_RULES.length + MEAL_SLOTS.length;
+  const shown = slotsShown(bySlot.has("snack") || eatenSlots.has("snack"));
+  // The next meal not yet eaten — there's no clock for when he eats.
+  const live = shown.find((s) => !eatenSlots.has(s.key))?.key;
+  const done = rules.length + shown.filter((s) => eatenSlots.has(s.key)).length;
+  const total = PROTOCOL_RULES.length + shown.length;
 
   return (
     <section className="border-b">
@@ -52,7 +54,7 @@ export function NutritionToday() {
 
       {open && (
         <div className="space-y-0.5 px-1.5 pb-1.5">
-          {MEAL_SLOTS.map((slot) => {
+          {shown.map((slot) => {
             const rec = bySlot.get(slot.key);
             const ate = eatenSlots.has(slot.key);
             return (

@@ -19,6 +19,7 @@ export function MarkdownDoc({
   heading,
   placeholder,
   className,
+  reloadEvent,
 }: {
   /** Section anchor, e.g. "principles" → /#principles. */
   id: string;
@@ -26,8 +27,12 @@ export function MarkdownDoc({
   heading: ReactNode;
   placeholder: string;
   className?: string;
+  /** A window event meaning the doc changed elsewhere; reload it if nothing's unsaved. */
+  reloadEvent?: string;
 }) {
   const [initial, setInitial] = useState<string | null>(null);
+  /** Bumped to remount the editor on a reload — it only reads its content once. */
+  const [version, setVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState(false);
@@ -53,6 +58,25 @@ export function MarkdownDoc({
       cancelled = true;
     };
   }, [endpoint]);
+
+  useEffect(() => {
+    if (!reloadEvent) return;
+    const reload = () => {
+      // Unsaved keystrokes win; they'd be lost under a remount.
+      if (pending.current !== null) return;
+      fetch(endpoint)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
+        .then((row: { content: string; updated_at: string | null }) => {
+          if (pending.current !== null) return;
+          setInitial(row.content);
+          setSavedAt(row.updated_at ? new Date(row.updated_at) : null);
+          setVersion((v) => v + 1);
+        })
+        .catch(() => {});
+    };
+    window.addEventListener(reloadEvent, reload);
+    return () => window.removeEventListener(reloadEvent, reload);
+  }, [endpoint, reloadEvent]);
 
   const save = useCallback(
     async (content: string) => {
@@ -124,7 +148,7 @@ export function MarkdownDoc({
         {initial === null ? (
           error ? null : <Skeleton className="h-28 w-full" />
         ) : (
-          <NotionEditor initialContent={initial} onChange={handleChange} placeholder={placeholder} className="min-h-[8rem]" />
+          <NotionEditor key={version} initialContent={initial} onChange={handleChange} placeholder={placeholder} className="min-h-[8rem]" />
         )}
       </div>
     </section>

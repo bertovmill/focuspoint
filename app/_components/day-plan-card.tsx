@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarIcon,
@@ -11,7 +11,8 @@ import {
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatTime, type PlannedHabit } from "@/lib/day-plan";
+import { formatTime, toClock, type PlannedHabit } from "@/lib/day-plan";
+import { PRINCIPLES_CHANGED_EVENT } from "@/app/_components/principles-doc";
 import { cn } from "@/lib/utils";
 
 type Habit = PlannedHabit & { done: boolean; auto: boolean };
@@ -68,6 +69,23 @@ export function DayPlanCard() {
       await load();
     } catch {
       toast.error("Couldn't save the start time.");
+    }
+  };
+
+  // Permanent: rewrites the habit's line in Principles, which is where its time lives.
+  const saveHabitTime = async (h: Habit, value: string) => {
+    if (!value || (h.start !== null && value === toClock(h.start))) return;
+    try {
+      const res = await fetch("/api/day-plan", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ habit: h.key, time: value }),
+      });
+      if (!res.ok) throw new Error();
+      window.dispatchEvent(new Event(PRINCIPLES_CHANGED_EVENT));
+      await load();
+    } catch {
+      toast.error(`Couldn't move ${h.name}.`);
     }
   };
 
@@ -193,9 +211,11 @@ export function DayPlanCard() {
                       current && !r.habit.done && "bg-muted/60",
                     )}
                   >
-                    <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums">
-                      {formatTime(r.start)}
-                    </span>
+                    <HabitTime
+                      habit={r.habit}
+                      start={r.start}
+                      onSave={(v) => saveHabitTime(r.habit, v)}
+                    />
                     <button
                       type="button"
                       onClick={() => toggle(r.habit)}
@@ -281,6 +301,65 @@ export function DayPlanCard() {
         )}
       </Card>
     </section>
+  );
+}
+
+/**
+ * A habit's start time; tap it for a time picker. The new time becomes the habit's
+ * usual time, every day (saved into its Principles line).
+ */
+function HabitTime({
+  habit,
+  start,
+  onSave,
+}: {
+  habit: Habit;
+  start: number;
+  onSave: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    input.current?.focus();
+    try {
+      input.current?.showPicker?.();
+    } catch {
+      // Not every browser allows it; focusing the field is enough.
+    }
+  }, [editing]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label={`Change when ${habit.name} happens`}
+        title="Change the time"
+        className="-my-0.5 w-14 shrink-0 rounded-md py-0.5 text-right text-xs font-medium tabular-nums decoration-dotted underline-offset-4 hover:underline"
+      >
+        {formatTime(start)}
+      </button>
+    );
+  }
+  return (
+    <input
+      ref={input}
+      type="time"
+      step={300}
+      defaultValue={toClock(start)}
+      onBlur={(e) => {
+        setEditing(false);
+        onSave(e.currentTarget.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setEditing(false);
+      }}
+      aria-label={`When ${habit.name} happens`}
+      className="w-[6.75rem] shrink-0 rounded-md border border-border bg-transparent px-1 py-0.5 text-right text-xs font-medium tabular-nums focus:outline-none"
+    />
   );
 }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getDb } from "@/lib/db";
 import { gcalFetch, GoogleNotConnectedError } from "@/lib/google";
-import { getPrinciples } from "@/lib/principles";
+import { getPrinciples, setPrinciples } from "@/lib/principles";
 import { getHabitTicks, setHabitTick } from "@/lib/habits";
 import { dayKey, STREAK_TIME_ZONE } from "@/lib/streak";
 import {
@@ -10,6 +10,7 @@ import {
   parseClock,
   parseDailyHabits,
   planDay,
+  setHabitTime,
   toClock,
   type Busy,
 } from "@/lib/day-plan";
@@ -136,9 +137,13 @@ export async function PATCH(req: Request) {
 }
 
 // PUT { dayStart: "HH:MM" } — when the day starts. Standing, not per day.
+// PUT { habit, time: "HH:MM" } — a habit's usual time, rewritten into its line in
+// the Principles doc (lib/day-plan.ts setHabitTime).
 export async function PUT(req: Request) {
   try {
-    const { dayStart } = (await req.json()) as { dayStart?: unknown };
+    const body = (await req.json()) as { dayStart?: unknown; habit?: unknown; time?: unknown };
+    if (body.habit !== undefined) return putHabitTime(body.habit, body.time);
+    const { dayStart } = body;
     const minutes = typeof dayStart === "string" ? parseClock(dayStart) : null;
     if (minutes === null) return NextResponse.json({ error: "dayStart must be HH:MM" }, { status: 400 });
     await getDb()`
@@ -148,6 +153,27 @@ export async function PUT(req: Request) {
     return NextResponse.json({ dayStart: toClock(minutes) });
   } catch (err) {
     console.error("day-plan start save failed:", err);
+    return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+  }
+}
+
+async function putHabitTime(habit: unknown, time: unknown) {
+  const minutes = typeof time === "string" ? parseClock(time) : null;
+  if (typeof habit !== "string" || !habit || minutes === null) {
+    return NextResponse.json({ error: "habit and time (HH:MM) are required" }, { status: 400 });
+  }
+  try {
+    const doc = await getPrinciples();
+    // On the default habits there's no section to edit yet — seed it, then edit.
+    const content = parseDailyHabits(doc.content)
+      ? doc.content
+      : `${doc.content.trimEnd()}\n\n${DEFAULT_HABITS_MARKDOWN}\n`;
+    const next = setHabitTime(content, habit, minutes);
+    if (next === null) return NextResponse.json({ error: "No habit by that name" }, { status: 404 });
+    await setPrinciples(next);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("day-plan habit time save failed:", err);
     return NextResponse.json({ error: "Failed to save" }, { status: 500 });
   }
 }

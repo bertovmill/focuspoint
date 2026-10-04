@@ -65,6 +65,8 @@ const AT_TIME_GRACE = 180;
 const DEFAULT_MINUTES = 30;
 
 export const HABITS_HEADING = "Daily habits";
+/** The section heading the habits sit under — "Daily habits", "On habits", any level. */
+const HABITS_HEADING_RE = /^#{1,6}\s+.*\bhabits?\b/i;
 
 /** What the section is seeded with, and what the planner falls back on if it's missing. */
 export const DEFAULT_HABITS_MARKDOWN = [
@@ -146,7 +148,7 @@ export function parseHabitLine(raw: string): DailyHabit | null {
  */
 export function parseDailyHabits(markdown: string): DailyHabit[] | null {
   const lines = markdown.split("\n");
-  const startIdx = lines.findIndex((l) => /^#{1,6}\s+.*\bhabits?\b/i.test(l.trim()));
+  const startIdx = lines.findIndex((l) => HABITS_HEADING_RE.test(l.trim()));
   if (startIdx === -1) return null;
 
   const habits: DailyHabit[] = [];
@@ -173,6 +175,44 @@ export function parseDailyHabits(markdown: string): DailyHabit[] | null {
     if (habit.why.length === 0) habit.why = matchingSection(lines, habit.name);
   }
   return habits;
+}
+
+/**
+ * The doc with one habit pinned to a clock time — "Nap — 20 min — 1pm" → "… — 2pm",
+ * "Meditate — 20 min — morning" → "… — 6am", "Nap 20 mins sometime midday" →
+ * "… sometime at 12:30pm". Only the text after the name is
+ * touched, so "Evening walk" keeps its name. Replaces the line's time or window
+ * word, else appends one. Null when no habit line has that key. Changing a time
+ * on the Today card is permanent (Berto's call, 2026-10-04), so it lands here,
+ * in the doc he already edits, rather than in a setting the doc can't show.
+ */
+export function setHabitTime(markdown: string, key: string, minutes: number): string | null {
+  const lines = markdown.split("\n");
+  const startIdx = lines.findIndex((l) => HABITS_HEADING_RE.test(l.trim()));
+  if (startIdx === -1) return null;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^#{1,6}\s/.test(line.trim())) break;
+    if (!/^(?:[-*+]|\d+[.)])\s+/.test(line)) continue; // indented = a "why", not a habit
+    const habit = parseHabitLine(line);
+    if (habit?.key !== key) continue;
+
+    const at = line.indexOf(habit.name);
+    const cut = at === -1 ? 0 : at + habit.name.length;
+    const head = line.slice(0, cut);
+    const tail = line.slice(cut);
+    const time = formatTime(minutes);
+    const clockRe = /\b\d{1,2}(?::[0-5]\d)?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b/i;
+    const wordRe = /\b(?:in the\s+)?(?:morn\w*|midday|lunch|noon|afternoon|evening|night)\b/i;
+    lines[i] = clockRe.test(tail)
+      ? head + tail.replace(clockRe, time)
+      : wordRe.test(tail)
+        ? // "— morning" → "— 6am"; prose like "first thing in the morning" → "first thing at 6am"
+          head + tail.replace(wordRe, /\s[—–|·-]\s/.test(tail) ? time : `at ${time}`)
+        : `${line.trimEnd()} — ${time}`;
+    return lines.join("\n");
+  }
+  return null;
 }
 
 function cleanLine(raw: string): string {

@@ -12,8 +12,8 @@ import {
 import { listChatModels } from "@/lib/gateway-catalog";
 
 // Which model Cael runs on, plus which models are pinned to the top of the
-// picker. Both are one global setting: agent/model.ts re-reads the selection
-// before every model call. `models` is the live AI Gateway catalog, with the
+// picker. Both are one global setting: agent/agent.ts re-reads the selection
+// at the start of every turn. `models` is the live AI Gateway catalog, with the
 // gateway's own per-1M-token prices.
 
 export async function GET() {

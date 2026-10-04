@@ -21,6 +21,12 @@ export type ChatModel = {
   readonly inputPrice: number | null;
   /** USD per 1M output tokens. */
   readonly outputPrice: number | null;
+  /**
+   * Context window in tokens, as eve will see it (the first gateway provider
+   * that publishes one — the same rule eve uses to decide when to compact), or
+   * null when the catalog doesn't say.
+   */
+  readonly contextWindow: number | null;
 };
 
 /**
@@ -30,6 +36,27 @@ export type ChatModel = {
  * from the list and the settings route refuses it.
  */
 export const MAX_OUTPUT_PRICE = 3;
+
+/**
+ * The picker only offers models with at least this much context. A fresh Cael
+ * turn already carries ~20k tokens of instructions and tool schemas, and eve
+ * compacts at 90% of the window, so anything much smaller would spend most of
+ * a conversation compacting. Unknown windows are let through — eve still
+ * resolves the real one at turn start.
+ */
+export const MIN_CONTEXT_WINDOW = 64_000;
+
+/** Big enough for Cael. */
+export function hasRoomyContext(model: Pick<ChatModel, "contextWindow">): boolean {
+  return model.contextWindow == null || model.contextWindow >= MIN_CONTEXT_WINDOW;
+}
+
+/** "1M", "200k", "—" — a context window as the picker shows it. */
+export function formatContextWindow(tokens: number | null): string {
+  if (tokens == null) return "—";
+  if (tokens >= 1_000_000) return `${+(tokens / 1_000_000).toFixed(1)}M`;
+  return `${Math.round(tokens / 1000)}k`;
+}
 
 /** Within the price ceiling. Unpriced models are out — they could cost anything. */
 export function isAffordable(model: Pick<ChatModel, "inputPrice" | "outputPrice">): boolean {
@@ -46,9 +73,9 @@ export function isAffordable(model: Pick<ChatModel, "inputPrice" | "outputPrice"
  * 1M tokens, all under MAX_OUTPUT_PRICE.
  */
 export const CHAT_MODEL_FALLBACK: readonly ChatModel[] = [
-  { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "deepseek", inputPrice: 0.13, outputPrice: 0.26 },
-  { id: "openai/gpt-5-mini", label: "GPT-5 mini", provider: "openai", inputPrice: 0.25, outputPrice: 2 },
-  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", provider: "google", inputPrice: 0.5, outputPrice: 3 },
+  { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "deepseek", inputPrice: 0.13, outputPrice: 0.26, contextWindow: null },
+  { id: "openai/gpt-5-mini", label: "GPT-5 mini", provider: "openai", inputPrice: 0.25, outputPrice: 2, contextWindow: null },
+  { id: "google/gemini-3-flash", label: "Gemini 3 Flash", provider: "google", inputPrice: 0.5, outputPrice: 3, contextWindow: null },
 ];
 
 // DeepSeek V4 Flash since 2026-10-03: Sonnet was burning through Gateway credits

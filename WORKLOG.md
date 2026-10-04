@@ -4,6 +4,41 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-04 — Context management: real context windows, peak context in traces
+
+Berto asked how Cael's context management holds up.
+
+- **Compaction now uses the picked model's real window.** `agent/agent.ts` replaces the
+  `agent/model.ts` proxy with an eve `defineDynamic` model resolver on `turn.started`
+  that returns the gateway id from the picker. Because it returns an id, eve looks up the
+  model's context window in the AI Gateway catalog itself. Before this the window was
+  hard-coded to 200k; DeepSeek V4 Flash is 1M, so Cael was compacting about 5× too early.
+  A picker change now takes effect on the next *turn*, not the next model step.
+- **The picker shows each model's context window.** `getContextWindows()` in
+  `lib/gateway-catalog.ts` reads `ai-gateway.vercel.sh/v1/models/catalog`, the same
+  catalog eve reads, using eve's rule (first provider that publishes a window). Models
+  under 64k (`MIN_CONTEXT_WINDOW`) are hidden, and the settings PUT refuses them,
+  because a fresh turn already carries about 20k tokens of instructions and tool schemas.
+- **Traces** now read the model from `step.started`, since a dynamic agent has no model
+  at session start. They also show **Peak context**: the largest single call's input
+  against the model's window, which is the number compaction cares about (totals add up
+  every step). There is also a **Compactions** count.
+  `/api/models/context-windows` feeds the window sizes.
+- **What the traces said (last 3 weeks):** fresh turns are about 18.5k tokens; the
+  biggest session peaked at 54k. Window size isn't a live problem. The "no tool called"
+  misses on "what's my workout today" were turns that failed during the Oct 2–3 credit
+  outage. Real context misses: principles and Money lessons weren't read during money
+  questions, and `get_dream_summary` loads in only about half of sessions.
+- Files: `agent/agent.ts`, `agent/model.ts` (deleted), `lib/chat-model.ts`,
+  `lib/gateway-catalog.ts`, `lib/trace-utils.ts`, `app/_components/model-picker.tsx`,
+  `app/_components/traces-view.tsx`, `app/api/models/context-windows/route.ts`,
+  `app/api/settings/chat-model/route.ts`.
+- Next: trimming the tool surface (the writer-subagent idea is on hold; research says
+  deferred tool loading beats subagents) and making context retrieval deliberate
+  (a preloaded daily snapshot + routing evals). Waiting on Berto's call.
+
+---
+
 ## 2026-10-04 — Notes: attach a photo
 
 - One photo per note, on the existing `thoughts.image_url` column (Berto picked one over

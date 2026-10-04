@@ -9615,3 +9615,15 @@ and logging should be easier.
   unknown names fail with the bank listed. Instructions updated.
 - Seeded the bank with Berto's four: whole-wheat beef pasta (dinner), chicken &
   rice (dinner), chicken burritos (lunch), eggs/toast/fruit (lunch). No snack yet.
+
+## 2026-10-05 — Drag sessions between days on /training
+
+Berto: some days the workout won't happen, so he wants to drag it to another
+day. Added @dnd-kit/core: each session card in the week grid is draggable onto
+another day (mouse after 6 px; on the phone press-and-hold 250 ms, so scrolling
+and taps still work; dnd-kit auto-scrolls the stacked phone layout). The day
+column lights up under the card; on drop the session's date PATCHes (optimistic,
+reverts on failure) with a toast. It moves rather than swaps — two sessions can
+share a day. Tested Wed yoga → Thu and back.
+Also checked "log page slow to load": the API answers in ~55 ms; the wait was
+the dev server compiling the route on first open.

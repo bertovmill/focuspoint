@@ -16,6 +16,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -138,6 +139,35 @@ function TrainingWeek() {
   }, [loading, watch.connected]);
 
   // ── session actions ───────────────────────────────────────────────────
+
+  // Drag a session to another day (Berto, 2026-10-05: some days the workout just
+  // won't happen). Mouse drags after 6px; on a phone it's press-and-hold, so
+  // scrolling and tapping the card still work.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+  const [dragging, setDragging] = useState<TrainingSession | null>(null);
+  const moveSession = async (e: DragEndEvent) => {
+    setDragging(null);
+    const s = sessions.find((x) => x.id === Number(e.active.id));
+    const to = e.over ? String(e.over.id) : null;
+    if (!s || !to || to === s.session_date) return;
+    const prev = sessions;
+    setSessions((ss) => ss.map((x) => (x.id === s.id ? { ...x, session_date: to } : x)));
+    try {
+      const res = await fetch(`/api/training/sessions/${s.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_date: to }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`${s.title} moved to ${shortDayLabel(to)}`);
+    } catch {
+      setSessions(prev);
+      toast.error("Couldn't move that.");
+    }
+  };
 
   const toggleDone = async (s: TrainingSession) => {
     const prev = sessions;
@@ -361,7 +391,13 @@ function TrainingWeek() {
         </div>
       </div>
 
-      {/* Week — stacked rows on phones, columns on wide screens */}
+      {/* Week — stacked rows on phones, columns on wide screens. Cards drag between days. */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={(e) => setDragging(sessions.find((x) => x.id === Number(e.active.id)) ?? null)}
+        onDragEnd={moveSession}
+        onDragCancel={() => setDragging(null)}
+      >
       <section className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
           const list = byDay.get(d) ?? [];
@@ -370,7 +406,7 @@ function TrainingWeek() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <div key={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
+            <DropDay key={d} day={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
               <div className={cn("flex items-center justify-between rounded-t-[11px] border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
                 <button type="button" onClick={() => router.push(newSessionHref(d))} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
@@ -387,16 +423,26 @@ function TrainingWeek() {
                   <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
                 )}
                 {list.map((s) => (
-                  <SessionCard key={s.id} s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                  <DragSession key={s.id} id={s.id}>
+                    <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                  </DragSession>
                 ))}
                 {acts.filter((a) => !linked.has(a.id)).map((a) => (
                   <ActivityChip key={a.id} a={a} />
                 ))}
               </div>
-            </div>
+            </DropDay>
           );
         })}
       </section>
+        <DragOverlay>
+          {dragging && (
+            <div className="rotate-1 rounded-lg bg-background shadow-xl">
+              <SessionCard s={dragging} past={false} onToggle={() => {}} onEdit={() => {}} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {/* The long-form plan, tucked away until it's wanted */}
       <details className="group rounded-xl border p-4">
@@ -470,6 +516,32 @@ function GoalLine() {
       </span>
       <PencilIcon className="size-4 shrink-0 opacity-40 group-hover:opacity-80" />
     </button>
+  );
+}
+
+/** A day column that takes dropped sessions; lights up while one hovers over it. */
+function DropDay({ day, className, children }: { day: string; className: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: day });
+  return (
+    <div ref={setNodeRef} className={cn(className, isOver && "border-primary ring-2 ring-primary/40")}>
+      {children}
+    </div>
+  );
+}
+
+/** Makes a session card draggable. The card stays in place, faded, while its copy follows the finger. */
+function DragSession({ id, children }: { id: number; children: React.ReactNode }) {
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      // No text selection or iOS callout on the press-and-hold that starts a drag.
+      className={cn("select-none [-webkit-touch-callout:none]", isDragging && "opacity-30")}
+    >
+      {children}
+    </div>
   );
 }
 

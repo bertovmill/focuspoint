@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { CareerTracker } from "@/app/_components/career-tracker";
+import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { PortfolioEditor } from "@/app/_components/portfolio-editor";
 import { ARCHETYPE, GAPS, RESEARCHED_ON, ROLES, THEMES, TOOLS, type CareerRole } from "@/lib/career-research";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,13 @@ export function CareerPanel() {
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pipeline</h2>
         <CareerTracker />
       </section>
+
+      <MarkdownDoc
+        id="relationships"
+        endpoint="/api/career/relationships"
+        heading={<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Relationships</h2>}
+        placeholder="Companies and people you've talked to about working together. Try a heading per company, then who, how you met, and what's next. Type '/' for headings, lists, toggles…"
+      />
 
       <section id="portfolio">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Portfolio</h2>

@@ -263,6 +263,51 @@ export async function buildGroceryList(from: string, to: string): Promise<Grocer
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** The Groceries list's id, creating the list if it isn't there yet. */
+async function groceryListId(): Promise<number> {
+  const sql = getDb();
+  let [list] = await sql`SELECT id FROM lists WHERE name = ${GROCERY_LIST_NAME} LIMIT 1`;
+  if (!list) {
+    [list] = await sql`INSERT INTO lists (name) VALUES (${GROCERY_LIST_NAME}) RETURNING id`;
+  }
+  return Number(list.id);
+}
+
+export interface GroceryListEntry {
+  id: number;
+  title: string;
+}
+
+/** What's still open on the Groceries list in Lists, oldest first. */
+export async function getOpenGroceries(): Promise<{ listId: number; items: GroceryListEntry[] }> {
+  const sql = getDb();
+  const listId = await groceryListId();
+  const rows = await sql`
+    SELECT id, title FROM list_items
+    WHERE list_id = ${listId} AND completed = FALSE
+    ORDER BY created_at ASC, id ASC
+  `;
+  return { listId, items: rows.map((r) => ({ id: Number(r.id), title: String(r.title) })) };
+}
+
+/**
+ * A quick item (milk, paper towels…) straight onto the Groceries list, for
+ * things no planned meal calls for. An item already open there is returned
+ * as is rather than added twice.
+ */
+export async function addQuickGrocery(title: string): Promise<GroceryListEntry & { existed: boolean }> {
+  const sql = getDb();
+  const listId = await groceryListId();
+  const [open] = await sql`
+    SELECT id, title FROM list_items
+    WHERE list_id = ${listId} AND completed = FALSE AND LOWER(TRIM(title)) = ${title.toLowerCase()}
+    LIMIT 1
+  `;
+  if (open) return { id: Number(open.id), title: String(open.title), existed: true };
+  const [row] = await sql`INSERT INTO list_items (list_id, title) VALUES (${listId}, ${title}) RETURNING id, title`;
+  return { id: Number(row.id), title: String(row.title), existed: false };
+}
+
 /**
  * Pushes the week's grocery list (buildGroceryList) onto the Groceries list
  * in Lists — the same one-way bridge the staples shelf uses. Skips anything
@@ -274,11 +319,7 @@ export async function addPlanToGroceries(from: string, to: string) {
   const wanted = (await buildGroceryList(from, to)).map((i) => i.name);
   if (wanted.length === 0) return { added: [] as string[], skipped: 0, listId: null as number | null };
 
-  let [list] = await sql`SELECT id FROM lists WHERE name = ${GROCERY_LIST_NAME} LIMIT 1`;
-  if (!list) {
-    [list] = await sql`INSERT INTO lists (name) VALUES (${GROCERY_LIST_NAME}) RETURNING id`;
-  }
-  const listId = Number(list.id);
+  const listId = await groceryListId();
   const open = await sql`SELECT title FROM list_items WHERE list_id = ${listId} AND completed = FALSE`;
   const have = new Set(open.map((r) => String(r.title).trim().toLowerCase()));
 

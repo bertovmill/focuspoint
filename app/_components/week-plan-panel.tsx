@@ -37,7 +37,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
-import type { GroceryItem, PlannedMeal, Recipe } from "@/lib/nutrition-plan";
+import type { GroceryItem, GroceryListEntry, PlannedMeal, Recipe } from "@/lib/nutrition-plan";
 import {
   DEFAULT_PROTEIN_TARGET_G,
   ALL_SLOTS,
@@ -1365,8 +1365,11 @@ function MealDetail({
 /**
  * The week's grocery list, built from each planned meal's ingredients (no AI).
  * Each item notes which meals need it; "Send to Groceries" copies the lot onto
- * the Groceries list in Lists for ticking off in the store. Opens on
- * /meals#grocery-list so the view can be linked to directly.
+ * the Groceries list in Lists for ticking off in the store. Quick items that no
+ * meal calls for (milk, paper towels…) are typed in at the top and go straight
+ * onto that same list; anything open there that isn't from a meal shows under
+ * "Extras", with a tick to take it off. Opens on /meals#grocery-list so the
+ * view can be linked to directly.
  */
 function GroceryListDialog({
   open,
@@ -1381,6 +1384,11 @@ function GroceryListDialog({
 }) {
   const [items, setItems] = useState<GroceryItem[] | null>(null);
   const [sending, setSending] = useState(false);
+  // The Groceries list in Lists: its id and what's still open on it.
+  const [listId, setListId] = useState<number | null>(null);
+  const [onList, setOnList] = useState<GroceryListEntry[]>([]);
+  const [quick, setQuick] = useState("");
+  const [adding, setAdding] = useState(false);
 
   // #grocery-list ⇄ open, so the list has its own address.
   useEffect(() => {
@@ -1395,6 +1403,16 @@ function GroceryListDialog({
     }
   }, [open]);
 
+  const loadOnList = useCallback(() => {
+    fetch("/api/nutrition/groceries/items")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { listId: number; items: GroceryListEntry[] }) => {
+        setListId(d.listId);
+        setOnList(d.items);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     setItems(null);
@@ -1405,7 +1423,54 @@ function GroceryListDialog({
         setItems([]);
         toast.error("Couldn't build the grocery list.");
       });
-  }, [open, from, to]);
+    loadOnList();
+  }, [open, from, to, loadOnList]);
+
+  // Open items on Groceries that no planned meal accounts for.
+  const extras = useMemo(() => {
+    const fromMeals = new Set((items ?? []).map((i) => i.name.toLowerCase()));
+    return onList.filter((e) => !fromMeals.has(e.title.trim().toLowerCase()));
+  }, [items, onList]);
+
+  const addQuick = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quick.trim();
+    if (!title || adding) return;
+    setAdding(true);
+    try {
+      const res = await fetch("/api/nutrition/groceries/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error();
+      const row = (await res.json()) as GroceryListEntry & { existed: boolean };
+      setQuick("");
+      if (row.existed) toast(`${row.title} is already on Groceries.`);
+      else setOnList((l) => [...l, { id: row.id, title: row.title }]);
+    } catch {
+      toast.error("Couldn't add that item.");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // Ticked off = bought, same as ticking it in Lists.
+  const tickOff = async (item: GroceryListEntry) => {
+    if (listId === null) return;
+    setOnList((l) => l.filter((x) => x.id !== item.id));
+    try {
+      const res = await fetch(`/api/lists/${listId}/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: true }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setOnList((l) => (l.some((x) => x.id === item.id) ? l : [...l, item]));
+      toast.error("Couldn't tick that off.");
+    }
+  };
 
   const send = async () => {
     setSending(true);
@@ -1420,6 +1485,7 @@ function GroceryListDialog({
       toast.success(
         `${added.length} item${added.length === 1 ? "" : "s"} → Groceries${skipped ? ` (${skipped} already there)` : ""}`,
       );
+      loadOnList();
     } catch {
       toast.error("Couldn't send to Groceries.");
     } finally {
@@ -1428,9 +1494,10 @@ function GroceryListDialog({
   };
 
   const copy = async () => {
-    if (!items?.length) return;
+    const names = [...(items ?? []).map((i) => i.name), ...extras.map((e) => e.title)];
+    if (!names.length) return;
     try {
-      await navigator.clipboard.writeText(items.map((i) => `- ${i.name}`).join("\n"));
+      await navigator.clipboard.writeText(names.map((n) => `- ${n}`).join("\n"));
       toast.success("Copied.");
     } catch {
       toast.error("Couldn't copy.");
@@ -1446,37 +1513,84 @@ function GroceryListDialog({
             {weekRangeLabel(from)} · from each meal&apos;s ingredients in the meal bank
           </DialogDescription>
         </DialogHeader>
+        <form onSubmit={addQuick} className="flex gap-2">
+          <Input
+            value={quick}
+            onChange={(e) => setQuick(e.target.value)}
+            placeholder="Add an item — milk, paper towels…"
+            aria-label="Add a grocery item"
+            className="h-9 text-base md:text-sm"
+            enterKeyHint="done"
+          />
+          <Button type="submit" size="sm" className="h-9 gap-1 text-xs" disabled={!quick.trim() || adding}>
+            {adding ? <Spinner className="size-3" /> : <PlusIcon className="size-3" />}
+            Add
+          </Button>
+        </form>
         {items === null ? (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-9 w-full" />
             ))}
           </div>
-        ) : items.length === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">
-            Nothing to buy yet — plan some meals, and make sure each one has ingredients in the meal bank.
-          </p>
         ) : (
-          <ul className="divide-y">
-            {items.map((item) => (
-              <li key={item.name} className="py-2">
-                <div className="text-sm font-medium">{item.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {item.meals.map((m) => (m.times > 1 ? `${m.name} ×${m.times}` : m.name)).join(" · ")}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            {items.length === 0 && extras.length === 0 && (
+              <p className="py-4 text-sm text-muted-foreground">
+                Nothing to buy yet — plan some meals with ingredients in the meal bank, or add an item above.
+              </p>
+            )}
+            {extras.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Extras</h3>
+                <ul className="divide-y">
+                  {extras.map((item) => (
+                    <li key={item.id} className="flex items-center gap-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => tickOff(item)}
+                        aria-label={`Tick off ${item.title}`}
+                        title="Got it"
+                        className="flex size-5 shrink-0 items-center justify-center rounded-full border text-transparent transition-colors hover:border-foreground hover:text-foreground"
+                      >
+                        <CheckIcon className="size-3" />
+                      </button>
+                      <span className="text-sm font-medium">{item.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {items.length > 0 && (
+              <div>
+                {extras.length > 0 && (
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From your meals</h3>
+                )}
+                <ul className="divide-y">
+                  {items.map((item) => (
+                    <li key={item.name} className="py-2">
+                      <div className="text-sm font-medium">{item.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.meals.map((m) => (m.times > 1 ? `${m.name} ×${m.times}` : m.name)).join(" · ")}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
-        {!!items?.length && (
+        {(!!items?.length || extras.length > 0) && (
           <div className="flex justify-end gap-2 border-t pt-3">
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={copy}>
               Copy
             </Button>
-            <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={sending} onClick={send}>
-              {sending ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
-              Send to Groceries
-            </Button>
+            {!!items?.length && (
+              <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={sending} onClick={send}>
+                {sending ? <Spinner className="size-3" /> : <ShoppingCartIcon className="size-3" />}
+                Send to Groceries
+              </Button>
+            )}
           </div>
         )}
       </DialogContent>

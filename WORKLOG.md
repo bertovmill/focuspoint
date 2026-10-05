@@ -9974,3 +9974,33 @@ still work.
   a tap on Swap still opens the picker) and at 1280px (mouse drag swaps). API stubbed,
   since there's no DB in the cloud container. The swap SQL itself was run against a
   local Postgres 16 with the unique index. `npm run typecheck` clean.
+
+---
+
+## 2026-10-05 — Grocery list: add quick items
+
+Berto: "for the grocery section of the app, it doesn't allow us to add quick items".
+The Grocery list on /meals (`#grocery-list`) was built only from meal ingredients,
+so there was nowhere to type a one-off like milk or paper towels.
+
+- **Add an item** box at the top of the Grocery list dialog (Enter or Add). It goes
+  straight onto the **Groceries** list in Lists — the same list "Send to Groceries"
+  and the store run use — so there's one list to shop from. An item already open
+  there isn't added twice (case/space-insensitive; toast says so). Ticked-off
+  items can be added again.
+- **Extras** section: anything open on Groceries that no planned meal accounts
+  for (the quick items, plus older leftovers). Each has a tick to mark it bought
+  (completes it in Lists, same as ticking there). Meal items sit under
+  "From your meals" when there are extras; otherwise the list looks as before.
+- Copy includes the extras. The dialog's empty state now points at the add box,
+  and the box shows even when no meals are planned.
+- API: `GET/POST /api/nutrition/groceries/items` → `getOpenGroceries()` /
+  `addQuickGrocery()` in `lib/nutrition-plan.ts`. A shared `groceryListId()`
+  finds-or-creates the Groceries list (now used by `addPlanToGroceries` too).
+  Ticking uses the existing `PATCH /api/lists/[id]/items/[itemId]`.
+- Files: `app/_components/week-plan-panel.tsx` (GroceryListDialog),
+  `app/api/nutrition/groceries/items/route.ts` (new), `lib/nutrition-plan.ts`.
+- Verified: `npm run typecheck` clean; the new queries (dedupe lookup, open-items
+  read, insert) run against a local Postgres 16 with the lists/list_items schema.
+  **Not clicked through in a browser**: the cloud container can't start the dev
+  server (eve's dev process needs Node 24 and the AI Gateway, which is 403 here).

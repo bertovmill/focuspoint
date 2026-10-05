@@ -1517,7 +1517,7 @@ function GroceryListDialog({
           <Input
             value={quick}
             onChange={(e) => setQuick(e.target.value)}
-            placeholder="Add an item — milk, paper towels…"
+            placeholder="Add milk, paper towels…"
             aria-label="Add a grocery item"
             className="h-9 text-base md:text-sm"
             enterKeyHint="done"

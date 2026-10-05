@@ -10002,5 +10002,10 @@ so there was nowhere to type a one-off like milk or paper towels.
   `app/api/nutrition/groceries/items/route.ts` (new), `lib/nutrition-plan.ts`.
 - Verified: `npm run typecheck` clean; the new queries (dedupe lookup, open-items
   read, insert) run against a local Postgres 16 with the lists/list_items schema.
-  **Not clicked through in a browser**: the cloud container can't start the dev
-  server (eve's dev process needs Node 24 and the AI Gateway, which is 403 here).
+  The dev server can't start in the cloud container (eve's dev process needs
+  Node 24 and the AI Gateway, which is 403 here), so the real `WeekPlanPanel` was
+  bundled with esbuild + the app's compiled Tailwind in a scratch harness with
+  fetch stubbed, and driven in Chromium at 390px: add via Enter and via the button,
+  tick off an extra (PATCHes the list item), "milk" again → "already on Groceries"
+  toast, no page errors. Placeholder shortened to "Add milk, paper towels…" after
+  the screenshot showed the longer one clipped on a phone.

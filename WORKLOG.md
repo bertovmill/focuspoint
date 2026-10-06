@@ -10075,3 +10075,30 @@ prescribed reps, and a second tap should let him change it if he fell short.
   (fetch stubbed) and driven in Chromium at 390px with touch: tap → 10 and not
   focused; tap again → focused, type 8 → 8; next box tap → 10; typed 7 into an
   empty box via keyboard → 7; autosave PUT carried `[8,10,7,null]`.
+
+---
+
+## 2026-10-06 — Workouts: rename an exercise right from the log
+
+Berto: exercise names should be fully customizable from the workout page, and a
+rename should carry to every future workout, not just the one open — he often
+makes small variations.
+
+- On `/training/workouts/<slug>/<date>` each exercise name is now a button (small
+  pencil after it). Tap → text box with the name selected; Enter or tapping away
+  saves, Escape cancels, a blank or unchanged name does nothing. Works on rep rows
+  and timed rows alike.
+- Saving re-reads the workout from the bank (`GET /api/training/bank/<slug>`),
+  changes that one exercise's name and PUTs it back, so it's the same write the
+  full editor makes: every later session, the charts and Cael see the new name.
+  The exercise **key stays**, so its logs, ladder and chart history carry over
+  (past sessions show the new name too, since names live only in the bank).
+  Toast: "Renamed to … · Every session from now on uses it."
+- Files: `app/_components/workout-log.tsx` (`ExerciseName`, `renameExercise`).
+- Verified: `npm run typecheck` clean. No DB/dev server in the cloud container, so
+  the real `WorkoutLog` was bundled with esbuild + the app's compiled Tailwind,
+  fetch stubbed, and driven in Chromium at 390px on Lower Body: Deadlift → "Trap
+  bar deadlift" sends one PUT with key `deadlift` kept and every other exercise
+  unchanged; Escape and a blank name send nothing; no page errors.
+- Next, if wanted: the same tap-to-rename on the superset labels, or a
+  "just today" option for one-off swaps (today it's always a bank rename).

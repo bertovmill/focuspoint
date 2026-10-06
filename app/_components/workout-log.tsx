@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkoutTimer, useSegments, type Segment } from "@/app/_components/workout-timer";
@@ -179,6 +179,19 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   const onSplit = (seg: Segment, seconds: number) =>
     update(seg.exKey, (r) => ({ ...r, reps: r.reps.map((x, j) => (j === seg.set ? formatTime(seconds) : x)) }));
 
+  // Renaming an exercise here rewrites it in the bank, so every later session (and
+  // the charts) use the new name. The key stays, so its history carries over.
+  const renameExercise = async (key: string, name: string) => {
+    const res = await fetch(`/api/training/bank/${slug}`);
+    if (!res.ok) throw new Error("Couldn't load the workout");
+    const def = (await res.json()) as WorkoutTemplate;
+    for (const b of def.blocks) for (const e of b.exercises) if (e.key === key) e.name = name;
+    const put = await fetch(`/api/training/bank/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def) });
+    if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't rename");
+    const saved = (await put.json()) as WorkoutTemplate;
+    setData((cur) => (cur ? { ...cur, template: { ...cur.template, blocks: saved.blocks } } : cur));
+  };
+
   if (missing) {
     return (
       <div className="mx-auto max-w-3xl space-y-3 py-6">
@@ -238,7 +251,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
               <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
               {b.exercises.map((ex) => (
-                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} />
+                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} />
               ))}
             </section>
           ) : (
@@ -264,6 +277,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
                       p={data.prescriptions[ex.key]}
                       columns={maxSets}
                       onChange={(fn) => update(ex.key, fn)}
+                      onRename={(n) => renameExercise(ex.key, n)}
                     />
                   ))}
                 </tbody>
@@ -307,7 +321,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   );
 }
 
-function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void }) {
+function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
   if (!row) return null;
   const reps = row.reps.map(parseNum);
   const total = totalReps(reps);
@@ -328,7 +342,7 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
   return (
     <tr className="border-t align-middle">
       <td className="px-3 py-2.5 sm:px-4">
-        <span className="block font-medium leading-snug">{ex.name}</span>
+        <ExerciseName name={ex.name} onRename={onRename} className="block" />
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
           <span className="font-medium tabular-nums text-foreground/80">{row.target ? `× ${row.target}${ex.unit === "m" ? " m" : ""}` : "log it"}</span>
           <span aria-hidden>·</span>
@@ -408,6 +422,62 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
   );
 }
 
+/**
+ * An exercise's name; tap it to rename. The new name goes into the bank, so it
+ * sticks for every session after this one, not just today's (Berto, 2026-10-06).
+ */
+function ExerciseName({ name, onRename, className }: { name: string; onRename: (name: string) => Promise<void>; className?: string }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const commit = async () => {
+    const next = (draft ?? "").trim();
+    if (!next || next === name) return setDraft(null);
+    setSaving(true);
+    try {
+      await onRename(next);
+      setDraft(null);
+      toast.success(`Renamed to ${next}`, { description: "Every session from now on uses it." });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't rename");
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (draft !== null) {
+    return (
+      <input
+        autoFocus
+        enterKeyHint="done"
+        autoComplete="off"
+        value={draft}
+        disabled={saving}
+        maxLength={80}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") setDraft(null);
+        }}
+        className="w-full min-w-0 rounded-md border bg-background px-2 py-1 text-base font-medium focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+        aria-label="Exercise name"
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setDraft(name)}
+      className={cn("group text-left font-medium leading-snug", className)}
+      title="Rename for this and every future session"
+    >
+      {name}
+      <PencilIcon className="ml-1.5 inline size-3.5 align-[-1px] text-muted-foreground/40 group-hover:text-muted-foreground" aria-hidden />
+      <span className="sr-only"> (rename)</span>
+    </button>
+  );
+}
+
 /** Fill any empty sets with the target (typed sets are kept). */
 function r0Fill(onChange: (fn: (r: Row) => Row) => void, ex?: TemplateExercise) {
   onChange((r) => (r.target ? { ...r, reps: r.reps.map((x) => (x === "" ? (ex ? display(ex, r.target) : String(r.target)) : x)) } : r));
@@ -438,7 +508,7 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, row, p, activeSet, onChange }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void }) {
+function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
   if (!row) return null;
   const values = row.reps.map((v) => parseTime(v));
   const done = values.filter((v): v is number => v !== null);
@@ -477,7 +547,7 @@ function TimeRow({ ex, row, p, activeSet, onChange }: { ex: TemplateExercise; ro
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="flex flex-wrap items-center gap-x-1.5 font-medium leading-snug">
-            {ex.name}
+            <ExerciseName name={ex.name} onRename={onRename} />
             {ex.amount !== undefined && (
               // The count is his to change on the day (100 wall balls → 120).
               <span className="inline-flex items-center gap-1 whitespace-nowrap font-normal text-muted-foreground">

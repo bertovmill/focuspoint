@@ -7,11 +7,12 @@ import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
+import { MomentsCarousel } from "./_components/moments-carousel";
+import { MOMENTS } from "@/lib/site-moments";
 
 // Display type: Geist (from the root layout) at semibold with tight tracking and a
 // soft ink instead of a heavy weight in pure black. Calm and current, not shouty.
-const display =
-  "font-sans font-semibold text-foreground/90";
+const display = "font-sans font-semibold text-foreground/90";
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -105,11 +106,30 @@ export default async function SiteHomePage() {
             <WallClock className="mb-5" />
             <AnimatedHeading
               className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-8xl`}
-              lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
+              lines={[
+                "I lead go-to-market for Aucctus,",
+                "a fast-scaling AI startup.",
+              ]}
             />
           </div>
         </RevealOnView>
       </div>
+
+      {/* In the room: photos from my LinkedIn posts. Each opens the post behind it. */}
+      <section id="in-the-room" className="mx-auto max-w-6xl pt-20 sm:pt-28">
+        <RevealOnView>
+          <MomentsCarousel moments={MOMENTS}>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              In the room
+            </p>
+            <h2
+              className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.045em] sm:text-5xl lg:text-6xl`}
+            >
+              Talks, hackathons and events
+            </h2>
+          </MomentsCarousel>
+        </RevealOnView>
+      </section>
 
       {/* About: what I'm about, as three big pillars. */}
       <section id="about-me" className="mx-auto max-w-6xl py-20 sm:py-28">

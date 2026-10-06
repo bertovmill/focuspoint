@@ -43,6 +43,7 @@ import post_tweet from "@/agent/lib/toolsets/publishing/post_tweet";
 import principles_doc from "@/agent/tools/principles_doc";
 import career_relationships_doc from "@/agent/tools/career_relationships_doc";
 import career_principles_doc from "@/agent/tools/career_principles_doc";
+import career_daily_actions_doc from "@/agent/tools/career_daily_actions_doc";
 import read_sketch from "@/agent/tools/read_sketch";
 import search_memory from "@/agent/tools/search_memory";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
@@ -104,6 +105,7 @@ export const agentTools = {
   principles_doc,
   career_relationships_doc,
   career_principles_doc,
+  career_daily_actions_doc,
   read_sketch,
   search_memory,
   set_daily_meal,

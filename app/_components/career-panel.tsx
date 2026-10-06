@@ -41,6 +41,13 @@ export function CareerPanel() {
         placeholder="How you line up the next role while doing great work where you are. Type '/' for headings, lists, toggles…"
       />
 
+      <MarkdownDoc
+        id="daily-actions"
+        endpoint="/api/career/daily-actions"
+        heading={<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Daily actions</h2>}
+        placeholder="The small things you do each day to make the principles true. Type '/' for headings, lists, toggles…"
+      />
+
       <section id="pipeline">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pipeline</h2>
         <CareerTracker />

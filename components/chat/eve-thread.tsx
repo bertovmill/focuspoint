@@ -334,6 +334,7 @@ const TOOL_LABELS: Record<string, string> = {
   career_relationships_doc: "career relationships",
   career_principles_doc: "career principles",
   career_daily_actions_doc: "career daily actions",
+  career_plan: "career plan",
   list_vision: "vision",
   list_todos: "todos",
   list_github_prs: "GitHub",

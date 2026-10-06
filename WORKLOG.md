@@ -10102,3 +10102,63 @@ makes small variations.
   unchanged; Escape and a blank name send nothing; no page errors.
 - Next, if wanted: the same tap-to-rename on the superset labels, or a
   "just today" option for one-off swaps (today it's always a bank rename).
+
+## 2026-10-06 — Career plan: destination, checkpoints, daily actions, trajectory
+
+Berto: training has a goal, races, checkpoints and a daily plan, so he always knows
+what to do; career needs the same — a destination, a trajectory, and daily
+activities beyond the day job, so moving toward it is automatic, not up to chance.
+
+/career now opens like /training:
+- **Destination** under the title (one sentence, tap to rewrite) and a **By <date>**
+  chip with days left (the "race"). Stored as JSON in `app_settings`
+  `career.destination` (`goal`, `target_date`, `started_on` = the day the date was
+  first set, the left end of the trajectory line). Default goal is a draft: "Land a
+  senior GTM strategy role at an AI company I believe in, on my terms." No date
+  until he sets one.
+- **Checkpoints**: dated chips like races (`career_checkpoints` table). Tap to
+  rename/redate, mark **Reached**, or delete; overdue ones go rose with "Nd late".
+- **Today** card: the daily actions as big checkboxes, "2/5 done". The actions
+  aren't a new table: they're parsed from the numbered list in the existing Daily
+  actions doc (`parseCareerActions`: bold text = title, rest = detail, trailing
+  "(1, 4)" = principles served). Editing that doc (by hand or via Cael) changes the
+  checklist. Ticks live in `career_action_log (day, action_key)`, keyed by a slug of
+  the title, so rewording the detail keeps history; renaming the title starts fresh.
+  After ticking, "+ Add who or what" stores a note (e.g. "Messaged Dana at Glean").
+- **Trajectory**: a line from start to the destination date with checkpoint dots
+  and a today marker, the next/overdue checkpoint, % of actions done over the last
+  28 days (or since the first tick), and per action: pace per week and "~N more by
+  <date>" at that pace.
+- **Week** grid: one row per action, a box per day, ←/→ between weeks, back-fill
+  past days; "5/35 done".
+- The research (archetype, themes, roles) stays further down; its "N postings,
+  researched …" line moved into that section.
+
+Cael:
+- New tool `career_plan` (op = read / set_destination / add_checkpoint /
+  update_checkpoint / delete_checkpoint / tick / untick). Tick matches an action by
+  title and takes a note. Exposed over MCP via the registry; chat label "career plan".
+- Daily snapshot gains **Career today**: destination + days, next/overdue
+  checkpoints, today's actions with ✓, pace and projection (`summarizeCareerPlan`).
+- Instructions: tick actions when he reports them; when asked what to do for his
+  career, start from unticked actions + next checkpoint; offer to set a date and
+  work back to measurable checkpoints if missing, saving only what he agrees to;
+  say plainly if pace projects short.
+
+Files: `lib/career-plan.ts` (new; tables also created lazily since read paths skip
+ensureSchema), `lib/db.ts` (same DDL in ensureSchema), `app/api/career/plan`,
+`app/api/career/checkpoints` (+ `[id]`), `app/api/career/actions`,
+`app/_components/career-plan.tsx` (new), `app/_components/career-panel.tsx`,
+`agent/tools/career_plan.ts`, `agent/lib/daily-snapshot.ts`, `agent/instructions.md`,
+`lib/agent-tool-registry.ts`, `components/chat/eve-thread.tsx`.
+
+Verified: `npm run typecheck` clean; parser + pace + summary run with tsx against the
+default doc. No DB in the cloud container and the eve dev server needs the AI Gateway,
+so `CareerPlan` was bundled with esbuild + the app's compiled Tailwind, fetch stubbed,
+and driven in Chromium at 390px: no horizontal scroll, no page errors; ticking sends
+`POST /api/career/actions {day, key, done}`, adding a checkpoint sends the right POST.
+Not yet run against the real Neon DB.
+
+Next: set the real destination date and 3–5 measurable checkpoints with Cael
+(e.g. hiring-manager conversations, referrals, interviews); maybe a career line in
+Home's day plan or a push nudge if actions are unticked by evening.

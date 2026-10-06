@@ -1,13 +1,14 @@
 import { getDb } from "../../lib/db";
 import { getPlanRange, getProteinTarget, proteinEatenOn } from "../../lib/nutrition-plan";
 import { getPrinciples } from "../../lib/principles";
+import { getCareerPlan, summarizeCareerPlan } from "../../lib/career-plan";
 import { daysUntil, getEvents, getSessions, targetLabel } from "../../lib/training";
 import { listCalendarEvents, resolveGoogleToken } from "./google-calendar";
 import { TIME_ZONE, todayISO, zonedDayBounds } from "./now";
 
 // The "today" brief Cael starts each day of a conversation with: the handful of
-// things that shape almost any answer (his principles, today's training and
-// meals, what's on the calendar and the todo list). Pinning
+// things that shape almost any answer (his principles, today's training,
+// career actions and meals, what's on the calendar and the todo list). Pinning
 // these up front means Cael doesn't have to remember to go and fetch them — the
 // traces showed it often didn't. Everything else stays behind tools.
 //
@@ -52,6 +53,10 @@ async function training(today: string): Promise<string | null> {
   const next = events.find((e) => daysUntil(e.event_date) >= 0);
   if (next) lines.push(`- Next race: ${next.name} on ${next.event_date} (${daysUntil(next.event_date)} days)`);
   return `## Training today\n${lines.length ? lines.join("\n") : "- Nothing on the plan today."}`;
+}
+
+async function career(today: string): Promise<string | null> {
+  return `## Career today\n${summarizeCareerPlan(await getCareerPlan(today), today)}`;
 }
 
 async function meals(today: string): Promise<string | null> {
@@ -103,6 +108,7 @@ export async function buildDailySnapshot(): Promise<string | null> {
     await Promise.all([
       section(principles),
       section(() => training(today)),
+      section(() => career(today)),
       section(() => meals(today)),
       section(() => calendar(today)),
       section(todos),

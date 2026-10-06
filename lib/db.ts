@@ -206,6 +206,29 @@ export async function ensureSchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // The career plan (lib/career-plan.ts): dated checkpoints toward the destination,
+  // and one row per daily action ticked per day. lib/career-plan.ts also creates
+  // these lazily, since the read paths skip ensureSchema.
+  await sql`
+    CREATE TABLE IF NOT EXISTS career_checkpoints (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      due_date DATE NOT NULL,
+      done_on DATE,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS career_action_log (
+      day DATE NOT NULL,
+      action_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      note TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (day, action_key)
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS vision_items (
       id SERIAL PRIMARY KEY,

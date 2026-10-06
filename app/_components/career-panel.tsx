@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ExternalLinkIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { CareerPlan } from "@/app/_components/career-plan";
 import { CareerTracker } from "@/app/_components/career-tracker";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { PortfolioEditor } from "@/app/_components/portfolio-editor";
@@ -17,7 +18,8 @@ const TRACKS: { id: CareerRole["track"] | "all"; label: string }[] = [
 ];
 
 /**
- * /career — what AI companies want from GTM strategy, RevOps and marketing-ops
+ * /career — the career plan up top (destination, checkpoints, today's actions,
+ * trajectory), then the principles and docs behind it, then what AI companies want from GTM strategy, RevOps and marketing-ops
  * hires, triangulated across real postings. Static research in lib/career-research.ts.
  */
 export function CareerPanel() {
@@ -27,12 +29,7 @@ export function CareerPanel() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header>
-        <h1 className="text-xl font-semibold">Career</h1>
-        <p className="text-sm text-muted-foreground">
-          GTM roles at AI companies: {ROLES.length} postings across {new Set(ROLES.map((r) => r.company)).size} companies, researched {RESEARCHED_ON}.
-        </p>
-      </header>
+      <CareerPlan />
 
       <MarkdownDoc
         id="principles"
@@ -45,7 +42,7 @@ export function CareerPanel() {
         id="daily-actions"
         endpoint="/api/career/daily-actions"
         heading={<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Daily actions</h2>}
-        placeholder="The small things you do each day to make the principles true. Type '/' for headings, lists, toggles…"
+        placeholder="The small things you do each day to make the principles true, as a numbered list: each item becomes a box on Today. Type '/' for headings, lists, toggles…"
       />
 
       <section id="pipeline">
@@ -66,7 +63,10 @@ export function CareerPanel() {
       </section>
 
       <section id="the-archetype">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">The person they want</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">The person they want</h2>
+        <p className="mb-2 text-xs text-muted-foreground">
+          GTM roles at AI companies: {ROLES.length} postings across {new Set(ROLES.map((r) => r.company)).size} companies, researched {RESEARCHED_ON}.
+        </p>
         <Card className="p-4 text-sm leading-relaxed">{ARCHETYPE}</Card>
       </section>
 

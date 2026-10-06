@@ -44,6 +44,7 @@ import principles_doc from "@/agent/tools/principles_doc";
 import career_relationships_doc from "@/agent/tools/career_relationships_doc";
 import career_principles_doc from "@/agent/tools/career_principles_doc";
 import career_daily_actions_doc from "@/agent/tools/career_daily_actions_doc";
+import career_plan from "@/agent/tools/career_plan";
 import read_sketch from "@/agent/tools/read_sketch";
 import search_memory from "@/agent/tools/search_memory";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
@@ -106,6 +107,7 @@ export const agentTools = {
   career_relationships_doc,
   career_principles_doc,
   career_daily_actions_doc,
+  career_plan,
   read_sketch,
   search_memory,
   set_daily_meal,

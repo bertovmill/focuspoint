@@ -10056,3 +10056,22 @@ squats in place of the wall balls, 40 lb, 10 each leg.
 - Verified: `npx tsc --noEmit` clean; the swap run against the old seed definition
   (swaps the first time, no-op the second).
 - If "40" meant 40 per hand rather than total, change the weight at /training/workouts.
+
+---
+
+## 2026-10-06 — Workout log: tap an empty set to fill the target
+
+Berto, entering reps mid-superset: tapping a box should just fill in the
+prescribed reps, and a second tap should let him change it if he fell short.
+
+- In the rep tables (`ExerciseRow`, `app/_components/workout-log.tsx`), an empty
+  set box with a target is `readOnly`: one tap fills it with the target (× 10 →
+  10) and blurs, so the number pad doesn't come up. Once filled, it's a normal
+  input: tap again → number pad with the value selected, so typing replaces it.
+- With no target ("log it") the box behaves as before. A digit typed into an empty
+  box from a computer keyboard (Tab in) still goes in. Timed rows are unchanged.
+  Tapping the total still fills every empty set at once.
+- Verified: `npx tsc --noEmit` clean. The real `WorkoutLog` bundled with esbuild
+  (fetch stubbed) and driven in Chromium at 390px with touch: tap → 10 and not
+  focused; tap again → focused, type 8 → 8; next box tap → 10; typed 7 into an
+  empty box via keyboard → 7; autosave PUT carried `[8,10,7,null]`.

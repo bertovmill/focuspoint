@@ -340,6 +340,12 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
       </td>
       {row.reps.map((v, i) => {
         const n = parseNum(v);
+        // An empty set with a target is one tap to log: the tap fills it with the
+        // target and no keyboard comes up (read-only, then blurred). Most sets hit
+        // the target, so the number pad is only for the ones that don't — tap the
+        // filled box again to change it.
+        const fillable = v === "" && row.target > 0;
+        const setRep = (val: string) => onChange((r) => ({ ...r, reps: r.reps.map((x, j) => (j === i ? val : x)) }));
         return (
           <td key={i} className="px-0.5 py-2.5 text-center sm:px-1">
             <input
@@ -348,13 +354,25 @@ function ExerciseRow({ ex, row, p, columns, onChange }: { ex: TemplateExercise; 
               inputMode="numeric"
               pattern="[0-9]*"
               autoComplete="off"
+              readOnly={fillable}
               onFocus={(e) => e.currentTarget.select()}
-              onClick={(e) => e.currentTarget.select()}
+              onClick={(e) => {
+                if (fillable) {
+                  setRep(String(row.target));
+                  e.currentTarget.blur();
+                } else e.currentTarget.select();
+              }}
+              // Tabbed in on a computer: a typed digit still goes in.
+              onKeyDown={(e) => {
+                if (fillable && /^\d$/.test(e.key)) {
+                  e.preventDefault();
+                  setRep(e.key);
+                }
+              }}
               value={v}
               placeholder={display(ex, placeholders[i])}
               onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, "").slice(0, 3);
-                onChange((r) => ({ ...r, reps: r.reps.map((x, j) => (j === i ? val : x)) }));
+                setRep(e.target.value.replace(/\D/g, "").slice(0, 3));
               }}
               className={cn(
                 "h-11 w-10 rounded-md border bg-background text-center text-lg tabular-nums placeholder:text-muted-foreground/40 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 sm:w-14",

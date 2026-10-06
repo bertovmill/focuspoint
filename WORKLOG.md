@@ -10162,3 +10162,50 @@ Not yet run against the real Neon DB.
 Next: set the real destination date and 3–5 measurable checkpoints with Cael
 (e.g. hiring-manager conversations, referrals, interviews); maybe a career line in
 Home's day plan or a push nudge if actions are unticked by evening.
+
+## 2026-10-06 — Notes look like Apple Notes
+
+Berto: make the Notes section look more like Apple Notes.
+
+/notes now:
+- **Large "Notes" title**, the composer in a rounded card, and a filled grey search
+  field (still semantic search) above the Tags picker.
+- **Date groups** like Apple's: Today, Yesterday, Previous 7 Days, Previous 30 Days,
+  then month names this year, then years. Each group is an inset rounded card with
+  dividers that start at the text. Search results are one "Top Results" group, kept
+  in relevance order. "N Notes" at the foot of the list.
+- **Rows**: a bold one-line title, then the date (time today, "Yesterday", weekday
+  this week, else the date) and a muted preview, a tag line if there are tags, and
+  a 48px thumbnail on the right when the note has a photo. Before this, a photo
+  showed full-width in the list. Title = the first line. Most of Cael's notes are
+  one paragraph, so with no second line the first sentence (≤100 chars) is the
+  title. Failing that, the text breaks at a word near 55 chars so the preview line
+  continues it, instead of "No additional text".
+- **Opening a note**: on desktop it opens in a right pane beside a 360/400px list
+  (the selected row is highlighted, with an empty state until a note is picked).
+  On a phone it opens full screen over the list with a "‹ Notes" back button. The
+  list stays mounted underneath, so going back keeps the scroll position. The page
+  shows the created date centred, tags as #chips (tap = filter by that tag), the
+  photo full width (object-contain, ✕ to remove), and the text. A short first line
+  followed by more text shows as a large bold title.
+- **Editing**: tap the text to edit; Enter is a new line (like Apple Notes, unlike
+  the composer). It saves on Done, Escape, ⌘/Ctrl+Enter, blur, going back, or
+  clicking another note. There's no Cancel, same as Notes. The toolbar adds or
+  changes the photo (saves immediately) or deletes the note (with a confirm).
+  Unchanged text doesn't PATCH, since every PATCH re-embeds the note.
+
+Files: `app/_components/notes-view.tsx` (new: `NotesList`, `NoteDetail`,
+`NoNoteSelected`, grouping and title/preview helpers), `app/_components/dashboard.tsx`
+(notes tab layout; the inline edit/expand state replaced by `openNoteId` and
+`handleSaveThought`; edits and deletes also update an active search's results).
+
+Verified: `npm run typecheck` clean. No DB in the cloud container, so the real
+`Dashboard` (activeTab="notes") was bundled with esbuild + the app's compiled
+Tailwind, with fetch stubbed and sample notes, and driven in Chromium at 1280px and 390px.
+Grouping, thumbnails and the two-pane/overlay layout render; no horizontal scroll and
+no page errors in light or dark; editing then switching notes (desktop) or tapping
+"‹ Notes" (phone) sends one `PATCH /api/thoughts/:id` with the new text.
+Not yet run against the real Neon DB.
+
+Next: maybe pinned notes (Apple's "Pinned" group) and a compose button that opens a
+blank note straight into the editor.

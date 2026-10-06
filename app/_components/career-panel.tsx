@@ -34,6 +34,13 @@ export function CareerPanel() {
         </p>
       </header>
 
+      <MarkdownDoc
+        id="principles"
+        endpoint="/api/career/principles"
+        heading={<h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Principles</h2>}
+        placeholder="How you line up the next role while doing great work where you are. Type '/' for headings, lists, toggles…"
+      />
+
       <section id="pipeline">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pipeline</h2>
         <CareerTracker />

@@ -10034,3 +10034,25 @@ so there was nowhere to type a one-off like milk or paper towels.
   tick off an extra (PATCHes the list item), "milk" again → "already on Groceries"
   toast, no page errors. Placeholder shortened to "Add milk, paper towels…" after
   the screenshot showed the longer one clipped on a phone.
+
+---
+
+## 2026-10-06 — Lower body: rear-foot elevated split squats replace wall balls
+
+Berto: on Unity Standard Lower Body he's doing rear-foot elevated single-leg
+squats in place of the wall balls, 40 lb, 10 each leg.
+
+- Superset 1 is now back squat + **Rear-foot elevated split squat**: 4 sets,
+  40 lb, per side, ladder 10 → 15 → 20 like the other loaded lifts, charted
+  (`tracked`), note "Back foot up on a bench". Key `rfe_split_squat`.
+- Seed (`lib/workout-templates.ts`, shared `RFE_SPLIT_SQUAT`) updated, and since
+  the live bank is in the DB and this container has no DATABASE_URL, a one-time
+  migration in `ensureBank()` (`lib/workout-bank.ts`) swaps the `wall_balls`
+  exercise for it on the next deploy's first bank read. It skips once
+  `rfe_split_squat` is in, so wall balls re-added from the editor stay.
+  Old wall-ball logs stay in `strength_logs` under their key.
+- Wall balls are still in Stations and the Hyrox Sim (now his only wall-ball work;
+  the 2026-10-05 note about Tuesday being the second weekly block no longer holds).
+- Verified: `npx tsc --noEmit` clean; the swap run against the old seed definition
+  (swaps the first time, no-op the second).
+- If "40" meant 40 per hand rather than total, change the weight at /training/workouts.

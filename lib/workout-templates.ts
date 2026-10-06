@@ -137,13 +137,18 @@ const CORE_FINISHER: TemplateBlock = {
   ],
 };
 
+export const RFE_SPLIT_SQUAT: TemplateExercise = {
+  key: "rfe_split_squat", name: "Rear-foot elevated split squat", sets: 4, ladder: LADDER, weight: 40,
+  perSide: true, tracked: true, note: "Back foot up on a bench",
+};
+
 WORKOUT_TEMPLATES.push({
   slug: "unity-standard-lower-body",
   name: "Unity Standard Lower Body",
   session_type: "strength",
   default_day: 1,
   plan: { minutes: 60, intensity: "hard" },
-  // Built around the Hyrox legs: sled push, wall balls and lunges (Berto, 2026-10-03).
+  // Built around the Hyrox legs: sled push and lunges (Berto, 2026-10-03).
   blocks: [
     {
       key: "superset-1",
@@ -151,8 +156,8 @@ WORKOUT_TEMPLATES.push({
       exercises: [
         // 225 = bar + two plates a side; about 10 reps now (Berto, 2026-10-03).
         { key: "back_squat", name: "Back squat", sets: 4, ladder: LADDER, weight: 225, tracked: true },
-        // 9 kg is the target ball; when the gym is out of them he logs the one he used.
-        { key: "wall_balls", name: "Wall balls", sets: 4, ladder: [15], weight: 9, weightUnit: "kg" },
+        // Took wall balls' place: 40 lb, 10 a leg to start (Berto, 2026-10-06).
+        RFE_SPLIT_SQUAT,
       ],
     },
     {

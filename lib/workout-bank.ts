@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { SEED_WORKOUTS, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { RFE_SPLIT_SQUAT, SEED_WORKOUTS, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -31,6 +31,18 @@ async function ensureBank() {
     // Sessions planned before the bank existed linked by title; make that explicit once.
     await sql`UPDATE training_sessions SET workout_slug = 'unity-standard-upper-body' WHERE workout_slug IS NULL AND type = 'strength' AND title ~* 'upper[[:space:]-]*body'`;
     await sql`UPDATE training_sessions SET workout_slug = 'unity-standard-lower-body' WHERE workout_slug IS NULL AND type = 'strength' AND title ~* 'lower[[:space:]-]*body'`;
+  }
+  // One-time: rear-foot elevated split squats replace the wall balls on lower body
+  // (Berto, 2026-10-06). Skipped once the split squat is in, so wall balls added
+  // back from the editor stay.
+  const [lower] = await sql`SELECT definition FROM workout_bank WHERE slug = 'unity-standard-lower-body'`;
+  if (lower) {
+    const def = (typeof lower.definition === "string" ? JSON.parse(lower.definition) : lower.definition) as WorkoutTemplate;
+    const keys = def.blocks.flatMap((b) => b.exercises.map((e) => e.key));
+    if (keys.includes("wall_balls") && !keys.includes(RFE_SPLIT_SQUAT.key)) {
+      for (const b of def.blocks) b.exercises = b.exercises.map((e) => (e.key === "wall_balls" ? { ...RFE_SPLIT_SQUAT } : e));
+      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-lower-body'`;
+    }
   }
   ready = true;
 }

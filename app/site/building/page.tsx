@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getWealthForms, getPublicStats, getPublicVisions, type PublicWealthForm } from "@/lib/public-data";
+import { getWealthForms, getPublicStats, type PublicWealthForm } from "@/lib/public-data";
 
 export const revalidate = 300;
 
@@ -18,7 +18,7 @@ function formatTotal(form: PublicWealthForm) {
   return rounded.toLocaleString();
 }
 
-function FormCard({ form, vision }: { form: PublicWealthForm; vision?: string }) {
+function FormCard({ form }: { form: PublicWealthForm }) {
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-5">
       <div className="flex items-baseline justify-between gap-3">
@@ -57,7 +57,6 @@ function FormCard({ form, vision }: { form: PublicWealthForm; vision?: string })
         <p className="mt-4 text-xs text-muted-foreground">Tracking, no goal set yet.</p>
       )}
 
-      {vision && <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{vision}</p>}
       {form.redacted && form.hasTarget && (
         <p className="mt-4 text-xs text-muted-foreground">
           Progress only — the balance behind this one stays private.
@@ -68,10 +67,10 @@ function FormCard({ form, vision }: { form: PublicWealthForm; vision?: string })
 }
 
 export default async function BuildingPage() {
-  const [forms, stats, visions] = await Promise.all([
+  // Scores only: the written vision behind each form stays private in Cael.
+  const [forms, stats] = await Promise.all([
     getWealthForms().catch(() => [] as PublicWealthForm[]),
     getPublicStats().catch(() => null),
-    getPublicVisions().catch(() => ({}) as Record<string, string>),
   ]);
 
   return (
@@ -96,7 +95,7 @@ export default async function BuildingPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {forms.map((form) => (
-              <FormCard key={form.key} form={form} vision={visions[form.key]} />
+              <FormCard key={form.key} form={form} />
             ))}
           </div>
         )}

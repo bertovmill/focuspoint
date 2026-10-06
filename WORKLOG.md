@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-05 — /building shows scores only; visions private
+
+Berto is preparing for his next role (GTM S&O / RevOps at an AI lab; last day at Aucctus could
+be as early as Nov 1). The public /building page rendered each wealth form's written vision,
+including "starting my own thing", "I have built a company" and "net value over 10 million",
+which reads as founder plans to a hiring manager. Picked (quiz): keep the 8 progress cards,
+drop the vision text. The public "Ask Cael" chat context no longer includes the visions
+either, so it can't repeat them to a visitor. Visions stay in Cael, unchanged.
+Files: `app/site/building/page.tsx`, `app/api/site/chat/route.ts`.
+
+---
+
 ## 2026-10-04 — Chat text at 16px
 
 Berto worries about font size: "not too big but definitely reasonable". Chat messages and

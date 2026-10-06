@@ -1,5 +1,5 @@
 import { streamText } from "ai";
-import { getPublicStats, getWealthForms, getPublicVisions } from "@/lib/public-data";
+import { getPublicStats, getWealthForms } from "@/lib/public-data";
 import { listContent } from "@/lib/content";
 import { listPublishedPosts } from "@/lib/posts";
 
@@ -42,10 +42,11 @@ function rateLimited(ip: string): boolean {
 }
 
 async function buildContext(): Promise<string> {
-  const [stats, forms, visions, writing, podcast] = await Promise.all([
+  // The written vision behind each form stays private (it reads as founder plans to a
+  // hiring manager); only the progress numbers are public.
+  const [stats, forms, writing, podcast] = await Promise.all([
     getPublicStats().catch(() => null),
     getWealthForms().catch(() => []),
-    getPublicVisions().catch(() => ({}) as Record<string, string>),
     listPublishedPosts(),
     listContent("podcast").catch(() => []),
   ]);
@@ -76,14 +77,6 @@ async function buildContext(): Promise<string> {
       } else {
         lines.push(`- ${f.label}: ${f.total?.toLocaleString()} ${f.unit} so far (no goal set yet)`);
       }
-    }
-  }
-
-  const visionEntries = Object.entries(visions);
-  if (visionEntries.length) {
-    lines.push("", "## Berto's written vision for each form (published deliberately)");
-    for (const [key, text] of visionEntries) {
-      lines.push(`- ${key}: ${text.replace(/\s+/g, " ").slice(0, 400)}`);
     }
   }
 

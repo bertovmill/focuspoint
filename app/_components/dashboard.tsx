@@ -15,6 +15,7 @@ import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel
 import { ListsPanel } from "@/app/_components/lists-panel";
 import { SketchesPanel } from "@/app/_components/sketches-panel";
 import { CalendarPanel } from "@/app/_components/calendar-panel";
+import { NoNoteSelected, NoteDetail, NotesList, type NotePatch } from "@/app/_components/notes-view";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -210,21 +211,17 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const [dragOver, setDragOver] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  // Notes list is compact: each note clamps to two lines until clicked open.
-  const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
-  const [editContent, setEditContent] = useState("");
+  // The note open in the reading/editing pane (notes-view.tsx), if any.
+  const [openNoteId, setOpenNoteId] = useState<number | null>(null);
   // The hand-written note composer at the top of the Notes tab. Manual notes land
   // in the same table as the ones Cael captures — one list, one search index.
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-  // One photo per note (thoughts.image_url), for the composer and the note being
-  // edited. The photo uploads as soon as it's picked, so saving is just the URL.
+  // One photo per note (thoughts.image_url). The photo uploads as soon as it's
+  // picked, so saving is just the URL. An open note handles its own photo.
   const [newNotePhoto, setNewNotePhoto] = useState<string | null>(null);
-  const [editPhoto, setEditPhoto] = useState<string | null>(null);
-  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<"new" | "edit" | null>(null);
+  const [uploadingNewPhoto, setUploadingNewPhoto] = useState(false);
   const newNotePhotoRef = useRef<HTMLInputElement>(null);
-  const editPhotoRef = useRef<HTMLInputElement>(null);
   const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -241,7 +238,6 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const [semanticResults, setSemanticResults] = useState<Thought[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
-  const editRef = useRef<HTMLTextAreaElement>(null);
   const newTodoRef = useRef<HTMLInputElement>(null);
   const handledFocusSignal = useRef(0);
 
@@ -448,51 +444,34 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     }
   };
 
-  const startEdit = (thought: Thought) => {
-    setEditingId(thought.id);
-    setEditContent(thought.content);
-    setEditPhoto(thought.image_url ?? null);
-    setTimeout(() => {
-      editRef.current?.focus();
-      editRef.current?.select();
-    }, 0);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditContent("");
-    setEditPhoto(null);
-  };
-
-  const attachNotePhoto = async (file: File | undefined, target: "new" | "edit") => {
+  const attachNotePhoto = async (file: File | undefined) => {
     if (!file) return;
-    setUploadingPhotoFor(target);
+    setUploadingNewPhoto(true);
     try {
-      const url = await uploadPhoto(file);
-      (target === "new" ? setNewNotePhoto : setEditPhoto)(url);
+      setNewNotePhoto(await uploadPhoto(file));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't upload photo.");
     } finally {
-      setUploadingPhotoFor(null);
+      setUploadingNewPhoto(false);
     }
   };
 
-  // Pasting a screenshot into either note box attaches it, like dropping it in.
+  // Pasting a screenshot into the composer attaches it, like dropping it in.
   const pastedImage = (e: React.ClipboardEvent) =>
     Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
 
-  const saveEdit = async (id: number) => {
-    const content = editContent.trim();
-    const image_url = editPhoto;
-    if ((!content && !image_url) || uploadingPhotoFor === "edit") return;
+  // Saves from the open note. Search results are a separate copy of the rows, so
+  // both lists get the edit.
+  const handleSaveThought = async (id: number, patch: NotePatch) => {
+    const apply = (list: Thought[]) => list.map((t) => (t.id === id ? { ...t, ...patch } : t));
     const prevThoughts = thoughts;
-    setThoughts((prev) => prev.map((t) => (t.id === id ? { ...t, content, image_url } : t)));
-    cancelEdit();
+    setThoughts(apply);
+    setSemanticResults((prev) => (prev ? apply(prev) : prev));
     try {
       const res = await fetch(`/api/thoughts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, image_url }),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -503,7 +482,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
 
   const handleCreateThought = async () => {
     const content = newNote.trim();
-    if ((!content && !newNotePhoto) || savingNote || uploadingPhotoFor === "new") return;
+    if ((!content && !newNotePhoto) || savingNote || uploadingNewPhoto) return;
     setSavingNote(true);
     try {
       const res = await fetch("/api/thoughts", {
@@ -528,6 +507,8 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const handleDeleteThought = async (id: number) => {
     const prevThoughts = thoughts;
     setThoughts((prev) => prev.filter((t) => t.id !== id));
+    setSemanticResults((prev) => prev?.filter((t) => t.id !== id) ?? prev);
+    if (openNoteId === id) setOpenNoteId(null);
     try {
       const res = await fetch(`/api/thoughts/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
@@ -791,6 +772,9 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     : tagFilter
       ? thoughts.filter((t) => t.tags?.includes(tagFilter))
       : thoughts;
+  const openNote = openNoteId === null
+    ? undefined
+    : thoughts.find((t) => t.id === openNoteId) ?? semanticResults?.find((t) => t.id === openNoteId);
 
 
   return (
@@ -856,19 +840,26 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
           )
         )}
 
-        {/* Notes */}
+        {/* Notes — Apple Notes layout (see notes-view.tsx): the list column with the
+            composer, search and tags; the open note beside it on desktop, over it on a
+            phone. The list stays mounted under the note so going back keeps its scroll. */}
         {activeTab === "notes" && (
-          <div className="px-5 py-4 overflow-x-hidden">
+          <div className="relative flex h-full min-h-0">
+          <div className={cn(
+            "min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 lg:px-5",
+            isDesktop ? "w-[360px] shrink-0 border-r xl:w-[400px]" : "flex-1",
+          )}>
+            <h1 className="mb-3 px-1 text-3xl font-bold tracking-tight">Notes</h1>
             {/* Write a note by hand. Always visible — including on an empty list,
                 where it's the one thing to do — so a note never depends on Cael
                 being in the conversation. */}
-            <div className="mb-3 rounded-lg border bg-card px-3 py-2.5">
+            <div className="mb-3 rounded-xl bg-card px-3.5 py-3 shadow-xs ring-1 ring-border/60">
               <Textarea
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 onKeyDown={(e) => {
-                  // Enter saves, shift+Enter breaks the line — the same contract as
-                  // editing an existing note just below.
+                  // Enter saves, shift+Enter breaks the line. (An open note is the
+                  // other way round — Enter is a new line there, like Apple Notes.)
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleCreateThought();
@@ -876,7 +867,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 }}
                 onPaste={(e) => {
                   const image = pastedImage(e);
-                  if (image) { e.preventDefault(); attachNotePhoto(image, "new"); }
+                  if (image) { e.preventDefault(); attachNotePhoto(image); }
                 }}
                 rows={2}
                 placeholder="Write a note…"
@@ -886,14 +877,14 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
               />
               <NotePhotoPreview
                 url={newNotePhoto}
-                uploading={uploadingPhotoFor === "new"}
+                uploading={uploadingNewPhoto}
                 onRemove={() => setNewNotePhoto(null)}
               />
               <div className="mt-2 flex items-center gap-2">
                 <Button
                   size="xs"
                   onClick={handleCreateThought}
-                  disabled={(!newNote.trim() && !newNotePhoto) || savingNote || uploadingPhotoFor === "new"}
+                  disabled={(!newNote.trim() && !newNotePhoto) || savingNote || uploadingNewPhoto}
                 >
                   {savingNote ? <Spinner className="size-3 mr-1.5" /> : <PlusIcon className="size-3 mr-1.5" />}
                   Add note
@@ -901,8 +892,8 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 <NotePhotoButton
                   inputRef={newNotePhotoRef}
                   hasPhoto={!!newNotePhoto}
-                  disabled={uploadingPhotoFor !== null}
-                  onPick={(file) => attachNotePhoto(file, "new")}
+                  disabled={uploadingNewPhoto}
+                  onPick={attachNotePhoto}
                 />
                 {newNote.trim() && (
                   <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -913,7 +904,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
             </div>
 
             {!loading && thoughts.length > 0 && (
-              <InputGroup className="mb-3">
+              <InputGroup className="mb-3 rounded-lg border-transparent bg-muted shadow-none dark:bg-muted">
                 {searching ? (
                   <InputGroupAddon>
                     <Spinner />
@@ -992,7 +983,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
+                  <Skeleton key={i} className="h-16 rounded-xl" />
                 ))}
               </div>
             ) : thoughts.length === 0 ? (
@@ -1018,7 +1009,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
             ) : searchActive && searching && displayedThoughts.length === 0 ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
+                  <Skeleton key={i} className="h-16 rounded-xl" />
                 ))}
               </div>
             ) : displayedThoughts.length === 0 ? (
@@ -1035,130 +1026,40 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="divide-y divide-border">
-                {displayedThoughts.map((thought) => (
-                  <div key={thought.id} className="group py-2.5">
-                    {editingId === thought.id ? (
-                      <div>
-                        <Textarea
-                          ref={editRef}
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(thought.id); }
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          onPaste={(e) => {
-                            const image = pastedImage(e);
-                            if (image) { e.preventDefault(); attachNotePhoto(image, "edit"); }
-                          }}
-                          rows={3}
-                          className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto focus-visible:ring-0 dark:bg-transparent"
-                        />
-                        <NotePhotoPreview
-                          url={editPhoto}
-                          uploading={uploadingPhotoFor === "edit"}
-                          onRemove={() => setEditPhoto(null)}
-                        />
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            size="xs"
-                            onClick={() => saveEdit(thought.id)}
-                            disabled={(!editContent.trim() && !editPhoto) || uploadingPhotoFor === "edit"}
-                          >
-                            Save
-                          </Button>
-                          <Button size="xs" variant="outline" onClick={cancelEdit}>
-                            Cancel
-                          </Button>
-                          <NotePhotoButton
-                            inputRef={editPhotoRef}
-                            hasPhoto={!!editPhoto}
-                            disabled={uploadingPhotoFor !== null}
-                            onPick={(file) => attachNotePhoto(file, "edit")}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {thought.image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={thought.image_url}
-                            alt=""
-                            className="mb-2 max-h-64 w-full rounded-md object-cover"
-                          />
-                        )}
-                        <p
-                          onClick={() => setExpandedNoteId(expandedNoteId === thought.id ? null : thought.id)}
-                          className={cn(
-                            "text-base lg:text-sm leading-relaxed break-words cursor-pointer",
-                            expandedNoteId !== thought.id && "line-clamp-2",
-                          )}
-                        >
-                          {thought.content}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {formatRelativeTime(thought.created_at)}
-                          </span>
-                          {thought.tags?.map((tag) => (
-                            <Badge
-                              key={tag}
-                              asChild
-                              variant={tagFilter === tag ? "default" : "secondary"}
-                              className="cursor-pointer"
-                            >
-                              <button onClick={() => setTagFilter(tag)}>{tag}</button>
-                            </Badge>
-                          ))}
-                          <div className="ml-auto flex gap-0.5 touch:gap-2 opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => startEdit(thought)}
-                              className="text-muted-foreground hover:text-foreground"
-                              aria-label="Edit note"
-                            >
-                              <PencilIcon className="size-3" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  className="text-muted-foreground hover:text-destructive"
-                                  aria-label="Delete note"
-                                >
-                                  <TrashIcon className="size-3" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete this note?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This can&rsquo;t be undone. The note will be permanently removed.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteThought(thought.id)}
-                                    className="bg-destructive text-white hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <NotesList
+                notes={displayedThoughts}
+                grouped={!searchActive}
+                selectedId={isDesktop ? openNote?.id ?? null : null}
+                onOpen={setOpenNoteId}
+              />
             )}
+          </div>
+          {isDesktop ? (
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              {openNote ? (
+                <NoteDetail
+                  key={openNote.id}
+                  note={openNote}
+                  onSave={handleSaveThought}
+                  onDelete={handleDeleteThought}
+                  onTagClick={(tag) => { clearSearch(); setTagFilter(tag); }}
+                />
+              ) : (
+                <NoNoteSelected />
+              )}
+            </div>
+          ) : openNote && (
+            <div className="absolute inset-0 z-10 overflow-y-auto bg-background">
+              <NoteDetail
+                key={openNote.id}
+                note={openNote}
+                onSave={handleSaveThought}
+                onDelete={handleDeleteThought}
+                onBack={() => setOpenNoteId(null)}
+                onTagClick={(tag) => { clearSearch(); setTagFilter(tag); setOpenNoteId(null); }}
+              />
+            </div>
+          )}
           </div>
         )}
 

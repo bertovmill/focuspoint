@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-05 — Site name and meta: Robert (Berto) Mill, operator-first
+
+Career prep: LinkedIn says "Robert Mill", the site said "Berto Mill", GitHub "robert Mill", so
+a recruiter searching one name missed the rest. Picked (quiz): "Robert (Berto) Mill" on every
+channel, and a meta description that leads with GTM + building. Home title, OG site name and
+alt are now "Robert (Berto) Mill" (inner-page tabs stay "· Berto Mill"); description is "GTM
+lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on
+AI-native go-to-market." Added a schema.org Person JSON-LD (name Robert Mill, alternateName
+Berto Mill, sameAs every channel + GitHub) so search and AI assistants join the two names.
+Files: `app/site/layout.tsx`. Next: LinkedIn and GitHub display names (Berto does these).
+
+---
+
 ## 2026-10-05 — /building shows scores only; visions private
 
 Berto is preparing for his next role (GTM S&O / RevOps at an AI lab; last day at Aucctus could

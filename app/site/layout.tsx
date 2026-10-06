@@ -11,7 +11,9 @@ import { PageGrain } from "./_components/grain";
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
   title: {
-    default: "Berto Mill",
+    // Full name on the home page so searches for "Robert Mill" (résumé, LinkedIn) and
+    // "Berto Mill" both land here; tabs on inner pages stay short.
+    default: "Robert (Berto) Mill",
     template: "%s · Berto Mill",
   },
   // The public site gets its own mark; Cael's orb stays on cael.bertomill.com.
@@ -22,18 +24,32 @@ export const metadata: Metadata = {
     apple: "/bm-apple-icon.png",
   },
   description:
-    "Go-to-market lead at Aucctus, founder of MakersLounge, and builder of AI agents. Writing and a podcast on putting AI to work.",
+    "GTM lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on AI-native go-to-market.",
   openGraph: {
-    siteName: "Berto Mill",
+    siteName: "Robert (Berto) Mill",
     type: "website",
     url: `https://${PUBLIC_HOST}`,
-    images: [{ url: "/berto-headshot.jpg", width: 800, height: 800, alt: "Berto Mill" }],
+    images: [{ url: "/berto-headshot.jpg", width: 800, height: 800, alt: "Robert (Berto) Mill" }],
   },
   twitter: {
     // Square portrait, so the large-image card would letterbox it badly.
     card: "summary",
     images: ["/berto-headshot.jpg"],
   },
+};
+
+const PERSON_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: "Robert Mill",
+  alternateName: "Berto Mill",
+  url: `https://${PUBLIC_HOST}`,
+  image: `https://${PUBLIC_HOST}/berto-headshot.jpg`,
+  jobTitle: "Go-to-Market Lead",
+  worksFor: { "@type": "Organization", name: "Aucctus", url: "https://aucctus.com" },
+  alumniOf: "Ivey Business School at Western University",
+  address: { "@type": "PostalAddress", addressLocality: "Toronto", addressCountry: "CA" },
+  sameAs: [...CHANNELS.map((c) => c.href), "https://github.com/bertovmill"],
 };
 
 export default async function SiteLayout({ children }: { readonly children: ReactNode }) {
@@ -46,6 +62,11 @@ export default async function SiteLayout({ children }: { readonly children: Reac
     <SiteBasePathProvider value={basePath}>
       <div className="flex min-h-dvh flex-col bg-background text-foreground">
         <PageGrain />
+        <script
+          type="application/ld+json"
+          // Tells search engines and AI assistants that both names are the same person.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(PERSON_JSON_LD) }}
+        />
         <SiteNav />
         <main className="flex-1">{children}</main>
         <NewsletterPopup />

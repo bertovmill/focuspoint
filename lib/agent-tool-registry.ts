@@ -41,6 +41,7 @@ import post_linkedin from "@/agent/lib/toolsets/publishing/post_linkedin";
 import post_task_update from "@/agent/tools/post_task_update";
 import post_tweet from "@/agent/lib/toolsets/publishing/post_tweet";
 import principles_doc from "@/agent/tools/principles_doc";
+import home_sections from "@/agent/tools/home_sections";
 import career_relationships_doc from "@/agent/tools/career_relationships_doc";
 import career_principles_doc from "@/agent/tools/career_principles_doc";
 import career_daily_actions_doc from "@/agent/tools/career_daily_actions_doc";
@@ -104,6 +105,7 @@ export const agentTools = {
   post_task_update,
   post_tweet,
   principles_doc,
+  home_sections,
   career_relationships_doc,
   career_principles_doc,
   career_daily_actions_doc,

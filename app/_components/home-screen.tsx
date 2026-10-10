@@ -35,6 +35,7 @@ import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { DayPlanCard } from "@/app/_components/day-plan-card";
+import { HomeSections } from "@/app/_components/home-sections";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -451,6 +452,11 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
       <div className="mx-auto max-w-6xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
+
+        {/* His own sections — 5-year review, 5-year plan, whatever he adds. Top of
+            the page by his choice (2026-10-10), and outside the day swipe: they
+            don't change with the day. */}
+        <HomeSections />
 
         {/* Everything in here follows the day swipe. */}
         <div ref={dayScope}>

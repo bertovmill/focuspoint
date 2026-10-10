@@ -229,6 +229,17 @@ export async function ensureSchema() {
       PRIMARY KEY (day, action_key)
     )
   `;
+  // Berto's own titled sections at the top of Home (lib/home-sections.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS home_sections (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS vision_items (
       id SERIAL PRIMARY KEY,

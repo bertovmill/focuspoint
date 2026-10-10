@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-10 — Home: add-your-own sections (5-year review, 5-year plan)
+
+Berto wanted to put his 5-year review and 5-year plan on the dashboard. Picked (quiz):
+add-your-own text blocks rather than two hardcoded pages, placed at the **top of Home,
+above the scorecard**. "+ Add section" creates an "Untitled" section with its title
+selected; the title renames in place (Enter/blur saves, Escape reverts); the ⋯ menu moves
+it up/down or deletes it (with a confirm). Each body is the same Notion-style MarkdownDoc
+as Principles, autosaving. Anchors come from the title, e.g. `/#5-year-review`. Sections
+sit outside the day swipe since they don't change with the day. New `home_sections` table
+(also created lazily in lib/home-sections.ts); new `home_sections` agent tool, also on MCP,
+lists, adds, renames and rewrites sections (no delete — that's his). Created his two
+sections, empty, while testing. Files: `lib/home-sections.ts`, `app/api/home-sections/`,
+`app/_components/home-sections.tsx`, `app/_components/home-screen.tsx`,
+`agent/tools/home_sections.ts`, `lib/agent-tool-registry.ts`, `agent/instructions.md`,
+`lib/db.ts`. Next: other block types (checklist, image, links) if he wants them.
+
+---
+
 ## 2026-10-05 — Site name and meta: Robert (Berto) Mill, operator-first
 
 Career prep: LinkedIn says "Robert Mill", the site said "Berto Mill", GitHub "robert Mill", so

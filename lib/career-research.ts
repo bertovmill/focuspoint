@@ -100,7 +100,7 @@ export const TARGETS: CareerTarget[] = [
   { company: "Cursor", role: "Full Stack Analyst, GTM", url: "https://jobs.ashbyhq.com/cursor/7bc441a4-9bb6-45cb-a9e0-5ae1b9c7ac5b", contact_name: "Chelane O'***n", contact_title: "Sales Strategy & Operations Manager", tier: "A · fits now" },
   { company: "Cohere", role: null, url: null, contact_name: "Mei Hu***g", contact_title: "Head of Marketing Operations and Strategy", tier: "A · Toronto HQ, no visa" },
   { company: "Anthropic", role: "Strategy & Operations, Office of the CCO", url: "https://job-boards.greenhouse.io/anthropic/jobs/5432995008", contact_name: "Thomas Ma***z", contact_title: "Head of Revenue Operations & Sales Development", tier: "B · stretch, needs referral" },
-  { company: "Vercel", role: "Marketing Operations Manager", url: "https://vercel.com/careers/marketing-operations-manager-6144467004", contact_name: "Renee Ke***y", contact_title: "Sr. Director, Head of Sales Strategy & Operations", tier: "B · lead with Venice" },
+  { company: "Vercel", role: "Marketing Operations Manager", url: "https://vercel.com/careers/marketing-operations-manager-6144467004", contact_name: "Renee Ke***y", contact_title: "Sr. Director, Head of Sales Strategy & Operations", tier: "B · lead with MakersLounge + Cael" },
   { company: "OpenAI", role: null, url: null, contact_name: "Luke Sl***e", contact_title: "Revenue Strategy & Ops Manager", tier: "B · stretch" },
   { company: "Harvey", role: null, url: null, contact_name: "Vivian Ye", contact_title: "GTM Strategy and Analytics Manager", tier: "B" },
   { company: "Sierra", role: null, url: null, contact_name: "Haley Ma***l", contact_title: "Head of Revenue Operations", tier: "B" },

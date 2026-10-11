@@ -10341,3 +10341,35 @@ fetch stubbed, in Chromium at 390px. The trend card with two fake earlier weeks
 week". Hammer row's ⓘ shows the stock cue; editing to two lines sends one bank PUT
 with only that exercise's `cues` set, and the panel shows the new text. No horizontal
 scroll, no page errors. Not yet run against Neon.
+
+## 2026-10-11 — Workouts: set next session's target by hand (10 → 12)
+
+Berto: after hitting every set he often goes up 2 reps (10 → 12), not the ladder's
+next rung (15). He wants to set that today, so next week opens at 12.
+
+- Once every set hits the target, the "Next: × 15" under the total is a button.
+  Tapping it opens a **Next session** panel under the row: −/+ stepper, and chips
+  for Same / +1 / +2 / Ladder (Ladder only when it's above +2). Picking a number
+  saves it with today's log (autosave, like the reps). The label then reads
+  "Next: × 12". "Back to the ladder" clears it. Picking the ladder's own number
+  stores nothing, so the default behaviour is unchanged.
+- Stored as `strength_logs.next_target` (new nullable column, added in
+  `ensureTable` and `ensureSchema`). `nextPrescription` uses it first, for rep
+  exercises only (timed targets still come from the bank).
+- Ladder fix that goes with it: a clean session steps to the **next rung above**
+  the target (`find(r > target)`) instead of `indexOf(target) + 1`. On-ladder targets
+  behave the same as before; a hand-set 12 now climbs to 15 rather than reading
+  as "top rung, add weight".
+
+Files: `lib/workout-templates.ts` (`next_target` on `StrengthLog`,
+`nextPrescription`), `lib/strength.ts`, `lib/db.ts`,
+`app/api/training/workouts/[template]/route.ts`, `app/_components/workout-log.tsx`
+(`Row.next`, `NextTarget`).
+
+Verified: `tsc --noEmit` clean. `nextPrescription` checked with node: clean 10 → 15;
+clean 10 with 12 picked → 12; missed at 12 → 12; clean 12 → 15; clean 20 → 20 plus
+the add-weight hint; missed 10 with 12 picked → 12. In the Chromium harness at 390px:
+four taps on hammer row show "Next: × 15"; opening it and tapping "+2 · 12" saves
+`next_target: 12` in the PUT and relabels to "Next: × 12". "Back to the ladder"
+saves null. No page errors. Not yet run against Neon; the column is added on the
+first workout load.

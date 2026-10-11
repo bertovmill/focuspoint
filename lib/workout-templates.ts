@@ -370,6 +370,8 @@ export interface StrengthLog {
   target_reps: number;
   reps: (number | null)[];
   amount?: number | null;
+  /** What he set the next session's target to (12 after a clean 10), overriding the ladder. */
+  next_target?: number | null;
 }
 
 export function hitAll(ex: TemplateExercise, log: Pick<StrengthLog, "reps" | "target_reps">) {
@@ -442,9 +444,12 @@ export function nextPrescription(ex: TemplateExercise, last: StrengthLog | null)
   if (!last) return { weight: ex.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
   // Time targets come from the bank, so changing one there (e.g. to a race time) takes effect next session.
   if (ex.measure === "time") return { weight: last.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
+  // He picked next time's target himself (Berto, 2026-10-11: often +2, 10 → 12).
+  if (last.next_target) return { weight: last.weight, target: last.next_target, bumpSuggested: false };
   if (!hitAll(ex, last)) return { weight: last.weight, target: last.target_reps, bumpSuggested: false };
-  const i = ex.ladder.indexOf(last.target_reps);
-  if (i >= 0 && i < ex.ladder.length - 1) return { weight: last.weight, target: ex.ladder[i + 1], bumpSuggested: false };
+  // The next rung up, so a target he set between rungs (12) climbs to the next one (15).
+  const rung = ex.ladder.find((r) => r > last.target_reps);
+  if (rung !== undefined) return { weight: last.weight, target: rung, bumpSuggested: false };
   return { weight: last.weight, target: last.target_reps, bumpSuggested: ex.ladder.length > 1 };
 }
 

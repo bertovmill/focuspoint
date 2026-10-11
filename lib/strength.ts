@@ -26,6 +26,8 @@ async function ensureTable() {
   // How many reps / metres a timed set was (100 wall balls, later 120) — the
   // time only means something next to it.
   await getDb()`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
+  // Next session's target when he sets it by hand (10 → 12) instead of the ladder's next rung.
+  await getDb()`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS next_target INTEGER`;
   // Warm-up / cool-down ticks: one boolean per part ("15 min easy", "4 × 20 s strides").
   await getDb()`
     CREATE TABLE IF NOT EXISTS workout_checks (
@@ -48,6 +50,7 @@ function shape(r: Record<string, unknown>): StrengthLog {
     weight: num(r.weight),
     amount: num(r.amount),
     target_reps: Number(r.target_reps),
+    next_target: r.next_target == null ? null : Number(r.next_target),
     // Postgres arrays can't hold a gap cleanly, so a skipped set is stored as -1.
     reps: ((r.reps as number[] | null) ?? []).map((n) => (Number(n) < 0 ? null : Number(n))),
   };
@@ -56,7 +59,7 @@ function shape(r: Record<string, unknown>): StrengthLog {
 export async function getStrengthLogs(template: string): Promise<StrengthLog[]> {
   await ensureTable();
   const rows = await getDb()`
-    SELECT template, to_char(log_date, 'YYYY-MM-DD') AS log_date, exercise, weight, amount, target_reps, reps
+    SELECT template, to_char(log_date, 'YYYY-MM-DD') AS log_date, exercise, weight, amount, target_reps, next_target, reps
     FROM strength_logs WHERE template = ${template} ORDER BY log_date ASC, exercise ASC
   `;
   return rows.map((r) => shape(r as Record<string, unknown>));
@@ -104,6 +107,7 @@ export interface StrengthEntry {
   weight: number | null;
   amount?: number | null;
   target_reps: number;
+  next_target?: number | null;
   reps: (number | null)[];
 }
 
@@ -124,10 +128,10 @@ export async function saveWorkoutDay(requested: string, date: string, entries: S
       continue;
     }
     await sql`
-      INSERT INTO strength_logs (template, log_date, exercise, weight, amount, target_reps, reps, updated_at)
-      VALUES (${slug}, ${date}, ${e.exercise}, ${e.weight}, ${e.amount ?? null}, ${Math.round(e.target_reps)}, ${reps}, NOW())
+      INSERT INTO strength_logs (template, log_date, exercise, weight, amount, target_reps, next_target, reps, updated_at)
+      VALUES (${slug}, ${date}, ${e.exercise}, ${e.weight}, ${e.amount ?? null}, ${Math.round(e.target_reps)}, ${e.next_target ? Math.round(e.next_target) : null}, ${reps}, NOW())
       ON CONFLICT (template, log_date, exercise) DO UPDATE SET
-        weight = EXCLUDED.weight, amount = EXCLUDED.amount, target_reps = EXCLUDED.target_reps, reps = EXCLUDED.reps, updated_at = NOW()
+        weight = EXCLUDED.weight, amount = EXCLUDED.amount, target_reps = EXCLUDED.target_reps, next_target = EXCLUDED.next_target, reps = EXCLUDED.reps, updated_at = NOW()
     `;
   }
   // Logging the workout counts as doing it: tick the matching planned session —

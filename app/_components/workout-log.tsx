@@ -14,6 +14,7 @@ import {
   formatTime,
   hitAll,
   hitSet,
+  nextPrescription,
   parseTime,
   totalReps,
   workoutHref,
@@ -39,6 +40,8 @@ interface Row {
   amount: string;
   target: number;
   reps: string[];
+  /** Next session's target if he set one (10 → 12); "" = follow the ladder. */
+  next: string;
 }
 
 function longDate(iso: string) {
@@ -76,8 +79,8 @@ function initialRows(t: WorkoutTemplate, data: DayData): Record<string, Row> {
     const log = data.logs.find((l) => l.exercise === ex.key);
     const p = data.prescriptions[ex.key];
     rows[ex.key] = log
-      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: Math.max(ex.sets, log.reps.length) }, (_, i) => display(ex, log.reps[i])) }
-      : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill("") };
+      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: Math.max(ex.sets, log.reps.length) }, (_, i) => display(ex, log.reps[i])), next: log.next_target ? String(log.next_target) : "" }
+      : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill(""), next: "" };
   }
   return rows;
 }
@@ -130,7 +133,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             date,
             entries: Object.entries(next).map(([exercise, r]) => {
               const ex = tRef.current?.blocks.flatMap((b) => b.exercises).find((e) => e.key === exercise);
-              return { exercise, weight: parseNum(r.weight), amount: parseNum(r.amount), target_reps: r.target, reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
+              return { exercise, weight: parseNum(r.weight), amount: parseNum(r.amount), target_reps: r.target, next_target: parseNum(r.next), reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
             }),
           }),
         });
@@ -331,13 +334,17 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
 
 function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
   const [showCues, setShowCues] = useState(false);
+  const [showNext, setShowNext] = useState(false);
   if (!row) return null;
   const reps = row.reps.map(parseNum);
   const total = totalReps(reps);
   const goal = row.target * ex.sets;
   const allHit = hitAll(ex, { reps, target_reps: row.target });
-  const rung = ex.ladder.indexOf(row.target);
-  const nextRung = rung >= 0 ? ex.ladder[rung + 1] : undefined;
+  // What next session would aim for on the ladder alone, and what he's set instead.
+  const ladderNext = nextPrescription(ex, { template: "", log_date: "", exercise: ex.key, weight: parseNum(row.weight), target_reps: row.target, reps }).target;
+  const chosenNext = parseNum(row.next);
+  const next = chosenNext ?? ladderNext;
+  const setNext = (n: number | null) => onChange((r) => ({ ...r, next: n === null || n === ladderNext ? "" : String(n) }));
   const sameWeightAsLast = p?.last && String(p.last.weight ?? "") === row.weight;
   const placeholders = sameWeightAsLast ? p!.last!.reps : [];
 
@@ -428,11 +435,26 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
           </span>
           <CheckIcon className="hidden size-4 text-muted-foreground sm:block" />
         </button>
-        {allHit && (
-          <p className="text-xs text-emerald-700 dark:text-emerald-400">{nextRung ? `Next: × ${nextRung}` : ex.ladder.length > 1 ? "Top rung, add weight" : ""}</p>
+        {(allHit || chosenNext !== null) && row.target > 0 && (
+          // Tap to set next session's target yourself (10 → 12 instead of the ladder's 15).
+          <button
+            type="button"
+            onClick={() => setShowNext((o) => !o)}
+            aria-expanded={showNext}
+            className="inline-flex min-h-8 items-center text-xs font-medium text-emerald-700 underline decoration-dotted underline-offset-2 dark:text-emerald-400"
+          >
+            {next > row.target || chosenNext !== null ? `Next: × ${next}` : ex.ladder.length > 1 ? "Top rung, add weight" : `Next: × ${next}`}
+          </button>
         )}
       </td>
     </tr>
+    {showNext && (
+      <tr>
+        <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
+          <NextTarget ex={ex} current={row.target} ladderNext={ladderNext} value={next} chosen={chosenNext !== null} onSet={setNext} />
+        </td>
+      </tr>
+    )}
     {showCues && (
       <tr>
         <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
@@ -441,6 +463,55 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
       </tr>
     )}
     </>
+  );
+}
+
+/**
+ * Set next session's target from today's log (Berto, 2026-10-11: after a clean
+ * set of 10s he goes to 12, not the ladder's 15). Saved with today's row, so next
+ * week opens at that number.
+ */
+function NextTarget({ ex, current, ladderNext, value, chosen, onSet }: { ex: TemplateExercise; current: number; ladderNext: number; value: number; chosen: boolean; onSet: (n: number | null) => void }) {
+  const unit = ex.unit === "m" ? " m" : "";
+  const options = [
+    { label: "Same", n: current },
+    { label: "+1", n: current + 1 },
+    { label: "+2", n: current + 2 },
+    ...(ex.ladder.length > 1 && ladderNext > current + 2 ? [{ label: "Ladder", n: ladderNext }] : []),
+  ];
+  return (
+    <div className="space-y-2 rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">Next session</span>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => onSet(Math.max(1, value - 1))} className="flex size-9 items-center justify-center rounded-md border bg-background" aria-label="One fewer rep next session">
+            <MinusIcon className="size-4" />
+          </button>
+          <span className="w-14 text-center text-lg font-semibold tabular-nums" aria-live="polite">× {value}{unit}</span>
+          <button type="button" onClick={() => onSet(value + 1)} className="flex size-9 items-center justify-center rounded-md border bg-background" aria-label="One more rep next session">
+            <PlusIcon className="size-4" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.label}
+            type="button"
+            onClick={() => onSet(o.n)}
+            className={cn("h-9 rounded-full border px-3 tabular-nums", value === o.n ? "border-foreground bg-foreground text-background" : "bg-background")}
+          >
+            {o.label} · {o.n}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {chosen ? `Next session starts at × ${value}. ` : `Following the ladder: × ${ladderNext}. `}
+        {chosen && (
+          <button type="button" onClick={() => onSet(null)} className="underline underline-offset-2">Back to the ladder</button>
+        )}
+      </p>
+    </div>
   );
 }
 

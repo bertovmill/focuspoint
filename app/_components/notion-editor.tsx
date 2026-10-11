@@ -3,8 +3,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EditorContent, ReactRenderer, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { Extension, type Range } from "@tiptap/core";
-import { PluginKey } from "@tiptap/pm/state";
+import { Extension, InputRule, getHTMLFromFragment, type Range } from "@tiptap/core";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import { PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-task-list";
@@ -118,7 +119,158 @@ function uploaderOfView(view: object): Editor | null {
   return editor && uploaderOf(editor) ? editor : null;
 }
 
+// ── toggle headings ────────────────────────────────────────────────────────
+
+/** A toggle's summary line can be a heading: Notion's "toggle heading". */
+const ToggleSummary = DetailsSummary.extend({
+  addAttributes() {
+    return {
+      level: {
+        default: null,
+        parseHTML: (el) => {
+          const level = Number(el.getAttribute("data-level"));
+          return level >= 1 && level <= 6 ? level : null;
+        },
+        renderHTML: ({ level }) => (level ? { "data-level": level } : {}),
+      },
+    };
+  },
+});
+
+/**
+ * Toggles used to go out as one lump of HTML, contents and all. Now only the
+ * summary line is HTML and the folded blocks stay markdown, so Cael reads them as
+ * text and the habit reader (lib/day-plan.ts) still finds the bullets under a
+ * toggled "On habits":
+ *
+ *   <details open>
+ *   <summary data-level="2">On habits</summary>
+ *
+ *   - Meditate 20 mins
+ *
+ *   </details>
+ */
+const ToggleDetails = Details.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(
+          state: { write(s: string): void; ensureNewLine(): void; closeBlock(node: unknown): void; renderContent(node: unknown): void },
+          node: PMNode,
+        ) {
+          const summary = node.child(0);
+          const level = summary.attrs.level as number | null;
+          state.write(node.attrs.open ? "<details open>" : "<details>");
+          state.ensureNewLine();
+          state.write(`<summary${level ? ` data-level="${level}"` : ""}>${getHTMLFromFragment(summary.content, node.type.schema)}</summary>`);
+          state.closeBlock(summary);
+          state.renderContent(node.child(1));
+          state.write("</details>");
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
+/** How big a block ranks as a section start: a heading's level, a toggle heading's, else null. */
+function headingRank(node: PMNode): number | null {
+  if (node.type.name === "heading") return node.attrs.level as number;
+  if (node.type.name === "details") return (node.firstChild?.attrs.level as number | null) ?? null;
+  return null;
+}
+
+/**
+ * Turns the heading at `pos` into a toggle heading. With `foldSection` its section
+ * goes inside: the blocks after it up to the next heading (plain or toggle) of the
+ * same size or bigger. The caret lands at the start of the heading text.
+ */
+function toggleHeadingAt(tr: Transaction, pos: number, foldSection: boolean): boolean {
+  const heading = tr.doc.nodeAt(pos);
+  if (heading?.type.name !== "heading") return false;
+  const { schema } = tr.doc.type;
+  const $pos = tr.doc.resolve(pos);
+  const level = heading.attrs.level as number;
+
+  const body: PMNode[] = [];
+  let end = pos + heading.nodeSize;
+  for (let i = $pos.index() + 1; foldSection && i < $pos.parent.childCount; i++) {
+    const block = $pos.parent.child(i);
+    const rank = headingRank(block);
+    if (rank !== null && rank <= level) break;
+    body.push(block);
+    end += block.nodeSize;
+  }
+
+  // A summary holds text only, so a line break or anything else inline drops out.
+  const text: PMNode[] = [];
+  heading.content.forEach((n) => {
+    if (n.isText) text.push(n);
+  });
+  const details = schema.nodes.details.create({ open: true }, [
+    schema.nodes.detailsSummary.create({ level }, text),
+    schema.nodes.detailsContent.create(null, body.length ? body : schema.nodes.paragraph.create()),
+  ]);
+  tr.replaceWith(pos, end, details);
+  tr.setSelection(TextSelection.create(tr.doc, pos + 2));
+  return true;
+}
+
+/**
+ * Markdown-style shortcuts for toggle headings, ahead of StarterKit's own (which
+ * would turn "> " into a quote and can't put "# " on a toggle line):
+ * "> " at the start of a heading makes it a toggle heading and folds its section
+ * in; "# " to "### " at the start of a toggle line makes it a toggle heading.
+ */
+const ToggleHeadingShortcuts = Extension.create({
+  name: "toggleHeadingShortcuts",
+  priority: 200,
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^>\s$/,
+        handler: ({ state, range }) => {
+          const $from = state.doc.resolve(range.from);
+          if ($from.parent.type.name !== "heading") return null;
+          state.tr.delete(range.from, range.to);
+          toggleHeadingAt(state.tr, $from.before(), true);
+        },
+      }),
+      new InputRule({
+        find: /^(#{1,6})\s$/,
+        handler: ({ state, range, match }) => {
+          const $from = state.doc.resolve(range.from);
+          if ($from.parent.type.name !== "detailsSummary") return null;
+          state.tr.delete(range.from, range.to).setNodeAttribute($from.before(), "level", match[1].length);
+        },
+      }),
+    ];
+  },
+});
+
 // ── the "/" menu ───────────────────────────────────────────────────────────
+
+/** A toggle inside a list item puts the caret in its fold button, so lift the line out of any lists first (one level per lift). */
+function liftOutOfLists(e: Editor) {
+  for (let i = 0; i < 8 && (e.isActive("listItem") || e.isActive("taskItem")); i++) {
+    if (!e.commands.liftListItem(e.isActive("taskItem") ? "taskItem" : "listItem")) break;
+  }
+}
+
+/** "/Toggle heading 2": the current line becomes an empty-bodied toggle heading; on a toggle line, just its size changes. */
+function runToggleHeading(e: Editor, r: Range, level: number) {
+  e.chain().focus().deleteRange(r).run();
+  if (e.isActive("detailsSummary")) {
+    e.commands.updateAttributes("detailsSummary", { level });
+    return;
+  }
+  liftOutOfLists(e);
+  e.chain()
+    .setNode("heading", { level })
+    .command(({ tr }) => toggleHeadingAt(tr, tr.selection.$from.before(), false))
+    .run();
+}
 
 type SlashItem = {
   title: string;
@@ -139,13 +291,12 @@ const SLASH_ITEMS: SlashItem[] = [
   { title: "To-do list", description: "Track things with checkboxes", icon: ListChecksIcon, aliases: ["todo", "task", "checkbox"], run: (e, r) => e.chain().focus().deleteRange(r).toggleTaskList().run() },
   { title: "Toggle", description: "Tuck the detail under a line", icon: ChevronRightIcon, aliases: ["details", "collapse", "expand"], run: (e, r) => {
     e.chain().focus().deleteRange(r).run();
-    // A toggle inside a list item puts the caret in its fold button, so lift
-    // the line out of any lists first (one level per lift).
-    for (let i = 0; i < 8 && (e.isActive("listItem") || e.isActive("taskItem")); i++) {
-      if (!e.commands.liftListItem(e.isActive("taskItem") ? "taskItem" : "listItem")) break;
-    }
+    liftOutOfLists(e);
     e.commands.setDetails();
   } },
+  { title: "Toggle heading 1", description: "Big heading that folds", icon: ChevronRightIcon, aliases: ["toggleh1", "th1"], run: (e, r) => runToggleHeading(e, r, 1) },
+  { title: "Toggle heading 2", description: "Medium heading that folds", icon: ChevronRightIcon, aliases: ["toggleh2", "th2"], run: (e, r) => runToggleHeading(e, r, 2) },
+  { title: "Toggle heading 3", description: "Small heading that folds", icon: ChevronRightIcon, aliases: ["toggleh3", "th3"], run: (e, r) => runToggleHeading(e, r, 3) },
   { title: "Quote", description: "Pull a line out", icon: QuoteIcon, aliases: ["blockquote"], run: (e, r) => e.chain().focus().deleteRange(r).toggleBlockquote().run() },
   { title: "Divider", description: "Separate sections", icon: MinusIcon, aliases: ["hr", "line", "separator"], run: (e, r) => e.chain().focus().deleteRange(r).setHorizontalRule().run() },
   { title: "Code", description: "A block of code", icon: SquareCodeIcon, aliases: ["codeblock", "snippet"], run: (e, r) => e.chain().focus().deleteRange(r).toggleCodeBlock().run() },
@@ -424,7 +575,7 @@ function BubbleButton({ label, icon: Icon, active, onClick }: { label: string; i
 /**
  * A Notion-style page: no box and no toolbar, just text. Type "/" for a block
  * menu, select text for bold/italic/link, and the markdown shortcuts work too
- * ("# ", "- ", "[] ", "> ", "---"). Content goes in and comes out as markdown,
+ * ("# ", "- ", "[] ", "> ", "---"; "> " on a heading makes it a toggle heading). Content goes in and comes out as markdown,
  * so Cael reads it as text. The parent owns loading and saving.
  */
 export function NotionEditor({
@@ -463,9 +614,10 @@ export function NotionEditor({
       StarterKit.configure({ link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Details.configure({ persist: true }),
-      DetailsSummary,
+      ToggleDetails.configure({ persist: true }),
+      ToggleSummary,
       DetailsContent,
+      ToggleHeadingShortcuts,
       Placeholder.configure({
         includeChildren: true,
         // Decided from the node alone: the extension builds these while the
@@ -474,7 +626,7 @@ export function NotionEditor({
         // come from CSS in globals.css instead.
         placeholder: ({ node }) => {
           if (node.type.name === "heading") return `Heading ${node.attrs.level}`;
-          if (node.type.name === "detailsSummary") return "Toggle";
+          if (node.type.name === "detailsSummary") return node.attrs.level ? `Toggle heading ${node.attrs.level}` : "Toggle";
           return "Type '/' for commands";
         },
       }),

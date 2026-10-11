@@ -4,7 +4,7 @@ import { getPrinciples, setPrinciples } from "../../lib/principles";
 
 export default defineTool({
   description:
-    "Read or rewrite Berto's principles — the markdown document at the bottom of the Home screen, the rules he has chosen to live and work by. Call with no content to read it. To change it (add a principle he states, reword one, reorder), read it first, then pass the FULL new markdown — writing replaces the whole document, so never send a fragment. Keep his wording; don't add principles he hasn't asked for. Toggle blocks appear as <details> HTML — keep them intact.",
+    "Read or rewrite Berto's principles — the markdown document at the bottom of the Home screen, the rules he has chosen to live and work by. Call with no content to read it. To change it (add a principle he states, reword one, reorder), read it first, then pass the FULL new markdown — writing replaces the whole document, so never send a fragment. Keep his wording; don't add principles he hasn't asked for. Toggles are a <details> line and a <summary> line (data-level=\"2\" makes it a toggle heading, same as ## ) with ordinary markdown inside, closed by </details> — keep those tag lines intact.",
   inputSchema: z.object({
     content: z.string().optional().describe("The complete new markdown. Omit to just read."),
   }),

@@ -10277,3 +10277,35 @@ Not yet run against the real Neon DB.
 
 Next: maybe pinned notes (Apple's "Pinned" group) and a compose button that opens a
 blank note straight into the editor.
+
+## 2026-10-11 — Principles: toggle headings
+
+Berto wanted to fold his "On focus"-style headings, typing ">" in front of one
+like Notion. Asked two things: what goes inside (the heading's section, not an
+empty toggle) and whether the "/" menu gets entries too (yes).
+
+- `app/_components/notion-editor.tsx` (all Notion-style pages, Principles and
+  meal Notes): toggle summaries take a `level` (`data-level`), making a "toggle
+  heading". `> ` at the start of a heading turns it into one and folds its
+  section in: the blocks after it up to the next heading or toggle heading of
+  the same size or bigger. `# ` – `### ` at the start of a plain toggle line
+  makes it a toggle heading. "/" menu: Toggle heading 1–3 (`/toggle` lists them,
+  `/toggleh2`, `/th2`; the menu closes at a space, so no "/toggle heading 2"),
+  which make an empty-bodied one, or resize a toggle line.
+- Markdown: toggles used to serialize as one lump of HTML. Now only the
+  `<details>` / `<summary data-level="2">…</summary>` / `</details>` lines are
+  HTML and the folded blocks stay markdown. Old saved toggles still load.
+- `lib/day-plan.ts`: the habit reader treats a `<summary data-level>` line as a
+  heading (`headingText`), so a toggled "On habits" still feeds the Today card;
+  a toggled "On napping" section ends at `</details>` for the habit's "why".
+  `setHabitTime` works on a toggled section too.
+- `agent/tools/principles_doc.ts`: told Cael the new toggle shape.
+- CSS (globals.css): heading scale and spacing on `summary[data-level]`, the
+  triangle sized to that line.
+
+Verified on :3789 with writes to `/api/principles` intercepted (real doc
+untouched): `> ` on "On focus" folded its 3 bullets and stopped at "On
+journalling"; folding persisted through a markdown round trip; `/toggleh3` and
+`## ` on a plain toggle; 22px/600 summary; tsx check of parseDailyHabits /
+setHabitTime on a toggled doc. Gotcha: the Turbopack dev cache (`.next/dev`)
+served a stale globals.css across restarts until deleted.

@@ -66,7 +66,21 @@ const DEFAULT_MINUTES = 30;
 
 export const HABITS_HEADING = "Daily habits";
 /** The section heading the habits sit under — "Daily habits", "On habits", any level. */
-const HABITS_HEADING_RE = /^#{1,6}\s+.*\bhabits?\b/i;
+const HABITS_HEADING_RE = /\bhabits?\b/i;
+
+/**
+ * A section heading's text: a markdown "## On habits", or a toggle heading, which
+ * the Principles editor writes as `<summary data-level="2">On habits</summary>`
+ * with its folded content still markdown underneath. Null for any other line.
+ */
+function headingText(line: string): string | null {
+  const t = line.trim();
+  const md = t.match(/^#{1,6}\s+(.*)$/);
+  if (md) return md[1];
+  const toggle = t.match(/^<summary\b[^>]*\bdata-level=[^>]*>(.*)<\/summary>$/i);
+  return toggle ? toggle[1].replace(/<[^>]+>/g, "") : null;
+}
+const isHabitsHeading = (line: string) => HABITS_HEADING_RE.test(headingText(line) ?? "");
 
 /** What the section is seeded with, and what the planner falls back on if it's missing. */
 export const DEFAULT_HABITS_MARKDOWN = [
@@ -148,14 +162,14 @@ export function parseHabitLine(raw: string): DailyHabit | null {
  */
 export function parseDailyHabits(markdown: string): DailyHabit[] | null {
   const lines = markdown.split("\n");
-  const startIdx = lines.findIndex((l) => HABITS_HEADING_RE.test(l.trim()));
+  const startIdx = lines.findIndex(isHabitsHeading);
   if (startIdx === -1) return null;
 
   const habits: DailyHabit[] = [];
   const seen = new Set<string>();
   let last: DailyHabit | null = null;
   for (const line of lines.slice(startIdx + 1)) {
-    if (/^#{1,6}\s/.test(line.trim())) break;
+    if (headingText(line) !== null) break;
     if (!/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) continue;
     // Indented under a habit = that habit's "why", not a habit of its own.
     if (/^\s+/.test(line)) {
@@ -188,11 +202,11 @@ export function parseDailyHabits(markdown: string): DailyHabit[] | null {
  */
 export function setHabitTime(markdown: string, key: string, minutes: number): string | null {
   const lines = markdown.split("\n");
-  const startIdx = lines.findIndex((l) => HABITS_HEADING_RE.test(l.trim()));
+  const startIdx = lines.findIndex(isHabitsHeading);
   if (startIdx === -1) return null;
   for (let i = startIdx + 1; i < lines.length; i++) {
     const line = lines[i];
-    if (/^#{1,6}\s/.test(line.trim())) break;
+    if (headingText(line) !== null) break;
     if (!/^(?:[-*+]|\d+[.)])\s+/.test(line)) continue; // indented = a "why", not a habit
     const habit = parseHabitLine(line);
     if (habit?.key !== key) continue;
@@ -233,13 +247,14 @@ function matchingSection(lines: string[], name: string): string[] {
   const stem = name.toLowerCase().split(/\s+/)[0].replace(/e$/, "");
   if (stem.length < 3) return [];
   const idx = lines.findIndex((l) => {
-    const m = l.trim().match(/^#{1,6}\s+on\s+(\w+)/i);
+    const m = headingText(l)?.match(/^on\s+(\w+)/i);
     return Boolean(m && m[1].toLowerCase().startsWith(stem));
   });
   if (idx === -1) return [];
   const out: string[] = [];
   for (const line of lines.slice(idx + 1)) {
-    if (/^#{1,6}\s/.test(line.trim())) break;
+    // A toggled section ends at its </details>.
+    if (headingText(line) !== null || /^\s*<\/details>/i.test(line)) break;
     const text = cleanLine(line);
     if (text) out.push(text);
   }

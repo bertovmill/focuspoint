@@ -677,3 +677,38 @@
 .notion-prose [data-type="detailsContent"] > * + * {
   margin-top: 0.4em;
 }
+/* Toggle headings: the summary takes the heading scale and spacing, and the
+   triangle grows to sit on that taller line. */
+.notion-prose summary[data-level="1"] {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.notion-prose summary[data-level="2"] {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.notion-prose summary:is([data-level="3"], [data-level="4"], [data-level="5"], [data-level="6"]) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level="1"]) {
+  --toggle-line: 2.1875rem;
+  margin-top: 2.45rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level="2"]) {
+  --toggle-line: 1.7875rem;
+  margin-top: 1.65rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary:is([data-level="3"], [data-level="4"], [data-level="5"], [data-level="6"])) {
+  --toggle-line: 1.52rem;
+  margin-top: 1.125rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level]) > button {
+  height: var(--toggle-line);
+}
+.notion-prose > [data-type="details"]:first-child {
+  margin-top: 0;
+}

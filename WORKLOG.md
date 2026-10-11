@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Career outreach: no Venice, lead with MakersLounge + Cael
+
+Venice and Aucctus metrics (the 0→70 number) are confidential and must never appear in
+outreach. The Career tracker's default next step for a target with a contact said "short
+note citing Venice + 0→70"; it now says "short note citing MakersLounge + Cael". The Vercel
+target's tier label changed from "lead with Venice" to "lead with MakersLounge + Cael".
+Also guarded `add()` against double-clicks (a ref of companies in flight), since Databricks
+had been tracked twice, 1s apart. Files: `app/_components/career-tracker.tsx`,
+`lib/career-research.ts`. Next: rewrite the existing rows' next_step in `career_targets`
+and drop the duplicate Databricks row (id 2).
+
+---
+
 ## 2026-10-10 — Home: add-your-own sections (5-year review, 5-year plan)
 
 Berto wanted to put his 5-year review and 5-year plan on the dashboard. Picked (quiz):

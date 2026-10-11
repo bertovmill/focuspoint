@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLinkIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function CareerTracker() {
   const [rows, setRows] = useState<TrackedRow[] | null>(null);
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
+  // Companies with an add in flight, so a double-click doesn't track one twice.
+  const adding = useRef(new Set<string>());
 
   const load = useCallback(async () => {
     const res = await fetch("/api/career");
@@ -52,13 +54,25 @@ export function CareerTracker() {
   useEffect(() => { load(); }, [load]);
 
   async function add(t: Partial<CareerTarget> & { company: string }) {
+    const key = t.company.toLowerCase();
+    if (adding.current.has(key)) return;
+    adding.current.add(key);
+    try {
+      await post(t);
+    } finally {
+      adding.current.delete(key);
+    }
+  }
+
+  // Venice and Aucctus metrics are confidential, so outreach leans on public builds.
+  async function post(t: Partial<CareerTarget> & { company: string }) {
     const res = await fetch("/api/career", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...t,
         notes: t.tier ?? null,
-        next_step: t.contact_name ? "Find on LinkedIn; short note citing Venice + 0→70" : "Apply once case studies are ready",
+        next_step: t.contact_name ? "Find on LinkedIn; short note citing MakersLounge + Cael" : "Apply once case studies are ready",
       }),
     });
     if (!res.ok) return toast.error("Couldn't add that one.");

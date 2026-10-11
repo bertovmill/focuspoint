@@ -7,7 +7,9 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 ## 2026-10-11 — Code moved to GitLab; Vercel deploys from there
 
 Berto wants Cael's code somewhere personal that outlasts any job. The repo is now at
-**gitlab.com/berto-group1/cael** (private; all branches pushed). The Vercel project
+**gitlab.com/bertmill191/cael** (private; all branches pushed). It was first pushed to the
+`berto-group1` group, but Vercel Hobby refuses private repos owned by a GitLab *group*
+(needs Pro), so it was transferred to the personal namespace. The Vercel project
 `cael-agent` (team "Berto's projects") was reconnected from GitHub to that GitLab repo, so
 **pushes to GitLab `main` deploy production**. Locally `origin` is GitLab and the old
 GitHub repo stays as the `github` remote (backup only, no longer deploys). This entry is

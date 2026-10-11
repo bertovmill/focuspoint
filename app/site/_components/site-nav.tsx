@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { BOOKING_URL, CAEL_SIGN_IN_URL, CHANNELS } from "@/lib/public-site";
+import { BOOKING_URL, CHANNELS } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 import { SocialIcons } from "./social-icons";
@@ -116,14 +116,6 @@ export function SiteNav() {
               >
                 Book a meeting
               </a>
-              {/* Accounts live on the private host, so this leaves the site. */}
-              <a
-                href={CAEL_SIGN_IN_URL}
-                onClick={() => setOpen(false)}
-                className={cn(LABEL, "mt-10 ml-6 inline-flex text-muted-foreground transition-colors hover:text-foreground")}
-              >
-                Sign in
-              </a>
             </div>
 
             <div className="border-t border-border/60 px-6 py-6">
@@ -218,16 +210,6 @@ export function SiteNav() {
           {/* Icons only on wide screens: below ~1500px they push the links row onto two
               lines. They're still in the footer and the menu sheet. */}
           <SocialIcons className="hidden min-[1500px]:flex" />
-          {/* Accounts live on the private host, so this leaves the site. */}
-          <a
-            href={CAEL_SIGN_IN_URL}
-            className={cn(
-              LABEL,
-              "text-muted-foreground transition-colors hover:text-foreground",
-            )}
-          >
-            Sign in
-          </a>
           <a
             href={BOOKING_URL}
             target="_blank"

@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Removed "Sign in" from bertomill.com
+
+Berto is the only person who signs in, so a public Sign in link made no sense; he goes
+straight to cael.bertomill.com. Removed both links (desktop nav and the mobile menu
+sheet) from `app/site/_components/site-nav.tsx`, and the now-unused `CAEL_SIGN_IN_URL`
+from `lib/public-site.ts`. The sign-in flow itself on cael.bertomill.com is unchanged.
+
+---
+
 ## 2026-10-11 — Code moved to GitLab; Vercel deploys from there
 
 Berto wants Cael's code somewhere personal that outlasts any job. The repo is now at

@@ -116,6 +116,8 @@ function TrainingWeek() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
+  // The two weeks before the one on screen, for the week-over-week comparison.
+  const [earlier, setEarlier] = useState<{ sessions: TrainingSession[]; activities: Activity[] } | null>(null);
   const [watch, setWatch] = useState<SyncStatus>({ connected: false, last_synced_at: null });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -128,16 +130,22 @@ function TrainingWeek() {
   const load = useCallback(async () => {
     const forWeek = days[0];
     try {
-      const [s, e, st] = await Promise.all([
+      const [s, e, st, prev] = await Promise.all([
         fetch(`/api/training/sessions?from=${days[0]}&to=${days[6]}`),
         fetch("/api/training/events"),
         fetch("/api/training/sync"),
+        // A 14-day range, so the API never auto-fills these weeks from the bank.
+        fetch(`/api/training/sessions?from=${addDaysISO(days[0], -14)}&to=${addDaysISO(days[0], -1)}`),
       ]);
       if (s.ok) {
         const data = (await s.json()) as { sessions: TrainingSession[]; activities: Activity[] };
         if (forWeek !== latestWeek.current) return;
         setSessions(data.sessions);
         setActivities(data.activities.filter(isTraining));
+      }
+      if (prev.ok) {
+        const data = (await prev.json()) as { sessions: TrainingSession[]; activities: Activity[] };
+        if (forWeek === latestWeek.current) setEarlier({ sessions: data.sessions, activities: data.activities.filter(isTraining) });
       }
       if (e.ok) setEvents(await e.json());
       if (st.ok) setWatch(await st.json());
@@ -245,6 +253,22 @@ function TrainingWeek() {
     saveOrder(date, ids, s);
   };
 
+  // Take a session off its day (Berto swaps workouts out). Logged splits/sets stay
+  // in the workout log — they're keyed by workout and date, not the session.
+  const removeSession = async (s: TrainingSession) => {
+    if (!window.confirm(`Remove ${s.title} from ${shortDayLabel(s.session_date)}?`)) return;
+    const prev = sessions;
+    setSessions((ss) => ss.filter((x) => x.id !== s.id));
+    try {
+      const res = await fetch(`/api/training/sessions/${s.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success(`${s.title} removed`);
+    } catch {
+      setSessions(prev);
+      toast.error("Couldn't remove that.");
+    }
+  };
+
   const toggleDone = async (s: TrainingSession) => {
     const prev = sessions;
     setSessions((ss) => ss.map((x) => (x.id === s.id ? { ...x, done: !s.done } : x)));
@@ -311,16 +335,17 @@ function TrainingWeek() {
   }, [activities]);
   const linked = useMemo(() => new Set(sessions.map((s) => s.activity_id).filter(Boolean) as string[]), [sessions]);
 
-  const week = useMemo(() => {
-    const real = sessions.filter((s) => s.type !== "rest");
-    const done = real.filter((s) => s.done);
-    const plannedKm = real.reduce((n, s) => n + (s.target_km ?? 0), 0);
-    // Distance and time are what he typed in; the watch only supplies effort.
-    const doneKm = done.reduce((n, s) => n + (s.actual_km ?? 0), 0);
-    const effort = activities.reduce((n, a) => n + (a.azm ?? 0), 0);
-    const minutes = done.reduce((n, s) => n + (s.actual_minutes ?? 0), 0);
-    return { planned: real.length, done: done.length, plannedKm, doneKm, effort, minutes };
-  }, [sessions, activities]);
+  const week = useMemo(() => weekStats(sessions, activities), [sessions, activities]);
+  // Two weeks ago, last week, this week.
+  const trend = useMemo(() => {
+    if (!earlier) return null;
+    return [-14, -7].map((offset) => {
+      const from = addDaysISO(weekStart, offset);
+      const to = addDaysISO(from, 6);
+      const inWeek = (d: string) => d >= from && d <= to;
+      return { start: from, ...weekStats(earlier.sessions.filter((s) => inWeek(s.session_date)), earlier.activities.filter((a) => inWeek(a.start_local.slice(0, 10)))) };
+    }).concat([{ start: weekStart, ...week }]);
+  }, [earlier, weekStart, week]);
 
   const upcoming = events.filter((e) => daysUntil(e.event_date) >= 0);
   const isCurrentWeek = weekStart === weekStartISO(today);
@@ -423,7 +448,7 @@ function TrainingWeek() {
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                   </SortableSession>
                 ))}
                 {todayActs.map((a) => (
@@ -475,6 +500,8 @@ function TrainingWeek() {
         </div>
       </div>
 
+      {trend && <WeekTrend weeks={trend} current={isCurrentWeek} />}
+
       {/* Week — stacked rows on phones, columns on wide screens. Cards drag between days. */}
       <DndContext
         sensors={sensors}
@@ -514,7 +541,7 @@ function TrainingWeek() {
                 <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {list.map((s) => (
                     <DragSession key={s.id} id={s.id}>
-                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                     </DragSession>
                   ))}
                 </SortableContext>
@@ -549,6 +576,81 @@ function TrainingWeek() {
       <PastPrograms />
 
     </div>
+  );
+}
+
+interface WeekStats {
+  planned: number;
+  done: number;
+  plannedKm: number;
+  doneKm: number;
+  effort: number;
+  minutes: number;
+}
+
+function weekStats(sessions: TrainingSession[], activities: Activity[]): WeekStats {
+  const real = sessions.filter((s) => s.type !== "rest");
+  const done = real.filter((s) => s.done);
+  const plannedKm = real.reduce((n, s) => n + (s.target_km ?? 0), 0);
+  // Distance and time are what he typed in; the watch only supplies effort.
+  const doneKm = done.reduce((n, s) => n + (s.actual_km ?? 0), 0);
+  const effort = activities.reduce((n, a) => n + (a.azm ?? 0), 0);
+  const minutes = done.reduce((n, s) => n + (s.actual_minutes ?? 0), 0);
+  return { planned: real.length, done: done.length, plannedKm, doneKm, effort, minutes };
+}
+
+/**
+ * The week on screen against the two before it (Berto, 2026-10-11: something
+ * motivating). Each metric gets a bar per week, scaled to the best of the three;
+ * this week's number goes green once it's at or past last week's.
+ */
+function WeekTrend({ weeks, current }: { weeks: (WeekStats & { start: string })[]; current: boolean }) {
+  const labels = current ? ["2 weeks ago", "Last week", "This week"] : weeks.map((w) => `Week of ${w.start.slice(5).replace("-", "/")}`);
+  const metrics = [
+    { label: "Sessions", value: (w: WeekStats) => w.done, show: (w: WeekStats) => `${w.done}/${w.planned}` },
+    { label: "Km", value: (w: WeekStats) => w.doneKm, show: (w: WeekStats) => w.doneKm.toFixed(1) },
+    { label: "Minutes", value: (w: WeekStats) => w.minutes, show: (w: WeekStats) => String(w.minutes) },
+    { label: "Effort (AZM)", value: (w: WeekStats) => w.effort, show: (w: WeekStats) => String(w.effort) },
+  ].filter((m) => weeks.some((w) => m.value(w) > 0));
+  if (metrics.length === 0) return null;
+  const [, last, now] = weeks;
+  const doneDiff = now.done - last.done;
+  return (
+    <section className="rounded-xl border p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h2 className="text-lg font-semibold">{current ? "This week vs the last two" : "vs the two weeks before"}</h2>
+        {current && last.done > 0 && (
+          <span className={cn("text-sm font-medium", doneDiff >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground")}>
+            {doneDiff > 0 ? `${doneDiff} more session${doneDiff === 1 ? "" : "s"} than last week` : doneDiff === 0 ? "Level with last week" : `${-doneDiff} more to match last week`}
+          </span>
+        )}
+      </div>
+      <div className="space-y-3">
+        {metrics.map((m) => {
+          const best = Math.max(...weeks.map(m.value), 1);
+          const up = m.value(now) > 0 && m.value(now) >= m.value(last);
+          return (
+            <div key={m.label}>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{m.label}</p>
+              <div className="space-y-1">
+                {weeks.map((w, i) => (
+                  <div key={w.start} className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-2 text-sm">
+                    <span className={cn("truncate", i === 2 ? "font-medium" : "text-muted-foreground")}>{labels[i]}</span>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn("h-full rounded-full", i === 2 ? (up ? "bg-emerald-500" : "bg-foreground/70") : "bg-muted-foreground/35")}
+                        style={{ width: `${(m.value(w) / best) * 100}%` }}
+                      />
+                    </div>
+                    <span className={cn("text-right tabular-nums", i === 2 ? cn("font-semibold", up && "text-emerald-700 dark:text-emerald-400") : "text-muted-foreground")}>{m.show(w)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -657,7 +759,7 @@ function SortableSession({ id, children }: { id: number; children: React.ReactNo
   );
 }
 
-function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void }) {
+function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   const template = s.workout_slug ? { slug: s.workout_slug } : null;
@@ -709,6 +811,17 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
           )}
           {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className={big ? "mt-1.5 h-2" : "mt-1 h-1.5"} />}
         </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Remove ${s.title}`}
+            // Always there on a phone; on desktop it shows on hover so the narrow week columns stay clean.
+            className={cn("-m-1 flex shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100", big ? "size-10" : "size-8")}
+          >
+            <TrashIcon className={big ? "size-5" : "size-4"} />
+          </button>
+        )}
       </div>
       {template && (
         <Link

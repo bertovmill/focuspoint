@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkoutTimer, useSegments, type Segment } from "@/app/_components/workout-timer";
@@ -10,9 +10,11 @@ import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import {
   checklistParts,
+  cuesFor,
   formatTime,
   hitAll,
   hitSet,
+  nextPrescription,
   parseTime,
   totalReps,
   workoutHref,
@@ -38,6 +40,8 @@ interface Row {
   amount: string;
   target: number;
   reps: string[];
+  /** Next session's target if he set one (10 → 12); "" = follow the ladder. */
+  next: string;
 }
 
 function longDate(iso: string) {
@@ -75,8 +79,8 @@ function initialRows(t: WorkoutTemplate, data: DayData): Record<string, Row> {
     const log = data.logs.find((l) => l.exercise === ex.key);
     const p = data.prescriptions[ex.key];
     rows[ex.key] = log
-      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: Math.max(ex.sets, log.reps.length) }, (_, i) => display(ex, log.reps[i])) }
-      : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill("") };
+      ? { weight: log.weight === null ? "" : String(log.weight), amount: log.amount == null ? (p?.amount == null ? "" : String(p.amount)) : String(log.amount), target: log.target_reps, reps: Array.from({ length: Math.max(ex.sets, log.reps.length) }, (_, i) => display(ex, log.reps[i])), next: log.next_target ? String(log.next_target) : "" }
+      : { weight: p?.weight == null ? "" : String(p.weight), amount: p?.amount == null ? "" : String(p.amount), target: p?.target ?? ex.ladder[0] ?? 0, reps: Array(ex.sets).fill(""), next: "" };
   }
   return rows;
 }
@@ -129,7 +133,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             date,
             entries: Object.entries(next).map(([exercise, r]) => {
               const ex = tRef.current?.blocks.flatMap((b) => b.exercises).find((e) => e.key === exercise);
-              return { exercise, weight: parseNum(r.weight), amount: parseNum(r.amount), target_reps: r.target, reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
+              return { exercise, weight: parseNum(r.weight), amount: parseNum(r.amount), target_reps: r.target, next_target: parseNum(r.next), reps: r.reps.map((v) => (ex ? valueOf(ex, v) : parseNum(v))) };
             }),
           }),
         });
@@ -179,18 +183,20 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   const onSplit = (seg: Segment, seconds: number) =>
     update(seg.exKey, (r) => ({ ...r, reps: r.reps.map((x, j) => (j === seg.set ? formatTime(seconds) : x)) }));
 
-  // Renaming an exercise here rewrites it in the bank, so every later session (and
-  // the charts) use the new name. The key stays, so its history carries over.
-  const renameExercise = async (key: string, name: string) => {
+  // Renaming an exercise or rewriting its cues here changes it in the bank, so every
+  // later session (and the charts) use it. The key stays, so its history carries over.
+  const updateExercise = async (key: string, patch: Partial<Pick<TemplateExercise, "name" | "cues">>) => {
     const res = await fetch(`/api/training/bank/${slug}`);
     if (!res.ok) throw new Error("Couldn't load the workout");
     const def = (await res.json()) as WorkoutTemplate;
-    for (const b of def.blocks) for (const e of b.exercises) if (e.key === key) e.name = name;
+    for (const b of def.blocks) for (const e of b.exercises) if (e.key === key) Object.assign(e, patch);
     const put = await fetch(`/api/training/bank/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def) });
-    if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't rename");
+    if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't save");
     const saved = (await put.json()) as WorkoutTemplate;
     setData((cur) => (cur ? { ...cur, template: { ...cur.template, blocks: saved.blocks } } : cur));
   };
+  const renameExercise = (key: string, name: string) => updateExercise(key, { name });
+  const saveCues = (key: string, cues: string) => updateExercise(key, { cues });
 
   if (missing) {
     return (
@@ -244,6 +250,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </div>
       </header>
 
+      <VsLastWeek t={t} date={date} history={data.history} rows={rows} />
+
       {t.warmup && <Checklist key={`warmup-${date}`} id="warm-up" label="Warm-up" part="warmup" text={t.warmup} slug={t.slug} date={date} initial={data.checks?.warmup} />}
 
       {t.blocks.map((b) =>
@@ -251,7 +259,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
               <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
               {b.exercises.map((ex) => (
-                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} />
+                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
               ))}
             </section>
           ) : (
@@ -278,6 +286,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
                       columns={maxSets}
                       onChange={(fn) => update(ex.key, fn)}
                       onRename={(n) => renameExercise(ex.key, n)}
+                      onSaveCues={(c) => saveCues(ex.key, c)}
                     />
                   ))}
                 </tbody>
@@ -288,6 +297,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
       )}
 
       {t.cooldown && <Checklist key={`cooldown-${date}`} id="cool-down" label="Cool-down" part="cooldown" text={t.cooldown} slug={t.slug} date={date} initial={data.checks?.cooldown} />}
+
+      <WeekCompare t={t} date={date} history={data.history} rows={rows} />
 
       {t.blocks.some((b) => b.exercises.some((e) => e.tracked)) && (
         <section id="progress" className="space-y-3">
@@ -321,14 +332,19 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   );
 }
 
-function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
+function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+  const [showCues, setShowCues] = useState(false);
+  const [showNext, setShowNext] = useState(false);
   if (!row) return null;
   const reps = row.reps.map(parseNum);
   const total = totalReps(reps);
   const goal = row.target * ex.sets;
   const allHit = hitAll(ex, { reps, target_reps: row.target });
-  const rung = ex.ladder.indexOf(row.target);
-  const nextRung = rung >= 0 ? ex.ladder[rung + 1] : undefined;
+  // What next session would aim for on the ladder alone, and what he's set instead.
+  const ladderNext = nextPrescription(ex, { template: "", log_date: "", exercise: ex.key, weight: parseNum(row.weight), target_reps: row.target, reps }).target;
+  const chosenNext = parseNum(row.next);
+  const next = chosenNext ?? ladderNext;
+  const setNext = (n: number | null) => onChange((r) => ({ ...r, next: n === null || n === ladderNext ? "" : String(n) }));
   const sameWeightAsLast = p?.last && String(p.last.weight ?? "") === row.weight;
   const placeholders = sameWeightAsLast ? p!.last!.reps : [];
 
@@ -340,9 +356,14 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: Template
     });
 
   return (
+    <>
     <tr className="border-t align-middle">
       <td className="px-3 py-2.5 sm:px-4">
-        <ExerciseName name={ex.name} onRename={onRename} className="block" />
+        {/* Inline, so the ⓘ follows the name and pencil instead of narrowing the column. */}
+        <span className="block">
+          <ExerciseName name={ex.name} onRename={onRename} className="inline" />
+          <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />
+        </span>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
           <span className="font-medium tabular-nums text-foreground/80">{row.target ? `× ${row.target}${ex.unit === "m" ? " m" : ""}` : "log it"}</span>
           <span aria-hidden>·</span>
@@ -414,11 +435,156 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: Template
           </span>
           <CheckIcon className="hidden size-4 text-muted-foreground sm:block" />
         </button>
-        {allHit && (
-          <p className="text-xs text-emerald-700 dark:text-emerald-400">{nextRung ? `Next: × ${nextRung}` : ex.ladder.length > 1 ? "Top rung, add weight" : ""}</p>
+        {(allHit || chosenNext !== null) && row.target > 0 && (
+          // Tap to set next session's target yourself (10 → 12 instead of the ladder's 15).
+          <button
+            type="button"
+            onClick={() => setShowNext((o) => !o)}
+            aria-expanded={showNext}
+            className="inline-flex min-h-8 items-center text-xs font-medium text-emerald-700 underline decoration-dotted underline-offset-2 dark:text-emerald-400"
+          >
+            {next > row.target || chosenNext !== null ? `Next: × ${next}` : ex.ladder.length > 1 ? "Top rung, add weight" : `Next: × ${next}`}
+          </button>
         )}
       </td>
     </tr>
+    {showNext && (
+      <tr>
+        <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
+          <NextTarget ex={ex} current={row.target} ladderNext={ladderNext} value={next} chosen={chosenNext !== null} onSet={setNext} />
+        </td>
+      </tr>
+    )}
+    {showCues && (
+      <tr>
+        <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
+          <Cues ex={ex} onSave={onSaveCues} />
+        </td>
+      </tr>
+    )}
+    </>
+  );
+}
+
+/**
+ * Set next session's target from today's log (Berto, 2026-10-11: after a clean
+ * set of 10s he goes to 12, not the ladder's 15). Saved with today's row, so next
+ * week opens at that number.
+ */
+function NextTarget({ ex, current, ladderNext, value, chosen, onSet }: { ex: TemplateExercise; current: number; ladderNext: number; value: number; chosen: boolean; onSet: (n: number | null) => void }) {
+  const unit = ex.unit === "m" ? " m" : "";
+  const options = [
+    { label: "Same", n: current },
+    { label: "+1", n: current + 1 },
+    { label: "+2", n: current + 2 },
+    ...(ex.ladder.length > 1 && ladderNext > current + 2 ? [{ label: "Ladder", n: ladderNext }] : []),
+  ];
+  return (
+    <div className="space-y-2 rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">Next session</span>
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => onSet(Math.max(1, value - 1))} className="flex size-9 items-center justify-center rounded-md border bg-background" aria-label="One fewer rep next session">
+            <MinusIcon className="size-4" />
+          </button>
+          <span className="w-14 text-center text-lg font-semibold tabular-nums" aria-live="polite">× {value}{unit}</span>
+          <button type="button" onClick={() => onSet(value + 1)} className="flex size-9 items-center justify-center rounded-md border bg-background" aria-label="One more rep next session">
+            <PlusIcon className="size-4" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.label}
+            type="button"
+            onClick={() => onSet(o.n)}
+            className={cn("h-9 rounded-full border px-3 tabular-nums", value === o.n ? "border-foreground bg-foreground text-background" : "bg-background")}
+          >
+            {o.label} · {o.n}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {chosen ? `Next session starts at × ${value}. ` : `Following the ladder: × ${ladderNext}. `}
+        {chosen && (
+          <button type="button" onClick={() => onSet(null)} className="underline underline-offset-2">Back to the ladder</button>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** The ⓘ next to an exercise's name: opens its coaching cues. */
+function CuesButton({ name, open, onClick }: { name: string; open: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`Coaching cues for ${name}`}
+      className={cn("-my-1.5 ml-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full align-middle", open ? "text-primary" : "text-muted-foreground/60 hover:text-foreground")}
+    >
+      <InfoIcon className="size-4" />
+    </button>
+  );
+}
+
+/**
+ * One or two coaching cues for an exercise (Berto, 2026-10-11). Stock cues until
+ * he edits them; saving writes them into the bank, so every later session shows his.
+ */
+function Cues({ ex, onSave }: { ex: TemplateExercise; onSave: (cues: string) => Promise<void> }) {
+  const text = cuesFor(ex);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    const next = (draft ?? "").trim();
+    if (next === text) return setDraft(null);
+    setSaving(true);
+    try {
+      await onSave(next);
+      setDraft(null);
+      toast.success("Cues saved", { description: "Every session from now on shows them." });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save the cues");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+      {draft !== null ? (
+        <div className="space-y-2">
+          <textarea
+            autoFocus
+            rows={3}
+            value={draft}
+            disabled={saving}
+            maxLength={400}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setDraft(null);
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+            }}
+            placeholder="One or two things to remember on this one"
+            className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-base leading-snug focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+            aria-label={`Coaching cues for ${ex.name}`}
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDraft(null)} className="h-9 rounded-md px-3 text-muted-foreground hover:text-foreground">Cancel</button>
+            <button type="button" onClick={save} disabled={saving} className="h-9 rounded-md bg-primary px-4 font-medium text-primary-foreground disabled:opacity-60">Save</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2">
+          <p className={cn("flex-1 whitespace-pre-line leading-snug", !text && "text-muted-foreground")}>{text || "No cues yet."}</p>
+          <button type="button" onClick={() => setDraft(text)} className="-my-1 flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-muted-foreground hover:text-foreground">
+            <PencilIcon className="size-3.5" /> {text ? "Edit" : "Add"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -508,7 +674,8 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
+function TimeRow({ ex, row, p, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+  const [showCues, setShowCues] = useState(false);
   if (!row) return null;
   const values = row.reps.map((v) => parseTime(v));
   const done = values.filter((v): v is number => v !== null);
@@ -548,6 +715,7 @@ function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateEx
         <div className="min-w-0">
           <span className="flex flex-wrap items-center gap-x-1.5 font-medium leading-snug">
             <ExerciseName name={ex.name} onRename={onRename} />
+            <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />
             {ex.amount !== undefined && (
               // The count is his to change on the day (100 wall balls → 120).
               <span className="inline-flex items-center gap-1 whitespace-nowrap font-normal text-muted-foreground">
@@ -591,6 +759,11 @@ function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateEx
           </div>
         )}
       </div>
+      {showCues && (
+        <div className="mt-2">
+          <Cues ex={ex} onSave={onSaveCues} />
+        </div>
+      )}
       {!single && (
         <div className="mt-2 flex flex-wrap items-end gap-2">
           {row.reps.map((v, i) => (
@@ -662,6 +835,150 @@ function Checklist({ id, label, part, text, slug, date, initial }: { id: string;
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+// ── this week against the weeks before ────────────────────────────────────
+
+/** One exercise on one day: total reps, or the average time per set; weight alongside. */
+interface Score {
+  value: number;
+  weight: number | null;
+}
+
+function scoreOf(ex: TemplateExercise, reps: (number | null)[], weight: number | null): Score | null {
+  const done = reps.filter((r): r is number => r !== null && r > 0);
+  if (done.length === 0) return null;
+  return { value: isTime(ex) ? totalReps(done) / done.length : totalReps(done), weight };
+}
+
+/** Better than the week before: more reps (or any at a heavier weight), or a faster time. */
+function beats(ex: TemplateExercise, cur: Score, prev: Score) {
+  if (isTime(ex)) return cur.value < prev.value;
+  const w = cur.weight ?? 0;
+  const pw = prev.weight ?? 0;
+  return w > pw || (w === pw && cur.value > prev.value);
+}
+
+/**
+ * The last few sessions of this workout and this one, side by side (Berto,
+ * 2026-10-11: something motivating to hold this week up against). Today's column
+ * reads what's typed, so it moves as he logs.
+ */
+function useWeeks(t: WorkoutTemplate, date: string, history: StrengthLog[], rows: Record<string, Row>, previous = 3) {
+  return useMemo(() => {
+    const exercises = t.blocks.flatMap((b) => b.exercises);
+    const logged = (l: StrengthLog) => l.log_date < date && l.reps.some((r) => r !== null && r > 0);
+    const dates = [...new Set(history.filter(logged).map((l) => l.log_date))].sort().slice(-previous);
+    const scores = new Map<string, (Score | null)[]>();
+    for (const ex of exercises) {
+      const past = dates.map((d) => {
+        const l = history.find((h) => h.exercise === ex.key && h.log_date === d);
+        return l ? scoreOf(ex, l.reps, l.weight) : null;
+      });
+      const r = rows[ex.key];
+      const now = r ? scoreOf(ex, r.reps.map((v) => valueOf(ex, v)), parseNum(r.weight)) : null;
+      scores.set(ex.key, [...past, now]);
+    }
+    // Total reps across the rep exercises (timed sets don't add up with reps).
+    const totals = [...dates, date].map((_, i) =>
+      exercises.filter((ex) => !isTime(ex)).reduce((n, ex) => n + (scores.get(ex.key)?.[i]?.value ?? 0), 0),
+    );
+    return { exercises, dates, scores, totals };
+  }, [t, date, history, rows, previous]);
+}
+
+/** One line near the top: this session's reps against last week's, linking down to the table. */
+function VsLastWeek({ t, date, history, rows }: { t: WorkoutTemplate; date: string; history: StrengthLog[]; rows: Record<string, Row> }) {
+  const { dates, totals } = useWeeks(t, date, history, rows, 1);
+  if (dates.length === 0) return null;
+  const last = totals[0];
+  const now = totals[1];
+  if (!last) return null;
+  const ahead = now - last;
+  return (
+    <a href="#week-compare" className={cn("flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-base hover:bg-muted/40", ahead > 0 && "border-emerald-500/40 bg-emerald-500/5")}>
+      <span>
+        {now === 0 ? (
+          <>Last time: <span className="font-semibold tabular-nums">{last} reps</span>. Beat it.</>
+        ) : ahead > 0 ? (
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">{ahead} reps up on last time</span>
+        ) : ahead === 0 ? (
+          <span className="font-semibold">Level with last time</span>
+        ) : (
+          <><span className="font-semibold tabular-nums">{-ahead} more</span> to match last time</>
+        )}
+        <span className="text-muted-foreground tabular-nums"> · {now}/{last}</span>
+      </span>
+      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+    </a>
+  );
+}
+
+/** Each exercise across the last three sessions and this one. Green = better than the week before. */
+function WeekCompare({ t, date, history, rows }: { t: WorkoutTemplate; date: string; history: StrengthLog[]; rows: Record<string, Row> }) {
+  const { exercises, dates, scores, totals } = useWeeks(t, date, history, rows);
+  if (dates.length === 0) return null;
+  const cols = [...dates, date];
+  const cur = cols.length - 1;
+  const label = (d: string, i: number) => (i === cur ? (d === todayISO() ? "Today" : shortDate(d)) : shortDate(d));
+  const weightLabel = (ex: TemplateExercise, w: number | null) => (w === null ? "" : `${w}${ex.perSide ? "/side" : ex.weightUnit ?? ""}`);
+  return (
+    <section id="week-compare" className="scroll-mt-4 space-y-2">
+      <h2 className="text-xl font-semibold">Week over week</h2>
+      <div className="overflow-hidden rounded-xl border">
+        <table className="w-full table-fixed border-collapse text-left">
+          <thead>
+            <tr className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-2 font-medium sm:px-4">Exercise</th>
+              {cols.map((d, i) => (
+                <th key={d} className={cn("w-14 px-1 py-2 text-right font-medium sm:w-20 sm:px-3", i === cur && "text-foreground")}>{label(d, i)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {exercises.map((ex) => {
+              const row = scores.get(ex.key)!;
+              if (row.every((s) => s === null)) return null;
+              return (
+                <tr key={ex.key} className="border-t first:border-t-0">
+                  <td className="px-3 py-2 text-sm leading-snug sm:px-4">{ex.name}</td>
+                  {row.map((s, i) => {
+                    // Against the nearest earlier week that has a number.
+                    const prev = row.slice(0, i).reverse().find((x): x is Score => x !== null);
+                    const up = s && prev && beats(ex, s, prev);
+                    const newWeight = s && prev && s.weight !== prev.weight && s.weight !== null;
+                    return (
+                      <td key={i} className={cn("px-1 py-2 text-right tabular-nums sm:px-3", i === cur && "bg-muted/30 font-semibold")}>
+                        {s ? (
+                          <>
+                            <span className={cn(up && "text-emerald-700 dark:text-emerald-400")}>{isTime(ex) ? formatTime(s.value) : s.value}</span>
+                            {newWeight && <span className="block text-[11px] font-normal text-muted-foreground">{weightLabel(ex, s.weight)}</span>}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground/40">–</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {totals.some(Boolean) && (
+              <tr className="border-t-2 font-semibold">
+                <td className="px-3 py-2 text-sm sm:px-4">Total reps</td>
+                {totals.map((n, i) => (
+                  <td key={i} className={cn("px-1 py-2 text-right tabular-nums sm:px-3", i === cur && "bg-muted/30", i > 0 && n > totals[i - 1] && totals[i - 1] > 0 && "text-emerald-700 dark:text-emerald-400")}>
+                    {n || <span className="font-normal text-muted-foreground/40">–</span>}
+                  </td>
+                ))}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Green: better than the session before — more reps, a heavier weight, or a faster time. Times are the average per set.</p>
     </section>
   );
 }

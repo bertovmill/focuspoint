@@ -648,6 +648,7 @@ export async function ensureSchema() {
     )
   `;
   await sql`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
+  await sql`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS next_target INTEGER`;
   await sql`
     CREATE TABLE IF NOT EXISTS workout_checks (
       template TEXT NOT NULL,

@@ -33,6 +33,9 @@ export interface TemplateExercise {
   waitBetweenSets?: boolean;
   /** One line under the name: how to do it ("90 s easy jog between"). */
   note?: string;
+  /** Coaching cues behind the ⓘ on the log. Unset = the stock cues for its key
+   *  (DEFAULT_CUES); "" = he cleared them. Edited from the log page. */
+  cues?: string;
   perSide?: boolean;
   /** Charted week over week. Superset partners and abs are logged but not charted. */
   tracked?: boolean;
@@ -69,6 +72,13 @@ export interface WorkoutTemplate {
 
 const LADDER = [10, 15, 20];
 
+/** Superset 4's partner to the barbell row: 30 lb dumbbells, flat bench. Same rep ladder as the main lifts. */
+export const DB_CHEST_FLY: TemplateExercise = { key: "db_chest_fly", name: "Dumbbell chest flies (bench)", sets: 4, ladder: LADDER, weight: 30, perSide: true };
+
+/** The warm-up before 2026-10-11, kept so the bank can tell it hasn't been edited since. */
+export const OLD_UPPER_BODY_WARMUP = "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells";
+export const UPPER_BODY_WARMUP = "Front raise, 10–15 lb dumbbells + Push-ups + Side raise + Push-ups + Bent-over raise";
+
 export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   {
     slug: "unity-standard-upper-body",
@@ -78,7 +88,8 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     session_type: "strength",
     default_day: 4,
     plan: { minutes: 60, intensity: "moderate" },
-    warmup: "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells",
+    // Push-ups between the three raises (Berto, 2026-10-11). Each " + " part is its own tick box.
+    warmup: UPPER_BODY_WARMUP,
     cooldown: "6-minute stretch",
     blocks: [
       {
@@ -110,7 +121,8 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
         label: "Superset 4",
         exercises: [
           { key: "barbell_row", name: "Bent-over barbell row", sets: 4, ladder: LADDER, weight: 45, perSide: true, tracked: true },
-          { key: "tricep_extensions", name: "Bodyweight tricep extensions", sets: 4, ladder: [20], weight: null },
+          // Chest flies replaced the bodyweight tricep extensions (Berto, 2026-10-11).
+          { ...DB_CHEST_FLY },
         ],
       },
       {
@@ -301,6 +313,49 @@ export function checklistParts(text: string | undefined): string[] {
   return (text ?? "").split(/\s+\+\s+/).map((p) => p.trim()).filter(Boolean);
 }
 
+// Stock coaching cues, by exercise key — one or two lines he can rewrite from the
+// ⓘ on the log (Berto, 2026-10-11). Keys survive renames, so these follow the exercise.
+export const DEFAULT_CUES: Record<string, string> = {
+  hammer_row: "Chest on the pad. Pull your elbows back past your ribs and squeeze your shoulder blades for a beat.",
+  push_ups: "One straight line from head to heels, glutes tight. Elbows about 45° from your sides, chest all the way down.",
+  hammer_press: "Shoulder blades pinned back and down. Press smoothly and stop just short of a hard lockout.",
+  sit_ups: "Breathe out on the way up. Lower slowly, don't flop back.",
+  chin_ups: "Start from a dead hang and pull your chest to the bar. Lower under control, no swinging.",
+  toe_touches: "Legs straight up, shoulders off the floor as you reach. Keep your lower back pressed down.",
+  abs_toe_touches: "Legs straight up, shoulders off the floor as you reach. Keep your lower back pressed down.",
+  barbell_row: "Hinge to about 45° with a flat back. Pull the bar to your lower ribs, elbows close.",
+  db_chest_fly: "Soft bend in the elbows, kept the same the whole way. Lower until you feel the stretch across your chest, then hug the dumbbells back together.",
+  tricep_extensions: "Hold a plank on the bar or bench. Bend only at the elbows, then press back to straight arms.",
+  bicycle_crunches: "Slow it down: turn your shoulder to the knee, not just your elbow. Lower back stays down.",
+  knee_tucks: "Lean back a little and pull your knees to your chest. Breathe out on the tuck; feet stay off the floor.",
+  back_squat: "Brace before you go down, knees tracking over toes. Hit parallel and drive up through mid-foot.",
+  deadlift: "Bar over mid-foot, lats tight, back flat. Push the floor away; hips and shoulders rise together.",
+  rfe_split_squat: "Most of your weight on the front foot, chest slightly forward. Drop the back knee straight down and drive through the front heel.",
+  split_squat: "Long stance. Drop the back knee straight down and drive through the front heel.",
+  hamstring_curls: "Hips pressed into the pad. Curl up quickly, then lower for a slow count of three.",
+  walking_lunges: "Tall chest. Step long enough that the front knee stays over the ankle; back knee just kisses the floor.",
+  wall_balls: "Full squat, then drive the ball up with your legs. Catch it high and go straight into the next rep.",
+  sled_push: "Arms locked, body at 45°, hips low. Short, driving steps — never let the sled stop.",
+  ski: "Hinge at the hips and drive down with your lats, not just your arms. Long, strong pulls over fast short ones.",
+  sled_pull: "Sit low and lean back, then pull hand over hand. Walk the rope back so it never tangles under your feet.",
+  bbj: "Jump forward from both feet and land soft. Step the feet back into the burpee to save your legs.",
+  row: "Legs, then body, then arms; reverse it on the way back. Aim for about 26 strokes a minute.",
+  farmers: "Shoulders back, grip hard, quick short steps. Don't put them down. Push to the end.",
+  lunges: "Sandbag high on the shoulders, chest tall. Back knee to the floor every step.",
+  burpees: "Chest to the floor, then up. Find a rhythm you can hold instead of sprinting and resting.",
+  km_rep: "Even pace from the gun: the first 200 m should feel too easy. Relaxed shoulders, quick feet.",
+  split_5k: "Settle into race pace by the first kilometre. Stay tall when it starts to hurt.",
+  yoga: "Long, slow exhales. Ease into each pose; never force a stretch.",
+};
+
+/** What the ⓘ shows: his own cues, or the stock ones until he edits them. */
+export function cuesFor(ex: TemplateExercise): string {
+  if (ex.cues !== undefined) return ex.cues;
+  // The 1 km runs between stations are run_1 … run_8.
+  if (/^run_\d+$/.test(ex.key)) return "Run it at race pace, not faster. Use the last 100 m to settle your breathing before the station.";
+  return DEFAULT_CUES[ex.key] ?? "";
+}
+
 /** The bank's first-run contents. */
 export const SEED_WORKOUTS = WORKOUT_TEMPLATES;
 
@@ -320,6 +375,8 @@ export interface StrengthLog {
   target_reps: number;
   reps: (number | null)[];
   amount?: number | null;
+  /** What he set the next session's target to (12 after a clean 10), overriding the ladder. */
+  next_target?: number | null;
 }
 
 export function hitAll(ex: TemplateExercise, log: Pick<StrengthLog, "reps" | "target_reps">) {
@@ -392,9 +449,12 @@ export function nextPrescription(ex: TemplateExercise, last: StrengthLog | null)
   if (!last) return { weight: ex.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
   // Time targets come from the bank, so changing one there (e.g. to a race time) takes effect next session.
   if (ex.measure === "time") return { weight: last.weight, amount, target: ex.ladder[0] ?? 0, bumpSuggested: false };
+  // He picked next time's target himself (Berto, 2026-10-11: often +2, 10 → 12).
+  if (last.next_target) return { weight: last.weight, target: last.next_target, bumpSuggested: false };
   if (!hitAll(ex, last)) return { weight: last.weight, target: last.target_reps, bumpSuggested: false };
-  const i = ex.ladder.indexOf(last.target_reps);
-  if (i >= 0 && i < ex.ladder.length - 1) return { weight: last.weight, target: ex.ladder[i + 1], bumpSuggested: false };
+  // The next rung up, so a target he set between rungs (12) climbs to the next one (15).
+  const rung = ex.ladder.find((r) => r > last.target_reps);
+  if (rung !== undefined) return { weight: last.weight, target: rung, bumpSuggested: false };
   return { weight: last.weight, target: last.target_reps, bumpSuggested: ex.ladder.length > 1 };
 }
 

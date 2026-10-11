@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Merged the morning's cloud-session work from GitHub into GitLab main
+
+Six commits from a claude.ai/code session (12:20–13:54 UTC today) had landed on **GitHub**
+`main`, which stopped deploying when the repo moved to GitLab (~11:50 ET), so none of it
+was live: its own reorder + a trash button on session cards, the workout log's
+week-over-week comparison, set-next-target by hand, chest flies replacing tricep
+extensions, this-week-vs-the-last-two + coaching cues, and the iPhone keyboard fix.
+Merged `github/main` into `main` (Berto chose: keep the dnd-kit drag). In the training
+panel the drag-to-reorder from the entry below stays; the cloud session's drop-on-card
+reorder (`preferCards`, `dropsBelow`, `reorderDay()`, `POST /api/training/sessions/reorder`)
+was dropped as a duplicate. Its **trash button on every session card** (confirm → DELETE,
+hover-only on desktop, always on phones) is kept. Everything else merged clean.
+Why it happened: the GitLab move pushed the local `main`, which hadn't picked up GitHub's
+newer commits. Cloud sessions still clone from GitHub — until they point at GitLab (or
+GitLab pull-mirrors GitHub), check `github/main` for stranded work before deploying.
+
+---
+
 ## 2026-10-11 — Training: drag workouts up and down within a day
 
 Berto wanted to change a day's order by dragging — speed in front of the lift, say —
@@ -10371,3 +10389,196 @@ journalling"; folding persisted through a markdown round trip; `/toggleh3` and
 `## ` on a plain toggle; 22px/600 summary; tsx check of parseDailyHabits /
 setHabitTime on a toggled doc. Gotcha: the Turbopack dev cache (`.next/dev`)
 served a stale globals.css across restarts until deleted.
+
+---
+
+## 2026-10-11 — Training: reorder sessions within a day, remove one from the card
+
+Berto: wants to re-order workouts within a day (only moving between days worked) and
+delete a workout off a day, since he swaps workouts out.
+
+- **Reorder**: each session card is now also a drop target. Drop a card on another
+  card and it takes that spot. In the same day, dragging down puts it below the card
+  and dragging up puts it above. A line shows where it will land. Dropping on a card
+  in another day moves it there at that spot; dropping on a day's empty space adds it
+  to the end, as before. The card under the pointer wins over the day around it
+  (`preferCards` collision: `pointerWithin`, falling back to `rectIntersection`).
+  Same gestures as before: drag with the mouse, press-and-hold on a phone.
+- Saved with one call, `POST /api/training/sessions/reorder {session_date, ids}`,
+  which sets `session_date` and `position` 0…n for the day it lands on
+  (`reorderDay` in `lib/training.ts`). The `position` column and the
+  `ORDER BY session_date, position, id` already existed; only the UI was missing.
+  The optimistic state is re-sorted the same way (`inDayOrder`).
+- **Remove**: a trash button on every session card (the week grid and Today), with a
+  confirm, then an optimistic DELETE and a "removed" toast. On desktop it shows on
+  hover so the narrow columns stay clean; on a phone it's always there. Logged
+  splits/sets aren't touched: they're keyed by workout + date, not by the session.
+  (The session page's Delete button still works too.)
+
+Files: `app/_components/training-plan-panel.tsx`, `lib/training.ts` (`reorderDay`),
+`app/api/training/sessions/reorder/route.ts` (new).
+
+Verified: `npm run typecheck` clean. No DB in the cloud container, so the real
+`TrainingPlanPanel` was bundled with esbuild + the app's compiled Tailwind, with
+fetch stubbed, and driven in Chromium. At 390px: dragging Sunday's long run up onto
+the first card made it [4,2,3]; dragging it back down made it [2,3,4]; dragging
+Saturday's Hyrox Sim onto a Sunday card inserted it above that card ([2,1,3,4]).
+Each drag sent the matching reorder POST. Removing a card sent
+`DELETE /api/training/sessions/3`. At 1280px, dropping on an empty day still moves
+the session there. No horizontal scroll, no page errors.
+Not yet run against the real Neon DB or on a real phone (touch drag).
+
+Next: maybe let Cael set the order too (`position` on `set_training_session`), and an
+Undo on the "removed" toast instead of the confirm.
+
+## 2026-10-11 — Workouts: week over week; push-ups between the shoulder raises
+
+Berto: wants to see this week against previous weeks (something motivating), and
+push-ups added between the shoulder raises in the upper-body warm-up.
+
+- **Week over week** on every workout log page (`/training/workouts/<slug>/<date>`):
+  a table of each exercise across the last three logged sessions and this one, plus a
+  "Total reps" row. Reps exercises show total reps; timed ones show the average time
+  per set. A cell is green when it beats the session before: more reps at the same
+  weight, any heavier weight, or a faster time. A new weight shows under the number.
+  This session's column reads what's typed, so it updates while he logs.
+  Exercises with no data in any column are hidden.
+- **Headline near the top** (above the warm-up), linking to the table: "Last time:
+  551 reps. Beat it." before he starts, then "N more to match last time", "Level
+  with last time" or "N reps up on last time" (green) as he logs.
+  Only shows when there's an earlier session.
+  Uses the `history` the page already loads; no API change.
+- **Upper-body warm-up** is now five tick boxes: Front raise (10–15 lb dumbbells) +
+  Push-ups + Side raise + Push-ups + Bent-over raise. The seed changed, and a
+  one-time step in `ensureBank` rewrites the live bank row, but only while its
+  warm-up is still the exact old text, so later edits from the editor stay. Today's
+  existing warm-up tick lands on the first box (ticks are stored by position).
+
+Files: `app/_components/workout-log.tsx` (`useWeeks`, `VsLastWeek`, `WeekCompare`),
+`lib/workout-templates.ts` (`UPPER_BODY_WARMUP`, `OLD_UPPER_BODY_WARMUP`),
+`lib/workout-bank.ts` (one-time warm-up update).
+
+Verified: `tsc --noEmit` clean. No DB in the cloud container, so `WorkoutLog` was
+bundled with esbuild + the compiled Tailwind, with fetch stubbed and three fake past
+weeks, and driven in Chromium at 390px. The warm-up shows the five boxes; the table
+shows Sep 20 / Sep 27 / Oct 4 / Today with greens where reps went up; tapping 8 sets
+moved Today to 120 and the headline updated. No horizontal scroll, no page errors.
+The warm-up migration hasn't run against Neon yet; it runs the first time the bank
+loads after deploy.
+
+Next: the same week-over-week idea on /training itself (sessions done and km per
+week for the last ~6 weeks), if he wants it there too.
+
+## 2026-10-11 — Training: this week vs the last two; coaching cues behind an ⓘ
+
+Berto: compare the current week with the last two weeks on /training, and an info
+button on each exercise with one or two coaching cues he can edit.
+
+- **"This week vs the last two"** card on /training, between the week controls
+  and the grid. For each metric (sessions done/planned, km, minutes, Fitbit effort
+  in AZM) there's one bar per week, scaled to the best of the three. This week's bar
+  and number turn green once they're at or past last week's. The heading line says
+  "N more sessions than last week", "Level with last week" or "N more to match last
+  week". Metrics that are 0 in all three weeks are hidden. On a past week the labels
+  become "Week of MM/DD". The two earlier weeks are one extra fetch with a 14-day
+  range: the sessions API only auto-fills from the bank on an exact 7-day range, so
+  past weeks aren't touched. `weekStats()` is now shared by the header count and the card.
+- **Coaching cues**: an ⓘ next to every exercise name on the workout log (rep and
+  timed rows) opens a panel with one or two cues. "Edit" turns it into a textarea;
+  Save writes `cues` into that exercise in the bank, so every later session shows
+  it. Clearing it saves "" and shows "No cues yet." with Add. The stock cues are
+  `DEFAULT_CUES` by exercise key in `lib/workout-templates.ts`, covering every
+  exercise in the seeded bank; the 1 km runs between Hyrox stations (`run_N`) share
+  one. `cuesFor(ex)` returns his cues if set, else the stock ones, so nothing needed
+  migrating, and keys survive renames. Exercises he adds himself start empty.
+  `renameExercise` became `updateExercise(key, patch)`, used for both.
+- Cael's `workout_bank` tool description now mentions `cues`, so Cael can set them.
+
+Files: `app/_components/training-plan-panel.tsx` (`weekStats`, `WeekTrend`),
+`app/_components/workout-log.tsx` (`CuesButton`, `Cues`, `updateExercise`),
+`lib/workout-templates.ts` (`cues`, `DEFAULT_CUES`, `cuesFor`),
+`agent/tools/workout_bank.ts`.
+
+Verified: `tsc --noEmit` clean. Bundled with esbuild + the compiled Tailwind, with
+fetch stubbed, in Chromium at 390px. The trend card with two fake earlier weeks
+(3/3 · 32 km, 4/4 · 41 km) against this week shows bars and "1 more to match last
+week". Hammer row's ⓘ shows the stock cue; editing to two lines sends one bank PUT
+with only that exercise's `cues` set, and the panel shows the new text. No horizontal
+scroll, no page errors. Not yet run against Neon.
+
+## 2026-10-11 — Workouts: set next session's target by hand (10 → 12)
+
+Berto: after hitting every set he often goes up 2 reps (10 → 12), not the ladder's
+next rung (15). He wants to set that today, so next week opens at 12.
+
+- Once every set hits the target, the "Next: × 15" under the total is a button.
+  Tapping it opens a **Next session** panel under the row: −/+ stepper, and chips
+  for Same / +1 / +2 / Ladder (Ladder only when it's above +2). Picking a number
+  saves it with today's log (autosave, like the reps). The label then reads
+  "Next: × 12". "Back to the ladder" clears it. Picking the ladder's own number
+  stores nothing, so the default behaviour is unchanged.
+- Stored as `strength_logs.next_target` (new nullable column, added in
+  `ensureTable` and `ensureSchema`). `nextPrescription` uses it first, for rep
+  exercises only (timed targets still come from the bank).
+- Ladder fix that goes with it: a clean session steps to the **next rung above**
+  the target (`find(r > target)`) instead of `indexOf(target) + 1`. On-ladder targets
+  behave the same as before; a hand-set 12 now climbs to 15 rather than reading
+  as "top rung, add weight".
+
+Files: `lib/workout-templates.ts` (`next_target` on `StrengthLog`,
+`nextPrescription`), `lib/strength.ts`, `lib/db.ts`,
+`app/api/training/workouts/[template]/route.ts`, `app/_components/workout-log.tsx`
+(`Row.next`, `NextTarget`).
+
+Verified: `tsc --noEmit` clean. `nextPrescription` checked with node: clean 10 → 15;
+clean 10 with 12 picked → 12; missed at 12 → 12; clean 12 → 15; clean 20 → 20 plus
+the add-weight hint; missed 10 with 12 picked → 12. In the Chromium harness at 390px:
+four taps on hammer row show "Next: × 15"; opening it and tapping "+2 · 12" saves
+`next_target: 12` in the PUT and relabels to "Next: × 12". "Back to the ladder"
+saves null. No page errors. Not yet run against Neon; the column is added on the
+first workout load.
+
+## 2026-10-11 — Upper body: dumbbell chest flies replace tricep extensions (Superset 4)
+
+Berto: superset the bent-over barbell row with 30 lb dumbbell chest flies on the
+bench instead. He remembered the partner as push-ups; it was bodyweight tricep
+extensions (push-ups are Superset 1's partner and stay).
+
+- New exercise `db_chest_fly` ("Dumbbell chest flies (bench)"): 4 sets, the same
+  10 → 15 → 20 rep ladder as the main lifts, 30 lb, shown as /side (per dumbbell).
+  It isn't charted, like the other superset partners. Stock cue added to `DEFAULT_CUES`.
+- Seed changed. A one-time step in `ensureBank`, alongside the warm-up one, swaps
+  `tricep_extensions` for it in the live upper-body row, but only while tricep
+  extensions are there and the flies aren't, so adding them back from the editor
+  sticks. Both upper-body edits now share one read and at most one write. The old
+  tricep logs stay in `strength_logs` under their own key and no longer show on the page.
+
+Files: `lib/workout-templates.ts` (`DB_CHEST_FLY`, cue), `lib/workout-bank.ts`.
+
+Verified: `tsc --noEmit` clean. In the harness at 390px, Superset 4 shows the barbell
+row and "Dumbbell chest flies (bench)" × 10 at 30 /side, with its ⓘ cue. No page errors.
+The live bank swap runs on the first workout-bank load after deploy (not run against Neon here).
+
+## 2026-10-11 — iPhone app: blank band after typing (keyboard leaves the shell shifted)
+
+Berto sent a screenshot of the workout log: Superset 3's header, then nothing down
+to the tab bar, with the top of the page running up under the clock. He had just
+typed reps (8, 8) with the number pad.
+
+Cause (diagnosed from the screenshot, not reproduced on a device): in the installed
+iPhone app the keyboard scrolls the whole document up to keep the focused field
+visible, and doesn't always scroll it back. The shell is `h-dvh overflow-hidden`
+and never meant to scroll as a whole, so it stays shifted up by the keyboard's
+height. The top goes under the status bar (normally there's `--safe-top` padding),
+and the page background shows between the shell's bottom edge and the fixed tab bar.
+
+Fix in `app/(app)/layout.tsx`: one effect listens for `focusout`, window `scroll`
+and `visualViewport` `resize`. 60 ms later, if no editable field has focus and
+`window.scrollY/X` isn't 0, it calls `scrollTo(0, 0)`. Moving from one set box to
+the next keeps focus on a field, so it doesn't fire mid-typing. The read-only
+"tap to fill" boxes count as not editing. It does nothing while pinch-zoomed
+(`visualViewport.scale > 1`), because zoom is deliberately allowed for sketches.
+This covers every section, not just training.
+
+Verified: `tsc --noEmit` clean. Not testable in headless Chromium (no iOS keyboard);
+needs a check on the phone: type a number on a workout, dismiss the keyboard, scroll.

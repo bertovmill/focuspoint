@@ -16,6 +16,7 @@ import { ListsPanel } from "@/app/_components/lists-panel";
 import { SketchesPanel } from "@/app/_components/sketches-panel";
 import { CalendarPanel } from "@/app/_components/calendar-panel";
 import { ComposeButton, NoNoteSelected, NoteDetail, NotesList, type NotePatch } from "@/app/_components/notes-view";
+import { UrlParamWatcher } from "@/app/_components/url-param-watcher";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -212,6 +213,10 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const fileInputRef = useRef<HTMLInputElement>(null);
   // The note open in the reading/editing pane (notes-view.tsx), if any.
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
+  // A note opened by id from the URL (`/notes?note=<id>`, the command palette's way
+  // in) that isn't among the latest 30 in `thoughts`: fetched on its own and kept
+  // here, so the list refetch can't drop it from under the open pane.
+  const [urlNote, setUrlNote] = useState<Thought | null>(null);
   // The compose button opens a blank note (notes-view.tsx, id 0). Non-zero while
   // one is open; a fresh value per press so each blank note is its own pane.
   // Hand-written notes land in the same table as the ones Cael captures.
@@ -445,6 +450,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     const prevThoughts = thoughts;
     setThoughts(apply);
     setSemanticResults((prev) => (prev ? apply(prev) : prev));
+    setUrlNote((cur) => (cur && cur.id === id ? { ...cur, ...patch } : cur));
     try {
       const res = await fetch(`/api/thoughts/${id}`, {
         method: "PATCH",
@@ -490,6 +496,18 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const openExistingNote = (id: number | null) => {
     setComposeKey(0);
     setOpenNoteId(id);
+  };
+
+  // `?note=<id>` on /notes, pushed by the command palette (app-command-palette.tsx).
+  // Fires on mount and whenever the param changes, even with this panel already open.
+  const openNoteFromUrl = (value: string | null) => {
+    const id = value ? Number(value) : NaN;
+    if (!Number.isInteger(id) || id <= 0) return;
+    openExistingNote(id);
+    if (thoughts.some((t) => t.id === id)) return;
+    void fetch(`/api/thoughts/${id}`).then(async (res) => {
+      if (res.ok) setUrlNote((await res.json()) as Thought);
+    });
   };
 
   const handleDeleteThought = async (id: number) => {
@@ -765,7 +783,9 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
       : thoughts;
   const openNote = openNoteId === null
     ? undefined
-    : thoughts.find((t) => t.id === openNoteId) ?? semanticResults?.find((t) => t.id === openNoteId);
+    : thoughts.find((t) => t.id === openNoteId) ??
+      semanticResults?.find((t) => t.id === openNoteId) ??
+      (urlNote?.id === openNoteId ? urlNote : undefined);
   // What the note pane shows. A blank note keeps its own key after its first save
   // (when openNoteId becomes its row), so the pane isn't remounted mid-sentence.
   const detail: { key: string; note: Thought } | null = composeKey
@@ -777,6 +797,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {activeTab === "notes" && <UrlParamWatcher name="note" onChange={openNoteFromUrl} />}
       {/* No header bar here — the identity line and its icon buttons moved to the
           desktop nav rail (app/(app)/layout.tsx) so the panel is all content. */}
       <div className="flex flex-1 min-h-0 flex-col">

@@ -5,6 +5,7 @@ import { PUBLIC_HOST, SITE_PREFIX, BOOKING_URL, CHANNELS, isPublicHost } from "@
 import { SiteBasePathProvider, SiteLink } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
 import { NewsletterPopup } from "./_components/newsletter-popup";
+import { SiteCommandPalette } from "./_components/site-command-palette";
 import { SubscribeForm } from "./_components/subscribe-form";
 import { PageGrain } from "./_components/grain";
 import { AskAiProvider } from "./_components/ask-ai";
@@ -73,6 +74,8 @@ export default async function SiteLayout({ children }: { readonly children: Reac
         <SiteNav />
         <main className="flex-1">{children}</main>
         <NewsletterPopup />
+        {/* `/` or ⌘K anywhere on the site opens search; nothing on screen advertises it. */}
+        <SiteCommandPalette />
         <footer className="border-t border-border/60">
           {/* The always-available way to subscribe. The popup asks once and is gone
               for good; this is here on every page, for everyone who dismissed it. */}

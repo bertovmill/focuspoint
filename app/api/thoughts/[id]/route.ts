@@ -2,6 +2,22 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { embedText, toVectorLiteral } from "@/lib/embeddings";
 
+// GET → one note. The Notes pane loads the latest 30; the command palette can
+// open any note by id, so the dashboard fetches a missing one here.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) return NextResponse.json({ error: "Bad id" }, { status: 400 });
+  try {
+    const sql = getDb();
+    const [row] = await sql`SELECT id, content, tags, image_url, created_at FROM thoughts WHERE id = ${n}`;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(row);
+  } catch {
+    return NextResponse.json({ error: "Failed to load" }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;

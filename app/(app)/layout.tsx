@@ -23,6 +23,7 @@ import { KonstaApp } from "@/app/_components/konsta-app";
 import { Tabbar, TabbarLink } from "konsta/react";
 import { PIN_EVENT } from "@/app/_components/pin-button";
 import { PinView } from "@/app/_components/pin-view";
+import { AppCommandPalette } from "@/app/_components/app-command-palette";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 // The streak + points live above both the dashboard and the pinned window, so a
 // task finished in either one scores in the same place (see lib/streak.ts).
@@ -317,6 +318,14 @@ function Workspace({ children }: { readonly children: ReactNode }) {
 
   return (
     <KonstaApp>
+    {/* `/` or ⌘K: jump anywhere. Lives beside the T/N/C shortcuts above; see app-command-palette.tsx. */}
+    <AppCommandPalette
+      onNewChat={openNewChat}
+      onNewTask={() => {
+        setMobileTab("tasks");
+        setFocusNewTaskSignal((n) => n + 1);
+      }}
+    />
     <main
       className={cn(
         "flex h-dvh overflow-hidden bg-background text-foreground",

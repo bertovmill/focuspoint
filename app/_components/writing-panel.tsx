@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { NotionEditor } from "@/app/_components/notion-editor";
+import { UrlParamWatcher } from "@/app/_components/url-param-watcher";
 import { PostChat } from "@/app/_components/post-chat";
 import { cn } from "@/lib/utils";
 import {
@@ -187,19 +188,44 @@ export function WritingPanel() {
     setTab(next);
   };
 
+  // The command palette pushes `/writing?post=<slug>` (or `?tab=tweets`) through the
+  // router, which fires no popstate; these keep the panel following the URL when
+  // it's already mounted. The panel's own pushState calls land here too, as no-ops.
+  const followUrl = (
+    <>
+      <UrlParamWatcher
+        name="post"
+        onChange={(slug) => {
+          setOpenSlug(slug);
+          if (slug) setTab("posts");
+        }}
+      />
+      <UrlParamWatcher name="tab" onChange={(t) => setTab(t === "tweets" ? "tweets" : "posts")} />
+    </>
+  );
+
   return openSlug ? (
-    <PostEditor
-      key={openSlug}
-      slug={openSlug}
-      onBack={() => open(null)}
-      onSlugChange={(s) => {
-        setUrlSlug(s, "replace");
-      }}
-    />
+    <>
+      {followUrl}
+      <PostEditor
+        key={openSlug}
+        slug={openSlug}
+        onBack={() => open(null)}
+        onSlugChange={(s) => {
+          setUrlSlug(s, "replace");
+        }}
+      />
+    </>
   ) : tab === "tweets" ? (
-    <TweetList tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
+    <>
+      {followUrl}
+      <TweetList tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
+    </>
   ) : (
-    <PostList onOpen={open} tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
+    <>
+      {followUrl}
+      <PostList onOpen={open} tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
+    </>
   );
 }
 

@@ -280,6 +280,51 @@ Files: `app/site/building/page.tsx`, `app/api/site/chat/route.ts`.
 
 ---
 
+## 2026-10-11 — `/` to jump anywhere: a command palette on the app and on bertomill.com
+
+Berto wanted a GitHub/Slack-style `/`: press it anywhere and search, with nothing on
+screen advertising it. Quiz: the app palette should reach "basically any part of the
+site"; the public one covers pages plus posts, episodes and work; opens on `/` and
+⌘K/Ctrl+K, no visible button (so desktop-only — a phone has no `/` outside a field).
+
+- **Shared pieces** (`app/_components/`): `use-palette-hotkey.ts` (`/` when not typing in
+  an input/textarea/contenteditable, ⌘K toggles from anywhere, Shift+/ allowed for
+  layouts where that's how `/` is typed); `command-palette.tsx`, a presentational
+  palette on the existing shadcn/cmdk `Command` primitives — grouped items, top-anchored
+  dialog, idle vs. typing groups, and **its own scorer**: cmdk's fuzzy default matched
+  letters in any order, so with 500 notes a long paragraph outranked the section typed
+  exactly. Now every query word must appear; label-start > label-word > label > keywords.
+- **App** (`app-command-palette.tsx`, mounted in `app/(app)/layout.tsx` beside the T/N/C
+  shortcuts): idle shows all 24 sections (incl. the ones the rail no longer lists —
+  Tasks, Vision, Measures, Calendar, Lists, Journal, Schedule, Media, Family, Manual,
+  Newsletter, Nutrition plan, Workouts, Tweets, Agent traces), four actions (new chat,
+  new task, light/dark, open bertomill.com) and the five latest chats. Typing also
+  searches notes (first line as title, first 80 chars of the body as keywords), open
+  tasks, posts, sketches, workouts and every chat title. Index is five existing routes
+  fetched on open; `/api/sketches?meta=1` is new and skips the PNGs.
+- **Deep links that didn't exist yet**, all through one `UrlParamWatcher` (a
+  `useSearchParams` reader inside its own tiny `Suspense`, so the shell doesn't need
+  one): `/notes?note=<id>` (dashboard; a note outside the latest 30 is fetched via the
+  new `GET /api/thoughts/<id>` and held in `urlNote` so the list refetch can't drop it),
+  `/sketches?sketch=<id>` (waits for the Excalidraw API), and `/writing?post=<slug>` /
+  `?tab=tweets` now followed when the panel is *already* mounted (router pushes fire no
+  popstate). Workouts use `/training/workouts/<slug>`; chats use `switchTo` + `/chat`.
+- **Site** (`app/site/_components/site-command-palette.tsx`, mounted in `app/site/layout.tsx`):
+  the ten pages, every published post (own + Substack, external ones open in a new
+  tab), episodes, work (org as a keyword, so "aucctus" finds the case study), Book a
+  meeting / email / GitHub / channels, theme. Index from new `GET /api/site/search`
+  (posts + content, `s-maxage=300`), reachable on bertomill.com via the existing
+  `/api/site` passthrough.
+- Verified with Playwright on a worktree dev server (cookie auth): section jump, ⌘K
+  toggle, note/post/sketch/workout/chat deep links (post from an already-open Writing
+  panel), `/` ignored while typing in the composer; and in the browser pane on
+  `site.localhost` light + dark (the newsletter popup's focused email field correctly
+  swallows `/` until dismissed). No console errors. `npm run build` passes.
+- Built in `.claude/worktrees/slash-search` off `main` because the main checkout is
+  parked on `site-presence-tweaks` with another session's uncommitted edits.
+
+---
+
 ## 2026-10-04 — Chat text at 16px
 
 Berto worries about font size: "not too big but definitely reasonable". Chat messages and

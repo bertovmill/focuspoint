@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
 import "@excalidraw/excalidraw/index.css";
+import { UrlParamWatcher } from "@/app/_components/url-param-watcher";
 
 // Excalidraw touches window/document at module scope, so it can't be server-rendered.
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -223,6 +224,17 @@ export function SketchesPanel() {
     [api, cancelPendingSave],
   );
 
+  // `/sketches?sketch=<id>`, pushed by the command palette (app-command-palette.tsx).
+  // Opening needs the Excalidraw API, which arrives after mount, so the id waits
+  // for it; the ref keeps a later list refresh from reopening the same sketch.
+  const [wantedId, setWantedId] = useState<number | null>(null);
+  const openedFromUrlRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (wantedId === null || !api || openedFromUrlRef.current === wantedId) return;
+    openedFromUrlRef.current = wantedId;
+    void handleEdit(sketches.find((sk) => sk.id === wantedId) ?? ({ id: wantedId } as Sketch));
+  }, [wantedId, api, sketches, handleEdit]);
+
   const handleDelete = useCallback(
     async (id: number) => {
       const res = await fetch(`/api/sketches/${id}`, { method: "DELETE" });
@@ -246,6 +258,7 @@ export function SketchesPanel() {
 
   return (
     <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto">
+      <UrlParamWatcher name="sketch" onChange={(v) => setWantedId(v && /^\d+$/.test(v) ? Number(v) : null)} />
       {/* Title + autosave status */}
       <div className="flex items-center gap-2">
         <Input

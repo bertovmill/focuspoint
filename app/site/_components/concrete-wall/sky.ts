@@ -4,18 +4,25 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { SiteWeather } from "@/app/api/site/weather/route";
 
 /**
- * The visitor's sky, as the wall uses it: where the sun is right now in their
- * time zone, and what the weather is doing where they are.
+ * The sky over the desk, as the wall uses it: where the sun is right now in
+ * Toronto, and what the weather is doing there.
  *
- * Weather is fetched once per page load and shared by everything that asks
- * (the wall and its clock label). Time is read from the visitor's own clock,
- * so the light follows their day, not the server's.
+ * The desk is in Toronto, so the wall keeps Toronto's clock and weather for
+ * every visitor: the window looks out on the city, and the light through it
+ * is the light that is really falling on the desk right now. Weather is
+ * fetched once per page load and shared by everything that asks (the wall and
+ * its clock label); the time of day is worked out from the visitor's clock in
+ * Toronto's zone.
  *
  * For checking the look without waiting for a storm, two query params
  * override the real values: `?weather=rain|drizzle|storm|snow|fog|cloudy|clear`
- * and `?hour=21.5` (local hour, decimals allowed). Visitors can also drag the
- * weather dial under the clock (see `setWeatherDial`).
+ * and `?hour=21.5` (Toronto hour, decimals allowed). Visitors can also drag
+ * the weather dial under the clock (see `setWeatherDial`).
  */
+
+/** Where the desk is. */
+export const WALL_ZONE = "America/Toronto";
+export const WALL_CITY = "Toronto";
 
 /** What the shader gets, all 0 to 1. */
 export type Sky = {
@@ -31,6 +38,15 @@ export type Sky = {
   /** Drops on the window. */
   rain: number;
 };
+
+/**
+ * What the wall renders before it knows the time: a clear noon. The server
+ * and the client's first paint must agree exactly (any inline style that
+ * differs is a hydration mismatch React refuses to patch), and only the
+ * client can read Toronto's clock and the `?hour=` override, so the real sky
+ * arrives in an effect and the wall transitions to it.
+ */
+export const NEUTRAL_SKY: Sky = { sunHeight: 1, sunProgress: 0.5, warmth: 0, night: 0, cloudCover: 0, rain: 0 };
 
 const OVERRIDES = new Set<SiteWeather["condition"]>(["clear", "cloudy", "fog", "drizzle", "rain", "snow", "storm"]);
 
@@ -57,7 +73,7 @@ export function useLiveWeather(): SiteWeather | null {
       if (cancelled) return;
       const forced = params().get("weather") as SiteWeather["condition"] | null;
       const base: SiteWeather = real ?? {
-        city: null,
+        city: WALL_CITY,
         condition: "clear",
         precipitation: 0,
         cloudCover: 0,
@@ -110,13 +126,13 @@ export function useWeatherDial(): number | null {
   return useSyncExternalStore(subscribeToDial, () => dial, () => null);
 }
 
-/** Where the dial sits for some weather, so it starts at the visitor's own. */
+/** Where the dial sits for some weather, so it starts at the real one. */
 export function dialFor(weather: SiteWeather): number {
   if (weather.precipitation > 0) return 2 / 3 + Math.min(1, weather.precipitation) / 3;
   return (Math.min(1, Math.max(0, weather.cloudCover)) * 2) / 3;
 }
 
-/** The weather a dial position stands for, keeping the visitor's city and sun. */
+/** The weather a dial position stands for, keeping the city and its sun. */
 function weatherAtDial(value: number, base: SiteWeather): SiteWeather {
   const cloudCover = Math.min(1, value * 1.5);
   const precipitation = Math.max(0, value * 3 - 2);
@@ -132,14 +148,37 @@ export function useSiteWeather(): SiteWeather | null {
   return useMemo(() => (live && held !== null ? weatherAtDial(held, live) : live), [live, held]);
 }
 
-/** Now, or the `?hour=` override on today's date. */
+/** Now. The `?hour=` override is applied where the time of day is read. */
 export function wallNow(): Date {
-  const hour = Number(params().get("hour"));
-  const now = new Date();
-  if (!params().has("hour") || !Number.isFinite(hour)) return now;
-  const d = new Date(now);
-  d.setHours(Math.floor(hour), Math.round((hour % 1) * 60), 0, 0);
-  return d;
+  return new Date();
+}
+
+/** The `?hour=` override as seconds into the day, or null when it isn't set. */
+function overrideSeconds(): number | null {
+  const search = params();
+  if (!search.has("hour")) return null;
+  const hour = Number(search.get("hour"));
+  return Number.isFinite(hour) ? ((hour % 24) + 24) % 24 * 3600 : null;
+}
+
+const zoneTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: WALL_ZONE,
+  hourCycle: "h23",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+/** Seconds since midnight in Toronto for an instant. */
+function secondsIntoDay(date: Date): number {
+  const parts = zoneTime.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return (get("hour") % 24) * 3600 + get("minute") * 60 + get("second");
+}
+
+/** Toronto's time of day for an instant, in seconds, with the override applied. */
+function wallSeconds(now: Date): number {
+  return overrideSeconds() ?? secondsIntoDay(now);
 }
 
 const smoothstep = (a: number, b: number, x: number) => {
@@ -154,25 +193,23 @@ const smoothstep = (a: number, b: number, x: number) => {
 export function skyAt(now: Date, weather: SiteWeather | null): Sky {
   let sunrise: number;
   let sunset: number;
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
-  const dayStart = midnight.getTime() / 1000;
-  // Today's times only line up with "now" when the ?hour override isn't moving
-  // us around; either way we only use their time of day.
   if (weather?.sunrise && weather?.sunset) {
-    sunrise = dayStart + secondsIntoDay(weather.sunrise);
-    sunset = dayStart + secondsIntoDay(weather.sunset);
+    sunrise = secondsIntoDay(new Date(weather.sunrise * 1000));
+    sunset = secondsIntoDay(new Date(weather.sunset * 1000));
     if (sunset <= sunrise) sunset += 86400;
   } else {
-    sunrise = dayStart + 6.5 * 3600;
-    sunset = dayStart + 19 * 3600;
+    sunrise = 6.5 * 3600;
+    sunset = 19 * 3600;
   }
 
-  const t = now.getTime() / 1000;
+  const t = wallSeconds(now);
   const progress = (t - sunrise) / (sunset - sunrise);
   const sunHeight = progress > 0 && progress < 1 ? Math.sin(Math.PI * progress) : 0;
   // Civil twilight, roughly: light lingers ~40 minutes either side.
-  const twilight = Math.max(smoothstep(sunrise - 2400, sunrise, t) * (t < sunrise ? 1 : 0), smoothstep(sunset + 2400, sunset, t) * (t > sunset ? 1 : 0));
+  const twilight = Math.max(
+    smoothstep(sunrise - 2400, sunrise, t) * (t < sunrise ? 1 : 0),
+    smoothstep(sunset + 2400, sunset, t) * (t > sunset ? 1 : 0),
+  );
   const night = sunHeight > 0 ? 0 : 1 - twilight * 0.7;
 
   const cloudCover = weather?.cloudCover ?? 0;
@@ -186,13 +223,6 @@ export function skyAt(now: Date, weather: SiteWeather | null): Sky {
   };
 }
 
-// Sunrise/sunset come as unix seconds at the visitor's location; the wall only
-// needs the local time of day, which the browser's own offset gives us.
-function secondsIntoDay(unix: number) {
-  const d = new Date(unix * 1000);
-  return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-}
-
 const CONDITION_LABEL: Record<SiteWeather["condition"], string> = {
   clear: "Clear",
   cloudy: "Cloudy",
@@ -203,13 +233,19 @@ const CONDITION_LABEL: Record<SiteWeather["condition"], string> = {
   storm: "Thunderstorm",
 };
 
-/** e.g. "Toronto · 4:12 PM · Rain". The city falls back to the time zone's. */
+/** Toronto's clock, e.g. "4:12 PM", honouring the `?hour=` override. */
+function wallTimeLabel(now: Date): string {
+  const forced = overrideSeconds();
+  if (forced !== null) {
+    const d = new Date(2000, 0, 1, Math.floor(forced / 3600), Math.round((forced % 3600) / 60));
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  return now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: WALL_ZONE });
+}
+
+/** e.g. "Toronto · 4:12 PM · Rain". */
 export function skyLabel(now: Date, weather: SiteWeather | null): string {
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
-  const zoneCity = zone.split("/").pop()?.replace(/_/g, " ") ?? "";
-  const city = weather?.city || zoneCity;
-  const time = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const parts = [city, time];
+  const parts = [weather?.city || WALL_CITY, wallTimeLabel(now)];
   if (weather) parts.push(conditionLabel(now, weather));
   return parts.filter(Boolean).join(" · ");
 }

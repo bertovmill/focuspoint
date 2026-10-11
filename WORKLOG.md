@@ -4,6 +4,59 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Homepage: the drawings come off the wall; a desk, a money tree and a window on Toronto
+
+Berto: *"remove all the drawing on the wall … I still like the stucco-looking wall with
+the WebGPU … add a nice, gorgeous desk with a gorgeous plant, a money tree, sitting on
+that desk, so it's almost like you're walking up to my desk … add a window in the wall
+that opens up to Toronto."* His calls when asked: photoreal generated cutout for the
+desk (not three.js), the window cut into the wall shader (not a framed photo), the desk
+pulled back so a little of its legs show, and **Toronto's sky for everyone**.
+
+- **Chalk plan and etched sketches are gone** (`chalk-blueprint.tsx`, `etched-sketches.tsx`
+  deleted; the `sketches` prop with them). Inner pages pass nothing; the homepage passes
+  `scene`.
+- **Window in the shader** (`wall.wgsl`): a square-cornered opening with a plaster reveal
+  (sill lit, head in shadow, jambs between, occluded inner corner), a painted frame
+  (charcoal in dark mode) with one mullion, and glass showing a cover-fit crop of a
+  `texture_2d_array` of four photographs of the same Toronto frame — day, golden hour,
+  night, overcast — cross-faded by warmth, night and cloud. Rain moved off the wall onto
+  the glass: drops bead, run and refract the view. The room reflects faintly in the glass
+  (the warm lamp at night); daylight spills onto the plaster beside the window and the
+  sill throws a shadow down the wall. `window.z <= 0` is a plain wall. The texture needs
+  `render_attachment` usage or `copyExternalImageToTexture` silently fails (black glass).
+- **Desk + money tree**: one gpt-image-1 cutout on alpha (`desk-money-tree.webp`,
+  1194×909 after trim), laid over the wall with a drop shadow, dimmed and desaturated by
+  the same sky. Its width is the `--desk-w` custom property the page sets
+  (`110vw` / `85vw` / `min(60vw, 80vh)` on lg); it sits low enough that only the top of
+  the legs shows before the page fade. The hero's bottom padding is derived from it so
+  the headline rests just above the desk on wide screens and above the whole tree on
+  phones (where the desk goes under the text, not beside it). Headshot shrank a step and
+  the lg headline is `clamp(3.5rem, 4.4vw, 6rem)` in a 68%-wide column so it never runs
+  into the tree.
+- **Placement** (`scene.ts` `windowRect`): edges interpolated by aspect ratio so the top
+  always clears the nav; wide screens get a tall window upper right above the tree,
+  phones a small one beside the headshot. Shared with the CSS fallback, which draws the
+  same window as a framed picture (day image, overcast and night layers fading over it).
+- **Toronto's sky for everyone**: `/api/site/weather` no longer reads the visitor's IP geo;
+  it always answers for Toronto (public cache, 10 min). `sky.ts` works in Toronto's time
+  zone via `Intl` (`WALL_ZONE`), including sunrise/sunset and the `?hour=` override; the
+  label is always "TORONTO · time · condition". The wall's first render is a fixed
+  `NEUTRAL_SKY` (clear noon) — rendering the real sky on the server caused a hydration
+  mismatch React refuses to patch, which left the desk at full brightness at night.
+- **Art pipeline**: `scripts/generate-desk-art.mjs` (desk prompt, city prompt, three
+  edits of the day photo via `generateImage({ prompt: { images, text } })` — edits work
+  through the gateway, so the buildings stay put between skies; crops the sliver of
+  frame the model paints and resizes to 1200×800). A fresh `VERCEL_OIDC_TOKEN` came from
+  `vercel env pull` (works again now that `.vercel` is linked to bertoaucctus/cael-agent).
+
+Verified on a worktree server (:3010, `site.localhost`) in the desktop app's WebGPU
+browser at 1440×900 and 390×844: day/overcast (live), rain, night, golden hour, dark
+mode, and the CSS fallback via Playwright with `--disable-webgpu`. Not done: the view
+through the glass has no mipmaps (slight shimmer when the window is small); no parallax.
+
+---
+
 ## 2026-10-11 — Unity Upper Body warm-up: 3 rounds of raises, push-ups between rounds
 
 The warm-up read as alternating raises and push-ups (front / push-ups / side / push-ups /

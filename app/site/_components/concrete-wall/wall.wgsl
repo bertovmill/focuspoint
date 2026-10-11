@@ -1,6 +1,8 @@
-// A lit plaster wall. One fullscreen pass: a procedural height field for the
-// plaster, its normal, and a soft area light that drifts across it. Nothing is
-// sampled from a texture; the whole surface is noise, so it never tiles.
+// A lit plaster wall with a window in it. One fullscreen pass: a procedural
+// height field for the plaster, its normal, a soft area light that drifts
+// across it, and on the homepage a window cut into the wall, looking out on
+// Toronto. Nothing on the wall is sampled from a texture; the view through
+// the glass is the only image.
 
 struct WallParams {
   // xy: output size in pixels. z: seconds. w: 1 in dark mode, 0 in light.
@@ -8,15 +10,26 @@ struct WallParams {
   // xy: the light's current position in uv space. z: a cosine-drift phase used
   // by the window patches. w: unused.
   light: vec4f,
-  // The visitor's sun, from their local time: x sun height (0 horizon, 1 noon),
-  // y progress through the day (0 sunrise, 1 sunset), z golden-hour warmth,
-  // w night (1 once it's dark out).
+  // The sun over the desk, from Toronto's clock: x sun height (0 horizon,
+  // 1 noon), y progress through the day (0 sunrise, 1 sunset), z golden-hour
+  // warmth, w night (1 once it's dark out).
   sky: vec4f,
-  // The visitor's weather: x cloud cover, y rain on the window (0 to 1).
+  // The weather: x cloud cover, y rain on the glass (0 to 1), z 1 once the
+  // city textures have loaded, w unused.
   weather: vec4f,
+  // The window's glass in uv: xy centre, zw half size. z <= 0 means no window.
+  window: vec4f,
 }
 
 @group(0) @binding(0) var<uniform> params: WallParams;
+// The view out of the window in four skies: 0 day, 1 golden hour, 2 night,
+// 3 overcast. All the same photograph, so they cross-fade without the
+// buildings moving.
+@group(0) @binding(1) var city: texture_2d_array<f32>;
+@group(0) @binding(2) var city_sampler: sampler;
+
+// The city textures' aspect ratio; the glass shows a cover-fit crop of them.
+const CITY_ASPECT: f32 = 1.5;
 
 fn hash(p: vec2f) -> f32 {
   let h = dot(p, vec2f(127.1, 311.7));
@@ -56,11 +69,11 @@ fn window_patch(uv: vec2f, center: vec2f, size: vec2f, angle: f32, softness: f32
   return edge.x * edge.y;
 }
 
-// One layer of drops sliding down the glass. Returns the drops' coverage and
-// their bright lensed cores; the window light passing through them is what
-// lands on the wall, so drops read as small shadows with a sparkle inside.
-// `q` is in wall units (aspect-corrected), `cells` sets the drop spacing.
-fn sliding_drops(q: vec2f, t: f32, cells: vec2f, seed: f32) -> vec2f {
+// One layer of drops sliding down the glass. Returns the drops' coverage, their
+// bright lensed cores, and where inside the drop this point sits (for the
+// refraction of the view behind it). `q` is in glass units (aspect-corrected),
+// `cells` sets the drop spacing.
+fn sliding_drops(q: vec2f, t: f32, cells: vec2f, seed: f32) -> vec4f {
   let column = floor(q.x * cells.x);
   let column_rand = hash(vec2f(column, seed));
   // Each column falls at its own pace, in stop-start lurches like real drops.
@@ -71,11 +84,11 @@ fn sliding_drops(q: vec2f, t: f32, cells: vec2f, seed: f32) -> vec2f {
   let f = fract(s) - vec2f(0.5);
   let r = hash(id + seed);
   if (r < 0.45) {
-    return vec2f(0.0);
+    return vec4f(0.0);
   }
   let wobble = sin(s.y * 5.0 + r * 30.0) * 0.08;
   let x = (hash(id + 3.1) - 0.5) * 0.5 + wobble;
-  // Drops are round on the wall even though cells are tall.
+  // Drops are round on the glass even though cells are tall.
   let d = (f - vec2f(x, 0.25)) * vec2f(1.0, cells.x / cells.y);
   let radius = 0.10 + r * 0.08;
   let dist = length(d);
@@ -86,11 +99,11 @@ fn sliding_drops(q: vec2f, t: f32, cells: vec2f, seed: f32) -> vec2f {
   let behind = smoothstep(0.25, -0.5, f.y) * step(f.y, 0.2);
   let beads = smoothstep(0.35, 0.8, fract(f.y * 5.0 + r * 3.0));
   let trail = trail_x * behind * beads * 0.5;
-  return vec2f(max(body, trail), core);
+  return vec4f(max(body, trail), core, d / radius);
 }
 
 // Small stationary droplets that bead up on the glass, fade, and come back.
-fn static_drops(q: vec2f, t: f32, density: f32) -> vec2f {
+fn static_drops(q: vec2f, t: f32, density: f32) -> vec4f {
   let s = q * 34.0;
   let id = floor(s);
   let f = fract(s) - vec2f(0.5);
@@ -99,10 +112,11 @@ fn static_drops(q: vec2f, t: f32, density: f32) -> vec2f {
   let visible = step(1.0 - density, hash(id + 5.0)) * smoothstep(0.0, 0.1, life) * smoothstep(1.0, 0.7, life);
   let c = vec2f(hash(id + 1.7), hash(id + 2.9)) - vec2f(0.5);
   let radius = 0.10 + r * 0.12;
-  let dist = length(f - c * 0.6);
+  let d = f - c * 0.6;
+  let dist = length(d);
   let body = smoothstep(radius, radius * 0.5, dist) * visible;
   let core = smoothstep(radius * 0.4, 0.0, dist) * visible;
-  return vec2f(body, core);
+  return vec4f(body, core, d / radius);
 }
 
 @fragment
@@ -111,8 +125,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let time = params.resolution_time_dark.z;
   let dark = params.resolution_time_dark.w;
   let aspect = resolution.x / resolution.y;
+  // Wall units: y is 0 to 1 top to bottom, x is scaled by the aspect so
+  // distances are the same in both directions.
+  let q = vec2f(uv.x * aspect, uv.y);
+  let px = 1.5 / resolution.y;
   // Square-ish coordinates so the plaster grain isn't stretched on wide screens.
-  let p = vec2f(uv.x * aspect, uv.y) * 1.6;
+  let p = q * 1.6;
 
   // Normal from the height field by central differences.
   let e = 1.5 / resolution.y;
@@ -130,11 +148,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let falloff = 1.0 / (1.0 + dist * dist * 1.1);
   let key = diffuse * falloff;
 
-  // Window light: two soft panes drifting a little with the phase, and one
-  // diagonal band that leans the way the key light travels.
-  //
-  // The sun moves the panes: they slide across the wall through the day, and
-  // stretch and lean further when the sun is low.
+  // The sun and the weather.
   let phase = params.light.z;
   let sun_height = params.sky.x;
   let sun_progress = params.sky.y;
@@ -142,6 +156,13 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let night = params.sky.w;
   let cloud = params.weather.x;
   let rain = params.weather.y;
+  let city_ready = params.weather.z;
+
+  // Window light on the wall from the room's other window, off to the left:
+  // two soft panes drifting a little with the phase, and one diagonal band
+  // that leans the way the key light travels. The sun moves the panes: they
+  // slide across the wall through the day, and stretch and lean further when
+  // the sun is low.
   let slide = (0.5 - sun_progress) * 0.14;
   let low = 1.0 - sun_height;
   let stretch = 1.0 + low * 0.35;
@@ -151,21 +172,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let band_axis = normalize(vec2f(0.55 + low * 0.3, -1.0));
   let band_d = dot(vec2f((uv.x - 0.86 + slide - phase * 0.02) * aspect, uv.y - 0.5), band_axis);
   let band = exp(-band_d * band_d * 260.0);
-
-  // Rain on the glass. The drops' shadows only exist where window light falls,
-  // so this modulates the panes rather than the whole wall.
-  let q = vec2f(uv.x * aspect, uv.y);
-  var drops = vec2f(0.0);
-  if (rain > 0.001) {
-    let big = sliding_drops(q, time, vec2f(9.0, 2.2), 1.0);
-    let small = sliding_drops(q * 1.7 + vec2f(3.3, 0.0), time * 1.2, vec2f(9.0, 2.6), 7.0);
-    let beads = static_drops(q, time, 0.15 + rain * 0.5);
-    let big_weight = smoothstep(0.2, 0.7, rain);
-    drops = max(max(big * big_weight, small * smoothstep(0.0, 0.4, rain)), beads);
-  }
-  // Soft shadow of the drop, a lensed bright point inside it.
-  let rain_mod = 1.0 - drops.x * 0.9 + drops.y * 1.4;
-  let windows = (pane_a * 0.55 + pane_b * 0.35 + band * 0.45) * rain_mod;
+  let windows = pane_a * 0.55 + pane_b * 0.35 + band * 0.45;
   // Windows still shade with the surface, faintly, so the grain shows in them.
   let window_shade = 0.85 + 0.15 * max(dot(n, vec3f(0.0, 0.0, 1.0)), 0.0);
 
@@ -191,17 +198,123 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let key_strength = mix(0.22, 0.30, dark) + night * 0.06;
 
   // Window light: white at noon, gold near sunrise and sunset, and at night a
-  // weak sodium street light, so rain on the glass still shows after dark.
+  // weak sodium street light.
   let sun_color = mix(vec3f(1.0, 0.99, 0.96), vec3f(1.0, 0.80, 0.55), warmth);
   let street_color = vec3f(1.0, 0.78, 0.52);
   let window_color = mix(sun_color, street_color, night);
-  // Overcast light is weaker but still comes through the window as a soft
-  // pane, enough to carry the rain's shadows.
+  // Overcast light is weaker but still comes through as a soft pane.
   let daylight = mix(1.0, 0.22, night) * mix(1.0, 0.45, overcast);
   let window_strength = mix(0.32, 0.12, dark) * daylight;
 
-  let lit = base * ambient_tint * (ambient + key * key_strength * key_color)
-    + window_color * windows * window_shade * window_strength;
+  // ---- The window in the wall -------------------------------------------
+
+  let has_window = step(0.0001, params.window.z);
+  let wc = vec2f(params.window.x * aspect, params.window.y);
+  let wh = vec2f(params.window.z * aspect, params.window.w);
+  // Painted frame around the glass, then the plaster reveal where the wall
+  // returns into its own thickness.
+  let frame_w = 0.014;
+  let reveal_w = 0.032;
+  // Per-axis signed distance to the glass; the largest is the distance to the
+  // (square-cornered) opening, negative inside it.
+  let r = abs(q - wc) - wh;
+  let ring = max(r.x, r.y);
+  let glass = (1.0 - smoothstep(-px, px, ring)) * has_window;
+  let frame = (1.0 - smoothstep(frame_w - px, frame_w + px, ring)) * (1.0 - glass) * has_window;
+  let reveal = (1.0 - smoothstep(frame_w + reveal_w - px, frame_w + reveal_w + px, ring)) * (1.0 - glass) * (1.0 - frame) * has_window;
+  // Distance out from the whole opening, for what it does to the wall around it.
+  let outside = max(ring - frame_w - reveal_w, 0.0);
+
+  // The wall around the window: daylight spills onto the plaster beside it,
+  // and the sill throws a soft shadow down the wall.
+  let halo = exp(-outside * 24.0) * daylight * 0.06 * has_window;
+  let below = step(wc.y, q.y);
+  let head_or_sill = step(r.x, r.y);
+  let sill_shadow = below * head_or_sill * smoothstep(0.07, 0.0, outside) * step(abs(q.x - wc.x), wh.x + frame_w + reveal_w) * 0.14 * daylight * has_window;
+
+  let wall_lit = base * ambient_tint * (ambient + key * key_strength * key_color) * (1.0 - sill_shadow)
+    + window_color * windows * window_shade * window_strength
+    + window_color * halo;
+
+  // The reveal: the sill faces up and catches the sky, the head faces down
+  // and sits in shadow, the jambs fall between, and the inner corner by the
+  // frame is occluded.
+  let jamb = 1.0 - head_or_sill;
+  let depth = clamp((ring - frame_w) / reveal_w, 0.0, 1.0);
+  let face = mix(mix(0.42, 0.98, below), 0.74, jamb);
+  let ao = 0.72 + 0.28 * smoothstep(0.0, 0.7, depth);
+  let reveal_lit = base * ambient_tint * (ambient * face * ao + daylight * 0.16 * face) + window_color * halo;
+
+  // The frame: painted wood in daylight, charcoal in the dark room, with a
+  // highlight on its outer edge and a shadow line where it meets the glass.
+  let paint = mix(vec3f(0.93, 0.91, 0.87), vec3f(0.26, 0.255, 0.245), dark);
+  let fd = clamp(ring / frame_w, 0.0, 1.0);
+  let frame_shade = 0.84 + 0.16 * smoothstep(0.0, 0.45, fd) - 0.16 * smoothstep(0.86, 1.0, fd) - 0.14 * (1.0 - smoothstep(0.0, 0.12, fd));
+  let frame_lit = paint * ambient_tint * (ambient * frame_shade + key * key_strength * 0.6) + paint * daylight * 0.08;
+
+  // The glass. Glass-local coordinates run 0 to 1 across the opening; the city
+  // is cover-fitted into it.
+  let safe_wh = max(wh, vec2f(0.0001));
+  let local = (q - (wc - wh)) / (2.0 * safe_wh);
+  let win_aspect = safe_wh.x / safe_wh.y;
+  var tuv = local;
+  if (win_aspect < CITY_ASPECT) {
+    tuv.x = 0.5 + (local.x - 0.5) * (win_aspect / CITY_ASPECT);
+  } else {
+    tuv.y = 0.5 + (local.y - 0.5) * (CITY_ASPECT / win_aspect);
+  }
+
+  // Rain beads and runs down the glass, bending the view behind each drop.
+  let g = vec2f(local.x * win_aspect, local.y) * 1.35;
+  var drops = vec4f(0.0);
+  if (rain > 0.001) {
+    let big = sliding_drops(g, time, vec2f(9.0, 2.2), 1.0);
+    let small = sliding_drops(g * 1.7 + vec2f(3.3, 0.0), time * 1.2, vec2f(9.0, 2.6), 7.0);
+    let beads = static_drops(g, time, 0.15 + rain * 0.5);
+    let big_weight = smoothstep(0.2, 0.7, rain);
+    drops = big * big_weight;
+    let small_w = small * smoothstep(0.0, 0.4, rain);
+    if (small_w.x > drops.x) {
+      drops = small_w;
+    }
+    if (beads.x > drops.x) {
+      drops = beads;
+    }
+  }
+  tuv += drops.zw * drops.x * vec2f(-0.035, -0.035 * win_aspect / CITY_ASPECT);
+  tuv = clamp(tuv, vec2f(0.001), vec2f(0.999));
+
+  let day_view = textureSample(city, city_sampler, tuv, 0).rgb;
+  let golden_view = textureSample(city, city_sampler, tuv, 1).rgb;
+  let night_view = textureSample(city, city_sampler, tuv, 2).rgb;
+  let grey_view = textureSample(city, city_sampler, tuv, 3).rgb;
+  let clear_view = mix(day_view, golden_view, warmth);
+  let cloudy_view = mix(clear_view, grey_view, smoothstep(0.15, 0.85, cloud));
+  var view = mix(cloudy_view, night_view * (1.0 - cloud * 0.35), night);
+  // Until the photographs arrive, a plain sky in the right light.
+  let sky_fallback = mix(vec3f(0.56, 0.68, 0.84), vec3f(0.84, 0.87, 0.90), local.y);
+  let fallback = mix(mix(sky_fallback, vec3f(0.70, 0.72, 0.74), overcast), vec3f(0.07, 0.09, 0.14), night);
+  view = mix(fallback, view, city_ready);
+  // A window is a little overexposed next to the room by day.
+  view *= mix(1.06, 1.0, night);
+
+  // The room reflected in the glass: faint by day, and at night the warm lamp
+  // shows up in it. The glass is a touch darker along the frame, and the drops
+  // have dark rims and a bright lensed core.
+  let reflection_color = mix(vec3f(0.92, 0.90, 0.86), vec3f(1.0, 0.86, 0.66), night);
+  let reflection = reflection_color * (mix(0.045, 0.08, night) + night * key * 0.22 * (1.0 - dark * 0.4));
+  let inset = smoothstep(0.0, 0.07, min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y)));
+  let glass_lit = view * (0.86 + 0.14 * inset) * (1.0 - drops.x * 0.18) + drops.y * 0.18 * (0.3 + daylight) + reflection;
+
+  // One mullion down the middle of the glass.
+  let mullion = (1.0 - smoothstep(0.0045 - px, 0.0045 + px, abs(q.x - wc.x))) * glass;
+  let mullion_lit = paint * ambient_tint * (ambient * 0.9 + key * key_strength * 0.6) + paint * daylight * 0.06;
+
+  var lit = wall_lit;
+  lit = mix(lit, reveal_lit, reveal);
+  lit = mix(lit, frame_lit, frame);
+  lit = mix(lit, glass_lit, glass);
+  lit = mix(lit, mullion_lit, mullion);
 
   // Dither so the broad gradients don't band on 8-bit panels.
   let dither = (hash(uv * resolution + time) - 0.5) / 255.0;

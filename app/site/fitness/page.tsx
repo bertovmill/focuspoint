@@ -51,7 +51,7 @@ export default function FitnessPage() {
     <div className="px-6">
       {/* Hero, the same lit concrete wall and title/tagline split as /about. */}
       <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
-        <ConcreteWall sketches={false} />
+        <ConcreteWall />
         <RevealOnView
           as="section"
           intensity="hero"

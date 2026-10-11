@@ -87,28 +87,32 @@ export default async function SiteHomePage() {
 
   return (
     <div className="px-6">
-      {/* Intro: the pitch over the concrete wall. Full-viewport, headline pinned
-          bottom-left the way koto.com does it. */}
-      <div className="relative isolate -mt-16">
-        <ConcreteWall />
+      {/* Intro: the pitch over the concrete wall, with the desk and the window
+          to Toronto. Full-viewport, headline pinned bottom-left the way koto.com
+          does it, resting on the wall just above the desk. `--desk-w` is the
+          desk's width; the bottom padding keeps the text above the desk top on
+          wide screens and above the whole tree on phones, where the desk sits
+          under the text instead of beside it. */}
+      <div className="relative isolate -mt-16 [--desk-w:110vw] sm:[--desk-w:85vw] lg:[--desk-w:min(60vw,80vh)]">
+        <ConcreteWall scene />
         <RevealOnView
           as="section"
           intensity="hero"
           staggerChildren
-          className="flex min-h-svh flex-col pt-26 pb-6 sm:pt-30 sm:pb-8"
+          className="flex min-h-svh flex-col pt-24 pb-[calc(var(--desk-w)*0.62)] lg:pb-[calc(var(--desk-w)*0.28)]"
         >
-          <div className="mt-auto pt-16">
+          <div className="mt-auto pt-16 lg:max-w-[68%]">
             <Image
               src="/berto-headshot.jpg"
               alt="Berto Mill"
               width={320}
               height={320}
               priority
-              className="mb-6 size-28 rounded-full object-cover shadow-lg ring-1 ring-black/10 sm:size-36 lg:size-44"
+              className="mb-6 size-24 rounded-full object-cover shadow-lg ring-1 ring-black/10 sm:size-28 lg:size-32"
             />
             <WallClock className="mb-5" />
             <AnimatedHeading
-              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-8xl`}
+              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(3.5rem,4.4vw,6rem)]`}
               lines={[
                 "I lead go-to-market for Aucctus,",
                 "a fast-scaling AI startup.",

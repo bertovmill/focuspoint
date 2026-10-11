@@ -1,16 +1,15 @@
 /**
- * The visitor's sky, for the concrete wall on bertomill.com.
+ * The sky over the desk, for the concrete wall on bertomill.com.
  *
- * Location comes from Vercel's IP geolocation headers, so nobody gets a
- * permission prompt; it is accurate to the city, which is all weather needs.
- * Conditions come from Open-Meteo (free, no key). Locally there are no geo
- * headers, so it falls back to Toronto.
+ * The desk is in Toronto, and the window in the wall looks out on it, so this
+ * always answers for Toronto: the same light falls on the wall for every
+ * visitor, wherever they are. Conditions come from Open-Meteo (free, no key).
  *
- * Public and unauthenticated like the rest of /api/site. It only ever answers
- * about the caller's own IP location, and never echoes coordinates back.
+ * Public and unauthenticated like the rest of /api/site; it carries nothing
+ * about the caller.
  */
 
-const FALLBACK = { city: "Toronto", latitude: 43.65, longitude: -79.38 };
+const TORONTO = { city: "Toronto", latitude: "43.7", longitude: "-79.4" };
 
 export type SiteWeather = {
   city: string | null;
@@ -20,7 +19,7 @@ export type SiteWeather = {
   precipitation: number;
   /** 0 to 1. */
   cloudCover: number;
-  /** Unix seconds for today's sunrise and sunset at the visitor's location. */
+  /** Unix seconds for today's sunrise and sunset in Toronto. */
   sunrise: number | null;
   sunset: number | null;
 };
@@ -36,27 +35,14 @@ function conditionFor(code: number): SiteWeather["condition"] {
   return "clear";
 }
 
-function header(request: Request, name: string) {
-  const value = request.headers.get(name);
-  return value ? decodeURIComponent(value) : null;
-}
-
-export async function GET(request: Request) {
-  const lat = Number(header(request, "x-vercel-ip-latitude"));
-  const lon = Number(header(request, "x-vercel-ip-longitude"));
-  const located = Number.isFinite(lat) && Number.isFinite(lon) && request.headers.has("x-vercel-ip-latitude");
-  const city = located ? header(request, "x-vercel-ip-city") : FALLBACK.city;
-  // Round to ~10 km so nearby visitors share one cached upstream response.
-  const latitude = (located ? lat : FALLBACK.latitude).toFixed(1);
-  const longitude = (located ? lon : FALLBACK.longitude).toFixed(1);
-
+export async function GET() {
   const url = new URL("https://api.open-meteo.com/v1/forecast");
-  url.searchParams.set("latitude", latitude);
-  url.searchParams.set("longitude", longitude);
+  url.searchParams.set("latitude", TORONTO.latitude);
+  url.searchParams.set("longitude", TORONTO.longitude);
   url.searchParams.set("current", "weather_code,precipitation,cloud_cover");
   url.searchParams.set("daily", "sunrise,sunset");
   url.searchParams.set("timeformat", "unixtime");
-  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("timezone", "America/Toronto");
   url.searchParams.set("forecast_days", "1");
 
   try {
@@ -70,7 +56,7 @@ export async function GET(request: Request) {
     const mm = data.current?.precipitation ?? 0;
     const wet = condition === "rain" || condition === "drizzle" || condition === "storm";
     const body: SiteWeather = {
-      city,
+      city: TORONTO.city,
       condition,
       // Drizzle still gets a few drops; a downpour (~4 mm/h and up) saturates.
       precipitation: wet ? Math.min(1, Math.max(condition === "drizzle" ? 0.25 : 0.45, mm / 4)) : 0,
@@ -79,19 +65,19 @@ export async function GET(request: Request) {
       sunset: data.daily?.sunset?.[0] ?? null,
     };
     return Response.json(body, {
-      // Per visitor (it depends on their IP), so private; a few minutes is plenty.
-      headers: { "Cache-Control": "private, max-age=600" },
+      // The same answer for everyone, so the CDN can hold it for a while.
+      headers: { "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=1800" },
     });
   } catch (error) {
     console.warn("site weather unavailable", error);
     const body: SiteWeather = {
-      city,
+      city: TORONTO.city,
       condition: "clear",
       precipitation: 0,
       cloudCover: 0,
       sunrise: null,
       sunset: null,
     };
-    return Response.json(body, { headers: { "Cache-Control": "private, max-age=60" } });
+    return Response.json(body, { headers: { "Cache-Control": "public, max-age=60" } });
   }
 }

@@ -1,6 +1,7 @@
-import { clock, effect, frameLoop, init, surface, type Gpu } from "vgpu";
+import { clock, effect, frameLoop, init, sampler, surface, texture, type Gpu, type Texture } from "vgpu";
 import wallWgsl from "./wall.wgsl";
 import type { Sky } from "./sky";
+import { CITY_SIZE, CITY_VIEWS, windowRect } from "./scene";
 
 export interface WallRendererOptions {
   /** Read each frame: 1 in dark mode, 0 in light. */
@@ -9,14 +10,20 @@ export interface WallRendererOptions {
   readonly pointer: () => readonly [number, number] | null;
   /** Read each frame: freeze the drift for people who asked for less motion. */
   readonly reducedMotion: () => boolean;
-  /** Read each frame: the visitor's sun and weather. */
+  /** Read each frame: the sun and weather over the desk. */
   readonly sky: () => Sky;
+  /** Cut the window into the wall and load the view through it. */
+  readonly scene: boolean;
 }
 
 /**
  * The wall's render loop, in the same shape as the glass sculpture's: `init`,
  * a surface on the canvas, one effect, `frameLoop`. Failures reject `ready`
  * and tear down; the component keeps the CSS wall in that case.
+ *
+ * With `scene`, the four city views are fetched after the first frame and
+ * uploaded into one array texture; until they land the window shows a plain
+ * sky in the right light.
  */
 export function createWallRenderer(
   canvas: HTMLCanvasElement,
@@ -24,10 +31,12 @@ export function createWallRenderer(
 ) {
   let disposed = false;
   let gpu: Gpu | undefined;
+  let city: Texture | undefined;
 
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    city?.destroy();
     gpu?.dispose();
   };
 
@@ -39,8 +48,38 @@ export function createWallRenderer(
     }
     gpu = context;
     const output = surface(context, canvas, { dpr: [1, 1.5] });
-    const wall = effect(context, wallWgsl, { label: "concrete-wall" });
+
+    // Inner pages never show the window, so they get a token texture rather
+    // than megabytes of city they would never sample.
+    city = texture(context, {
+      kind: "2d-array",
+      size: options.scene ? [CITY_SIZE[0], CITY_SIZE[1]] : [1, 1],
+      layers: CITY_VIEWS.length,
+      format: "rgba8unorm",
+      // copyExternalImageToTexture needs the destination to be a render
+      // attachment as well as a copy target.
+      usage: ["texture_binding", "copy_dst", "render_attachment"],
+      label: "city-views",
+    });
+    const wall = effect(context, wallWgsl, {
+      label: "concrete-wall",
+      set: {
+        city,
+        city_sampler: sampler(context, { magFilter: "linear", minFilter: "linear" }),
+      },
+    });
     const time = clock(context);
+
+    let cityReady = false;
+    if (options.scene) {
+      void loadCity(context, city)
+        .then(() => {
+          if (!disposed) cityReady = true;
+        })
+        .catch((error: unknown) => {
+          console.warn("City views could not load; the window keeps its plain sky", error);
+        });
+    }
 
     // The light's resting path is a slow figure of eight across the upper left,
     // where the window light falls. The pointer pulls it a little off that path
@@ -63,17 +102,16 @@ export function createWallRenderer(
           light[1] + (targetY - light[1]) * ease,
         ];
 
+        const [width, height] = output.size;
+        const window = options.scene ? windowRect(width / Math.max(1, height)) : null;
+
         wall.set({
           params: {
-            resolution_time_dark: [
-              output.size[0],
-              output.size[1],
-              drift,
-              options.isDark() ? 1 : 0,
-            ],
+            resolution_time_dark: [width, height, drift, options.isDark() ? 1 : 0],
             light: [light[0], light[1], Math.cos(drift * 0.07), 0],
             sky: [sky.sunHeight, sky.sunProgress, sky.warmth, sky.night],
-            weather: [sky.cloudCover, sky.rain, 0, 0],
+            weather: [sky.cloudCover, sky.rain, cityReady ? 1 : 0, 0],
+            window: window ? [window.x, window.y, window.hw, window.hh] : [0, 0, 0, 0],
           },
         });
         frame.pass(output, wall);
@@ -88,4 +126,28 @@ export function createWallRenderer(
   });
 
   return { ready, dispose };
+}
+
+/** Fetches the four views and copies each into its layer of the array texture. */
+async function loadCity(context: Gpu, target: Texture) {
+  await Promise.all(
+    CITY_VIEWS.map(async (url, layer) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${url}: ${res.status}`);
+      const bitmap = await createImageBitmap(await res.blob(), {
+        colorSpaceConversion: "none",
+        premultiplyAlpha: "none",
+      });
+      try {
+        if (context.disposed) return;
+        context.gpu.queue.copyExternalImageToTexture(
+          { source: bitmap },
+          { texture: target.gpu, origin: [0, 0, layer] },
+          [Math.min(bitmap.width, CITY_SIZE[0]), Math.min(bitmap.height, CITY_SIZE[1])],
+        );
+      } finally {
+        bitmap.close();
+      }
+    }),
+  );
 }

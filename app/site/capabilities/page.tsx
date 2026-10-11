@@ -38,7 +38,7 @@ export default async function CapabilitiesPage({
 
   return (
     <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
-      <ConcreteWall sketches={false} className="bottom-auto h-[min(100%,48rem)]" />
+      <ConcreteWall className="bottom-auto h-[min(100%,48rem)]" />
       <div className="mx-auto max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-10 lg:py-14">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Capabilities</p>

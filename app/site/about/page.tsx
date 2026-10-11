@@ -53,7 +53,7 @@ export default function AboutPage() {
           on the right, and the jump-to row along the bottom edge. It sits on the
           same lit concrete wall as the homepage, without the chalk drawings. */}
       <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
-        <ConcreteWall sketches={false} />
+        <ConcreteWall />
         <RevealOnView
           as="section"
           intensity="hero"

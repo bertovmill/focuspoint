@@ -62,7 +62,7 @@ export default async function WritingIndexPage() {
       {/* The header sits on the homepage's lit concrete wall, without its chalk
           drawings, like About and Work. */}
       <div className="relative isolate -mt-[4.5rem] pt-[4.5rem]">
-        <ConcreteWall sketches={false} />
+        <ConcreteWall />
         <section className="py-16 sm:py-24">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Writing

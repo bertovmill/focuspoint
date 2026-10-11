@@ -78,7 +78,7 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     session_type: "strength",
     default_day: 4,
     plan: { minutes: 60, intensity: "moderate" },
-    warmup: "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells",
+    warmup: "Round 1: front, side and bent-over raises, 10–15 lb dumbbells + Push-ups + Round 2: front, side and bent-over raises + Push-ups + Round 3: front, side and bent-over raises + Push-ups",
     cooldown: "6-minute stretch",
     blocks: [
       {

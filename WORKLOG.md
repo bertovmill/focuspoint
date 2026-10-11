@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Unity Upper Body warm-up: 3 rounds of raises, push-ups between rounds
+
+The warm-up read as alternating raises and push-ups (front / push-ups / side / push-ups /
+bent-over). Berto corrected it: each round is all three raises (front, side, bent-over) then
+push-ups, three rounds. Updated the stored definition in `workout_bank` (Neon) and the seed
+in `lib/workout-templates.ts` so a fresh bank matches. Checklist parts split on " + ", so
+the warm-up now ticks as six parts: Round 1 raises, push-ups, Round 2 raises, push-ups,
+Round 3 raises, push-ups.
+
+---
+
 ## 2026-10-04 — Chat text at 16px
 
 Berto worries about font size: "not too big but definitely reasonable". Chat messages and

@@ -1,6 +1,7 @@
 "use client";
 
 import { Streamdown } from "streamdown";
+import { cn } from "@/lib/utils";
 
 /**
  * Long-form markdown for articles and episode notes.
@@ -10,10 +11,10 @@ import { Streamdown } from "streamdown";
  * explicit child selectors rather than a typography plugin — the project
  * doesn't ship one, and this keeps the article on the same tokens as the app.
  */
-export function Prose({ children }: { children: string }) {
+export function Prose({ children, className }: { children: string; className?: string }) {
   return (
     <div
-      className={[
+      className={cn([
         "max-w-none text-[15px]/7 text-foreground/90",
         "[&_h2]:mt-12 [&_h2]:mb-4 [&_h2]:scroll-mt-24 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground",
         "[&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:scroll-mt-24 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground",
@@ -25,7 +26,7 @@ export function Prose({ children }: { children: string }) {
         "[&_hr]:my-10 [&_hr]:border-border",
         "[&_img]:my-6 [&_img]:rounded-lg [&_img]:border [&_img]:border-border",
         "[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.85em]",
-      ].join(" ")}
+      ].join(" "), className)}
     >
       <Streamdown>{children}</Streamdown>
     </div>

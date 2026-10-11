@@ -7,6 +7,7 @@ import { SiteNav } from "./_components/site-nav";
 import { NewsletterPopup } from "./_components/newsletter-popup";
 import { SubscribeForm } from "./_components/subscribe-form";
 import { PageGrain } from "./_components/grain";
+import { AskAiProvider } from "./_components/ask-ai";
 
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
@@ -60,7 +61,9 @@ export default async function SiteLayout({ children }: { readonly children: Reac
 
   return (
     <SiteBasePathProvider value={basePath}>
-      <div className="flex min-h-dvh flex-col bg-background text-foreground">
+      {/* AskAiProvider renders the page wrapper itself, so it can slide the page
+          over when the Ask AI panel opens. */}
+      <AskAiProvider>
         <PageGrain />
         <script
           type="application/ld+json"
@@ -142,7 +145,7 @@ export default async function SiteLayout({ children }: { readonly children: Reac
             </div>
           </div>
         </footer>
-      </div>
+      </AskAiProvider>
     </SiteBasePathProvider>
   );
 }

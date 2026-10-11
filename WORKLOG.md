@@ -10632,3 +10632,41 @@ This covers every section, not just training.
 
 Verified: `tsc --noEmit` clean. Not testable in headless Chromium (no iOS keyboard);
 needs a check on the phone: type a number on a workout, dismiss the keyboard, scroll.
+
+## 2026-10-11 — Site: "Ask AI" panel replaces the Ask Cael tab
+
+Nobody arriving at bertomill.com knows what "Ask Cael" is, so the tab is gone.
+In its place, an **Ask AI** button at the right of every header opens a panel
+on the right, modelled on the Vercel docs' sidebar: on a laptop the page slides
+over 420px to make room (a push, not an overlay); on a phone it covers the page.
+⌘I / Ctrl+I toggles it, Escape closes it, and it lives in the site layout so a
+conversation survives navigating around the site.
+
+- `app/site/_components/ask-ai.tsx` — `AskAiProvider` (owns the page wrapper so
+  it can push it; hash sync; keyboard shortcut) and `AskAiButton` (the pill each
+  header restyles). `ask-ai-context.tsx` holds the context so panel and provider
+  don't import each other. `ask-ai-panel.tsx` is the fixed column (header with
+  New chat / close, slide transition, `inert` while closed, body-scroll lock on
+  phones); `ask-ai-chat.tsx` is the thread — the old `public-chat.tsx` logic
+  (same `/api/site/chat` text stream) re-skinned with AI Elements'
+  `Conversation` + `Shimmer`, Vercel-style icon suggestions, the shortcut tip and
+  a tall input box. It loads with `next/dynamic` on first open, so no page pays
+  for streamdown until someone asks something. `Prose` takes a `className` so
+  the chat can tighten the article typography.
+- Deep link: `/#ask-cael` (`ASK_AI_HASH` in `lib/public-site.ts`) opens the panel
+  on arrival and from any plain `<a href="#ask-cael">`; the hash is kept on the
+  URL while open (re-applied after client navigation) and removed on close.
+  `/chat` now redirects there (sitemap entry dropped); the homepage "Building"
+  card and the "Ask AI about me" CTA open the panel instead of leaving the page.
+- Homepage header: its wide/compact switch is now a **container query** on the
+  header (`@container` + `@min-[1180px]:`), not a viewport one — with the panel
+  open the header is 420px narrower than the window, and the full link row needs
+  ~1180px. Below that it collapses to the boxed ASK AI + MENU pair, which also
+  fixes the pre-existing wrap on tablet widths. Inner pages: the compact box
+  tightens on phones (`gap-4`, label truncates) so a sparkle-only Ask AI box fits
+  beside it; from `sm` up it reads "✦ ASK AI".
+
+Verified on a worktree dev server (site.localhost:3017): open/close via button,
+⌘I and », suggestion → streamed answer, thread kept across close/reopen and
+across a client-side navigation, `/writing#ask-cael` opens on load, `/chat`
+redirects to `/#ask-cael`, phone layout (375px) on home and inner pages, dark mode.

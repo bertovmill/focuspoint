@@ -83,3 +83,10 @@ export function isPublicPassthrough(pathname: string): boolean {
 export function isPrivateOnlyPath(pathname: string): boolean {
   return pathname.startsWith("/api/") || pathname.startsWith("/eve") || pathname === "/traces" || pathname.startsWith("/traces/");
 }
+
+/**
+ * The Ask AI panel's address. `bertomill.com/#ask-cael` opens it on arrival, and so
+ * does any plain `<a href="#ask-cael">` on the site — the panel listens for the
+ * hash, so there is no chat page any more, just this fragment on every page.
+ */
+export const ASK_AI_HASH = "#ask-cael";

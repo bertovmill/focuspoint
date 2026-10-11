@@ -9,8 +9,11 @@ import { BOOKING_URL, CHANNELS } from "@/lib/public-site";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { SiteLink, useSiteHref } from "./site-link";
 import { SocialIcons } from "./social-icons";
+import { AskAiButton } from "./ask-ai";
+import { SparklesIcon } from "lucide-react";
 
 // Building stays reachable at /building; it left the header when Work arrived.
+// The chat is no tab either: it is the Ask AI button at the right of every header.
 const NAV = [
   { href: "/about", label: "About" },
   { href: "/work", label: "Work" },
@@ -18,7 +21,6 @@ const NAV = [
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
   { href: "/fitness", label: "Fitness" },
-  { href: "/chat", label: "Ask Cael" },
 ];
 
 /* Small uppercase mono label, used for the desktop links and the menu eyebrows. */
@@ -107,15 +109,18 @@ export function SiteNav() {
                 ))}
               </ul>
 
-              <a
-                href={BOOKING_URL}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setOpen(false)}
-                className="mt-10 inline-flex rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground"
-              >
-                Book a meeting
-              </a>
+              <div className="mt-10 flex flex-wrap items-center gap-3">
+                <a
+                  href={BOOKING_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground"
+                >
+                  Book a meeting
+                </a>
+                <AskAiButton onClick={() => setOpen(false)} className="px-5 py-3" />
+              </div>
             </div>
 
             <div className="border-t border-border/60 px-6 py-6">
@@ -148,12 +153,14 @@ export function SiteNav() {
 
   if (!isHome) {
     return (
-      <header className="relative z-50 px-6 pt-4">
-        <nav className="inline-flex h-14 items-center gap-8 rounded-md border border-border/60 bg-muted/70 pl-5 pr-3 backdrop-blur-md">
-          <SiteLink href="/" className="group font-medium tracking-tight">
+      <header className="relative z-50 flex items-center justify-between gap-3 px-6 pt-4">
+        {/* Tighter on phones so the box and the Ask AI button share the row; the
+            page label gives way (truncates) before anything else does. */}
+        <nav className="inline-flex h-14 min-w-0 items-center gap-4 rounded-md border border-border/60 bg-muted/70 pl-5 pr-3 backdrop-blur-md sm:gap-8">
+          <SiteLink href="/" className="group shrink-0 font-medium tracking-tight">
             <span className="transition-colors group-hover:text-primary">Berto Mill</span>
           </SiteLink>
-          <span className={cn(LABEL, "min-w-24 text-muted-foreground")}>{pageLabel}</span>
+          <span className={cn(LABEL, "min-w-0 truncate text-muted-foreground sm:min-w-24")}>{pageLabel}</span>
           <button
             type="button"
             aria-label="Open menu"
@@ -165,17 +172,32 @@ export function SiteNav() {
             <span className="size-1.5 rounded-full bg-muted-foreground" />
           </button>
         </nav>
+        {/* The same box as the nav, so the two read as one row of controls.
+            Icon only on phones, where the row is already full. */}
+        <AskAiButton
+          aria-label="Ask AI"
+          className={cn(
+            LABEL,
+            "h-14 w-14 shrink-0 justify-center rounded-md border-border/60 bg-muted/70 px-0 text-foreground hover:bg-muted sm:w-auto sm:px-5",
+          )}
+        >
+          <SparklesIcon className="size-4" aria-hidden />
+          <span className="hidden sm:inline">Ask AI</span>
+        </AskAiButton>
         {menuSheet}
       </header>
     );
   }
 
   return (
-    <header className="relative z-50">
+    // A container query, not a viewport one: the row needs ~1180px, and with the
+    // Ask AI panel open the header is 420px narrower than the window. Below that
+    // it collapses to the boxed Ask AI + Menu pair, same as on a phone.
+    <header className="relative z-50 @container">
       {/* No bar behind the links: the header is transparent and sits over the
           homepage wall, full-width with everything flush left, like koto.com. */}
-      <nav className="flex h-16 items-center gap-10 px-6">
-        <SiteLink href="/" className="group flex items-center gap-3 text-lg font-medium tracking-tight">
+      <nav className="flex h-16 items-center gap-4 px-6 @min-[1180px]:gap-10">
+        <SiteLink href="/" className="group flex shrink-0 items-center gap-3 whitespace-nowrap text-lg font-medium tracking-tight">
           <Image
             src="/berto-headshot.jpg"
             alt="Berto Mill"
@@ -189,8 +211,8 @@ export function SiteNav() {
           </span>
         </SiteLink>
 
-        {/* Desktop: links sit right beside the name, Koto-style. Actions stay on the right. */}
-        <div className="hidden items-center gap-7 sm:flex">
+        {/* Wide: links sit right beside the name, Koto-style. Actions stay on the right. */}
+        <div className="hidden items-center gap-7 @min-[1180px]:flex">
           {NAV.map((item) => (
             <SiteLink
               key={item.href}
@@ -206,10 +228,10 @@ export function SiteNav() {
           ))}
         </div>
 
-        <div className="ml-auto hidden items-center gap-4 sm:flex">
-          {/* Icons only on wide screens: below ~1500px they push the links row onto two
+        <div className="ml-auto hidden items-center gap-4 @min-[1180px]:flex">
+          {/* Icons only on wide headers: below ~1500px they push the links row onto two
               lines. They're still in the footer and the menu sheet. */}
-          <SocialIcons className="hidden min-[1500px]:flex" />
+          <SocialIcons className="hidden @min-[1500px]:flex" />
           <a
             href={BOOKING_URL}
             target="_blank"
@@ -218,22 +240,31 @@ export function SiteNav() {
           >
             Book a meeting
           </a>
+          <AskAiButton className="px-5 text-base" />
           <ModeToggle />
         </div>
 
-        {/* Mobile: a boxed MENU button on the right. */}
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls="site-menu"
-          onClick={() => setOpen(true)}
-          className={cn(
-            LABEL,
-            "ml-auto rounded-md border border-border/60 bg-muted/60 px-4 py-2.5 text-foreground transition-colors hover:bg-muted sm:hidden",
-          )}
-        >
-          Menu
-        </button>
+        {/* Narrow (phones, tablets, a laptop with the panel open): boxed ASK AI and
+            MENU buttons on the right. */}
+        <div className="ml-auto flex items-center gap-2 @min-[1180px]:hidden">
+          <AskAiButton
+            className={cn(LABEL, "rounded-md border-border/60 bg-muted/60 px-3 py-2.5 text-foreground hover:bg-muted")}
+          >
+            Ask AI
+          </AskAiButton>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="site-menu"
+            onClick={() => setOpen(true)}
+            className={cn(
+              LABEL,
+              "rounded-md border border-border/60 bg-muted/60 px-4 py-2.5 text-foreground transition-colors hover:bg-muted",
+            )}
+          >
+            Menu
+          </button>
+        </div>
       </nav>
 
       {menuSheet}

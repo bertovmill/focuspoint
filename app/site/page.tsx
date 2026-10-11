@@ -1,8 +1,10 @@
 import Image from "next/image";
-import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
+import { ASK_AI_HASH } from "@/lib/public-site";
 import { listContent, formatDate } from "@/lib/content";
 import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "./_components/site-link";
+import { AskAiButton } from "./_components/ask-ai";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
@@ -51,7 +53,8 @@ const PILLARS = [
     role: "Personal agent",
     description:
       "A side project that runs parts of my life: goals, reading, training and calendar in one place. You can ask it about my work directly.",
-    href: "/chat",
+    // Opens the Ask AI panel rather than leaving the page.
+    href: ASK_AI_HASH,
     external: false,
   },
 ] as const;
@@ -192,6 +195,12 @@ export default async function SiteHomePage() {
                   >
                     {inner}
                   </a>
+                ) : (pillar.href as string) === ASK_AI_HASH ? (
+                  // A plain anchor, not a Link: the hash change is what opens the panel.
+                  // (Widened to string: comparing the literal would narrow the else branch to never.)
+                  <a href={pillar.href} className="group block">
+                    {inner}
+                  </a>
                 ) : (
                   <SiteLink href={pillar.href} className="group block">
                     {inner}
@@ -218,12 +227,10 @@ export default async function SiteHomePage() {
               LinkedIn
               <ArrowUpRightIcon className="size-4" />
             </a>
-            <SiteLink
-              href="/chat"
-              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-            >
-              Ask Cael about me
-            </SiteLink>
+            <AskAiButton className="border-border bg-transparent backdrop-blur-none">
+              <SparklesIcon className="size-4" aria-hidden />
+              Ask AI about me
+            </AskAiButton>
           </div>
         </RevealOnView>
       </section>

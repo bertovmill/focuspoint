@@ -119,7 +119,7 @@ function uploaderOfView(view: object): Editor | null {
   return editor && uploaderOf(editor) ? editor : null;
 }
 
-// ── toggle headings ────────────────────────────────────────────────────────
+// ── toggles ────────────────────────────────────────────────────────────────
 
 /** A toggle's summary line can be a heading: Notion's "toggle heading". */
 const ToggleSummary = DetailsSummary.extend({
@@ -181,33 +181,47 @@ function headingRank(node: PMNode): number | null {
   return null;
 }
 
+/** Blocks that hang off the line of text above them: what "> " on a plain line folds in. */
+const LEAD_ATTACHMENTS = new Set(["bulletList", "orderedList", "taskList", "blockquote", "codeBlock", "image"]);
+
 /**
- * Turns the heading at `pos` into a toggle heading. With `foldSection` its section
- * goes inside: the blocks after it up to the next heading (plain or toggle) of the
- * same size or bigger. The caret lands at the start of the heading text.
+ * Turns the heading or paragraph at `pos` into a toggle: a heading becomes a
+ * toggle heading of its size, a paragraph a plain toggle (bold and the other
+ * marks on its text stay). With `foldSection` what belongs to the line goes
+ * inside — for a heading, the blocks after it up to the next heading (plain or
+ * toggle) of the same size or bigger; for a paragraph, the list, quote or code
+ * right under it, up to the next line of text. The caret lands at the start of
+ * the summary text.
  */
-function toggleHeadingAt(tr: Transaction, pos: number, foldSection: boolean): boolean {
-  const heading = tr.doc.nodeAt(pos);
-  if (heading?.type.name !== "heading") return false;
+function toggleLineAt(tr: Transaction, pos: number, foldSection: boolean): boolean {
+  const line = tr.doc.nodeAt(pos);
+  if (line?.type.name !== "heading" && line?.type.name !== "paragraph") return false;
   const { schema } = tr.doc.type;
   const $pos = tr.doc.resolve(pos);
-  const level = heading.attrs.level as number;
+  const level = line.type.name === "heading" ? (line.attrs.level as number) : null;
 
   const body: PMNode[] = [];
-  let end = pos + heading.nodeSize;
+  let end = pos + line.nodeSize;
   for (let i = $pos.index() + 1; foldSection && i < $pos.parent.childCount; i++) {
     const block = $pos.parent.child(i);
     const rank = headingRank(block);
-    if (rank !== null && rank <= level) break;
+    const sectionEnds = level === null ? !LEAD_ATTACHMENTS.has(block.type.name) : rank !== null && rank <= level;
+    if (sectionEnds) break;
     body.push(block);
     end += block.nodeSize;
   }
 
-  // A summary holds text only, so a line break or anything else inline drops out.
+  // A summary holds text only: the line up to its first line break. Whatever
+  // followed the break becomes the first line inside; other inline nodes drop out.
   const text: PMNode[] = [];
-  heading.content.forEach((n) => {
-    if (n.isText) text.push(n);
+  const rest: PMNode[] = [];
+  let broke = false;
+  line.content.forEach((n) => {
+    if (broke) rest.push(n);
+    else if (n.type.name === "hardBreak") broke = true;
+    else if (n.isText) text.push(n);
   });
+  if (rest.length) body.unshift(schema.nodes.paragraph.create(null, rest));
   const details = schema.nodes.details.create({ open: true }, [
     schema.nodes.detailsSummary.create({ level }, text),
     schema.nodes.detailsContent.create(null, body.length ? body : schema.nodes.paragraph.create()),
@@ -218,23 +232,44 @@ function toggleHeadingAt(tr: Transaction, pos: number, foldSection: boolean): bo
 }
 
 /**
- * Markdown-style shortcuts for toggle headings, ahead of StarterKit's own (which
- * would turn "> " into a quote and can't put "# " on a toggle line):
- * "> " at the start of a heading makes it a toggle heading and folds its section
- * in; "# " to "### " at the start of a toggle line makes it a toggle heading.
+ * Markdown-style shortcuts for toggles, ahead of StarterKit's own (which would
+ * turn "> " into a quote and can't put "# " on a toggle line), the way Notion
+ * reads them: "> " at the start of a line makes it a toggle holding what's under
+ * it (a heading folds its section, a plain or bold line the list right below);
+ * "# " to "### " at the start of a toggle line makes it a toggle heading. Quote
+ * blocks are still in the "/" menu.
  */
-const ToggleHeadingShortcuts = Extension.create({
-  name: "toggleHeadingShortcuts",
+const ToggleShortcuts = Extension.create({
+  name: "toggleShortcuts",
   priority: 200,
   addInputRules() {
     return [
       new InputRule({
-        find: /^>\s$/,
+        // Input rules read a line break as "\n", so "> " right after one counts
+        // as the start of a line too: a pasted "lead line\nbullets" often keeps
+        // two lines in one paragraph. The break stays out of the match (a
+        // lookbehind) because Tiptap re-checks the matched text against the
+        // document, where a break reads as nothing.
+        find: /(?<=^|\n)>\s$/,
         handler: ({ state, range }) => {
-          const $from = state.doc.resolve(range.from);
-          if ($from.parent.type.name !== "heading") return null;
-          state.tr.delete(range.from, range.to);
-          toggleHeadingAt(state.tr, $from.before(), true);
+          // Work from the caret: the ">" sits just before it.
+          const caret = range.to;
+          const $caret = state.doc.resolve(caret);
+          const line = $caret.parent;
+          if (line.type.name !== "heading" && line.type.name !== "paragraph") return null;
+          // A toggle can't be a list item's line, so "> " inside a list keeps StarterKit's meaning.
+          if (line.type.name === "paragraph" && /^(listItem|taskItem)$/.test($caret.node(-1).type.name)) return null;
+          const { tr } = state;
+          if ($caret.parentOffset > 1) {
+            const brPos = caret - 2;
+            if (tr.doc.nodeAt(brPos)?.type.name !== "hardBreak") return null;
+            // Drop the break and the "> ", split the line there, and toggle the part after.
+            tr.delete(brPos, caret).split(brPos);
+            toggleLineAt(tr, brPos + 1, true);
+          } else {
+            tr.delete(caret - 1, caret);
+            toggleLineAt(tr, $caret.before(), true);
+          }
         },
       }),
       new InputRule({
@@ -268,7 +303,7 @@ function runToggleHeading(e: Editor, r: Range, level: number) {
   liftOutOfLists(e);
   e.chain()
     .setNode("heading", { level })
-    .command(({ tr }) => toggleHeadingAt(tr, tr.selection.$from.before(), false))
+    .command(({ tr }) => toggleLineAt(tr, tr.selection.$from.before(), false))
     .run();
 }
 
@@ -575,8 +610,9 @@ function BubbleButton({ label, icon: Icon, active, onClick }: { label: string; i
 /**
  * A Notion-style page: no box and no toolbar, just text. Type "/" for a block
  * menu, select text for bold/italic/link, and the markdown shortcuts work too
- * ("# ", "- ", "[] ", "> ", "---"; "> " on a heading makes it a toggle heading). Content goes in and comes out as markdown,
- * so Cael reads it as text. The parent owns loading and saving.
+ * ("# ", "- ", "[] ", "---"; "> " makes the line a toggle holding what's under
+ * it). Content goes in and comes out as markdown, so Cael reads it as text. The
+ * parent owns loading and saving.
  */
 export function NotionEditor({
   initialContent,
@@ -621,7 +657,7 @@ export function NotionEditor({
       ToggleDetails.configure({ persist: true }),
       ToggleSummary,
       DetailsContent,
-      ToggleHeadingShortcuts,
+      ToggleShortcuts,
       Placeholder.configure({
         includeChildren: true,
         // Decided from the node alone: the extension builds these while the

@@ -10739,3 +10739,47 @@ redirects to `/#ask-cael`, phone layout (375px) on home and inner pages, dark mo
 
 Verified on a worktree dev server (site.localhost:3018): tab title and header
 read "Robert Mill"; sending a question shows the dots immediately, then streams.
+
+## 2026-10-11 — Toggles on any line: "> " folds a bold or plain line, not just headings
+
+Berto's "5-year review" Home section is written as bold lead lines over bullet
+lists, not headings, so the `> ` shortcut from the Principles work (toggle
+headings) did nothing there — StarterKit turned it into a quote instead. Asked
+what a plain-line toggle should swallow; he chose: the list right under it.
+
+- `app/_components/notion-editor.tsx` (every Notion-style page: Home sections,
+  Principles, meal Notes, open notes): `toggleHeadingAt` → `toggleLineAt`, which
+  takes a heading or a paragraph. A paragraph becomes a plain toggle (no
+  `data-level`; bold and the other marks on its text stay) holding the blocks
+  right under it — lists, quotes, code, images (`LEAD_ATTACHMENTS`) — up to the
+  next line of text, heading, toggle or divider. Headings fold their section
+  exactly as before.
+- `> ` now always makes a toggle, the way Notion reads it; the quote block is
+  still in the `/` menu. Inside a list item `> ` keeps StarterKit's meaning
+  (a toggle can't be a list item's first line).
+- `> ` right after a line break works too: the review had "Those were my major
+  accomplishments.\" and the next bold line in one paragraph (a `\` hard
+  break), so the rule splits the paragraph there and toggles the part after.
+  Tiptap input rules read a break as "\n" and then re-check the matched text
+  against the document with `textBetween`, where a break reads as "", so the
+  break must stay out of the match: a lookbehind, `(?<=^|\n)>\s$`, with
+  positions taken from the caret rather than `range.from`.
+- A line with further breaks: the summary is the text up to the first break;
+  the rest becomes the first line inside the toggle.
+- Markdown shape is unchanged: `<details open>` / `<summary><strong>…</strong>
+  </summary>` / the bullets / `</details>`. Cael's `home_sections` tool already
+  says to keep `<details>` lines intact. `lib/day-plan.ts` treats only
+  `data-level` summaries as headings, which is right — a bold line wasn't a
+  heading before either.
+
+Verified on :3789 from a worktree with every PUT/POST to `/api/home-sections/*`
+intercepted (real doc checked untouched afterwards): `> ` on "**2021 to 2026…**"
+folded its 6 bullets and stopped at "Those were my major accomplishments."; `> `
+before "**Some of the things…**" (after the break) split the paragraph and
+folded its 4 bullets; the saved markdown reloaded with bold summaries; the
+triangle folds; `## ` then `> ` on a plain line still makes a level-2 toggle
+heading that swallows everything to the next heading of its size.
+Gotchas: Turbopack in a worktree under `.claude/worktrees/` infers the parent
+checkout as the workspace root and didn't hot-reload edits — restart the dev
+server after each change. The `/#5-year-review` anchor id starts with a digit,
+so CSS/Playwright selectors need `[id="5-year-review"]`, not `#5-year-review`.

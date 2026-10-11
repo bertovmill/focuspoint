@@ -74,7 +74,7 @@ export function SiteNav() {
                 onClick={() => setOpen(false)}
                 className="font-medium tracking-tight"
               >
-                Berto Mill
+                Robert Mill
               </SiteLink>
               <button
                 type="button"
@@ -158,7 +158,7 @@ export function SiteNav() {
             page label gives way (truncates) before anything else does. */}
         <nav className="inline-flex h-14 min-w-0 items-center gap-4 rounded-md border border-border/60 bg-muted/70 pl-5 pr-3 backdrop-blur-md sm:gap-8">
           <SiteLink href="/" className="group shrink-0 font-medium tracking-tight">
-            <span className="transition-colors group-hover:text-primary">Berto Mill</span>
+            <span className="transition-colors group-hover:text-primary">Robert Mill</span>
           </SiteLink>
           <span className={cn(LABEL, "min-w-0 truncate text-muted-foreground sm:min-w-24")}>{pageLabel}</span>
           <button
@@ -200,14 +200,14 @@ export function SiteNav() {
         <SiteLink href="/" className="group flex shrink-0 items-center gap-3 whitespace-nowrap text-lg font-medium tracking-tight">
           <Image
             src="/berto-headshot.jpg"
-            alt="Berto Mill"
+            alt="Robert Mill"
             width={36}
             height={36}
             priority
             className="size-9 rounded-full object-cover"
           />
           <span className="transition-colors group-hover:text-primary">
-            Berto Mill
+            Robert Mill
           </span>
         </SiteLink>
 

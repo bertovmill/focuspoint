@@ -10723,3 +10723,19 @@ Verified on a worktree dev server (site.localhost:3017): open/close via button,
 ⌘I and », suggestion → streamed answer, thread kept across close/reopen and
 across a client-side navigation, `/writing#ask-cael` opens on load, `/chat`
 redirects to `/#ask-cael`, phone layout (375px) on home and inner pages, dark mode.
+
+## 2026-10-11 — Site title is "Robert Mill"; typing dots in the Ask AI panel
+
+- The site now goes by his full name: header brand (wide, compact box, menu
+  sheet), `<title>` default + template, Open Graph `siteName`, the footer © line
+  and the headshot alts all say **Robert Mill**. "Berto" stays in the prose and
+  as the JSON-LD `alternateName`, so searches for either still land here.
+- Ask AI panel: the shimmering "Thinking…" is replaced by the classic typing
+  indicator — three dots bouncing in sequence inside a grey Cael bubble
+  (`TypingDots` in `ask-ai-chat.tsx`; no registry ships one, so it is three
+  spans on `animate-bounce`). The empty assistant turn is now opened the moment
+  a question is sent rather than when the response headers arrive, so the dots
+  cover the server's context build too — before, nothing showed for 1–3 s.
+
+Verified on a worktree dev server (site.localhost:3018): tab title and header
+read "Robert Mill"; sending a question shows the dots immediately, then streams.

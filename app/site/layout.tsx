@@ -12,10 +12,10 @@ import { AskAiProvider } from "./_components/ask-ai";
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
   title: {
-    // Full name on the home page so searches for "Robert Mill" (résumé, LinkedIn) and
-    // "Berto Mill" both land here; tabs on inner pages stay short.
-    default: "Robert (Berto) Mill",
-    template: "%s · Berto Mill",
+    // The site goes by his full name; "Berto" stays in the prose and the JSON-LD
+    // alternateName so searches for either land here.
+    default: "Robert Mill",
+    template: "%s · Robert Mill",
   },
   // The public site gets its own mark; Cael's orb stays on cael.bertomill.com.
   icons: {
@@ -27,10 +27,10 @@ export const metadata: Metadata = {
   description:
     "GTM lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on AI-native go-to-market.",
   openGraph: {
-    siteName: "Robert (Berto) Mill",
+    siteName: "Robert Mill",
     type: "website",
     url: `https://${PUBLIC_HOST}`,
-    images: [{ url: "/berto-headshot.jpg", width: 800, height: 800, alt: "Robert (Berto) Mill" }],
+    images: [{ url: "/berto-headshot.jpg", width: 800, height: 800, alt: "Robert Mill" }],
   },
   twitter: {
     // Square portrait, so the large-image card would letterbox it badly.
@@ -106,7 +106,7 @@ export default async function SiteLayout({ children }: { readonly children: Reac
             </div>
           </div>
           <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <p>© {new Date().getFullYear()} Berto Mill</p>
+            <p>© {new Date().getFullYear()} Robert Mill</p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <SiteLink href="/about" className="transition-colors hover:text-foreground">
                 About

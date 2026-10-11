@@ -104,7 +104,7 @@ export default async function SiteHomePage() {
           <div className="mt-auto pt-16 lg:max-w-[68%]">
             <Image
               src="/berto-headshot.jpg"
-              alt="Berto Mill"
+              alt="Robert Mill"
               width={320}
               height={320}
               priority

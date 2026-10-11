@@ -7,7 +7,6 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { cn } from "@/lib/utils";
 import { useAskAi } from "./ask-ai-context";
 import { Prose } from "./prose";
@@ -65,7 +64,9 @@ export function AskAiChat() {
       if (!question || busy) return;
 
       const next: ChatMessage[] = [...messages, { role: "user", content: question }];
-      setMessages(next);
+      // Open Cael's turn straight away so the typing dots show for the whole wait —
+      // the server builds its context before the first byte comes back.
+      setMessages([...next, { role: "assistant", content: "" }]);
       setInput("");
       setError(null);
       setBusy(true);
@@ -82,8 +83,7 @@ export function AskAiChat() {
           throw new Error(detail?.error ?? "Cael couldn't answer just now.");
         }
 
-        // Open an empty assistant turn, then fill it as tokens land.
-        setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+        // Fill the open turn as tokens land.
         const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
         let received = "";
         for (;;) {
@@ -137,13 +137,7 @@ export function AskAiChat() {
                 ) : (
                   <div className="min-w-0 max-w-full">
                     <div className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-primary">Cael</div>
-                    {m.content ? (
-                      <Prose className={CHAT_PROSE}>{m.content}</Prose>
-                    ) : (
-                      <Shimmer as="p" className="text-sm" duration={1.5}>
-                        Thinking…
-                      </Shimmer>
-                    )}
+                    {m.content ? <Prose className={CHAT_PROSE}>{m.content}</Prose> : <TypingDots />}
                   </div>
                 )}
               </div>
@@ -214,6 +208,25 @@ export function AskAiChat() {
         </p>
       </div>
     </>
+  );
+}
+
+/** Cael's turn before the first token lands: three dots bouncing in sequence, in a bubble. */
+function TypingDots() {
+  return (
+    <div
+      role="status"
+      aria-label="Cael is thinking"
+      className="inline-flex items-center gap-1.5 rounded-2xl rounded-bl-sm bg-muted px-3.5 py-3"
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="size-1.5 rounded-full bg-muted-foreground animate-bounce motion-reduce:animate-pulse"
+          style={{ animationDelay: `${i * 0.15}s` }}
+        />
+      ))}
+    </div>
   );
 }
 

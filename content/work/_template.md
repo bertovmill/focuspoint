@@ -10,6 +10,9 @@ year: 2026                                       # or "2024 – 2026"
 outcome: The result in one sentence, with a number if there is one.
 color: "#8f5a3c"                                 # tile background; pick one per project
 # image: /work/<slug>.jpg                        # optional, drop the file in public/work/
+# url: https://example.com                       # optional, the org's site; linked in the fact row
+# logo: /site-art/logo-<slug>-light.webp         # optional wordmark (dark type) shown on the tile instead of the name
+# logoDark: /site-art/logo-<slug>-dark.webp      # its white-type twin for dark mode
 tags: [ai-agents, enterprise]
 published: false                                 # flip to true to ship it
 ---

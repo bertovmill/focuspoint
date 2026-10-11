@@ -38,6 +38,15 @@ export interface ContentMeta {
   color?: string;
   /** Work only — optional hero image under `public/`, e.g. `/work/aucctus.jpg`. */
   image?: string;
+  /** Work only — the organisation's website, linked from the case study. */
+  url?: string;
+  /**
+   * Work only — a wordmark under `public/` shown on the tile instead of the
+   * typeset name. `logo` is the light-theme file (dark type); `logoDark` the
+   * white-type file the tile swaps in when the site is in dark mode.
+   */
+  logo?: string;
+  logoDark?: string;
   /** Set to false in frontmatter to keep a file on disk but off the site. */
   published: boolean;
 }
@@ -88,6 +97,9 @@ function toMeta(
     outcome: typeof data.outcome === "string" ? data.outcome : undefined,
     color: typeof data.color === "string" ? data.color : undefined,
     image: typeof data.image === "string" ? data.image : undefined,
+    url: typeof data.url === "string" ? data.url : undefined,
+    logo: typeof data.logo === "string" ? data.logo : undefined,
+    logoDark: typeof data.logoDark === "string" ? data.logoDark : undefined,
     published: data.published !== false,
   };
 }

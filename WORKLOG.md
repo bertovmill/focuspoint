@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Site: Aucctus case study is present tense, with the real wordmark and a link
+
+bertomill.com/work/aucctus read like a job that had ended. Berto is still there, so:
+
+- `content/work/aucctus.md` rewritten as ongoing work: "What I do", "What's
+  happened so far", "What I'm still learning"; the outcome line says "in the
+  first six months". New frontmatter `url`, `logo`, `logoDark`.
+- Work entries can now carry a wordmark (`lib/content.ts`). `WorkTile` with a
+  `logo` becomes a card that follows the theme — off-white with the dark-type
+  file in light mode, near-black with the white-type file in dark — instead of
+  the typeset name on the brand colour. It's a `<picture>` built from
+  `getImageProps` (next/image docs' theme pattern): the browser fetches only
+  the matching file and swaps with the OS setting, no JS. The public site has
+  no theme toggle (next-themes is "system"), so `prefers-color-scheme` and the
+  site's `dark:` classes always agree; Cael's app toggle doesn't apply there.
+- Case study page: a "Site" fact (`aucctus.com ↗`) and the hero tile both link
+  to the org's site. Files: `public/site-art/logo-aucctus-wordmark-{light,dark}.webp`
+  (2000×411, from Berto's two exports).
+
+Verified on :3000 with Playwright in both colour schemes: correct variant
+visible, one logo download per scheme, headings present tense, phone width ok.
+Built on `site-presence-tweaks` (no commits of its own, 10 behind main, shared
+checkout with other sessions' uncommitted work), so landed on main by
+cherry-pick in a throwaway worktree rather than switching branches.
+
 ## 2026-10-11 — Merged the morning's cloud-session work from GitHub into GitLab main
 
 Six commits from a claude.ai/code session (12:20–13:54 UTC today) had landed on **GitHub**

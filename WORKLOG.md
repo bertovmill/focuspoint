@@ -4,6 +4,38 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Training: drag workouts up and down within a day
+
+Berto wanted to change a day's order by dragging — speed in front of the lift, say —
+not just move cards between days.
+
+- **Today** section: the cards are a sortable list (`@dnd-kit/sortable`, new dep).
+  Press and drag a card up or down; it lifts and follows, the others slide apart.
+- **Week grid**: the same within each day column, and the existing cross-day drag now
+  lands *where you drop*: above the card you drop onto, or at the end of an empty day
+  (or below its last card). Collision detection is custom (`dayThenCard`): the day
+  column under the pointer, then the nearest card in it. A column only lights up when
+  the card is coming from another day; within a day the sliding cards are the cue.
+- One write for both moves: `PUT /api/training/sessions/order { date, ids }` →
+  `reorderSessions()` sets `session_date` + `position` (0…n) for those ids in one
+  `UPDATE … FROM unnest(…) WITH ORDINALITY` and returns the day. This replaces the
+  old `PATCH { session_date }` move. The day a card left keeps its relative order
+  (position gaps don't matter — everything sorts by date, position, id).
+- Home's Today snapshot already sorts by `position`, so the new order shows there.
+- Sensors unchanged: mouse after 6 px, phone press-and-hold 250 ms.
+
+Files: `app/_components/training-plan-panel.tsx`, `lib/training.ts`,
+`app/api/training/sessions/order/route.ts`, `package.json`.
+Verified on :3789 with Playwright mouse drags. Throwaway 2021 week: C onto A →
+[C, A, B]; A onto B → [C, B, A]; B into empty Thu; A onto B in Thu → Thu [A, B];
+reload shows the same. Today: a temp card dragged to the top → [temp, Lift, Speed,
+Run], back to the bottom, deleted — real order unchanged. Not tested: touch drag on
+the phone (same TouchSensor as the cross-day drag). Built in a worktree from `main`
+because the main checkout sat on `site-presence-tweaks` with someone's 5-day-old
+uncommitted meals/site edits (left alone).
+
+---
+
 ## 2026-10-11 — Notes: "/" commands — notes use the Notion-style editor
 
 Berto noticed Notes had no slash menu "like we do in other places". The open note now

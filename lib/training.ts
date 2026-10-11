@@ -289,6 +289,22 @@ export async function setActuals(id: number, km: number | null, paceSec: number 
   return shapeSession(row as Record<string, unknown>);
 }
 
+/**
+ * A day's sessions in this order, top to bottom. An id from another day moves onto
+ * this one at that spot, so one write covers a drag within a day and a drag into it
+ * (the day it left keeps its relative order; gaps in position don't matter).
+ * Returns the day as it now stands.
+ */
+export async function reorderSessions(date: string, ids: number[]): Promise<TrainingSession[]> {
+  const sql = getDb();
+  await sql.query(
+    `UPDATE training_sessions AS t SET session_date = $1, position = o.pos - 1, updated_at = NOW()
+     FROM unnest($2::int[]) WITH ORDINALITY AS o(id, pos) WHERE t.id = o.id`,
+    [date, ids],
+  );
+  return getSessions(date, date);
+}
+
 export async function deleteSession(id: number) {
   const sql = getDb();
   await sql`DELETE FROM training_sessions WHERE id = ${id}`;

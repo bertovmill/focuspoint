@@ -16,7 +16,24 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type UniqueIdentifier,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +53,28 @@ interface SyncStatus {
   connected: boolean;
   last_synced_at: string | null;
 }
+
+/** The order the server lists sessions in: by day, then top to bottom. */
+const bySessionOrder = (a: TrainingSession, b: TrainingSession) =>
+  a.session_date.localeCompare(b.session_date) || a.position - b.position || a.id - b.id;
+
+/** Day columns are droppables keyed by date; cards are sortables keyed by session id. */
+const isDayId = (id: UniqueIdentifier) => typeof id === "string";
+
+/**
+ * Where a dragged card is over the week: the day column under the pointer, then the
+ * nearest card in it — so a drop between two cards lands between them, and one on an
+ * empty day (or below its last card) goes to the end of that day.
+ */
+const dayThenCard: CollisionDetection = (args) => {
+  const dayColumns = args.droppableContainers.filter((c) => isDayId(c.id));
+  let days = pointerWithin({ ...args, droppableContainers: dayColumns });
+  if (days.length === 0) days = rectIntersection({ ...args, droppableContainers: dayColumns });
+  const day = days[0]?.id;
+  if (day === undefined) return [];
+  const cards = args.droppableContainers.filter((c) => !isDayId(c.id) && c.data.current?.sortable?.containerId === day);
+  return cards.length > 0 ? closestCenter({ ...args, droppableContainers: cards }) : days;
+};
 
 /**
  * /training — the week of sessions building toward the races, with Fitbit
@@ -142,32 +181,68 @@ function TrainingWeek() {
   // ── session actions ───────────────────────────────────────────────────
 
   // Drag a session to another day (Berto, 2026-10-05: some days the workout just
-  // won't happen). Mouse drags after 6px; on a phone it's press-and-hold, so
-  // scrolling and tapping the card still work.
+  // won't happen) or up and down within one (2026-10-11: speed before the lift).
+  // Mouse drags after 6px; on a phone it's press-and-hold, so scrolling and tapping
+  // the card still work.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
   const [dragging, setDragging] = useState<TrainingSession | null>(null);
-  const moveSession = async (e: DragEndEvent) => {
-    setDragging(null);
-    const s = sessions.find((x) => x.id === Number(e.active.id));
-    const to = e.over ? String(e.over.id) : null;
-    if (!s || !to || to === s.session_date) return;
+  // The day the dragged card is over, so that column lights up even while the card
+  // is over one of its sessions rather than the column itself.
+  const [overDay, setOverDay] = useState<string | null>(null);
+  const dayOf = (id: UniqueIdentifier) => (isDayId(id) ? String(id) : (sessions.find((x) => x.id === id)?.session_date ?? null));
+
+  // One write for both kinds of move: the day's sessions in their new order, top to
+  // bottom. The server puts an id from another day onto this one at that spot.
+  const saveOrder = async (date: string, ids: number[], moved: TrainingSession) => {
     const prev = sessions;
-    setSessions((ss) => ss.map((x) => (x.id === s.id ? { ...x, session_date: to } : x)));
+    setSessions((ss) =>
+      ss
+        .map((x) => {
+          const i = ids.indexOf(x.id);
+          return i === -1 ? x : { ...x, session_date: date, position: i };
+        })
+        .sort(bySessionOrder),
+    );
     try {
-      const res = await fetch(`/api/training/sessions/${s.id}`, {
-        method: "PATCH",
+      const res = await fetch("/api/training/sessions/order", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_date: to }),
+        body: JSON.stringify({ date, ids }),
       });
       if (!res.ok) throw new Error();
-      toast.success(`${s.title} moved to ${shortDayLabel(to)}`);
+      const { sessions: day } = (await res.json()) as { sessions: TrainingSession[] };
+      setSessions((ss) => [...ss.filter((x) => x.session_date !== date), ...day].sort(bySessionOrder));
+      if (moved.session_date !== date) toast.success(`${moved.title} moved to ${shortDayLabel(date)}`);
     } catch {
       setSessions(prev);
       toast.error("Couldn't move that.");
     }
+  };
+
+  // A card was let go: over another card it takes that spot; over a day it goes last.
+  const dropSession = (e: DragEndEvent) => {
+    setDragging(null);
+    setOverDay(null);
+    const s = sessions.find((x) => x.id === Number(e.active.id));
+    if (!s || !e.over) return;
+    const overId = e.over.id;
+    const target = isDayId(overId) ? undefined : sessions.find((x) => x.id === overId);
+    const date = target ? target.session_date : String(overId);
+    const dayIds = sessions.filter((x) => x.session_date === date).map((x) => x.id);
+    let ids: number[];
+    if (date === s.session_date) {
+      const from = dayIds.indexOf(s.id);
+      const to = target ? dayIds.indexOf(target.id) : dayIds.length - 1;
+      if (from === to) return;
+      ids = arrayMove(dayIds, from, to);
+    } else {
+      const at = target ? dayIds.indexOf(target.id) : dayIds.length;
+      ids = [...dayIds.slice(0, at), s.id, ...dayIds.slice(at)];
+    }
+    saveOrder(date, ids, s);
   };
 
   const toggleDone = async (s: TrainingSession) => {
@@ -339,17 +414,24 @@ function TrainingWeek() {
               <FlagIcon className="size-5" /> Race day: {todayRace.name}
             </p>
           )}
-          <div className="space-y-3">
-            {todayList.length === 0 && todayActs.length === 0 && !todayRace && (
-              <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
-            )}
-            {todayList.map((s) => (
-              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
-            ))}
-            {todayActs.map((a) => (
-              <ActivityChip key={a.id} a={a} />
-            ))}
-          </div>
+          {/* Today's cards drag up and down to change the day's order (speed before the lift). */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dropSession}>
+            <SortableContext items={todayList.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {todayList.length === 0 && todayActs.length === 0 && !todayRace && (
+                  <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
+                )}
+                {todayList.map((s) => (
+                  <SortableSession key={s.id} id={s.id}>
+                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                  </SortableSession>
+                ))}
+                {todayActs.map((a) => (
+                  <ActivityChip key={a.id} a={a} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </section>
       )}
 
@@ -396,9 +478,14 @@ function TrainingWeek() {
       {/* Week — stacked rows on phones, columns on wide screens. Cards drag between days. */}
       <DndContext
         sensors={sensors}
+        collisionDetection={dayThenCard}
         onDragStart={(e) => setDragging(sessions.find((x) => x.id === Number(e.active.id)) ?? null)}
-        onDragEnd={moveSession}
-        onDragCancel={() => setDragging(null)}
+        onDragOver={(e: DragOverEvent) => setOverDay(e.over ? dayOf(e.over.id) : null)}
+        onDragEnd={dropSession}
+        onDragCancel={() => {
+          setDragging(null);
+          setOverDay(null);
+        }}
       >
       <section className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
@@ -408,7 +495,7 @@ function TrainingWeek() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <DropDay key={d} day={d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
+            <DropDay key={d} day={d} over={overDay === d && dragging !== null && dragging.session_date !== d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
               <div className={cn("flex items-center justify-between rounded-t-[11px] border-b px-3 py-2", isToday && "bg-foreground text-background")}>
                 <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
                 <button type="button" onClick={() => router.push(newSessionHref(d))} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
@@ -424,11 +511,13 @@ function TrainingWeek() {
                 {list.length === 0 && acts.length === 0 && (
                   <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
                 )}
-                {list.map((s) => (
-                  <DragSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
-                  </DragSession>
-                ))}
+                <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                  {list.map((s) => (
+                    <DragSession key={s.id} id={s.id}>
+                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                    </DragSession>
+                  ))}
+                </SortableContext>
                 {acts.filter((a) => !linked.has(a.id)).map((a) => (
                   <ActivityChip key={a.id} a={a} />
                 ))}
@@ -521,26 +610,47 @@ function GoalLine() {
   );
 }
 
-/** A day column that takes dropped sessions; lights up while one hovers over it. */
-function DropDay({ day, className, children }: { day: string; className: string; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: day });
+/** A day column that takes dropped sessions; lights up while one from another day hovers over it. */
+function DropDay({ day, over, className, children }: { day: string; over: boolean; className: string; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: day });
   return (
-    <div ref={setNodeRef} className={cn(className, isOver && "border-primary ring-2 ring-primary/40")}>
+    <div ref={setNodeRef} className={cn(className, over && "border-primary ring-2 ring-primary/40")}>
       {children}
     </div>
   );
 }
 
-/** Makes a session card draggable. The card stays in place, faded, while its copy follows the finger. */
+/**
+ * Makes a session card draggable in the week grid. The card stays in place, faded,
+ * while its copy follows the finger; its neighbours slide apart to show where it
+ * will land.
+ */
 function DragSession({ id, children }: { id: number; children: React.ReactNode }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id });
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id });
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
       // No text selection or iOS callout on the press-and-hold that starts a drag.
       className={cn("select-none [-webkit-touch-callout:none]", isDragging && "opacity-30")}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Today's big cards: the card itself lifts and slides as it's dragged up or down the list. */
+function SortableSession({ id, children }: { id: number; children: React.ReactNode }) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      className={cn("select-none rounded-lg [-webkit-touch-callout:none]", isDragging && "relative z-10 bg-background shadow-xl")}
     >
       {children}
     </div>

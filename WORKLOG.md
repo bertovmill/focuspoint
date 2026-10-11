@@ -10304,3 +10304,40 @@ loads after deploy.
 
 Next: the same week-over-week idea on /training itself (sessions done and km per
 week for the last ~6 weeks), if he wants it there too.
+
+## 2026-10-11 — Training: this week vs the last two; coaching cues behind an ⓘ
+
+Berto: compare the current week with the last two weeks on /training, and an info
+button on each exercise with one or two coaching cues he can edit.
+
+- **"This week vs the last two"** card on /training, between the week controls
+  and the grid. For each metric (sessions done/planned, km, minutes, Fitbit effort
+  in AZM) there's one bar per week, scaled to the best of the three. This week's bar
+  and number turn green once they're at or past last week's. The heading line says
+  "N more sessions than last week", "Level with last week" or "N more to match last
+  week". Metrics that are 0 in all three weeks are hidden. On a past week the labels
+  become "Week of MM/DD". The two earlier weeks are one extra fetch with a 14-day
+  range: the sessions API only auto-fills from the bank on an exact 7-day range, so
+  past weeks aren't touched. `weekStats()` is now shared by the header count and the card.
+- **Coaching cues**: an ⓘ next to every exercise name on the workout log (rep and
+  timed rows) opens a panel with one or two cues. "Edit" turns it into a textarea;
+  Save writes `cues` into that exercise in the bank, so every later session shows
+  it. Clearing it saves "" and shows "No cues yet." with Add. The stock cues are
+  `DEFAULT_CUES` by exercise key in `lib/workout-templates.ts`, covering every
+  exercise in the seeded bank; the 1 km runs between Hyrox stations (`run_N`) share
+  one. `cuesFor(ex)` returns his cues if set, else the stock ones, so nothing needed
+  migrating, and keys survive renames. Exercises he adds himself start empty.
+  `renameExercise` became `updateExercise(key, patch)`, used for both.
+- Cael's `workout_bank` tool description now mentions `cues`, so Cael can set them.
+
+Files: `app/_components/training-plan-panel.tsx` (`weekStats`, `WeekTrend`),
+`app/_components/workout-log.tsx` (`CuesButton`, `Cues`, `updateExercise`),
+`lib/workout-templates.ts` (`cues`, `DEFAULT_CUES`, `cuesFor`),
+`agent/tools/workout_bank.ts`.
+
+Verified: `tsc --noEmit` clean. Bundled with esbuild + the compiled Tailwind, with
+fetch stubbed, in Chromium at 390px. The trend card with two fake earlier weeks
+(3/3 · 32 km, 4/4 · 41 km) against this week shows bars and "1 more to match last
+week". Hammer row's ⓘ shows the stock cue; editing to two lines sends one bank PUT
+with only that exercise's `cues` set, and the panel shows the new text. No horizontal
+scroll, no page errors. Not yet run against Neon.

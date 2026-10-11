@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkoutTimer, useSegments, type Segment } from "@/app/_components/workout-timer";
@@ -10,6 +10,7 @@ import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import {
   checklistParts,
+  cuesFor,
   formatTime,
   hitAll,
   hitSet,
@@ -179,18 +180,20 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   const onSplit = (seg: Segment, seconds: number) =>
     update(seg.exKey, (r) => ({ ...r, reps: r.reps.map((x, j) => (j === seg.set ? formatTime(seconds) : x)) }));
 
-  // Renaming an exercise here rewrites it in the bank, so every later session (and
-  // the charts) use the new name. The key stays, so its history carries over.
-  const renameExercise = async (key: string, name: string) => {
+  // Renaming an exercise or rewriting its cues here changes it in the bank, so every
+  // later session (and the charts) use it. The key stays, so its history carries over.
+  const updateExercise = async (key: string, patch: Partial<Pick<TemplateExercise, "name" | "cues">>) => {
     const res = await fetch(`/api/training/bank/${slug}`);
     if (!res.ok) throw new Error("Couldn't load the workout");
     const def = (await res.json()) as WorkoutTemplate;
-    for (const b of def.blocks) for (const e of b.exercises) if (e.key === key) e.name = name;
+    for (const b of def.blocks) for (const e of b.exercises) if (e.key === key) Object.assign(e, patch);
     const put = await fetch(`/api/training/bank/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def) });
-    if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't rename");
+    if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't save");
     const saved = (await put.json()) as WorkoutTemplate;
     setData((cur) => (cur ? { ...cur, template: { ...cur.template, blocks: saved.blocks } } : cur));
   };
+  const renameExercise = (key: string, name: string) => updateExercise(key, { name });
+  const saveCues = (key: string, cues: string) => updateExercise(key, { cues });
 
   if (missing) {
     return (
@@ -253,7 +256,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
               <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
               {b.exercises.map((ex) => (
-                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} />
+                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
               ))}
             </section>
           ) : (
@@ -280,6 +283,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
                       columns={maxSets}
                       onChange={(fn) => update(ex.key, fn)}
                       onRename={(n) => renameExercise(ex.key, n)}
+                      onSaveCues={(c) => saveCues(ex.key, c)}
                     />
                   ))}
                 </tbody>
@@ -325,7 +329,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   );
 }
 
-function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
+function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+  const [showCues, setShowCues] = useState(false);
   if (!row) return null;
   const reps = row.reps.map(parseNum);
   const total = totalReps(reps);
@@ -344,9 +349,14 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: Template
     });
 
   return (
+    <>
     <tr className="border-t align-middle">
       <td className="px-3 py-2.5 sm:px-4">
-        <ExerciseName name={ex.name} onRename={onRename} className="block" />
+        {/* Inline, so the ⓘ follows the name and pencil instead of narrowing the column. */}
+        <span className="block">
+          <ExerciseName name={ex.name} onRename={onRename} className="inline" />
+          <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />
+        </span>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
           <span className="font-medium tabular-nums text-foreground/80">{row.target ? `× ${row.target}${ex.unit === "m" ? " m" : ""}` : "log it"}</span>
           <span aria-hidden>·</span>
@@ -423,6 +433,87 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename }: { ex: Template
         )}
       </td>
     </tr>
+    {showCues && (
+      <tr>
+        <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
+          <Cues ex={ex} onSave={onSaveCues} />
+        </td>
+      </tr>
+    )}
+    </>
+  );
+}
+
+/** The ⓘ next to an exercise's name: opens its coaching cues. */
+function CuesButton({ name, open, onClick }: { name: string; open: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`Coaching cues for ${name}`}
+      className={cn("-my-1.5 ml-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full align-middle", open ? "text-primary" : "text-muted-foreground/60 hover:text-foreground")}
+    >
+      <InfoIcon className="size-4" />
+    </button>
+  );
+}
+
+/**
+ * One or two coaching cues for an exercise (Berto, 2026-10-11). Stock cues until
+ * he edits them; saving writes them into the bank, so every later session shows his.
+ */
+function Cues({ ex, onSave }: { ex: TemplateExercise; onSave: (cues: string) => Promise<void> }) {
+  const text = cuesFor(ex);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    const next = (draft ?? "").trim();
+    if (next === text) return setDraft(null);
+    setSaving(true);
+    try {
+      await onSave(next);
+      setDraft(null);
+      toast.success("Cues saved", { description: "Every session from now on shows them." });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save the cues");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+      {draft !== null ? (
+        <div className="space-y-2">
+          <textarea
+            autoFocus
+            rows={3}
+            value={draft}
+            disabled={saving}
+            maxLength={400}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setDraft(null);
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+            }}
+            placeholder="One or two things to remember on this one"
+            className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-base leading-snug focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:opacity-60"
+            aria-label={`Coaching cues for ${ex.name}`}
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDraft(null)} className="h-9 rounded-md px-3 text-muted-foreground hover:text-foreground">Cancel</button>
+            <button type="button" onClick={save} disabled={saving} className="h-9 rounded-md bg-primary px-4 font-medium text-primary-foreground disabled:opacity-60">Save</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2">
+          <p className={cn("flex-1 whitespace-pre-line leading-snug", !text && "text-muted-foreground")}>{text || "No cues yet."}</p>
+          <button type="button" onClick={() => setDraft(text)} className="-my-1 flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-muted-foreground hover:text-foreground">
+            <PencilIcon className="size-3.5" /> {text ? "Edit" : "Add"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -512,7 +603,8 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void> }) {
+function TimeRow({ ex, row, p, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+  const [showCues, setShowCues] = useState(false);
   if (!row) return null;
   const values = row.reps.map((v) => parseTime(v));
   const done = values.filter((v): v is number => v !== null);
@@ -552,6 +644,7 @@ function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateEx
         <div className="min-w-0">
           <span className="flex flex-wrap items-center gap-x-1.5 font-medium leading-snug">
             <ExerciseName name={ex.name} onRename={onRename} />
+            <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />
             {ex.amount !== undefined && (
               // The count is his to change on the day (100 wall balls → 120).
               <span className="inline-flex items-center gap-1 whitespace-nowrap font-normal text-muted-foreground">
@@ -595,6 +688,11 @@ function TimeRow({ ex, row, p, activeSet, onChange, onRename }: { ex: TemplateEx
           </div>
         )}
       </div>
+      {showCues && (
+        <div className="mt-2">
+          <Cues ex={ex} onSave={onSaveCues} />
+        </div>
+      )}
       {!single && (
         <div className="mt-2 flex flex-wrap items-end gap-2">
           {row.reps.map((v, i) => (

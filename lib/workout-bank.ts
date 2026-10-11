@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { RFE_SPLIT_SQUAT, SEED_WORKOUTS, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -42,6 +42,16 @@ async function ensureBank() {
     if (keys.includes("wall_balls") && !keys.includes(RFE_SPLIT_SQUAT.key)) {
       for (const b of def.blocks) b.exercises = b.exercises.map((e) => (e.key === "wall_balls" ? { ...RFE_SPLIT_SQUAT } : e));
       await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-lower-body'`;
+    }
+  }
+  // One-time: push-ups between the shoulder raises on upper body (Berto, 2026-10-11).
+  // Only while the warm-up is still the original, so an edit from the editor stays.
+  const [upper] = await sql`SELECT definition FROM workout_bank WHERE slug = 'unity-standard-upper-body'`;
+  if (upper) {
+    const def = (typeof upper.definition === "string" ? JSON.parse(upper.definition) : upper.definition) as WorkoutTemplate;
+    if (def.warmup === OLD_UPPER_BODY_WARMUP) {
+      def.warmup = UPPER_BODY_WARMUP;
+      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-upper-body'`;
     }
   }
   ready = true;

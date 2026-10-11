@@ -244,6 +244,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </div>
       </header>
 
+      <VsLastWeek t={t} date={date} history={data.history} rows={rows} />
+
       {t.warmup && <Checklist key={`warmup-${date}`} id="warm-up" label="Warm-up" part="warmup" text={t.warmup} slug={t.slug} date={date} initial={data.checks?.warmup} />}
 
       {t.blocks.map((b) =>
@@ -288,6 +290,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
       )}
 
       {t.cooldown && <Checklist key={`cooldown-${date}`} id="cool-down" label="Cool-down" part="cooldown" text={t.cooldown} slug={t.slug} date={date} initial={data.checks?.cooldown} />}
+
+      <WeekCompare t={t} date={date} history={data.history} rows={rows} />
 
       {t.blocks.some((b) => b.exercises.some((e) => e.tracked)) && (
         <section id="progress" className="space-y-3">
@@ -662,6 +666,150 @@ function Checklist({ id, label, part, text, slug, date, initial }: { id: string;
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+// ── this week against the weeks before ────────────────────────────────────
+
+/** One exercise on one day: total reps, or the average time per set; weight alongside. */
+interface Score {
+  value: number;
+  weight: number | null;
+}
+
+function scoreOf(ex: TemplateExercise, reps: (number | null)[], weight: number | null): Score | null {
+  const done = reps.filter((r): r is number => r !== null && r > 0);
+  if (done.length === 0) return null;
+  return { value: isTime(ex) ? totalReps(done) / done.length : totalReps(done), weight };
+}
+
+/** Better than the week before: more reps (or any at a heavier weight), or a faster time. */
+function beats(ex: TemplateExercise, cur: Score, prev: Score) {
+  if (isTime(ex)) return cur.value < prev.value;
+  const w = cur.weight ?? 0;
+  const pw = prev.weight ?? 0;
+  return w > pw || (w === pw && cur.value > prev.value);
+}
+
+/**
+ * The last few sessions of this workout and this one, side by side (Berto,
+ * 2026-10-11: something motivating to hold this week up against). Today's column
+ * reads what's typed, so it moves as he logs.
+ */
+function useWeeks(t: WorkoutTemplate, date: string, history: StrengthLog[], rows: Record<string, Row>, previous = 3) {
+  return useMemo(() => {
+    const exercises = t.blocks.flatMap((b) => b.exercises);
+    const logged = (l: StrengthLog) => l.log_date < date && l.reps.some((r) => r !== null && r > 0);
+    const dates = [...new Set(history.filter(logged).map((l) => l.log_date))].sort().slice(-previous);
+    const scores = new Map<string, (Score | null)[]>();
+    for (const ex of exercises) {
+      const past = dates.map((d) => {
+        const l = history.find((h) => h.exercise === ex.key && h.log_date === d);
+        return l ? scoreOf(ex, l.reps, l.weight) : null;
+      });
+      const r = rows[ex.key];
+      const now = r ? scoreOf(ex, r.reps.map((v) => valueOf(ex, v)), parseNum(r.weight)) : null;
+      scores.set(ex.key, [...past, now]);
+    }
+    // Total reps across the rep exercises (timed sets don't add up with reps).
+    const totals = [...dates, date].map((_, i) =>
+      exercises.filter((ex) => !isTime(ex)).reduce((n, ex) => n + (scores.get(ex.key)?.[i]?.value ?? 0), 0),
+    );
+    return { exercises, dates, scores, totals };
+  }, [t, date, history, rows, previous]);
+}
+
+/** One line near the top: this session's reps against last week's, linking down to the table. */
+function VsLastWeek({ t, date, history, rows }: { t: WorkoutTemplate; date: string; history: StrengthLog[]; rows: Record<string, Row> }) {
+  const { dates, totals } = useWeeks(t, date, history, rows, 1);
+  if (dates.length === 0) return null;
+  const last = totals[0];
+  const now = totals[1];
+  if (!last) return null;
+  const ahead = now - last;
+  return (
+    <a href="#week-compare" className={cn("flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-base hover:bg-muted/40", ahead > 0 && "border-emerald-500/40 bg-emerald-500/5")}>
+      <span>
+        {now === 0 ? (
+          <>Last time: <span className="font-semibold tabular-nums">{last} reps</span>. Beat it.</>
+        ) : ahead > 0 ? (
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">{ahead} reps up on last time</span>
+        ) : ahead === 0 ? (
+          <span className="font-semibold">Level with last time</span>
+        ) : (
+          <><span className="font-semibold tabular-nums">{-ahead} more</span> to match last time</>
+        )}
+        <span className="text-muted-foreground tabular-nums"> · {now}/{last}</span>
+      </span>
+      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+    </a>
+  );
+}
+
+/** Each exercise across the last three sessions and this one. Green = better than the week before. */
+function WeekCompare({ t, date, history, rows }: { t: WorkoutTemplate; date: string; history: StrengthLog[]; rows: Record<string, Row> }) {
+  const { exercises, dates, scores, totals } = useWeeks(t, date, history, rows);
+  if (dates.length === 0) return null;
+  const cols = [...dates, date];
+  const cur = cols.length - 1;
+  const label = (d: string, i: number) => (i === cur ? (d === todayISO() ? "Today" : shortDate(d)) : shortDate(d));
+  const weightLabel = (ex: TemplateExercise, w: number | null) => (w === null ? "" : `${w}${ex.perSide ? "/side" : ex.weightUnit ?? ""}`);
+  return (
+    <section id="week-compare" className="scroll-mt-4 space-y-2">
+      <h2 className="text-xl font-semibold">Week over week</h2>
+      <div className="overflow-hidden rounded-xl border">
+        <table className="w-full table-fixed border-collapse text-left">
+          <thead>
+            <tr className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-2 font-medium sm:px-4">Exercise</th>
+              {cols.map((d, i) => (
+                <th key={d} className={cn("w-14 px-1 py-2 text-right font-medium sm:w-20 sm:px-3", i === cur && "text-foreground")}>{label(d, i)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {exercises.map((ex) => {
+              const row = scores.get(ex.key)!;
+              if (row.every((s) => s === null)) return null;
+              return (
+                <tr key={ex.key} className="border-t first:border-t-0">
+                  <td className="px-3 py-2 text-sm leading-snug sm:px-4">{ex.name}</td>
+                  {row.map((s, i) => {
+                    // Against the nearest earlier week that has a number.
+                    const prev = row.slice(0, i).reverse().find((x): x is Score => x !== null);
+                    const up = s && prev && beats(ex, s, prev);
+                    const newWeight = s && prev && s.weight !== prev.weight && s.weight !== null;
+                    return (
+                      <td key={i} className={cn("px-1 py-2 text-right tabular-nums sm:px-3", i === cur && "bg-muted/30 font-semibold")}>
+                        {s ? (
+                          <>
+                            <span className={cn(up && "text-emerald-700 dark:text-emerald-400")}>{isTime(ex) ? formatTime(s.value) : s.value}</span>
+                            {newWeight && <span className="block text-[11px] font-normal text-muted-foreground">{weightLabel(ex, s.weight)}</span>}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground/40">–</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+            {totals.some(Boolean) && (
+              <tr className="border-t-2 font-semibold">
+                <td className="px-3 py-2 text-sm sm:px-4">Total reps</td>
+                {totals.map((n, i) => (
+                  <td key={i} className={cn("px-1 py-2 text-right tabular-nums sm:px-3", i === cur && "bg-muted/30", i > 0 && n > totals[i - 1] && totals[i - 1] > 0 && "text-emerald-700 dark:text-emerald-400")}>
+                    {n || <span className="font-normal text-muted-foreground/40">–</span>}
+                  </td>
+                ))}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted-foreground">Green: better than the session before — more reps, a heavier weight, or a faster time. Times are the average per set.</p>
     </section>
   );
 }

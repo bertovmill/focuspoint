@@ -10266,3 +10266,41 @@ Not yet run against the real Neon DB or on a real phone (touch drag).
 
 Next: maybe let Cael set the order too (`position` on `set_training_session`), and an
 Undo on the "removed" toast instead of the confirm.
+
+## 2026-10-11 — Workouts: week over week; push-ups between the shoulder raises
+
+Berto: wants to see this week against previous weeks (something motivating), and
+push-ups added between the shoulder raises in the upper-body warm-up.
+
+- **Week over week** on every workout log page (`/training/workouts/<slug>/<date>`):
+  a table of each exercise across the last three logged sessions and this one, plus a
+  "Total reps" row. Reps exercises show total reps; timed ones show the average time
+  per set. A cell is green when it beats the session before: more reps at the same
+  weight, any heavier weight, or a faster time. A new weight shows under the number.
+  This session's column reads what's typed, so it updates while he logs.
+  Exercises with no data in any column are hidden.
+- **Headline near the top** (above the warm-up), linking to the table: "Last time:
+  551 reps. Beat it." before he starts, then "N more to match last time", "Level
+  with last time" or "N reps up on last time" (green) as he logs.
+  Only shows when there's an earlier session.
+  Uses the `history` the page already loads; no API change.
+- **Upper-body warm-up** is now five tick boxes: Front raise (10–15 lb dumbbells) +
+  Push-ups + Side raise + Push-ups + Bent-over raise. The seed changed, and a
+  one-time step in `ensureBank` rewrites the live bank row, but only while its
+  warm-up is still the exact old text, so later edits from the editor stay. Today's
+  existing warm-up tick lands on the first box (ticks are stored by position).
+
+Files: `app/_components/workout-log.tsx` (`useWeeks`, `VsLastWeek`, `WeekCompare`),
+`lib/workout-templates.ts` (`UPPER_BODY_WARMUP`, `OLD_UPPER_BODY_WARMUP`),
+`lib/workout-bank.ts` (one-time warm-up update).
+
+Verified: `tsc --noEmit` clean. No DB in the cloud container, so `WorkoutLog` was
+bundled with esbuild + the compiled Tailwind, with fetch stubbed and three fake past
+weeks, and driven in Chromium at 390px. The warm-up shows the five boxes; the table
+shows Sep 20 / Sep 27 / Oct 4 / Today with greens where reps went up; tapping 8 sets
+moved Today to 120 and the headline updated. No horizontal scroll, no page errors.
+The warm-up migration hasn't run against Neon yet; it runs the first time the bank
+loads after deploy.
+
+Next: the same week-over-week idea on /training itself (sessions done and km per
+week for the last ~6 weeks), if he wants it there too.

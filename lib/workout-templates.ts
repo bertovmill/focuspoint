@@ -69,6 +69,10 @@ export interface WorkoutTemplate {
 
 const LADDER = [10, 15, 20];
 
+/** The warm-up before 2026-10-11, kept so the bank can tell it hasn't been edited since. */
+export const OLD_UPPER_BODY_WARMUP = "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells";
+export const UPPER_BODY_WARMUP = "Front raise, 10–15 lb dumbbells + Push-ups + Side raise + Push-ups + Bent-over raise";
+
 export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   {
     slug: "unity-standard-upper-body",
@@ -78,7 +82,8 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     session_type: "strength",
     default_day: 4,
     plan: { minutes: 60, intensity: "moderate" },
-    warmup: "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells",
+    // Push-ups between the three raises (Berto, 2026-10-11). Each " + " part is its own tick box.
+    warmup: UPPER_BODY_WARMUP,
     cooldown: "6-minute stretch",
     blocks: [
       {

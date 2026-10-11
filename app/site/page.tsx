@@ -10,6 +10,7 @@ import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { deskLayoutVars } from "./_components/concrete-wall/scene";
+import { DeskScene } from "./_components/concrete-wall/desk-scene";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
 import { MomentsCarousel } from "./_components/moments-carousel";
 import { MOMENTS } from "@/lib/site-moments";
@@ -125,6 +126,8 @@ export default async function SiteHomePage() {
             />
           </div>
         </RevealOnView>
+        {/* The money tree and the jar on the sill, over the text, touchable. */}
+        <DeskScene />
       </div>
 
       {/* In the room: photos from my LinkedIn posts. Each opens the post behind it. */}

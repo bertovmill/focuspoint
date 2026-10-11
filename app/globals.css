@@ -724,3 +724,22 @@
 .notion-prose > [data-type="details"]:first-child {
   margin-top: 0;
 }
+
+/* bertomill.com homepage desk scene (app/site/_components/concrete-wall/desk-scene.tsx):
+   the plant's little sway after a drink, the water running from the jar, and the
+   ripple where it lands. */
+@keyframes plant-drink {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-1.4deg) scale(1.015); }
+  55% { transform: rotate(1.1deg) scale(1.02); }
+  80% { transform: rotate(-0.5deg) scale(1.01); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes water-flow {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 14px, 0 0; }
+}
+@keyframes water-ripple {
+  from { transform: translate(-50%, -50%) scale(0.3); opacity: 0.8; }
+  to { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+}

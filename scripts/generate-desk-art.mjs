@@ -78,6 +78,33 @@ const SKIES = [
   },
 ];
 
+/**
+ * The mason jar on the sill, upright and tipped. Fresh generations, not edits:
+ * edits of the jar came back on an opaque backdrop. (Image viewers may show a
+ * coloured backdrop behind these PNGs; the alpha channel is real.)
+ */
+const JARS = [
+  {
+    key: "jar-upright",
+    prompt:
+      "Photorealistic product photograph of a small clear glass mason jar, about 10 cm tall, with no " +
+      "lid and no label, two-thirds full of clean still water, isolated on a fully transparent " +
+      "background. Seen straight on at eye level. Soft daylight from the upper left with realistic " +
+      "glass highlights, refraction through the water, and a soft contact shadow only directly " +
+      "beneath the jar. Nothing else, no text.",
+  },
+  {
+    key: "jar-pouring",
+    prompt:
+      "Photorealistic product photograph of a small clear glass mason jar, about 10 cm tall, no lid, " +
+      "no label, isolated on a fully transparent background, tipped about 45 degrees to the right as " +
+      "if someone is pouring from it: the water inside stays level with the ground, and a few drops " +
+      "are just beginning to spill over the rim on the right side. No hand, no stream below the rim, " +
+      "nothing else. Seen at eye level, soft daylight from the upper left with realistic glass " +
+      "highlights and refraction. No text.",
+  },
+];
+
 await mkdir(outDir, { recursive: true });
 const wanted = (key) => only.length === 0 || only.includes(key);
 
@@ -136,4 +163,24 @@ for (const sky of SKIES) {
     png = await generate(sky.fresh);
   }
   await save(sky.key, png);
+}
+
+for (const jar of JARS) {
+  if (!wanted(jar.key)) continue;
+  process.stdout.write(`${jar.key} … `);
+  const { image } = await generateImage({
+    model: MODEL,
+    prompt: jar.prompt,
+    size: "1024x1024",
+    providerOptions: { openai: { quality: "high", output_format: "png", background: "transparent" } },
+  });
+  // Small on the page, so 480px tall is plenty. Remeasure JAR_ART (aspect, mouth) after.
+  const compressed = await sharp(Buffer.from(image.uint8Array))
+    .trim({ threshold: 8 })
+    .resize({ height: 480, withoutEnlargement: true })
+    .webp({ quality: 88, effort: 6, alphaQuality: 95 })
+    .toBuffer();
+  const file = path.join(outDir, `${jar.key}.webp`);
+  await writeFile(file, compressed);
+  console.log(`${(image.uint8Array.length / 1024).toFixed(0)} KB → ${(compressed.length / 1024).toFixed(0)} KB → ${path.relative(process.cwd(), file)}`);
 }

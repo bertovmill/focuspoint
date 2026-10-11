@@ -4,6 +4,43 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Homepage: a mason jar you can water the plant with; the plant turns
+
+Berto: *"add a little mason jar of water on the windowsill that you can actually drag
+and water the plant with. You can also drag to rotate the plant a little."* (He said
+"plane"; read as the plant.)
+
+- **The plant is its own layer now.** `scripts/split-desk-plant.mjs` cuts the potted
+  tree out of `desk-oak-money-tree.webp` into `plant-money-tree.webp` and clears the
+  leaves out of the desk (`desk-oak-base.webp`, now `DESK_ART.src`); the pot's lower
+  half stays in the desk under the overlay so the join is seamless. It prints
+  `PLANT_ART` (the tree's box in the desk image, and the pot's opening inside the
+  tree image) which `desk-scene.tsx` uses to lay the plant back with the same
+  `--desk-*` custom properties, lit by the same sky as the desk.
+- **`DeskScene`** (`app/site/_components/concrete-wall/desk-scene.tsx`): a full-bleed
+  layer over the hero, `pointer-events-none` except the plant and the jar. Drag the
+  plant sideways → `perspective(1100px) rotateY(±18°)` around the pot (0.14° a pixel),
+  springing back on release. The jar stands on the sill (`sillAnchor`: the shader's
+  sill front edge, 14% in from the glass's left; 8.5% of the hero tall, scaled with
+  the window). Pick it up and carry it; when the tipped jar's mouth is over the pot
+  (within 1.15 pot radii, 6–360px above it) it swaps to the tipped cutout, a stream
+  runs from the mouth to the soil (animated repeating gradient + two ripple rings),
+  the soil darkens and the plant does a 2.6 s sway. Let go anywhere → it glides back
+  to the sill; the soil dries over 9 s. Reduced motion: no spring, sway or flow.
+  `setPointerCapture` is wrapped (synthetic pointers throw).
+- **Jar art**: two fresh gpt-image-1 cutouts (`jar-upright.webp` 422×480,
+  `jar-pouring.webp` 375×480, prompts now in `generate-desk-art.mjs`). An *edit* of the
+  upright jar to tip it came back on an opaque backdrop, so the tipped one is a fresh
+  generation. `JAR_ART` holds each image's aspect and mouth point.
+- Keyframes `plant-drink`, `water-flow`, `water-ripple` in `app/globals.css`.
+
+Verified on :3010: scripted pointer drags in the desktop app's browser confirmed the
+DOM states (rotateY 13.3° while held → 0° with the spring; jar translated, tipped
+image on, stream from the mouth to the pot top), and Playwright (no WebGPU, CSS wall)
+captured the pour mid-stream, the jar back on the sill, and the plant turned.
+
+---
+
 ## 2026-10-11 — Homepage desk scene, round two: oak desk, a proper sash window
 
 Berto on the first pass: *"not bad … I also don't like what the window looks like. The

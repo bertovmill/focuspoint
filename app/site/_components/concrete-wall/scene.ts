@@ -66,7 +66,9 @@ export const CITY_SIZE = [1200, 800] as const;
  * the legs shows. Regenerate with scripts/generate-desk-art.mjs and remeasure.
  */
 export const DESK_ART = {
-  src: "/site-art/desk-oak-money-tree.webp",
+  // The desk alone: scripts/split-desk-plant.mjs clears the plant out of
+  // desk-oak-money-tree.webp so it can live on its own layer (PLANT_ART).
+  src: "/site-art/desk-oak-base.webp",
   width: 1310,
   height: 952,
   clear: 0.273,
@@ -85,4 +87,47 @@ export function deskLayoutVars() {
     "--desk-top-clear": (1 - DESK_ART.sink - DESK_ART.clear + 0.03).toFixed(3),
     "--desk-sink": DESK_ART.sink.toFixed(3),
   } as Record<string, string>;
+}
+
+/**
+ * The potted money tree, split out of the desk image by
+ * scripts/split-desk-plant.mjs. `left`/`right`/`top`/`bottom` are where its
+ * box sits in the desk image (fractions), so it lands back exactly on the
+ * desk; `pot` is the pot's opening inside the plant image (fractions of its
+ * own box): centre x, top y, and half width. All printed by that script.
+ */
+export const PLANT_ART = {
+  src: "/site-art/plant-money-tree.webp",
+  width: 479,
+  height: 440,
+  left: 0.6053,
+  right: 0.971,
+  top: 0.0011,
+  bottom: 0.4632,
+  pot: { x: 0.5146, top: 0.8273, r: 0.118 },
+} as const;
+
+/**
+ * The mason jar on the windowsill: upright, and tipped to pour. `mouth` is
+ * where the water leaves each image (fractions of its box); `aspect` is
+ * width / height. Measured from the cutouts.
+ */
+export const JAR_ART = {
+  upright: { src: "/site-art/jar-upright.webp", aspect: 0.879, mouth: { x: 0.5, y: 0.04 } },
+  pouring: { src: "/site-art/jar-pouring.webp", aspect: 0.781, mouth: { x: 0.9, y: 0.32 } },
+} as const;
+
+/**
+ * Where the sill is for a window, so things can stand on it: the sill's front
+ * edge as a fraction of the wall's height, and a spot on its left as a
+ * fraction of the wall's width. `joinery` is the casing scale the shader
+ * uses (1 on wide screens, down to 0.5 for a phone's small window).
+ */
+export function sillAnchor(rect: WindowRect) {
+  const joinery = Math.min(1, Math.max(0.5, rect.hh / 0.24));
+  return {
+    x: rect.x - rect.hw + rect.hw * 2 * 0.14,
+    y: rect.y + rect.hh + 0.056 * joinery,
+    joinery,
+  };
 }

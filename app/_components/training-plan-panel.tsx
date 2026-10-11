@@ -16,7 +16,20 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  pointerWithin,
+  rectIntersection,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -142,7 +155,8 @@ function TrainingWeek() {
   // ── session actions ───────────────────────────────────────────────────
 
   // Drag a session to another day (Berto, 2026-10-05: some days the workout just
-  // won't happen). Mouse drags after 6px; on a phone it's press-and-hold, so
+  // won't happen), or onto another card to take its place — within a day too
+  // (2026-10-11). Mouse drags after 6px; on a phone it's press-and-hold, so
   // scrolling and tapping the card still work.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -152,21 +166,56 @@ function TrainingWeek() {
   const moveSession = async (e: DragEndEvent) => {
     setDragging(null);
     const s = sessions.find((x) => x.id === Number(e.active.id));
-    const to = e.over ? String(e.over.id) : null;
-    if (!s || !to || to === s.session_date) return;
+    const target = e.over ? String(e.over.id) : null;
+    if (!s || !target) return;
+    // The new order for the day it lands on.
+    let to: string;
+    let order: TrainingSession[];
+    const card = target.startsWith("s:") ? sessions.find((x) => x.id === Number(target.slice(2))) : null;
+    if (card) {
+      if (card.id === s.id) return;
+      to = card.session_date;
+      order = (byDay.get(to) ?? []).filter((x) => x.id !== s.id);
+      const at = order.indexOf(card);
+      // Same day: dragging down lands below the card, dragging up lands above it.
+      order.splice(dropsBelow(s, card) ? at + 1 : at, 0, s);
+    } else {
+      to = target;
+      if (to === s.session_date) return;
+      order = [...(byDay.get(to) ?? []), s];
+    }
     const prev = sessions;
-    setSessions((ss) => ss.map((x) => (x.id === s.id ? { ...x, session_date: to } : x)));
+    const placed = new Map(order.map((x, i) => [x.id, i]));
+    setSessions((ss) =>
+      inDayOrder(ss.map((x) => (placed.has(x.id) ? { ...x, session_date: to, position: placed.get(x.id)! } : x))),
+    );
     try {
-      const res = await fetch(`/api/training/sessions/${s.id}`, {
-        method: "PATCH",
+      const res = await fetch("/api/training/sessions/reorder", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_date: to }),
+        body: JSON.stringify({ session_date: to, ids: order.map((x) => x.id) }),
       });
       if (!res.ok) throw new Error();
-      toast.success(`${s.title} moved to ${shortDayLabel(to)}`);
+      if (to !== s.session_date) toast.success(`${s.title} moved to ${shortDayLabel(to)}`);
     } catch {
       setSessions(prev);
       toast.error("Couldn't move that.");
+    }
+  };
+
+  // Take a session off its day (Berto swaps workouts out). Logged splits/sets stay
+  // in the workout log — they're keyed by workout and date, not the session.
+  const removeSession = async (s: TrainingSession) => {
+    if (!window.confirm(`Remove ${s.title} from ${shortDayLabel(s.session_date)}?`)) return;
+    const prev = sessions;
+    setSessions((ss) => ss.filter((x) => x.id !== s.id));
+    try {
+      const res = await fetch(`/api/training/sessions/${s.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success(`${s.title} removed`);
+    } catch {
+      setSessions(prev);
+      toast.error("Couldn't remove that.");
     }
   };
 
@@ -344,7 +393,7 @@ function TrainingWeek() {
               <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
             )}
             {todayList.map((s) => (
-              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+              <SessionCard key={s.id} s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
             ))}
             {todayActs.map((a) => (
               <ActivityChip key={a.id} a={a} />
@@ -398,6 +447,7 @@ function TrainingWeek() {
         sensors={sensors}
         onDragStart={(e) => setDragging(sessions.find((x) => x.id === Number(e.active.id)) ?? null)}
         onDragEnd={moveSession}
+        collisionDetection={preferCards}
         onDragCancel={() => setDragging(null)}
       >
       <section className="grid gap-3 md:grid-cols-7">
@@ -425,8 +475,8 @@ function TrainingWeek() {
                   <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
                 )}
                 {list.map((s) => (
-                  <DragSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} />
+                  <DragSession key={s.id} id={s.id} dropBelow={!!dragging && dropsBelow(dragging, s)}>
+                    <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                   </DragSession>
                 ))}
                 {acts.filter((a) => !linked.has(a.id)).map((a) => (
@@ -531,23 +581,50 @@ function DropDay({ day, className, children }: { day: string; className: string;
   );
 }
 
-/** Makes a session card draggable. The card stays in place, faded, while its copy follows the finger. */
-function DragSession({ id, children }: { id: number; children: React.ReactNode }) {
-  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({ id });
+/** Sessions sorted the way the week shows them: by day, then their order within it. */
+function inDayOrder(ss: TrainingSession[]) {
+  return [...ss].sort((a, b) => a.session_date.localeCompare(b.session_date) || a.position - b.position || a.id - b.id);
+}
+
+/** Dropping `s` on `card` puts it below the card when it's coming down from higher in the same day; otherwise above. */
+function dropsBelow(s: TrainingSession, card: TrainingSession) {
+  return s.session_date === card.session_date && (s.position - card.position || s.id - card.id) < 0;
+}
+
+/** The card under the finger wins over the day column around it; off any card, the day takes it. */
+const preferCards: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  const pool = hits.length ? hits : rectIntersection(args);
+  const card = pool.find((c) => String(c.id).startsWith("s:"));
+  return card ? [card] : pool;
+};
+
+/**
+ * Makes a session card draggable, and a drop target for reordering: a line shows
+ * where the dragged card will land. The card stays in place, faded, while its copy follows the finger.
+ */
+function DragSession({ id, dropBelow, children }: { id: number; dropBelow: boolean; children: React.ReactNode }) {
+  const drag = useDraggable({ id });
+  const drop = useDroppable({ id: `s:${id}` });
+  const over = drop.isOver && !drag.isDragging;
   return (
     <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      ref={(el) => {
+        drag.setNodeRef(el);
+        drop.setNodeRef(el);
+      }}
+      {...drag.attributes}
+      {...drag.listeners}
       // No text selection or iOS callout on the press-and-hold that starts a drag.
-      className={cn("select-none [-webkit-touch-callout:none]", isDragging && "opacity-30")}
+      className={cn("relative select-none [-webkit-touch-callout:none]", drag.isDragging && "opacity-30")}
     >
+      {over && <div className={cn("pointer-events-none absolute inset-x-1 h-1 rounded-full bg-primary", dropBelow ? "-bottom-1.5" : "-top-1.5")} />}
       {children}
     </div>
   );
 }
 
-function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void }) {
+function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   const template = s.workout_slug ? { slug: s.workout_slug } : null;
@@ -599,6 +676,17 @@ function SessionCard({ s, past, big, onToggle, onEdit }: { s: TrainingSession; p
           )}
           {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className={big ? "mt-1.5 h-2" : "mt-1 h-1.5"} />}
         </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Remove ${s.title}`}
+            // Always there on a phone; on desktop it shows on hover so the narrow week columns stay clean.
+            className={cn("-m-1 flex shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100", big ? "size-10" : "size-8")}
+          >
+            <TrashIcon className={big ? "size-5" : "size-4"} />
+          </button>
+        )}
       </div>
       {template && (
         <Link

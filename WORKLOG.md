@@ -10227,3 +10227,42 @@ Not yet run against the real Neon DB.
 
 Next: maybe pinned notes (Apple's "Pinned" group) and a compose button that opens a
 blank note straight into the editor.
+
+## 2026-10-11 — Training: reorder sessions within a day, remove one from the card
+
+Berto: wants to re-order workouts within a day (only moving between days worked) and
+delete a workout off a day, since he swaps workouts out.
+
+- **Reorder**: each session card is now also a drop target. Drop a card on another
+  card and it takes that spot. In the same day, dragging down puts it below the card
+  and dragging up puts it above. A line shows where it will land. Dropping on a card
+  in another day moves it there at that spot; dropping on a day's empty space adds it
+  to the end, as before. The card under the pointer wins over the day around it
+  (`preferCards` collision: `pointerWithin`, falling back to `rectIntersection`).
+  Same gestures as before: drag with the mouse, press-and-hold on a phone.
+- Saved with one call, `POST /api/training/sessions/reorder {session_date, ids}`,
+  which sets `session_date` and `position` 0…n for the day it lands on
+  (`reorderDay` in `lib/training.ts`). The `position` column and the
+  `ORDER BY session_date, position, id` already existed; only the UI was missing.
+  The optimistic state is re-sorted the same way (`inDayOrder`).
+- **Remove**: a trash button on every session card (the week grid and Today), with a
+  confirm, then an optimistic DELETE and a "removed" toast. On desktop it shows on
+  hover so the narrow columns stay clean; on a phone it's always there. Logged
+  splits/sets aren't touched: they're keyed by workout + date, not by the session.
+  (The session page's Delete button still works too.)
+
+Files: `app/_components/training-plan-panel.tsx`, `lib/training.ts` (`reorderDay`),
+`app/api/training/sessions/reorder/route.ts` (new).
+
+Verified: `npm run typecheck` clean. No DB in the cloud container, so the real
+`TrainingPlanPanel` was bundled with esbuild + the app's compiled Tailwind, with
+fetch stubbed, and driven in Chromium. At 390px: dragging Sunday's long run up onto
+the first card made it [4,2,3]; dragging it back down made it [2,3,4]; dragging
+Saturday's Hyrox Sim onto a Sunday card inserted it above that card ([2,1,3,4]).
+Each drag sent the matching reorder POST. Removing a card sent
+`DELETE /api/training/sessions/3`. At 1280px, dropping on an empty day still moves
+the session there. No horizontal scroll, no page errors.
+Not yet run against the real Neon DB or on a real phone (touch drag).
+
+Next: maybe let Cael set the order too (`position` on `set_training_session`), and an
+Undo on the "removed" toast instead of the confirm.

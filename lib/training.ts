@@ -294,6 +294,21 @@ export async function deleteSession(id: number) {
   await sql`DELETE FROM training_sessions WHERE id = ${id}`;
 }
 
+/**
+ * Puts a day's sessions in this order (0, 1, 2…). A session dragged in from another
+ * day comes along: every id listed lands on `date`.
+ */
+export async function reorderDay(date: string, ids: number[]) {
+  if (ids.length === 0) return;
+  const sql = getDb();
+  await sql.query(
+    `UPDATE training_sessions t SET session_date = $1, position = o.ord - 1, updated_at = NOW()
+     FROM unnest($2::int[]) WITH ORDINALITY AS o(id, ord)
+     WHERE t.id = o.id`,
+    [date, ids],
+  );
+}
+
 export async function clearWeek(from: string, to: string, onlyUndone = true) {
   const sql = getDb();
   if (onlyUndone) await sql`DELETE FROM training_sessions WHERE session_date BETWEEN ${from} AND ${to} AND done = FALSE`;

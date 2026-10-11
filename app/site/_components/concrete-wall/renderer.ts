@@ -14,6 +14,12 @@ export interface WallRendererOptions {
   readonly sky: () => Sky;
   /** Cut the window into the wall and load the view through it. */
   readonly scene: boolean;
+  /**
+   * Called once if the GPU reports an error after `ready` (a pipeline that
+   * fails to compile, a lost device). The renderer has already torn itself
+   * down; the component should go back to the CSS wall.
+   */
+  readonly onFail?: (error: unknown) => void;
 }
 
 /**
@@ -47,6 +53,14 @@ export function createWallRenderer(
       return;
     }
     gpu = context;
+    // Pipeline and device errors arrive asynchronously, not as throws from
+    // the frame loop, so without this a broken shader would leave a blank
+    // canvas over the CSS wall for ever.
+    context.onError((error) => {
+      if (disposed) return;
+      dispose();
+      options.onFail?.(error);
+    });
     const output = surface(context, canvas, { dpr: [1, 1.5] });
 
     // Inner pages never show the window, so they get a token texture rather
@@ -103,7 +117,7 @@ export function createWallRenderer(
         ];
 
         const [width, height] = output.size;
-        const window = options.scene ? windowRect(width / Math.max(1, height)) : null;
+        const window = options.scene ? windowRect(width / Math.max(1, height), width / output.dpr) : null;
 
         wall.set({
           params: {

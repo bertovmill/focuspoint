@@ -27,16 +27,17 @@ const outDir = path.resolve(outIndex >= 0 ? args[outIndex + 1] : path.join("publ
 const only = args.filter((a, i) => !a.startsWith("--") && i !== outIndex + 1);
 
 const DESK_PROMPT =
-  "Photorealistic studio product photograph, isolated on a fully transparent background, " +
-  "of a beautiful modern designer desk with a money tree houseplant standing on it. " +
-  "The desk: a slim solid walnut top with a rich warm grain, about 170 cm wide, on four " +
-  "slender tapered solid-walnut legs, seen straight on from standing height and slightly " +
-  "from above so the whole desktop surface and the full legs down to the feet are visible. " +
-  "Near the right end of the desk, a lush, healthy money tree (Pachira aquatica) about " +
-  "70 cm tall with a braided trunk and glossy five-leaflet palmate leaves, in a matte " +
-  "off-white ceramic pot. Nothing else on the desk. Soft window daylight from the upper " +
-  "left with realistic soft contact shadows on the desk surface only. No floor, no wall, " +
-  "no background, no reflection below the feet, no text, no watermark.";
+  "Photorealistic studio product photograph, isolated on a fully transparent background, of a " +
+  "premium designer writing desk with a money tree houseplant standing on it, seen straight on " +
+  "at standing eye height and slightly from above so the whole desktop and the legs down to the " +
+  "feet are visible. The desk: a thick solid white-oak slab top with a soft matte finish and " +
+  "visible cathedral grain, about 170 cm wide, on a sculptural solid-oak trestle base. On the left " +
+  "a small brass dome desk lamp with a warm bulb, and in the middle a closed tan leather notebook " +
+  "with a brass fountain pen on it. Near the right end a lush, healthy money tree (Pachira " +
+  "aquatica) about 70 cm tall with a braided trunk and glossy palmate leaves, in a matte off-white " +
+  "ceramic pot. Nothing else on the desk. Soft window daylight from the upper left, realistic " +
+  "contact shadows on the desk surface only. No floor, no wall, no background, no reflection " +
+  "below the feet, no text, no watermark.";
 
 const CITY_PROMPT =
   "Photorealistic view of downtown Toronto seen from a high window in a nearby building " +
@@ -103,10 +104,10 @@ async function generate(prompt, openai) {
   return Buffer.from(image.uint8Array);
 }
 
-if (wanted("desk-money-tree")) {
-  process.stdout.write("desk-money-tree … ");
+if (wanted("desk-oak-money-tree")) {
+  process.stdout.write("desk-oak-money-tree … ");
   const png = await generate(DESK_PROMPT, { background: "transparent" });
-  await save("desk-money-tree", png, { alpha: true, quality: 90 });
+  await save("desk-oak-money-tree", png, { alpha: true, quality: 90 });
 }
 
 let day = null;

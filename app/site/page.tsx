@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
 import { ASK_AI_HASH } from "@/lib/public-site";
@@ -8,6 +9,7 @@ import { AskAiButton } from "./_components/ask-ai";
 import { RevealOnView } from "./_components/reveal-on-view";
 import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
+import { deskLayoutVars } from "./_components/concrete-wall/scene";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
 import { MomentsCarousel } from "./_components/moments-carousel";
 import { MOMENTS } from "@/lib/site-moments";
@@ -93,13 +95,16 @@ export default async function SiteHomePage() {
           desk's width; the bottom padding keeps the text above the desk top on
           wide screens and above the whole tree on phones, where the desk sits
           under the text instead of beside it. */}
-      <div className="relative isolate -mt-16 [--desk-w:110vw] sm:[--desk-w:85vw] lg:[--desk-w:min(60vw,80vh)]">
+      <div
+        className="relative isolate -mt-16 [--desk-w:110vw] sm:[--desk-w:85vw] lg:[--desk-w:min(60vw,80vh)]"
+        style={deskLayoutVars() as CSSProperties}
+      >
         <ConcreteWall scene />
         <RevealOnView
           as="section"
           intensity="hero"
           staggerChildren
-          className="flex min-h-svh flex-col pt-24 pb-[calc(var(--desk-w)*0.62)] lg:pb-[calc(var(--desk-w)*0.28)]"
+          className="flex min-h-svh flex-col pt-24 pb-[calc(var(--desk-w)*var(--desk-ratio)*var(--desk-tree-clear))] lg:pb-[calc(var(--desk-w)*var(--desk-ratio)*var(--desk-top-clear))]"
         >
           <div className="mt-auto pt-16 lg:max-w-[68%]">
             <Image
@@ -112,7 +117,7 @@ export default async function SiteHomePage() {
             />
             <WallClock className="mb-5" />
             <AnimatedHeading
-              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(3.5rem,4.4vw,6rem)]`}
+              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
               lines={[
                 "I lead go-to-market for Aucctus,",
                 "a fast-scaling AI startup.",

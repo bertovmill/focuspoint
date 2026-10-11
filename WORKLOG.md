@@ -4,6 +4,49 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Homepage desk scene, round two: oak desk, a proper sash window
+
+Berto on the first pass: *"not bad … I also don't like what the window looks like. The
+window's not really nice enough … I wanted it to look premium."* He sent a library desk
+by a sash window and a white corner desk as references. His calls: **desk B** (oak
+trestle slab with a brass lamp and leather notebook, over a walnut writing desk with
+drawers), and **"make the window a little bigger, and less cross hatching."**
+
+- **Window rebuilt in the shader** as painted joinery, from the glass out: glazing bars
+  (`PANE_COLS` × `PANE_ROWS` a sash, now 2 × 1, so one centre bar) and a heavier meeting
+  rail that shades the lower sash; the sash frame with a bevel; a deep **white-painted
+  reveal** (sill lit by the sky, head in shadow, jambs between, occluded corner); a
+  **sill lip** stepping out past the casing with a shadow down the apron and wall; and a
+  **moulded architrave** (`moulding()` profile: inner shadow line, bead, field, outer
+  bead). Each pane has its own slight tilt and tint, and a soft rim shadow from the
+  glazing. Joinery widths scale with the window (`joinery`), so a phone's small window
+  doesn't get a casing as deep as its glass. The bar distance was first measured from
+  each pane's *centre* (bars at the quarter lines, 12 panes); fixed to the nearest edge.
+- **Bigger glass on desktop** (`windowRect`): x 0.655–0.935, y 0.16–0.70 of the hero,
+  casing clear of the nav. The glass's left edge now also depends on the viewport width
+  (0.72 at 1024px → 0.655 at 1440px+) and the lg headline is `clamp(2.6rem, 3.7vw, 6rem)`,
+  so the first line always clears the casing (77px spare at 1024×768, measured).
+- **Desk**: `desk-oak-money-tree.webp` (new name, so no cache serves the old slab). The
+  layout numbers now come from the art itself: `DESK_ART.clear` (how far down the image
+  the lamp reaches) and `sink` feed `deskLayoutVars()` → `--desk-ratio`,
+  `--desk-tree-clear`, `--desk-top-clear`, `--desk-sink`, which the hero's padding and
+  the desk's offset read. Swapping the image is one edit plus a remeasure.
+- **Overcast view regenerated** as an edit with "air clear, no mist": the first one was
+  fog. Overcast blend capped at 85% so some colour survives.
+- **Robustness**: `gpu.onError` now tears the renderer down and hands the page back to
+  the CSS wall (`onFail`); before, a shader that failed to compile left a blank canvas
+  over the CSS wall with the window hidden. The CSS fallback draws the same grid from
+  `WINDOW_GRID`.
+
+Verified on :3010 at 1920×1080, 1440×900, 1280×720, 1024×768 and 390×844 (day, night).
+Note for future verification: when the desktop app's browser pane is hidden,
+`document.visibilityState` is "hidden" and the hero's reveal animation never runs, so
+the headline is invisible in screenshots and the compositor can draw stale layers;
+measure the DOM instead, or force the styles. Not done: the candidate images and the
+one-off generation script live only in the session scratchpad.
+
+---
+
 ## 2026-10-11 — Homepage: the drawings come off the wall; a desk, a money tree and a window on Toronto
 
 Berto: *"remove all the drawing on the wall … I still like the stucco-looking wall with

@@ -6,7 +6,7 @@ import { PaperTexture } from "@paper-design/shaders-react";
 import { cn } from "@/lib/utils";
 import { createWallRenderer } from "./renderer";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
-import { CITY_VIEWS, DESK_ART, windowRect } from "./scene";
+import { CITY_VIEWS, DESK_ART, WINDOW_GRID, windowRect } from "./scene";
 
 /**
  * A lit plaster wall behind the hero, after the backdrop on vgpu.sh, and on
@@ -41,7 +41,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
   const [supported, setSupported] = useState(false);
   const [live, setLive] = useState(false);
   // The wall's shape, for placing the CSS window where the shader would.
-  const [aspect, setAspect] = useState(16 / 9);
+  const [shape, setShape] = useState({ aspect: 16 / 9, width: 1440 });
 
   // The sky, recomputed every half minute so the light keeps up with the clock.
   // The renderer reads it through a ref each frame. It starts neutral so the
@@ -69,7 +69,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
     if (!scene || !root) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) setAspect(width / height);
+      if (width > 0 && height > 0) setShape({ aspect: width / height, width });
     });
     observer.observe(root);
     return () => observer.disconnect();
@@ -104,6 +104,11 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
       reducedMotion: () => motion.matches,
       sky: () => skyRef.current,
       scene,
+      onFail: (error) => {
+        console.warn("Concrete wall stopped", error);
+        setLive(false);
+        setSupported(false);
+      },
     });
     renderer.ready
       .then(() => setLive(true))
@@ -122,12 +127,12 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
     };
   }, [supported, scene]);
 
-  const rect = windowRect(aspect);
+  const rect = windowRect(shape.aspect, shape.width);
   const overcast = sky.cloudCover * (1 - sky.night);
   // How much light reaches the desk: less after dark and under a heavy sky,
   // and the colour drains a little at night.
   const deskStyle = {
-    bottom: "calc(var(--desk-w) * -0.1675)",
+    bottom: "calc(var(--desk-w) * var(--desk-ratio) * var(--desk-sink) * -1)",
     "--desk-light": (1 - sky.night * 0.45 - overcast * 0.12).toFixed(3),
     "--desk-tone": (1 - sky.night * 0.25).toFixed(3),
   } as CSSProperties;
@@ -197,7 +202,24 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
             className="object-cover transition-opacity duration-1000"
             style={{ opacity: sky.night }}
           />
-          <div className="absolute inset-y-0 left-1/2 w-[2.5%] -translate-x-1/2 bg-[var(--frame)]" />
+          {/* Glazing bars and the meeting rail, as the shader draws them. */}
+          {Array.from({ length: WINDOW_GRID.cols - 1 }, (_, i) => (
+            <div
+              key={`col-${i}`}
+              className="absolute inset-y-0 w-[2%] -translate-x-1/2 bg-[var(--frame)]"
+              style={{ left: `${((i + 1) / WINDOW_GRID.cols) * 100}%` }}
+            />
+          ))}
+          {Array.from({ length: WINDOW_GRID.rowsPerSash * 2 - 1 }, (_, i) => (
+            <div
+              key={`row-${i}`}
+              className="absolute inset-x-0 -translate-y-1/2 bg-[var(--frame)]"
+              style={{
+                top: `${((i + 1) / (WINDOW_GRID.rowsPerSash * 2)) * 100}%`,
+                height: i + 1 === WINDOW_GRID.rowsPerSash ? "4%" : "2%",
+              }}
+            />
+          ))}
           {/* The reveal's shadow on the glass, so it reads as set into the wall. */}
           <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.25),inset_0_22px_30px_-12px_rgba(0,0,0,0.5),inset_14px_0_24px_-14px_rgba(0,0,0,0.35)]" />
         </div>

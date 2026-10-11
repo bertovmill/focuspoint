@@ -30,6 +30,9 @@ struct WallParams {
 
 // The city textures' aspect ratio; the glass shows a cover-fit crop of them.
 const CITY_ASPECT: f32 = 1.5;
+// The glazing, matching WINDOW_GRID in scene.ts: panes across, rows a sash.
+const PANE_COLS: f32 = 2.0;
+const PANE_ROWS: f32 = 1.0;
 
 fn hash(p: vec2f) -> f32 {
   let h = dot(p, vec2f(127.1, 311.7));
@@ -117,6 +120,18 @@ fn static_drops(q: vec2f, t: f32, density: f32) -> vec4f {
   let body = smoothstep(radius, radius * 0.5, dist) * visible;
   let core = smoothstep(radius * 0.4, 0.0, dist) * visible;
   return vec4f(body, core, d / radius);
+}
+
+// The architrave's profile across its width: `t` is 0 at the reveal and 1 at
+// the wall. A shadow line where it meets the reveal, a small inner bead, a
+// flat field, a rounded outer bead, and a shadow where it meets the plaster.
+fn moulding(t: f32) -> f32 {
+  var s = 1.0;
+  s -= 0.18 * (1.0 - smoothstep(0.0, 0.08, t));
+  s += 0.10 * smoothstep(0.10, 0.17, t) * (1.0 - smoothstep(0.17, 0.28, t));
+  s += 0.12 * smoothstep(0.76, 0.85, t) * (1.0 - smoothstep(0.85, 0.94, t));
+  s -= 0.16 * smoothstep(0.94, 1.0, t);
+  return s;
 }
 
 @fragment
@@ -207,54 +222,118 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let window_strength = mix(0.32, 0.12, dark) * daylight;
 
   // ---- The window in the wall -------------------------------------------
+  //
+  // A painted sash window set into the plaster, from the glass outward: the
+  // panes divided by thin glazing bars, the two sashes meeting at a heavier
+  // rail; the sash frame; a deep painted
+  // reveal with a sill that steps out past the casing; and a moulded
+  // architrave around it all. Everything painted is `paint`, lit by the room
+  // and by the daylight coming through.
 
   let has_window = step(0.0001, params.window.z);
   let wc = vec2f(params.window.x * aspect, params.window.y);
   let wh = vec2f(params.window.z * aspect, params.window.w);
-  // Painted frame around the glass, then the plaster reveal where the wall
-  // returns into its own thickness.
-  let frame_w = 0.014;
-  let reveal_w = 0.032;
+  let safe_wh = max(wh, vec2f(0.0001));
+  // Joinery is sized to the window, so a small window on a phone doesn't get
+  // a casing as deep as its glass.
+  let joinery = clamp(safe_wh.y / 0.24, 0.5, 1.0);
+  let sash_w = 0.014 * joinery;    // sash stiles and rails around the glass
+  let reveal_w = 0.042 * joinery;  // the wall's thickness, painted
+  let trim_w = 0.030 * joinery;    // the architrave on the wall
+  let lip = 0.012 * joinery;       // how far the sill steps out past the trim
+  let muntin_w = 0.0045 * joinery; // half width of a glazing bar
+  let rail_w = 0.011 * joinery;    // half width of the meeting rail
+
   // Per-axis signed distance to the glass; the largest is the distance to the
   // (square-cornered) opening, negative inside it.
   let r = abs(q - wc) - wh;
   let ring = max(r.x, r.y);
+  let edge_reveal = sash_w + reveal_w;
+  let edge_trim = edge_reveal + trim_w;
   let glass = (1.0 - smoothstep(-px, px, ring)) * has_window;
-  let frame = (1.0 - smoothstep(frame_w - px, frame_w + px, ring)) * (1.0 - glass) * has_window;
-  let reveal = (1.0 - smoothstep(frame_w + reveal_w - px, frame_w + reveal_w + px, ring)) * (1.0 - glass) * (1.0 - frame) * has_window;
-  // Distance out from the whole opening, for what it does to the wall around it.
-  let outside = max(ring - frame_w - reveal_w, 0.0);
-
-  // The wall around the window: daylight spills onto the plaster beside it,
-  // and the sill throws a soft shadow down the wall.
-  let halo = exp(-outside * 24.0) * daylight * 0.06 * has_window;
+  let sash = (1.0 - smoothstep(sash_w - px, sash_w + px, ring)) * (1.0 - glass) * has_window;
+  let in_reveal = (1.0 - smoothstep(edge_reveal - px, edge_reveal + px, ring)) * (1.0 - glass) * (1.0 - sash) * has_window;
+  let in_trim = (1.0 - smoothstep(edge_trim - px, edge_trim + px, ring)) * (1.0 - glass) * (1.0 - sash) * (1.0 - in_reveal) * has_window;
   let below = step(wc.y, q.y);
   let head_or_sill = step(r.x, r.y);
-  let sill_shadow = below * head_or_sill * smoothstep(0.07, 0.0, outside) * step(abs(q.x - wc.x), wh.x + frame_w + reveal_w) * 0.14 * daylight * has_window;
+  let under_x = step(abs(q.x - wc.x), wh.x + edge_trim);
+  // The sill's lip: a band just outside the reveal at the bottom, across the
+  // casing's whole width, standing in front of the trim.
+  let sill_lip = below * head_or_sill * under_x * has_window
+    * smoothstep(edge_reveal - px, edge_reveal + px, ring)
+    * (1.0 - smoothstep(edge_reveal + lip - px, edge_reveal + lip + px, ring));
+  // Its shadow, down the apron and the wall beneath.
+  let lip_shadow = below * head_or_sill * under_x * has_window
+    * step(edge_reveal + lip, ring) * smoothstep(0.07 * joinery, 0.0, ring - edge_reveal - lip);
+  // Distance out from the whole casing, for the light it spills on the wall.
+  let outside = max(ring - edge_trim, 0.0);
+  let halo = exp(-outside * 24.0) * daylight * 0.06 * has_window;
 
-  let wall_lit = base * ambient_tint * (ambient + key * key_strength * key_color) * (1.0 - sill_shadow)
+  let wall_lit = base * ambient_tint * (ambient + key * key_strength * key_color)
+    * (1.0 - lip_shadow * 0.18 * (0.4 + 0.6 * daylight))
     + window_color * windows * window_shade * window_strength
     + window_color * halo;
 
-  // The reveal: the sill faces up and catches the sky, the head faces down
-  // and sits in shadow, the jambs fall between, and the inner corner by the
-  // frame is occluded.
-  let jamb = 1.0 - head_or_sill;
-  let depth = clamp((ring - frame_w) / reveal_w, 0.0, 1.0);
-  let face = mix(mix(0.42, 0.98, below), 0.74, jamb);
-  let ao = 0.72 + 0.28 * smoothstep(0.0, 0.7, depth);
-  let reveal_lit = base * ambient_tint * (ambient * face * ao + daylight * 0.16 * face) + window_color * halo;
-
-  // The frame: painted wood in daylight, charcoal in the dark room, with a
-  // highlight on its outer edge and a shadow line where it meets the glass.
+  // The architrave: painted wood on the wall, lit by the room, with its
+  // moulding profile across it.
   let paint = mix(vec3f(0.93, 0.91, 0.87), vec3f(0.26, 0.255, 0.245), dark);
-  let fd = clamp(ring / frame_w, 0.0, 1.0);
-  let frame_shade = 0.84 + 0.16 * smoothstep(0.0, 0.45, fd) - 0.16 * smoothstep(0.86, 1.0, fd) - 0.14 * (1.0 - smoothstep(0.0, 0.12, fd));
-  let frame_lit = paint * ambient_tint * (ambient * frame_shade + key * key_strength * 0.6) + paint * daylight * 0.08;
+  let td = clamp((ring - edge_reveal) / trim_w, 0.0, 1.0);
+  let trim_shade = moulding(td);
+  let trim_lit = paint * ambient_tint * (ambient + key * key_strength * 0.75) * trim_shade
+    * (1.0 - lip_shadow * 0.45) + paint * halo * 1.5;
+
+  // The sill's front edge: a bright rounded top, darker underneath.
+  let ld = clamp((ring - edge_reveal) / lip, 0.0, 1.0);
+  let lip_shade = 1.0 + 0.12 * (1.0 - smoothstep(0.0, 0.25, ld)) - 0.35 * smoothstep(0.5, 1.0, ld);
+  let lip_lit = paint * ambient_tint * (ambient + key * key_strength * 0.6) * lip_shade + paint * daylight * 0.10;
+
+  // The reveal: the sill faces up into the sky, the head faces down away from
+  // it, the jambs sit between. Occluded in the corner by the sash, brighter
+  // out by the trim.
+  let jamb = 1.0 - head_or_sill;
+  let depth = clamp((ring - sash_w) / reveal_w, 0.0, 1.0);
+  let face_room = mix(mix(0.50, 0.92, below), 0.72, jamb);
+  let face_sky = mix(mix(0.15, 1.0, below), 0.55, jamb);
+  let ao = 0.80 + 0.20 * smoothstep(0.0, 0.5, depth);
+  let reveal_lit = paint * ambient_tint * (ambient * face_room * ao + key * key_strength * 0.3)
+    + window_color * daylight * 0.20 * face_sky;
+
+  // The sash around the glass: a shadow line against the glass, a highlight
+  // on the outer round.
+  let fd = clamp(ring / sash_w, 0.0, 1.0);
+  let sash_shade = 0.88 - 0.16 * (1.0 - smoothstep(0.0, 0.18, fd)) + 0.14 * smoothstep(0.45, 0.75, fd) - 0.10 * smoothstep(0.9, 1.0, fd);
+  let sash_lit = paint * ambient_tint * (ambient * sash_shade + key * key_strength * 0.7) + paint * daylight * 0.06;
+
+  // Glazing bars: uprights splitting the glass into PANE_COLS, PANE_ROWS
+  // across each sash, and the meeting rail between the sashes. The distance
+  // to the nearest bar is the distance to the nearest cell boundary.
+  let gx = q.x - wc.x;
+  let gy = q.y - wc.y;
+  let cell_x = 2.0 * safe_wh.x / PANE_COLS;
+  let cell_y = safe_wh.y / PANE_ROWS;
+  let bar_x = (0.5 - abs(fract((gx + safe_wh.x) / cell_x) - 0.5)) * cell_x;
+  let bar_y = (0.5 - abs(fract((gy + safe_wh.y) / cell_y) - 0.5)) * cell_y;
+  let bar_v = 1.0 - smoothstep(muntin_w - px, muntin_w + px, bar_x);
+  let bar_h = 1.0 - smoothstep(muntin_w - px, muntin_w + px, bar_y);
+  let rail = 1.0 - smoothstep(rail_w - px, rail_w + px, abs(gy));
+  let bars = max(max(bar_v, bar_h), rail) * glass;
+  let bar_t = min(min(bar_x / muntin_w, bar_y / muntin_w), abs(gy) / rail_w);
+  let bar_shade = 1.0 - 0.3 * smoothstep(0.55, 1.0, bar_t);
+  let bars_lit = paint * ambient_tint * (ambient * bar_shade + key * key_strength * 0.7) + paint * daylight * 0.05;
+  // How far this point is from the nearest bar or sash edge: the glazing
+  // throws a soft shadow onto the rim of every pane.
+  let pane_edge = max(min(min(bar_x - muntin_w, bar_y - muntin_w), min(abs(gy) - rail_w, min(safe_wh.x - abs(gx), safe_wh.y - abs(gy)))), 0.0);
+  let pane_inset = smoothstep(0.0, 0.010 * joinery, pane_edge);
+  // Each pane is its own sheet of glass, with a touch of its own tilt and tint.
+  let pane_id = vec2f(floor((gx + safe_wh.x) / cell_x), floor((gy + safe_wh.y) / cell_y));
+  let pane_rand = hash(pane_id + vec2f(0.5, 0.5));
+  let pane_tilt = (vec2f(hash(pane_id + vec2f(1.3, 1.3)), hash(pane_id + vec2f(2.7, 2.7))) - vec2f(0.5)) * 0.004;
+  // The lower sash sits behind the upper, so the meeting rail shades the
+  // panes just under it.
+  let rail_shadow = smoothstep(0.02 * joinery, 0.0, gy - rail_w) * step(rail_w, gy) * 0.16;
 
   // The glass. Glass-local coordinates run 0 to 1 across the opening; the city
   // is cover-fitted into it.
-  let safe_wh = max(wh, vec2f(0.0001));
   let local = (q - (wc - wh)) / (2.0 * safe_wh);
   let win_aspect = safe_wh.x / safe_wh.y;
   var tuv = local;
@@ -263,6 +342,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   } else {
     tuv.y = 0.5 + (local.y - 0.5) * (CITY_ASPECT / win_aspect);
   }
+  tuv += pane_tilt;
 
   // Rain beads and runs down the glass, bending the view behind each drop.
   let g = vec2f(local.x * win_aspect, local.y) * 1.35;
@@ -289,7 +369,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let night_view = textureSample(city, city_sampler, tuv, 2).rgb;
   let grey_view = textureSample(city, city_sampler, tuv, 3).rgb;
   let clear_view = mix(day_view, golden_view, warmth);
-  let cloudy_view = mix(clear_view, grey_view, smoothstep(0.15, 0.85, cloud));
+  let cloudy_view = mix(clear_view, grey_view, smoothstep(0.15, 0.85, cloud) * 0.85);
   var view = mix(cloudy_view, night_view * (1.0 - cloud * 0.35), night);
   // Until the photographs arrive, a plain sky in the right light.
   let sky_fallback = mix(vec3f(0.56, 0.68, 0.84), vec3f(0.84, 0.87, 0.90), local.y);
@@ -299,22 +379,19 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   view *= mix(1.06, 1.0, night);
 
   // The room reflected in the glass: faint by day, and at night the warm lamp
-  // shows up in it. The glass is a touch darker along the frame, and the drops
-  // have dark rims and a bright lensed core.
+  // shows up in it. The drops have dark rims and a bright lensed core.
   let reflection_color = mix(vec3f(0.92, 0.90, 0.86), vec3f(1.0, 0.86, 0.66), night);
-  let reflection = reflection_color * (mix(0.045, 0.08, night) + night * key * 0.22 * (1.0 - dark * 0.4));
-  let inset = smoothstep(0.0, 0.07, min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y)));
-  let glass_lit = view * (0.86 + 0.14 * inset) * (1.0 - drops.x * 0.18) + drops.y * 0.18 * (0.3 + daylight) + reflection;
-
-  // One mullion down the middle of the glass.
-  let mullion = (1.0 - smoothstep(0.0045 - px, 0.0045 + px, abs(q.x - wc.x))) * glass;
-  let mullion_lit = paint * ambient_tint * (ambient * 0.9 + key * key_strength * 0.6) + paint * daylight * 0.06;
+  let reflection = reflection_color * (mix(0.045, 0.08, night) + night * key * 0.22 * (1.0 - dark * 0.4)) * (0.85 + 0.3 * pane_rand);
+  let glass_lit = view * (0.84 + 0.16 * pane_inset) * (1.0 - rail_shadow) * (1.0 - drops.x * 0.18) * (0.97 + 0.06 * pane_rand)
+    + drops.y * 0.18 * (0.3 + daylight) + reflection;
 
   var lit = wall_lit;
-  lit = mix(lit, reveal_lit, reveal);
-  lit = mix(lit, frame_lit, frame);
+  lit = mix(lit, trim_lit, in_trim);
+  lit = mix(lit, lip_lit, sill_lip);
+  lit = mix(lit, reveal_lit, in_reveal);
+  lit = mix(lit, sash_lit, sash);
   lit = mix(lit, glass_lit, glass);
-  lit = mix(lit, mullion_lit, mullion);
+  lit = mix(lit, bars_lit, bars);
 
   // Dither so the broad gradients don't band on 8-bit panels.
   let dither = (hash(uv * resolution + time) - 0.5) / 255.0;

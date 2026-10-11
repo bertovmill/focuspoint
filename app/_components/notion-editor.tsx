@@ -585,6 +585,7 @@ export function NotionEditor({
   className,
   uploadImage,
   editable = true,
+  autoFocus = false,
   onAskAboutSelection,
 }: {
   initialContent: string;
@@ -593,6 +594,8 @@ export function NotionEditor({
   uploadImage?: (file: File) => Promise<string>;
   /** False locks the page (e.g. while Cael is rewriting it). */
   editable?: boolean;
+  /** Puts the cursor at the end on load (a brand-new note). */
+  autoFocus?: boolean;
   /** Adds "Ask Cael" to the selection bubble; called with the selected text. */
   onAskAboutSelection?: (selection: string) => void;
   /** Shown while the whole document is empty. */
@@ -609,6 +612,7 @@ export function NotionEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    autofocus: autoFocus ? "end" : false,
     content: initialContent,
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { uploadPhoto } from "@/lib/upload-photo";
+import { NotionEditor } from "@/app/_components/notion-editor";
 
 // The Notes tab, laid out like Apple Notes (Berto, 2026-10-06): notes grouped by
 // date in inset cards, each row a bold title + date + preview + photo thumbnail,
@@ -67,9 +68,38 @@ function rowDate(iso: string, today: number) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
+/**
+ * Notes written before the editor (and most of Cael's) break lines with a single
+ * newline, which the editor reads as one paragraph with line breaks — so the whole
+ * note took the first line's title styling. Give each line its own paragraph,
+ * leaving list items together and anything with a code block untouched.
+ */
+const LIST_LINE = /^\s*(?:[-*+]|\d+[.)])\s/;
+function toEditor(content: string) {
+  if (content.includes("```")) return content;
+  const lines = content.split("\n");
+  return lines
+    .map((line, i) => {
+      const next = lines[i + 1];
+      if (next === undefined || !line.trim() || !next.trim()) return line + (next === undefined ? "" : "\n");
+      return line + (LIST_LINE.test(line) && LIST_LINE.test(next) ? "\n" : "\n\n");
+    })
+    .join("");
+}
+
+/**
+ * The editor writes a line break inside a paragraph as a trailing backslash.
+ * Notes have always used a bare newline (and the editor reads it back as the same
+ * break), so keep them that way rather than sprinkling backslashes through notes.
+ */
+function fromEditor(markdown: string) {
+  return markdown.replace(/\\\n/g, "\n");
+}
+
 /** Markdown bits that read as noise in a one-line title or preview. */
 function plain(line: string) {
   return line
+    .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1")
     .replace(/^#+\s+/, "")
     .replace(/^[-*•]\s+/, "")
     .replace(/^\[[ xX]\]\s+/, "")
@@ -240,11 +270,16 @@ export function NoteDetail({
   onTagClick: (tag: string) => void;
 }) {
   const isNew = note.id === 0;
+  // Whether the cursor is in the note — only decides when Done shows.
   const [editing, setEditing] = useState(isNew);
   const [draft, setDraft] = useState(note.content);
+  // Apple styles the first line as a title. A note Cael captured as one long
+  // paragraph would become a wall of bold, so those keep plain text. Decided once
+  // per open so the styling doesn't flip mid-sentence.
+  const [titled] = useState(() => (note.content.trim().split("\n")[0] ?? "").length <= 100);
   const [photo, setPhoto] = useState<string | null>(note.image_url ?? null);
   const [uploading, setUploading] = useState(false);
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // What's on the server, as this pane last knew it. A ref so the unmount save
@@ -291,25 +326,9 @@ export function NoteDetail({
 
   // Apple Notes has no save button: a second of quiet after typing saves.
   useEffect(() => {
-    if (!editing) return;
     const t = setTimeout(() => commitRef.current(), 1000);
     return () => clearTimeout(t);
-  }, [draft, editing]);
-
-  // A new note opens straight into the editor with the cursor in it.
-  useEffect(() => {
-    if (isNew) textRef.current?.focus();
-  }, [isNew]);
-
-  const startEditing = () => {
-    setEditing(true);
-    requestAnimationFrame(() => {
-      const el = textRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    });
-  };
+  }, [draft]);
 
   const finishEditing = () => {
     // Done on a blank new note: there's nothing to keep, so it just goes away.
@@ -317,8 +336,8 @@ export function NoteDetail({
       onDelete(0);
       return;
     }
-    if (!draft.trim() && !photo) setDraft(saved.current.content);
     commit();
+    (document.activeElement as HTMLElement | null)?.blur();
     setEditing(false);
   };
 
@@ -342,14 +361,6 @@ export function NoteDetail({
     setPhoto(null);
     commit({ content: latest.current.content, image_url: null });
   };
-
-  const text = editing ? draft : draft.trim();
-  const lines = text.split("\n");
-  // A short first line followed by more text reads as a title. A note that's one
-  // long paragraph stays a paragraph rather than becoming a wall of bold.
-  const hasTitle = lines.length > 1 && lines[0].trim().length > 0 && lines[0].trim().length <= 100;
-  const title = hasTitle ? plain(lines[0]) : null;
-  const body = hasTitle ? lines.slice(1).join("\n").replace(/^\n+/, "") : text;
 
   const created = new Date(note.created_at).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
 
@@ -422,7 +433,7 @@ export function NoteDetail({
             <Button
               variant="ghost"
               size="sm"
-              // mousedown, not click: keeps the textarea's blur from firing first.
+              // mousedown, not click: keeps the editor's blur from firing first.
               onMouseDown={(e) => e.preventDefault()}
               onClick={finishEditing}
               className="px-2 text-[17px] font-semibold text-primary hover:text-primary"
@@ -466,35 +477,41 @@ export function NoteDetail({
           </div>
         )}
 
-        {editing ? (
-          <textarea
-            ref={textRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => commit()}
-            onKeyDown={(e) => {
-              if (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey))) {
-                e.preventDefault();
-                finishEditing();
-              }
-            }}
-            onPaste={(e) => {
-              const image = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
-              if (image) { e.preventDefault(); setPhotoAndSave(image); }
-            }}
+        {/* The same Notion-style editor as Writing and Principles: "/" for blocks,
+            select text to format. Always editable, like Apple Notes. Notes are
+            stored as markdown, which Cael reads as text. */}
+        <div
+          ref={paneRef}
+          className={cn("note-editor mt-2 min-h-[40dvh] cursor-text pb-8", titled && "note-titled")}
+          onFocus={() => setEditing(true)}
+          onBlur={(e) => {
+            // Focus moving within the note (a toggle, a checkbox) isn't leaving it.
+            if (paneRef.current?.contains(e.relatedTarget as Node | null)) return;
+            setEditing(false);
+            commit();
+          }}
+          onKeyDown={(e) => {
+            // Escape closes the "/" menu first; with nothing open it means Done.
+            if (e.key === "Escape" && !e.defaultPrevented) finishEditing();
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); finishEditing(); }
+          }}
+          onPasteCapture={(e) => {
+            // A pasted picture becomes the note's photo (the one its list row shows).
+            const image = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
+            if (image) { e.preventDefault(); e.stopPropagation(); setPhotoAndSave(image); }
+          }}
+          onClick={(e) => {
+            // Clicking the blank space under the text puts the cursor at the end.
+            if (e.target === e.currentTarget) paneRef.current?.querySelector<HTMLElement>(".ProseMirror")?.focus();
+          }}
+        >
+          <NotionEditor
+            initialContent={toEditor(note.content)}
+            onChange={(markdown) => setDraft(fromEditor(markdown))}
             placeholder="Start writing…"
-            className="field-sizing-content mt-2 min-h-[40dvh] w-full resize-none bg-transparent text-[17px] leading-relaxed outline-none placeholder:text-muted-foreground"
+            autoFocus={isNew}
           />
-        ) : (
-          <div onClick={startEditing} className="mt-2 min-h-[40dvh] cursor-text">
-            {title && <h1 className="mb-2 text-2xl font-bold leading-tight tracking-tight">{title}</h1>}
-            {body ? (
-              <p className="whitespace-pre-wrap break-words text-[17px] leading-relaxed">{body}</p>
-            ) : !title ? (
-              <p className="text-[17px] text-muted-foreground">Tap to write…</p>
-            ) : null}
-          </div>
-        )}
+        </div>
       </article>
     </div>
   );

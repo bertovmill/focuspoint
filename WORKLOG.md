@@ -4,6 +4,36 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Notes: "/" commands — notes use the Notion-style editor
+
+Berto noticed Notes had no slash menu "like we do in other places". The open note now
+uses the same `NotionEditor` (Tiptap) as Writing and Principles: "/" for headings,
+to-do lists, bullets, toggles, quotes, code, divider; select text for bold / italic /
+strike / link / Ask; markdown shortcuts ("# ", "- ", "[] ") work too.
+
+- Always editable, like Apple Notes — no read mode / tap-to-edit. Done shows while the
+  cursor is in the note; Escape (with no menu open) or ⌘/Ctrl+Enter also mean Done.
+  Saving is unchanged: 1 s autosave, plus on blur and when leaving the note.
+- **First line is a live title** (`.note-titled` in globals.css), which the textarea
+  couldn't do. Skipped when the note opened with a first line over 100 chars, so
+  Cael's one-paragraph notes don't become a wall of bold.
+- Old notes use single newlines, which the editor reads as one paragraph with line
+  breaks (all of it then took the title style). `toEditor()` gives each line its own
+  paragraph on load (list items stay together; anything with ``` is left alone).
+  `fromEditor()` turns the editor's `\` hard breaks back into bare newlines. Opening
+  a note never rewrites it — only edits save.
+- A pasted image still becomes the note's photo (`image_url`, the list thumbnail);
+  the editor isn't given `uploadImage`, so there's one kind of picture per note.
+- `NotionEditor` gained an `autoFocus` prop (cursor at the end) for the compose button.
+- List previews strip markdown escapes (`\#` → `#`).
+
+Files: `app/_components/notes-view.tsx`, `app/_components/notion-editor.tsx`,
+`app/globals.css`. Verified on :3791: compose → "/todo" → to-do list → "/h2" heading
+saved as `ZZ Groceries\n\n- [ ] milk\n\n- [ ] eggs\n\n## Later`; editing a seeded
+`a\nb\nc` note kept bare newlines; opening real notes changed none. Test notes deleted.
+
+---
+
 ## 2026-10-11 — Notes: compose button instead of the composer box
 
 Berto wanted Notes "pretty darn similar to Apple Notes", which has no "Write a note…"

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpRightIcon } from "lucide-react";
 import { getContent, listContent } from "@/lib/content";
 import { Prose } from "../../_components/prose";
 import { PostFooterCta } from "../../_components/post-footer-cta";
@@ -44,10 +44,17 @@ export default async function WorkProjectPage({
   const project = await getContent("work", slug);
   if (!project) notFound();
 
-  const facts: Array<[string, string]> = [];
-  if (project.org) facts.push(["For", project.org]);
-  if (project.role) facts.push(["As", project.role]);
-  if (project.year) facts.push(["When", project.year]);
+  const facts: Array<{ label: string; value: string; href?: string }> = [];
+  if (project.org) facts.push({ label: "For", value: project.org });
+  if (project.role) facts.push({ label: "As", value: project.role });
+  if (project.year) facts.push({ label: "When", value: project.year });
+  if (project.url)
+    facts.push({
+      label: "Site",
+      // Shown as the bare host ("aucctus.com"), linked to the full URL.
+      value: project.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""),
+      href: project.url,
+    });
 
   return (
     <article className="mx-auto max-w-3xl px-6 py-12">
@@ -59,9 +66,22 @@ export default async function WorkProjectPage({
         Work
       </SiteLink>
 
-      <div className="group mt-8">
-        <WorkTile project={project} featured />
-      </div>
+      {/* The hero doubles as the way out to the organisation's site when there is one. */}
+      {project.url ? (
+        <a
+          href={project.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${project.org ?? project.title} website`}
+          className="group mt-8 block"
+        >
+          <WorkTile project={project} featured />
+        </a>
+      ) : (
+        <div className="group mt-8">
+          <WorkTile project={project} featured />
+        </div>
+      )}
 
       <header className="mt-10 border-b border-border/60 pb-8">
         <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
@@ -74,12 +94,26 @@ export default async function WorkProjectPage({
         )}
         {facts.length > 0 && (
           <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3">
-            {facts.map(([label, value]) => (
+            {facts.map(({ label, value, href }) => (
               <div key={label}>
                 <dt className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   {label}
                 </dt>
-                <dd className="mt-1 text-sm font-medium">{value}</dd>
+                <dd className="mt-1 text-sm font-medium">
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 underline-offset-4 transition-colors hover:text-primary hover:underline"
+                    >
+                      {value}
+                      <ArrowUpRightIcon className="size-3.5 opacity-60" />
+                    </a>
+                  ) : (
+                    value
+                  )}
+                </dd>
               </div>
             ))}
           </dl>

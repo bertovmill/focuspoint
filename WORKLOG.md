@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Code moved to GitLab; Vercel deploys from there
+
+Berto wants Cael's code somewhere personal that outlasts any job. The repo is now at
+**gitlab.com/berto-group1/cael** (private; all branches pushed). The Vercel project
+`cael-agent` (team "Berto's projects") was reconnected from GitHub to that GitLab repo, so
+**pushes to GitLab `main` deploy production**. Locally `origin` is GitLab and the old
+GitHub repo stays as the `github` remote (backup only, no longer deploys). This entry is
+also the first commit pushed to verify the GitLab → Vercel deploy. No code changes.
+
+---
+
 ## 2026-10-10 — Home: add-your-own sections (5-year review, 5-year plan)
 
 Berto wanted to put his 5-year review and 5-year plan on the dashboard. Picked (quiz):

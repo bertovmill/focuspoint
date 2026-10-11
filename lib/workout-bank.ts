@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -50,7 +50,7 @@ async function ensureBank() {
   if (upper) {
     const def = (typeof upper.definition === "string" ? JSON.parse(upper.definition) : upper.definition) as WorkoutTemplate;
     let changed = false;
-    if (def.warmup === OLD_UPPER_BODY_WARMUP) {
+    if (def.warmup === OLD_UPPER_BODY_WARMUP || def.warmup === INTERIM_UPPER_BODY_WARMUP) {
       def.warmup = UPPER_BODY_WARMUP;
       changed = true;
     }

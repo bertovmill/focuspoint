@@ -77,7 +77,11 @@ export const DB_CHEST_FLY: TemplateExercise = { key: "db_chest_fly", name: "Dumb
 
 /** The warm-up before 2026-10-11, kept so the bank can tell it hasn't been edited since. */
 export const OLD_UPPER_BODY_WARMUP = "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells";
-export const UPPER_BODY_WARMUP = "Front raise, 10–15 lb dumbbells + Push-ups + Side raise + Push-ups + Bent-over raise";
+// Briefly (same day) the warm-up alternated one raise and push-ups; Berto corrected it.
+export const INTERIM_UPPER_BODY_WARMUP = "Front raise, 10–15 lb dumbbells + Push-ups + Side raise + Push-ups + Bent-over raise";
+// Three rounds: all three raises, then push-ups (Berto, 2026-10-11). Each " + " part is its own tick box.
+export const UPPER_BODY_WARMUP =
+  "Round 1: front, side and bent-over raises, 10–15 lb dumbbells + Push-ups + Round 2: front, side and bent-over raises + Push-ups + Round 3: front, side and bent-over raises + Push-ups";
 
 export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
   {
@@ -88,7 +92,6 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
     session_type: "strength",
     default_day: 4,
     plan: { minutes: 60, intensity: "moderate" },
-    // Push-ups between the three raises (Berto, 2026-10-11). Each " + " part is its own tick box.
     warmup: UPPER_BODY_WARMUP,
     cooldown: "6-minute stretch",
     blocks: [

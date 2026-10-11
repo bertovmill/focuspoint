@@ -4,6 +4,34 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Notes: compose button instead of the composer box
+
+Berto wanted Notes "pretty darn similar to Apple Notes", which has no "Write a note…"
+box — just a compose (✎) button. The composer card (textarea, Add note, Photo) is gone;
+a `ComposeButton` (lucide `SquarePenIcon`) sits beside the "Notes" title on desktop and
+phone. It opens a blank note (`NoteDetail` with `id: 0`) with the cursor already in it.
+
+- Nothing is stored until there's text or a photo: the first save POSTs via
+  `onCreate` (`handleCreateThought`), later saves PATCH that row. A save that lands
+  while the create is in flight waits for its id instead of creating twice.
+- **Typing autosaves after 1 s of quiet** (all notes, not only new ones), so the list
+  row's title/preview keeps up the way Apple's does. Each PATCH re-embeds — fine at
+  that cadence.
+- The pane keeps a `new-<composeKey>` React key after the first save so it isn't
+  remounted mid-sentence; the new row is highlighted in the list meanwhile.
+- Done on a still-blank new note discards it. Composing clears any search/tag filter
+  so the new note is visible at the top of Today.
+- Removed dashboard composer state and the now-unused `NotePhotoPreview` /
+  `NotePhotoButton`; photos are added from the open note's toolbar.
+
+Files: `app/_components/notes-view.tsx`, `app/_components/dashboard.tsx`.
+Verified on :3791 (desktop 1400px + phone 390px): compose → focused → typed two lines →
+row appeared under Today and later edits saved server-side. Test notes deleted.
+Not done: Apple bolds the first line as a title *while* typing; ours shows the title
+once you leave the editor (a textarea can't style one line).
+
+---
+
 ## 2026-10-11 — Removed "Sign in" from bertomill.com
 
 Berto is the only person who signs in, so a public Sign in link made no sense; he goes

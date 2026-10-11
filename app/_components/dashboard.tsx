@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, ImagePlusIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
+import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
 import { StrategyBoard } from "@/app/_components/strategy-board";
 import { TaskCanvas } from "@/app/_components/task-canvas";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
@@ -15,7 +15,7 @@ import { JournalTemplatesPanel } from "@/app/_components/journal-templates-panel
 import { ListsPanel } from "@/app/_components/lists-panel";
 import { SketchesPanel } from "@/app/_components/sketches-panel";
 import { CalendarPanel } from "@/app/_components/calendar-panel";
-import { NoNoteSelected, NoteDetail, NotesList, type NotePatch } from "@/app/_components/notes-view";
+import { ComposeButton, NoNoteSelected, NoteDetail, NotesList, type NotePatch } from "@/app/_components/notes-view";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -47,7 +47,6 @@ import { focusAppWindow } from "@/lib/desktop";
 import { WORKING_LIMIT_MAX, workingLimitMessage } from "@/lib/working-now";
 import { FOLLOW_UP_OPTIONS, type Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
-import { uploadPhoto } from "@/lib/upload-photo";
 import {
   InputGroup,
   InputGroupAddon,
@@ -213,15 +212,10 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const fileInputRef = useRef<HTMLInputElement>(null);
   // The note open in the reading/editing pane (notes-view.tsx), if any.
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
-  // The hand-written note composer at the top of the Notes tab. Manual notes land
-  // in the same table as the ones Cael captures — one list, one search index.
-  const [newNote, setNewNote] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
-  // One photo per note (thoughts.image_url). The photo uploads as soon as it's
-  // picked, so saving is just the URL. An open note handles its own photo.
-  const [newNotePhoto, setNewNotePhoto] = useState<string | null>(null);
-  const [uploadingNewPhoto, setUploadingNewPhoto] = useState(false);
-  const newNotePhotoRef = useRef<HTMLInputElement>(null);
+  // The compose button opens a blank note (notes-view.tsx, id 0). Non-zero while
+  // one is open; a fresh value per press so each blank note is its own pane.
+  // Hand-written notes land in the same table as the ones Cael captures.
+  const [composeKey, setComposeKey] = useState(0);
   const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
   // Ticks once a second while any task's timer is running, to drive the live countdown badge.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -444,22 +438,6 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     }
   };
 
-  const attachNotePhoto = async (file: File | undefined) => {
-    if (!file) return;
-    setUploadingNewPhoto(true);
-    try {
-      setNewNotePhoto(await uploadPhoto(file));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't upload photo.");
-    } finally {
-      setUploadingNewPhoto(false);
-    }
-  };
-
-  // Pasting a screenshot into the composer attaches it, like dropping it in.
-  const pastedImage = (e: React.ClipboardEvent) =>
-    Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
-
   // Saves from the open note. Search results are a separate copy of the rows, so
   // both lists get the edit.
   const handleSaveThought = async (id: number, patch: NotePatch) => {
@@ -480,31 +458,44 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     }
   };
 
-  const handleCreateThought = async () => {
-    const content = newNote.trim();
-    if ((!content && !newNotePhoto) || savingNote || uploadingNewPhoto) return;
-    setSavingNote(true);
+  // A blank note's first save. It joins the list (and gets highlighted there)
+  // while the pane stays put, so the cursor isn't lost mid-sentence.
+  const handleCreateThought = async (patch: NotePatch): Promise<Thought | null> => {
     try {
       const res = await fetch("/api/thoughts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, image_url: newNotePhoto }),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
       const saved: Thought = await res.json();
-      // Prepend rather than refetch: the list is sorted newest-first anyway, and a
-      // refetch would drop an active semantic search back to the unfiltered list.
+      // Prepend rather than refetch: the list is sorted newest-first anyway.
       setThoughts((prev) => [saved, ...prev]);
-      setNewNote("");
-      setNewNotePhoto(null);
+      setOpenNoteId(saved.id);
+      return saved;
     } catch {
       toast.error("Couldn't save note.");
-    } finally {
-      setSavingNote(false);
+      return null;
     }
   };
 
+  // A new note belongs at the top of the full list, so leave any search or tag.
+  const startNewNote = () => {
+    clearSearch();
+    setTagFilter(null);
+    setOpenNoteId(null);
+    setComposeKey(Date.now());
+  };
+
+  const openExistingNote = (id: number | null) => {
+    setComposeKey(0);
+    setOpenNoteId(id);
+  };
+
   const handleDeleteThought = async (id: number) => {
+    // A blank new note that never got words has nothing on the server.
+    if (openNoteId === id || id === 0) setComposeKey(0);
+    if (id === 0) return;
     const prevThoughts = thoughts;
     setThoughts((prev) => prev.filter((t) => t.id !== id));
     setSemanticResults((prev) => prev?.filter((t) => t.id !== id) ?? prev);
@@ -775,6 +766,13 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
   const openNote = openNoteId === null
     ? undefined
     : thoughts.find((t) => t.id === openNoteId) ?? semanticResults?.find((t) => t.id === openNoteId);
+  // What the note pane shows. A blank note keeps its own key after its first save
+  // (when openNoteId becomes its row), so the pane isn't remounted mid-sentence.
+  const detail: { key: string; note: Thought } | null = composeKey
+    ? { key: `new-${composeKey}`, note: { id: 0, content: "", tags: [], image_url: null, created_at: new Date(composeKey).toISOString() } }
+    : openNote
+      ? { key: String(openNote.id), note: openNote }
+      : null;
 
 
   return (
@@ -849,58 +847,11 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
             "min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 lg:px-5",
             isDesktop ? "w-[360px] shrink-0 border-r xl:w-[400px]" : "flex-1",
           )}>
-            <h1 className="mb-3 px-1 text-3xl font-bold tracking-tight">Notes</h1>
-            {/* Write a note by hand. Always visible — including on an empty list,
-                where it's the one thing to do — so a note never depends on Cael
-                being in the conversation. */}
-            <div className="mb-3 rounded-xl bg-card px-3.5 py-3 shadow-xs ring-1 ring-border/60">
-              <Textarea
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => {
-                  // Enter saves, shift+Enter breaks the line. (An open note is the
-                  // other way round — Enter is a new line there, like Apple Notes.)
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleCreateThought();
-                  }
-                }}
-                onPaste={(e) => {
-                  const image = pastedImage(e);
-                  if (image) { e.preventDefault(); attachNotePhoto(image); }
-                }}
-                rows={2}
-                placeholder="Write a note…"
-                // 17px on a phone for comfortable typing, capped in height so a long note
-                // scrolls inside the box instead of running off the screen (Berto, 2026-10-03).
-                className="text-[17px] lg:text-sm leading-relaxed border-0 shadow-none px-0 py-0 min-h-0 max-h-[45dvh] overflow-y-auto resize-none focus-visible:ring-0 dark:bg-transparent"
-              />
-              <NotePhotoPreview
-                url={newNotePhoto}
-                uploading={uploadingNewPhoto}
-                onRemove={() => setNewNotePhoto(null)}
-              />
-              <div className="mt-2 flex items-center gap-2">
-                <Button
-                  size="xs"
-                  onClick={handleCreateThought}
-                  disabled={(!newNote.trim() && !newNotePhoto) || savingNote || uploadingNewPhoto}
-                >
-                  {savingNote ? <Spinner className="size-3 mr-1.5" /> : <PlusIcon className="size-3 mr-1.5" />}
-                  Add note
-                </Button>
-                <NotePhotoButton
-                  inputRef={newNotePhotoRef}
-                  hasPhoto={!!newNotePhoto}
-                  disabled={uploadingNewPhoto}
-                  onPick={attachNotePhoto}
-                />
-                {newNote.trim() && (
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    Enter to save · Shift+Enter for a new line
-                  </span>
-                )}
-              </div>
+            {/* Apple Notes has no composer box: the compose button opens a blank
+                note with the cursor in it. */}
+            <div className="mb-3 flex items-center justify-between gap-2 pl-1">
+              <h1 className="text-3xl font-bold tracking-tight">Notes</h1>
+              <ComposeButton onClick={startNewNote} />
             </div>
 
             {!loading && thoughts.length > 0 && (
@@ -993,7 +944,7 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                     <BrainIcon className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>No notes yet</EmptyTitle>
-                  <EmptyDescription>Write one above, or share a thought with your agent to capture it.</EmptyDescription>
+                  <EmptyDescription>Tap the compose button to write one, or share a thought with your agent to capture it.</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : searchActive && searchError ? (
@@ -1030,17 +981,18 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 notes={displayedThoughts}
                 grouped={!searchActive}
                 selectedId={isDesktop ? openNote?.id ?? null : null}
-                onOpen={setOpenNoteId}
+                onOpen={openExistingNote}
               />
             )}
           </div>
           {isDesktop ? (
             <div className="min-w-0 flex-1 overflow-y-auto">
-              {openNote ? (
+              {detail ? (
                 <NoteDetail
-                  key={openNote.id}
-                  note={openNote}
+                  key={detail.key}
+                  note={detail.note}
                   onSave={handleSaveThought}
+                  onCreate={handleCreateThought}
                   onDelete={handleDeleteThought}
                   onTagClick={(tag) => { clearSearch(); setTagFilter(tag); }}
                 />
@@ -1048,15 +1000,16 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 <NoNoteSelected />
               )}
             </div>
-          ) : openNote && (
+          ) : detail && (
             <div className="absolute inset-0 z-10 overflow-y-auto bg-background">
               <NoteDetail
-                key={openNote.id}
-                note={openNote}
+                key={detail.key}
+                note={detail.note}
                 onSave={handleSaveThought}
+                onCreate={handleCreateThought}
                 onDelete={handleDeleteThought}
-                onBack={() => setOpenNoteId(null)}
-                onTagClick={(tag) => { clearSearch(); setTagFilter(tag); setOpenNoteId(null); }}
+                onBack={() => openExistingNote(null)}
+                onTagClick={(tag) => { clearSearch(); setTagFilter(tag); openExistingNote(null); }}
               />
             </div>
           )}
@@ -1382,64 +1335,5 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
         />
       )}
     </div>
-  );
-}
-
-/** The photo attached to a note being written or edited, with a way to drop it. */
-function NotePhotoPreview({ url, uploading, onRemove }: { url: string | null; uploading: boolean; onRemove: () => void }) {
-  if (uploading) {
-    return (
-      <div className="mt-2 flex h-20 w-28 items-center justify-center rounded-md border bg-muted">
-        <Spinner className="size-4" />
-      </div>
-    );
-  }
-  if (!url) return null;
-  return (
-    <div className="relative mt-2 w-fit">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="" className="h-20 max-w-48 rounded-md border object-cover" />
-      <Button
-        variant="secondary"
-        size="icon-xs"
-        onClick={onRemove}
-        aria-label="Remove photo"
-        className="absolute -right-2 -top-2 rounded-full shadow-sm"
-      >
-        <XIcon className="size-3" />
-      </Button>
-    </div>
-  );
-}
-
-/** Opens the photo picker (camera roll or camera on a phone) for a note. */
-function NotePhotoButton({
-  inputRef,
-  hasPhoto,
-  disabled,
-  onPick,
-}: {
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  hasPhoto: boolean;
-  disabled: boolean;
-  onPick: (file: File | undefined) => void;
-}) {
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          onPick(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
-      <Button size="xs" variant="outline" disabled={disabled} onClick={() => inputRef.current?.click()}>
-        <ImagePlusIcon className="size-3 mr-1.5" />
-        {hasPhoto ? "Change photo" : "Photo"}
-      </Button>
-    </>
   );
 }

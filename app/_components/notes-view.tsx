@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, ImagePlusIcon, NotebookPenIcon, TagIcon, TrashIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, ImagePlusIcon, NotebookPenIcon, SquarePenIcon, TagIcon, TrashIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -184,6 +184,22 @@ export function NotesList({
   );
 }
 
+/** Apple's compose button: a blank note, cursor ready. */
+export function ComposeButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      aria-label="New note"
+      title="New note"
+      className="text-primary hover:text-primary"
+    >
+      <SquarePenIcon className="size-[22px]" />
+    </Button>
+  );
+}
+
 /** Desktop's right pane before a note is picked. */
 export function NoNoteSelected() {
   return (
@@ -198,23 +214,33 @@ export function NoNoteSelected() {
  * One note, full page. Reading shows the first line as a title; tapping the text
  * turns it into an editor where Enter is a new line, like Apple Notes. Edits save
  * on Done, Escape, ⌘/Ctrl+Enter, leaving the note, or blur — there's no Cancel,
- * same as Notes. A photo added or removed saves straight away.
+ * same as Notes. A photo added or removed saves straight away, and typing saves
+ * itself after a short pause so the list keeps up.
+ *
+ * A note from the compose button arrives with `id: 0`: a blank page with the
+ * cursor in it. Nothing reaches the server until there's something to keep —
+ * the first save creates the row (`onCreate`), later saves edit it.
  */
 export function NoteDetail({
   note,
   onSave,
+  onCreate,
   onDelete,
   onBack,
   onTagClick,
 }: {
   note: Note;
   onSave: (id: number, patch: NotePatch) => void;
+  /** Saves a new note (id 0); resolves to the stored note, or null if it failed. */
+  onCreate?: (patch: NotePatch) => Promise<Note | null>;
+  /** Called with 0 to throw away a new note that never got any words. */
   onDelete: (id: number) => void;
   /** Only on a phone, where the note covers the list. */
   onBack?: () => void;
   onTagClick: (tag: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const isNew = note.id === 0;
+  const [editing, setEditing] = useState(isNew);
   const [draft, setDraft] = useState(note.content);
   const [photo, setPhoto] = useState<string | null>(note.image_url ?? null);
   const [uploading, setUploading] = useState(false);
@@ -226,14 +252,35 @@ export function NoteDetail({
   const saved = useRef<NotePatch>({ content: note.content.trim(), image_url: note.image_url ?? null });
   const latest = useRef<NotePatch>({ content: draft, image_url: photo });
   latest.current = { content: draft, image_url: photo };
+  // The row this pane writes to: 0 until a new note's first save comes back.
+  const idRef = useRef(note.id);
+  // The create in flight, so a save that lands meanwhile waits for the id
+  // instead of creating the note twice.
+  const creating = useRef<Promise<void> | null>(null);
+  // Deleted: the unmount save mustn't write the note back.
+  const gone = useRef(false);
 
   const commit = (patch: NotePatch = latest.current) => {
+    if (gone.current) return;
     const content = patch.content.trim();
     // An empty note with no photo isn't a note; the server refuses it too.
     if (!content && !patch.image_url) return;
     if (content === saved.current.content && patch.image_url === saved.current.image_url) return;
     saved.current = { content, image_url: patch.image_url };
-    onSave(note.id, { content, image_url: patch.image_url });
+    if (idRef.current) {
+      onSave(idRef.current, { content, image_url: patch.image_url });
+    } else if (creating.current) {
+      creating.current.then(() => {
+        if (idRef.current) onSave(idRef.current, { content, image_url: patch.image_url });
+      });
+    } else if (onCreate) {
+      creating.current = onCreate({ content, image_url: patch.image_url }).then((created) => {
+        if (created) idRef.current = created.id;
+        // Failed: forget it was saved so the next pause tries again.
+        else saved.current = { content: "", image_url: null };
+        creating.current = null;
+      });
+    }
   };
 
   // Clicking another note, going back, or switching tabs unmounts this pane —
@@ -241,6 +288,18 @@ export function NoteDetail({
   const commitRef = useRef(commit);
   commitRef.current = commit;
   useEffect(() => () => commitRef.current(), []);
+
+  // Apple Notes has no save button: a second of quiet after typing saves.
+  useEffect(() => {
+    if (!editing) return;
+    const t = setTimeout(() => commitRef.current(), 1000);
+    return () => clearTimeout(t);
+  }, [draft, editing]);
+
+  // A new note opens straight into the editor with the cursor in it.
+  useEffect(() => {
+    if (isNew) textRef.current?.focus();
+  }, [isNew]);
 
   const startEditing = () => {
     setEditing(true);
@@ -253,6 +312,11 @@ export function NoteDetail({
   };
 
   const finishEditing = () => {
+    // Done on a blank new note: there's nothing to keep, so it just goes away.
+    if (!idRef.current && !creating.current && !draft.trim() && !photo) {
+      onDelete(0);
+      return;
+    }
     if (!draft.trim() && !photo) setDraft(saved.current.content);
     commit();
     setEditing(false);
@@ -342,8 +406,10 @@ export function NoteDetail({
                 <AlertDialogAction
                   onClick={() => {
                     // Nothing left to save once it's gone.
-                    saved.current = latest.current = { content: "", image_url: null };
-                    onDelete(note.id);
+                    gone.current = true;
+                    // A new note still being created is deleted once it has an id.
+                    if (creating.current) creating.current.then(() => onDelete(idRef.current));
+                    else onDelete(idRef.current);
                   }}
                   className="bg-destructive text-white hover:bg-destructive/90"
                 >

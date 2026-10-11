@@ -72,6 +72,9 @@ export interface WorkoutTemplate {
 
 const LADDER = [10, 15, 20];
 
+/** Superset 4's partner to the barbell row: 30 lb dumbbells, flat bench. Same rep ladder as the main lifts. */
+export const DB_CHEST_FLY: TemplateExercise = { key: "db_chest_fly", name: "Dumbbell chest flies (bench)", sets: 4, ladder: LADDER, weight: 30, perSide: true };
+
 /** The warm-up before 2026-10-11, kept so the bank can tell it hasn't been edited since. */
 export const OLD_UPPER_BODY_WARMUP = "3-way shoulder raise: front, side and bent-over, 10–15 lb dumbbells";
 export const UPPER_BODY_WARMUP = "Front raise, 10–15 lb dumbbells + Push-ups + Side raise + Push-ups + Bent-over raise";
@@ -118,7 +121,8 @@ export const WORKOUT_TEMPLATES: WorkoutTemplate[] = [
         label: "Superset 4",
         exercises: [
           { key: "barbell_row", name: "Bent-over barbell row", sets: 4, ladder: LADDER, weight: 45, perSide: true, tracked: true },
-          { key: "tricep_extensions", name: "Bodyweight tricep extensions", sets: 4, ladder: [20], weight: null },
+          // Chest flies replaced the bodyweight tricep extensions (Berto, 2026-10-11).
+          { ...DB_CHEST_FLY },
         ],
       },
       {
@@ -320,6 +324,7 @@ export const DEFAULT_CUES: Record<string, string> = {
   toe_touches: "Legs straight up, shoulders off the floor as you reach. Keep your lower back pressed down.",
   abs_toe_touches: "Legs straight up, shoulders off the floor as you reach. Keep your lower back pressed down.",
   barbell_row: "Hinge to about 45° with a flat back. Pull the bar to your lower ribs, elbows close.",
+  db_chest_fly: "Soft bend in the elbows, kept the same the whole way. Lower until you feel the stretch across your chest, then hug the dumbbells back together.",
   tricep_extensions: "Hold a plank on the bar or bench. Bend only at the elbows, then press back to straight arms.",
   bicycle_crunches: "Slow it down: turn your shoulder to the knee, not just your elbow. Lower back stays down.",
   knee_tucks: "Lean back a little and pull your knees to your chest. Breathe out on the tuck; feet stay off the floor.",

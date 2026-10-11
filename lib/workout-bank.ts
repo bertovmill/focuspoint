@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -44,15 +44,25 @@ async function ensureBank() {
       await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-lower-body'`;
     }
   }
-  // One-time: push-ups between the shoulder raises on upper body (Berto, 2026-10-11).
-  // Only while the warm-up is still the original, so an edit from the editor stays.
+  // One-time upper-body edits (Berto, 2026-10-11). First, push-ups between the shoulder raises,
+  // only while the warm-up is still the original, so an edit from the editor stays.
   const [upper] = await sql`SELECT definition FROM workout_bank WHERE slug = 'unity-standard-upper-body'`;
   if (upper) {
     const def = (typeof upper.definition === "string" ? JSON.parse(upper.definition) : upper.definition) as WorkoutTemplate;
+    let changed = false;
     if (def.warmup === OLD_UPPER_BODY_WARMUP) {
       def.warmup = UPPER_BODY_WARMUP;
-      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-upper-body'`;
+      changed = true;
     }
+    // One-time: 30 lb dumbbell chest flies replace the bodyweight tricep extensions
+    // next to the barbell row (Berto, 2026-10-11). Skipped once the flies are in, so
+    // tricep extensions added back from the editor stay.
+    const keys = def.blocks.flatMap((b) => b.exercises.map((e) => e.key));
+    if (keys.includes("tricep_extensions") && !keys.includes(DB_CHEST_FLY.key)) {
+      for (const b of def.blocks) b.exercises = b.exercises.map((e) => (e.key === "tricep_extensions" ? { ...DB_CHEST_FLY } : e));
+      changed = true;
+    }
+    if (changed) await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-upper-body'`;
   }
   ready = true;
 }

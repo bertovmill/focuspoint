@@ -10373,3 +10373,24 @@ four taps on hammer row show "Next: × 15"; opening it and tapping "+2 · 12" sa
 `next_target: 12` in the PUT and relabels to "Next: × 12". "Back to the ladder"
 saves null. No page errors. Not yet run against Neon; the column is added on the
 first workout load.
+
+## 2026-10-11 — Upper body: dumbbell chest flies replace tricep extensions (Superset 4)
+
+Berto: superset the bent-over barbell row with 30 lb dumbbell chest flies on the
+bench instead. He remembered the partner as push-ups; it was bodyweight tricep
+extensions (push-ups are Superset 1's partner and stay).
+
+- New exercise `db_chest_fly` ("Dumbbell chest flies (bench)"): 4 sets, the same
+  10 → 15 → 20 rep ladder as the main lifts, 30 lb, shown as /side (per dumbbell).
+  It isn't charted, like the other superset partners. Stock cue added to `DEFAULT_CUES`.
+- Seed changed. A one-time step in `ensureBank`, alongside the warm-up one, swaps
+  `tricep_extensions` for it in the live upper-body row, but only while tricep
+  extensions are there and the flies aren't, so adding them back from the editor
+  sticks. Both upper-body edits now share one read and at most one write. The old
+  tricep logs stay in `strength_logs` under their own key and no longer show on the page.
+
+Files: `lib/workout-templates.ts` (`DB_CHEST_FLY`, cue), `lib/workout-bank.ts`.
+
+Verified: `tsc --noEmit` clean. In the harness at 390px, Superset 4 shows the barbell
+row and "Dumbbell chest flies (bench)" × 10 at 30 /side, with its ⓘ cue. No page errors.
+The live bank swap runs on the first workout-bank load after deploy (not run against Neon here).

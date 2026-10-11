@@ -57,6 +57,25 @@ through the glass has no mipmaps (slight shimmer when the window is small); no p
 
 ---
 
+## 2026-10-11 — Two-way sync between GitLab (source of truth) and GitHub (mobile sessions)
+
+Claude Code mobile/cloud sessions can only clone and push via GitHub, but Vercel deploys from
+GitLab. Two pieces close the loop:
+
+- **GitLab → GitHub push mirror** (GitLab project Settings → Repository → Mirroring), all
+  branches, divergent refs overwritten (GitLab wins). Auth: a classic GitHub PAT "gitlab
+  mirror" with `repo` scope. Status: `glab api projects/bertmill191%2Fcael/remote_mirrors`.
+- **GitHub → GitLab Action** `.github/workflows/sync-to-gitlab.yml`: on any push, pushes the
+  same branch to GitLab, fast-forward only, using the `GITLAB_TOKEN` repo secret (a GitLab
+  PAT "github sync" with `write_repository`). If GitLab's branch has moved on, the run fails
+  and a desktop session merges by hand.
+
+Verified both directions: the mirror carried the workflow file to GitHub, and a throwaway
+`sync-test` branch pushed to GitHub arrived on GitLab via the action within a minute.
+Rule of thumb: desktop pushes GitLab, mobile pushes GitHub, both end up everywhere.
+
+---
+
 ## 2026-10-11 — Unity Upper Body warm-up: 3 rounds of raises, push-ups between rounds
 
 The warm-up read as alternating raises and push-ups (front / push-ups / side / push-ups /

@@ -10394,3 +10394,27 @@ Files: `lib/workout-templates.ts` (`DB_CHEST_FLY`, cue), `lib/workout-bank.ts`.
 Verified: `tsc --noEmit` clean. In the harness at 390px, Superset 4 shows the barbell
 row and "Dumbbell chest flies (bench)" × 10 at 30 /side, with its ⓘ cue. No page errors.
 The live bank swap runs on the first workout-bank load after deploy (not run against Neon here).
+
+## 2026-10-11 — iPhone app: blank band after typing (keyboard leaves the shell shifted)
+
+Berto sent a screenshot of the workout log: Superset 3's header, then nothing down
+to the tab bar, with the top of the page running up under the clock. He had just
+typed reps (8, 8) with the number pad.
+
+Cause (diagnosed from the screenshot, not reproduced on a device): in the installed
+iPhone app the keyboard scrolls the whole document up to keep the focused field
+visible, and doesn't always scroll it back. The shell is `h-dvh overflow-hidden`
+and never meant to scroll as a whole, so it stays shifted up by the keyboard's
+height. The top goes under the status bar (normally there's `--safe-top` padding),
+and the page background shows between the shell's bottom edge and the fixed tab bar.
+
+Fix in `app/(app)/layout.tsx`: one effect listens for `focusout`, window `scroll`
+and `visualViewport` `resize`. 60 ms later, if no editable field has focus and
+`window.scrollY/X` isn't 0, it calls `scrollTo(0, 0)`. Moving from one set box to
+the next keeps focus on a field, so it doesn't fire mid-typing. The read-only
+"tap to fill" boxes count as not editing. It does nothing while pinch-zoomed
+(`visualViewport.scale > 1`), because zoom is deliberately allowed for sketches.
+This covers every section, not just training.
+
+Verified: `tsc --noEmit` clean. Not testable in headless Chromium (no iOS keyboard);
+needs a check on the phone: type a number on a workout, dismiss the keyboard, scroll.

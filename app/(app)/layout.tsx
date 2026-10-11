@@ -194,6 +194,37 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   useEffect(() => {
     for (const path of Object.values(TAB_PATHS)) router.prefetch(path);
   }, [router]);
+
+  // The shell is h-dvh and never scrolls as a whole, but on the installed iPhone
+  // app the keyboard scrolls the whole document up to keep a field in view, and
+  // doesn't always scroll it back. The shell is then left shifted up under the
+  // status bar with a blank band above the tab bar (Berto, 2026-10-11, after typing
+  // reps on a workout). Put it back once no field has focus.
+  useEffect(() => {
+    const editing = () => {
+      const el = document.activeElement;
+      return el instanceof HTMLElement && (el.isContentEditable || (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !(el as HTMLInputElement).readOnly));
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = () => {
+      clearTimeout(timer);
+      // After focus has moved on (tapping from one set box to the next keeps the keyboard up).
+      timer = setTimeout(() => {
+        // Leave a pinch-zoom alone (it's how a sketch gets zoomed on a phone).
+        if ((window.visualViewport?.scale ?? 1) > 1.01) return;
+        if (!editing() && (window.scrollY !== 0 || window.scrollX !== 0)) window.scrollTo(0, 0);
+      }, 60);
+    };
+    document.addEventListener("focusout", settle);
+    window.addEventListener("scroll", settle, { passive: true });
+    window.visualViewport?.addEventListener("resize", settle);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("focusout", settle);
+      window.removeEventListener("scroll", settle);
+      window.visualViewport?.removeEventListener("resize", settle);
+    };
+  }, []);
   const [navRailOpen, setNavRailOpen] = useState(true);
   const reduceMotion = useReducedMotion();
   useEffect(() => {

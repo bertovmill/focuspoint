@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-11 — Site footer redesign: headline, columns, newsletter art card
+
+Berto wanted bertomill.com's footer "a bit nicer", with the Cofounder site's footer as loose
+inspiration (big two-line headline, link columns, square social icon buttons, a portrait art
+card with a caption and CTA). Asked what the card should hold; he picked the newsletter, so
+the separate subscribe strip is gone and the form now sits on a frosted panel over
+`site-art/writing.webp`.
+
+- New `app/site/_components/site-footer.tsx` (`#footer`, `#newsletter-card`): headline
+  "Putting AI to work, / one agent at a time.", Explore / Follow / Contact columns,
+  `SocialIcons variant="buttons"`, © row with "Toronto, Canada · Built with Cael".
+- `social-icons.tsx` gained a `buttons` variant (bordered 40px squares).
+- `app/site/layout.tsx` renders `<SiteFooter />` instead of the inline strips.
+- Verified at desktop and 375px in the in-app browser.
+
 ## 2026-10-11 — Homepage: a mason jar you can water the plant with; the plant turns
 
 Berto: *"add a little mason jar of water on the windowsill that you can actually drag

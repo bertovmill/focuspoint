@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-12 — Training: today's card flattened (the phone view felt messy)
+
+Berto: the mobile Today workout "seems messy, not very pleasing, can't put my thumb on
+it". Diagnosis: four nested boxes each styled differently (thick-bordered Today frame →
+green-washed session card → violet "View splits" slab → grey Fitbit chips), three accent
+colours in one card, done signalled four ways (check, strikethrough, grey title, green
+wash), and the unclaimed Fitbit runs as unlabelled text-xs orphans under a text-xl card.
+He chose "flatten it" + "label the Fitbit rows".
+
+- The Today section has no frame of its own now: a small "Today · 12 Mon" eyebrow with
+  the Add button, then the session card *is* the card (`rounded-xl border`, the same
+  style as the comparison card). Title first and biggest (text-2xl, never struck through
+  or greyed); the meta line under it: type dot + short name, "hard" as a quiet outlined
+  pill, the target. Done is said once, by the filled green check. "View/Log splits" is a
+  plain footer row with a chevron instead of a violet block. Trash stays top-right.
+- Unclaimed Fitbit workouts sit under a "From your Fitbit" caption as text-base rows with
+  2 px zone bars (`ActivityChip big`), separated by hairlines — no grey chips.
+- Empty today = dashed card. Race-day line unchanged. The week-grid cards keep their
+  compact look and green wash (`SessionCard` now branches on `big` instead of ternaries).
+- Noticed while verifying: today's Stations row (session 26) is stored as type `yoga`,
+  so it reads YOGA; Berto's screenshot had it as Hyrox. Data, not layout — left for him.
+
+Built on main in a sibling worktree (~/focuspoint-today-card with its own `npm ci`; the
+main checkout was parked on site-presence-tweaks with another session's uncommitted
+edits). Verified on :3791 at 390 px light/dark and 1280 px: no console errors, week grid
+unchanged.
+
 ## 2026-10-11 — Site footer redesign: headline, columns, newsletter art card
 
 Berto wanted bertomill.com's footer "a bit nicer", with the Cofounder site's footer as loose

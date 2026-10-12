@@ -422,20 +422,17 @@ function TrainingWeek() {
         )}
       </div>
 
-      {/* Today, front and centre */}
+      {/* Today, front and centre. No frame of its own: the session card is the card. */}
       {isCurrentWeek && (
-        <section className={cn("rounded-2xl border-2 p-5", todayRace ? "border-rose-500/60" : "border-foreground/20")}>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
-              <p className="text-xl font-semibold">{shortDayLabel(today)}</p>
-            </div>
-            <Button variant="outline" className="h-11 gap-1.5 px-4 text-base" onClick={() => router.push(newSessionHref(today))}>
-              <PlusIcon className="size-5" /> Add
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today · {shortDayLabel(today)}</p>
+            <Button variant="outline" className="h-10 gap-1.5 px-3 text-sm" onClick={() => router.push(newSessionHref(today))}>
+              <PlusIcon className="size-4" /> Add
             </Button>
           </div>
           {todayRace && (
-            <p className="mb-3 flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
+            <p className="flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
               <FlagIcon className="size-5" /> Race day: {todayRace.name}
             </p>
           )}
@@ -444,19 +441,27 @@ function TrainingWeek() {
             <SortableContext items={todayList.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
                 {todayList.length === 0 && todayActs.length === 0 && !todayRace && (
-                  <p className="py-4 text-lg text-muted-foreground">Nothing planned today.</p>
+                  <p className="rounded-xl border border-dashed px-5 py-6 text-center text-base text-muted-foreground">Nothing planned today.</p>
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
                     <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                   </SortableSession>
                 ))}
-                {todayActs.map((a) => (
-                  <ActivityChip key={a.id} a={a} />
-                ))}
               </div>
             </SortableContext>
           </DndContext>
+          {/* Watch workouts no ticked session has claimed, grouped under one caption so they don't read as strays. */}
+          {todayActs.length > 0 && (
+            <div className="pt-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From your Fitbit</p>
+              <div className="divide-y">
+                {todayActs.map((a) => (
+                  <ActivityChip key={a.id} a={a} big />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -752,7 +757,7 @@ function SortableSession({ id, children }: { id: number; children: React.ReactNo
       {...attributes}
       {...listeners}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn("select-none rounded-lg [-webkit-touch-callout:none]", isDragging && "relative z-10 bg-background shadow-xl")}
+      className={cn("select-none rounded-xl [-webkit-touch-callout:none]", isDragging && "relative z-10 bg-background shadow-xl")}
     >
       {children}
     </div>
@@ -763,53 +768,99 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   const template = s.workout_slug ? { slug: s.workout_slug } : null;
+  const logLabel = s.done ? (s.type === "strength" ? "View sets" : "View splits") : s.type === "strength" ? "Log sets" : "Log splits";
+  const actuals =
+    s.done && (s.actual_km !== null || s.actual_minutes !== null)
+      ? [
+          s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`,
+          s.actual_pace_sec ? `${formatPace(s.actual_pace_sec)}/km` : s.actual_km && s.actual_minutes && `${formatPace((s.actual_minutes * 60) / s.actual_km)}/km`,
+          s.actual_minutes !== null && `${s.actual_minutes} min`,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
+  const heart =
+    s.done && (s.actual_avg_hr !== null || s.actual_effort !== null)
+      ? [s.actual_avg_hr !== null && `♥ ${s.actual_avg_hr} avg`, s.actual_effort !== null && `${s.actual_effort} AZM`].filter(Boolean).join(" · ")
+      : null;
+
+  if (big) {
+    // Today's hero: one plain card in the page's own style, the title first and biggest.
+    // Done is said once, by the filled check — no wash, no strikethrough — so the workout stays legible.
+    return (
+      <div className="group relative rounded-xl border">
+        <div className="flex items-start gap-4 p-5">
+          {!rest && (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={s.done ? "Mark not done" : "Mark done"}
+              className={cn("flex size-9 shrink-0 items-center justify-center rounded-md border-2", s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}
+            >
+              {s.done && <CheckIcon className="size-6" />}
+            </button>
+          )}
+          <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
+            <span className="block text-2xl font-semibold leading-snug tracking-tight">{s.title}</span>
+            <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
+                <span className="font-semibold uppercase tracking-wide">{meta.short}</span>
+              </span>
+              {s.intensity === "hard" && <span className="rounded-full border px-2 py-px text-xs font-medium">hard</span>}
+              {targetLabel(s) && <span className="tabular-nums">{targetLabel(s)}</span>}
+            </span>
+            {s.notes && !template && <span className="mt-2 block text-base text-muted-foreground">{s.notes}</span>}
+            {actuals && <span className="mt-2 block text-base tabular-nums text-emerald-700 dark:text-emerald-400">{actuals}</span>}
+            {heart && <span className={cn("block text-base tabular-nums text-muted-foreground", !actuals && "mt-2")}>{heart}</span>}
+            {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className="mt-2.5 h-2" />}
+          </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Remove ${s.title}`}
+              // Always there on a phone; on desktop it shows on hover.
+              className="-m-1 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+            >
+              <TrashIcon className="size-5" />
+            </button>
+          )}
+        </div>
+        {template && (
+          <Link href={workoutHref(template.slug, s.session_date)} className="flex h-12 items-center justify-between rounded-b-xl border-t px-5 text-base font-medium hover:bg-muted/50">
+            {logLabel} <ChevronRightIcon className="size-5 text-muted-foreground" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  // Week-grid card: compact, with the done wash so a week scans at a glance.
   return (
-    <div className={cn("group relative rounded-lg border", big ? "p-4" : "p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
-      <div className={cn("flex items-start", big ? "gap-4" : "gap-2.5")}>
+    <div className={cn("group relative rounded-lg border p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
+      <div className="flex items-start gap-2.5">
         {!rest && (
           <button
             type="button"
             onClick={onToggle}
             aria-label={s.done ? "Mark not done" : "Mark done"}
-            className={cn(
-              "flex shrink-0 items-center justify-center rounded-md border-2",
-              big ? "size-9" : "size-6",
-              s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40",
-            )}
+            className={cn("flex size-6 shrink-0 items-center justify-center rounded-md border-2", s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}
           >
-            {s.done && <CheckIcon className={big ? "size-6" : "size-4"} />}
+            {s.done && <CheckIcon className="size-4" />}
           </button>
         )}
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
           <span className="flex items-center gap-1.5">
             <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
-            <span className={cn("font-semibold uppercase tracking-wide text-muted-foreground", big ? "text-sm" : "text-xs")}>{meta.short}</span>
-            {s.intensity === "hard" && <span className={cn("text-rose-500", big ? "text-sm" : "text-xs")}>hard</span>}
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{meta.short}</span>
+            {s.intensity === "hard" && <span className="text-xs text-rose-500">hard</span>}
           </span>
-          <span className={cn("block font-medium leading-snug", big ? "text-xl" : "text-sm", s.done && "line-through text-muted-foreground")}>{s.title}</span>
-          {targetLabel(s) && (
-            <span className={cn("block tabular-nums text-muted-foreground", big ? "text-base" : "text-xs")}>
-              {targetLabel(s)}
-            </span>
-          )}
-          {big && s.notes && !template && <span className="mt-1 block text-base text-muted-foreground">{s.notes}</span>}
-          {s.done && (s.actual_km !== null || s.actual_minutes !== null) && (
-            <span className={cn("block tabular-nums text-emerald-700 dark:text-emerald-400", big ? "text-base" : "text-xs")}>
-              {[
-                s.actual_km !== null && s.actual_km > 0 && `${s.actual_km} km`,
-                s.actual_pace_sec ? `${formatPace(s.actual_pace_sec)}/km` : s.actual_km && s.actual_minutes && `${formatPace((s.actual_minutes * 60) / s.actual_km)}/km`,
-                s.actual_minutes !== null && `${s.actual_minutes} min`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          )}
-          {s.done && (s.actual_avg_hr !== null || s.actual_effort !== null) && (
-            <span className={cn("block tabular-nums text-muted-foreground", big ? "text-base" : "text-xs")}>
-              {[s.actual_avg_hr !== null && `♥ ${s.actual_avg_hr} avg`, s.actual_effort !== null && `${s.actual_effort} AZM`].filter(Boolean).join(" · ")}
-            </span>
-          )}
-          {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className={big ? "mt-1.5 h-2" : "mt-1 h-1.5"} />}
+          <span className={cn("block text-sm font-medium leading-snug", s.done && "line-through text-muted-foreground")}>{s.title}</span>
+          {targetLabel(s) && <span className="block text-xs tabular-nums text-muted-foreground">{targetLabel(s)}</span>}
+          {actuals && <span className="block text-xs tabular-nums text-emerald-700 dark:text-emerald-400">{actuals}</span>}
+          {heart && <span className="block text-xs tabular-nums text-muted-foreground">{heart}</span>}
+          {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className="mt-1 h-1.5" />}
         </button>
         {onDelete && (
           <button
@@ -817,21 +868,15 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
             onClick={onDelete}
             aria-label={`Remove ${s.title}`}
             // Always there on a phone; on desktop it shows on hover so the narrow week columns stay clean.
-            className={cn("-m-1 flex shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100", big ? "size-10" : "size-8")}
+            className="-m-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
           >
-            <TrashIcon className={big ? "size-5" : "size-4"} />
+            <TrashIcon className="size-4" />
           </button>
         )}
       </div>
       {template && (
-        <Link
-          href={workoutHref(template.slug, s.session_date)}
-          className={cn(
-            "mt-2 flex items-center justify-center gap-1 rounded-md bg-violet-500/10 font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-300",
-            big ? "h-11 text-base" : "h-8 text-xs",
-          )}
-        >
-          {s.done ? (s.type === "strength" ? "View sets" : "View splits") : s.type === "strength" ? "Log sets" : "Log splits"} <ChevronRightIcon className={big ? "size-5" : "size-3.5"} />
+        <Link href={workoutHref(template.slug, s.session_date)} className="mt-2 flex h-8 items-center justify-center gap-1 rounded-md bg-violet-500/10 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-300">
+          {logLabel} <ChevronRightIcon className="size-3.5" />
         </Link>
       )}
     </div>
@@ -863,9 +908,19 @@ function PastPrograms() {
 }
 
 /** A Fitbit workout no ticked session has claimed. Heart rate only — its distance and time aren't trusted. */
-function ActivityChip({ a }: { a: Activity }) {
+function ActivityChip({ a, big }: { a: Activity; big?: boolean }) {
+  const hint = `${a.name} on your Fitbit — tick the session to attach its heart rate`;
+  if (big)
+    return (
+      <div className="py-3 text-base leading-snug text-muted-foreground" title={hint}>
+        <span className="font-medium text-foreground">{a.name}</span>
+        {a.avg_hr ? ` · ♥ ${a.avg_hr}` : ""}
+        {a.azm ? ` · ${a.azm} AZM` : ""}
+        {a.zones && <ZoneBar zones={a.zones} className="mt-2 h-2" />}
+      </div>
+    );
   return (
-    <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={`${a.name} on your Fitbit — tick the session to attach its heart rate`}>
+    <div className="rounded-md bg-muted/60 px-2.5 py-1.5 text-xs leading-snug text-muted-foreground" title={hint}>
       <span className="font-medium">{a.name}</span>
       {a.avg_hr ? ` · ♥ ${a.avg_hr}` : ""}
       {a.azm ? ` · ${a.azm} AZM` : ""}

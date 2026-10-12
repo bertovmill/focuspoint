@@ -28,10 +28,19 @@ const ICONS: Record<Channel, ReactNode> = {
   ),
 };
 
-/** A row of icon links to Berto's social profiles. */
-export function SocialIcons({ className }: { readonly className?: string }) {
+/**
+ * A row of icon links to Berto's social profiles.
+ * `buttons` draws each one as a bordered square, for the footer.
+ */
+export function SocialIcons({
+  className,
+  variant = "plain",
+}: {
+  readonly className?: string;
+  readonly variant?: "plain" | "buttons";
+}) {
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center", variant === "buttons" ? "gap-2" : "gap-1", className)}>
       {CHANNELS.map((item) => (
         <a
           key={item.href}
@@ -40,7 +49,12 @@ export function SocialIcons({ className }: { readonly className?: string }) {
           rel="me noreferrer"
           aria-label={item.label}
           title={item.label}
-          className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className={cn(
+            "grid place-items-center text-muted-foreground transition-colors hover:text-foreground",
+            variant === "buttons"
+              ? "size-10 rounded-lg border border-border/70 bg-background hover:border-foreground/30 hover:bg-muted/40"
+              : "size-8 rounded-md hover:bg-muted/60",
+          )}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4">
             {ICONS[item.label]}

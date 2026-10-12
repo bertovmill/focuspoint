@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { preload } from "react-dom";
 import Image from "next/image";
 import { PaperTexture } from "@paper-design/shaders-react";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,11 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
   const [live, setLive] = useState(false);
   // The wall's shape, for placing the CSS window where the shader would.
   const [shape, setShape] = useState({ aspect: 16 / 9, width: 1440 });
+
+  // The views go in the document head as preloads, so the browser has them
+  // before the shader (or the CSS window) asks. Both read the same URLs, so
+  // one download serves whichever wall ends up showing.
+  if (scene) for (const url of CITY_VIEWS) preload(url, { as: "image" });
 
   // The sky, recomputed every half minute so the light keeps up with the clock.
   // The renderer reads it through a ref each frame. It starts neutral so the
@@ -185,12 +191,12 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
               "0 0 0 10px var(--frame), 0 0 0 11px rgba(0,0,0,0.14), 0 0 0 34px rgba(0,0,0,0.06), 0 28px 34px -8px rgba(30,25,20,0.32)",
           }}
         >
-          <Image src={CITY_VIEWS[0]} alt="" fill sizes="50vw" className="object-cover" />
+          <Image src={CITY_VIEWS[0]} alt="" fill unoptimized className="object-cover" />
           <Image
             src={CITY_VIEWS[3]}
             alt=""
             fill
-            sizes="50vw"
+            unoptimized
             className="object-cover transition-opacity duration-1000"
             style={{ opacity: overcast }}
           />
@@ -198,7 +204,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
             src={CITY_VIEWS[2]}
             alt=""
             fill
-            sizes="50vw"
+            unoptimized
             className="object-cover transition-opacity duration-1000"
             style={{ opacity: sky.night }}
           />

@@ -27,9 +27,12 @@ export interface WallRendererOptions {
  * a surface on the canvas, one effect, `frameLoop`. Failures reject `ready`
  * and tear down; the component keeps the CSS wall in that case.
  *
- * With `scene`, the four city views are fetched after the first frame and
- * uploaded into one array texture; until they land the window shows a plain
- * sky in the right light.
+ * With `scene`, the four city views are fetched straight away, in parallel
+ * with the GPU coming up, and uploaded into one array texture. `ready` waits
+ * for them (up to `CITY_WAIT_MS`) so the wall is revealed with the view
+ * already in the window rather than a plain sky that the photo then replaces;
+ * if they are slower than that the window opens on the plain sky and the
+ * view eases in when it lands.
  */
 export function createWallRenderer(
   canvas: HTMLCanvasElement,
@@ -38,6 +41,14 @@ export function createWallRenderer(
   let disposed = false;
   let gpu: Gpu | undefined;
   let city: Texture | undefined;
+
+  // Decoding the photos needs no GPU, so it starts before `init` rather than
+  // after the first frame. The preload links in the page mean this is usually
+  // a cache hit.
+  const cityBitmaps = options.scene ? fetchCityBitmaps() : null;
+  // A fetch that fails before the GPU chain below has attached its handler
+  // would otherwise surface as an unhandled rejection.
+  cityBitmaps?.catch(() => {});
 
   const dispose = () => {
     if (disposed) return;
@@ -84,16 +95,25 @@ export function createWallRenderer(
     });
     const time = clock(context);
 
-    let cityReady = false;
-    if (options.scene) {
-      void loadCity(context, city)
-        .then(() => {
-          if (!disposed) cityReady = true;
-        })
-        .catch((error: unknown) => {
-          console.warn("City views could not load; the window keeps its plain sky", error);
-        });
-    }
+    // 0 until the views are on the GPU, then eased up to 1 over `CITY_FADE_S`
+    // so the window never snaps from sky to photo.
+    let cityLoaded = false;
+    let cityBlend = 0;
+    const cityLanded = cityBitmaps
+      ? cityBitmaps
+          .then((bitmaps) => {
+            if (disposed || !city) {
+              bitmaps.forEach((b) => b.close());
+              return;
+            }
+            uploadCity(context, city, bitmaps);
+            cityLoaded = true;
+            performance.mark("concrete-wall:city-landed");
+          })
+          .catch((error: unknown) => {
+            console.warn("City views could not load; the window keeps its plain sky", error);
+          })
+      : Promise.resolve();
 
     // The light's resting path is a slow figure of eight across the upper left,
     // where the window light falls. The pointer pulls it a little off that path
@@ -104,6 +124,7 @@ export function createWallRenderer(
     frameLoop(context, (frame) => {
       try {
         if (!options.reducedMotion()) drift += time.deltaTime;
+        if (cityLoaded && cityBlend < 1) cityBlend = Math.min(1, cityBlend + time.deltaTime / CITY_FADE_S);
         const sky = options.sky();
         const restX = 0.3 + Math.sin(drift * 0.11) * 0.16;
         const restY = 0.3 + Math.sin(drift * 0.17 + 1.3) * 0.12;
@@ -124,7 +145,7 @@ export function createWallRenderer(
             resolution_time_dark: [width, height, drift, options.isDark() ? 1 : 0],
             light: [light[0], light[1], Math.cos(drift * 0.07), 0],
             sky: [sky.sunHeight, sky.sunProgress, sky.warmth, sky.night],
-            weather: [sky.cloudCover, sky.rain, cityReady ? 1 : 0, 0],
+            weather: [sky.cloudCover, sky.rain, cityBlend, 0],
             window: window ? [window.x, window.y, window.hw, window.hh] : [0, 0, 0, 0],
           },
         });
@@ -134,6 +155,15 @@ export function createWallRenderer(
         throw error;
       }
     });
+
+    // The loop is running behind an invisible canvas; hold the reveal until
+    // the view is in the window, or until waiting would be worse than the
+    // plain sky.
+    await Promise.race([cityLanded, new Promise((resolve) => setTimeout(resolve, CITY_WAIT_MS))]);
+    // Views that arrived while hidden can show at once; only a late arrival
+    // needs the fade.
+    if (cityLoaded) cityBlend = 1;
+    performance.mark("concrete-wall:reveal");
   })().catch((error: unknown) => {
     dispose();
     throw error;
@@ -142,26 +172,37 @@ export function createWallRenderer(
   return { ready, dispose };
 }
 
-/** Fetches the four views and copies each into its layer of the array texture. */
-async function loadCity(context: Gpu, target: Texture) {
-  await Promise.all(
-    CITY_VIEWS.map(async (url, layer) => {
+/** How long `ready` waits for the views before revealing the wall without them. */
+const CITY_WAIT_MS = 2500;
+/** Seconds the view takes to ease into the window when it lands after the reveal. */
+const CITY_FADE_S = 0.7;
+
+/** Fetches and decodes the four views, in texture-layer order. */
+function fetchCityBitmaps() {
+  return Promise.all(
+    CITY_VIEWS.map(async (url) => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`${url}: ${res.status}`);
-      const bitmap = await createImageBitmap(await res.blob(), {
+      return createImageBitmap(await res.blob(), {
         colorSpaceConversion: "none",
         premultiplyAlpha: "none",
       });
-      try {
-        if (context.disposed) return;
-        context.gpu.queue.copyExternalImageToTexture(
-          { source: bitmap },
-          { texture: target.gpu, origin: [0, 0, layer] },
-          [Math.min(bitmap.width, CITY_SIZE[0]), Math.min(bitmap.height, CITY_SIZE[1])],
-        );
-      } finally {
-        bitmap.close();
-      }
     }),
   );
+}
+
+/** Copies each decoded view into its layer of the array texture. */
+function uploadCity(context: Gpu, target: Texture, bitmaps: ImageBitmap[]) {
+  bitmaps.forEach((bitmap, layer) => {
+    try {
+      if (context.disposed) return;
+      context.gpu.queue.copyExternalImageToTexture(
+        { source: bitmap },
+        { texture: target.gpu, origin: [0, 0, layer] },
+        [Math.min(bitmap.width, CITY_SIZE[0]), Math.min(bitmap.height, CITY_SIZE[1])],
+      );
+    } finally {
+      bitmap.close();
+    }
+  });
 }

@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-12 — Homepage window: no more plain-sky pane before the skyline
+
+Berto: on a fresh load of bertomill.com the hero "shows one type of window, then quickly
+switches to the other", and suspected stale cache or legacy code. It was neither: the
+WebGPU wall only fetched the four Toronto views *after* its first frame, so the canvas
+faded in (700 ms) over the CSS wall with the shader's plain-sky fallback in the panes,
+and the photo then snapped in (`city_ready` was a hard 0→1) when the fetches landed.
+Three windows in a row on every cold load: CSS window → plain-sky pane → skyline.
+
+- `renderer.ts`: the views are fetched and decoded before `init()` (no GPU needed), and
+  `ready` waits for them to be on the GPU, up to `CITY_WAIT_MS` (2.5 s), before
+  resolving — so the canvas is revealed with the skyline already in the window. Past
+  that it reveals on the plain sky and the view eases in over `CITY_FADE_S` (0.7 s) via
+  `weather.z`, now a blend rather than a flag. Marks `concrete-wall:city-landed` and
+  `concrete-wall:reveal` on the performance timeline for checking the order.
+- `concrete-wall.tsx`: the four views are `preload()`ed into the document head on the
+  homepage, and the CSS window's `next/image`s are `unoptimized` so they read the same
+  URLs — one download serves whichever wall ends up showing. Measured locally: preloads
+  done by ~220 ms, renderer fetches were cache hits, city-landed and reveal at the same
+  millisecond.
+
+Built in a sibling worktree (~/focuspoint-window-load, own `npm ci`, dev on :3002 via a
+`window-load-3002` launch entry) because the main checkout is parked on
+site-presence-tweaks with uncommitted work.
+
+---
+
 ## 2026-10-12 — Training: today's card flattened (the phone view felt messy)
 
 Berto: the mobile Today workout "seems messy, not very pleasing, can't put my thumb on

@@ -16,6 +16,25 @@ string to the new one (`INTERIM_UPPER_BODY_WARMUP`).
 
 ---
 
+## 2026-10-11 — Site: MakersLounge funnel case study (/work/makerslounge-funnel)
+
+Public proof for the "hands-on SQL" and "decks without outcomes" career gaps, built
+on data Berto can share (Venice and Aucctus metrics stay private). New work entry
+`content/work/makerslounge-funnel.md` treats MakersLounge as a GTM funnel, using the
+`luma_events` / `luma_guests` mirror (20 events, Nov 2025 – Aug 2026, last synced
+2026-08-16). Cleaning: 6,274 bulk "invited" rows are excluded, leaving 1,340
+registrations from 752 people. Recorded show rate (attended ÷ approved): in-person
+workshops 80%, online 50%, meetups 35%, hackathons 21%. Repeat attendance is 66 of 303
+(about 22%). Of 848 answered "how did you hear" responses, normalized from free text,
+36% came through Berto's personal network and 26% through Luma. Quiz choices: lives on
+/work first; framed as a forward plan with three measured experiments, since nothing has
+changed yet. Berto says check-ins undercount, so the page calls attendance a floor. It is
+dated 2026-05-01 so Aucctus stays the featured tile. Aggregates only, no personal data.
+Next: a LinkedIn post linking to it, then update the page with results after the next 3
+events.
+
+---
+
 ## 2026-10-11 — Career outreach: no Venice, lead with MakersLounge + Cael
 
 Venice and Aucctus metrics (the 0→70 number) are confidential and must never appear in

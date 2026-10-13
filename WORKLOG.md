@@ -11048,3 +11048,77 @@ box or typing 0 left 12 and sent nothing; "1a2345" → 123; hammer press's
 add-weight line stayed "hit 20" after typing 25; all four at 12 → "Next: × 15";
 sled push "× 25 m"; desktop click/type/Tab. 24/24 checks, no page errors.
 Screenshots of the committed and new versions at 390px line up (same wrapping).
+
+## 2026-10-13 — Chat box keeps the text after send; eve 0.52 → 0.79
+
+Berto (from the phone, mid-"Cael is thinking…"): sometimes the message stays in
+the box after sending. And: are we on the latest eve improvements?
+
+**The stuck text.** AI Elements' `PromptInput` clears the box only when
+`onSubmit` returns — or, if it returns a promise, when that promise settles,
+and never if it rejects ("user may want to retry"). The composer awaited
+`agent.send()`, and eve's `send` resolves only once the *whole answer* has
+streamed (it consumes the event stream inside the promise), rejecting when
+the stream drops — which iOS does whenever the app is backgrounded. So the
+text sat in the box for the length of every answer, and for good after a
+dropped stream.
+
+- `components/chat/eve-composer.tsx`: `handleSubmit` is synchronous again. It
+  captures the message, stops dictation and kicks off a detached `deliver()`
+  (downscale → Blob upload → `agent.send`, errors swallowed because eve already
+  reports them: failed bubble, `agent.error` banner, stale-session resend). The
+  box clears the moment the message goes out, like the Claude app. Enter while
+  Cael is still answering throws, which PromptInput swallows without clearing —
+  same as before, when eve's own "already processing a turn" rejection kept it.
+
+**eve 0.52.1 → 0.79.0** (27 minors; `ai` 7.0.4 → 7.0.139, the peer eve wants;
+the `overrides.ai` pin in package.json moved with it). `tsc --noEmit` was clean
+on the new version with no code changes, and `next build` (which runs eve's
+build through `withEve`) passes under Node 24. Eve ≥0.79 refuses Node 22, so
+the local build ran on `npx node@24`; Vercel already builds on 24 (`engines`).
+What changed underneath that matters here:
+
+- 0.70.3: eve itself now retries stream opens on Safari/iOS "Load failed" — the
+  thing `reattach()` in `hooks/use-thread-agent.ts` was built around. The hook
+  stays as belt-and-braces.
+- 0.70: `useEveAgent()` returns `ConversationState` (extends `EveMessageData`,
+  so `agent.data.messages` and every `EveMessage*` type still hold) plus
+  `turns`, `inputs`, `tasks`, `agents`; `toolCallState()` and `followSubagents`
+  are available. Not wired in yet.
+- 0.69: subagent calls are tasks. `subagent.called/completed` are gone; the
+  stream says `task.started` / `task.settled` / `agent.started` / `turn.waiting`
+  / `input.resolved`. `lib/trace-utils.ts` summarises those (old names kept
+  for saved traces). A delegation to `training_coach` / `planner` now parks the
+  turn (`turn.waiting`, status stays `streaming`) and the text Cael writes
+  before delegating completes as `"stop"`, so the push notification in
+  `agent/channels/eve.ts` may fire once for that narration and again for the
+  final reply.
+- 0.76: `load_skill` → `eve__skill`; `connection_search`/`connection_execute`
+  → `eve__search`/`eve__tool`; connection tools are named `github__<tool>`.
+  `agent/instructions.md` wording and the thread's `QUIET_TOOLS` (eve-thread.tsx) updated.
+- 0.76.2: sessions built by an older eve are *stranded* (409
+  `session_stranded`, `ClientSessionStrandedError`), never reset implicitly.
+  `isStaleSession()` in `use-thread-agent.ts` now treats that like
+  `session_not_active` — transcript carried to a fresh session, message resent
+  — and fires `session.reset()` on the stranded one. Expect this once per old
+  thread after deploy (on Vercel, handoff across this boundary is refused).
+- 0.72/0.78: approvals run as the requester; `once()` on the calendar and
+  GitHub writes unchanged. 0.77: `eveChannel` accepts `fetchFile`/`uploadPolicy`
+  (a web client can send a Blob URL instead of inline base64 — would let the
+  composer stop downscaling photos; not done). 0.66: tool schemas reach the
+  model as JSON Schema — the MCP bridge (`app/api/mcp/route.ts`) still reads
+  `description`/`inputSchema`/`execute`/`toModelOutput` off `defineTool()`,
+  which still returns the stamped definition.
+- Not adopted, worth a look: `prewarm` (create the session while he types, so
+  the first message of a new thread doesn't pay session startup).
+
+Verified: `npm run typecheck` clean; `npm run build` passes on Node 24. No
+DATABASE_URL here, so the real `EveComposer` was bundled with esbuild (model
+picker stubbed, `/api/upload` routed to a fake) with the app's Tailwind and
+driven in the preinstalled Chromium at 390px (touch) and 1280px: text + Enter
+→ box empty before the fake `send` settles, stop button up; Enter mid-answer →
+text kept, nothing sent; after the answer the same text sends and clears; a
+rejected send ("Load failed") leaves the box empty; a photo + text clears the
+box before the downscale/upload finishes and sends text + file + blob note,
+attachment chips gone; empty Enter sends nothing. 25/25, no page errors.
+Needs a real check on the phone against production after deploy.

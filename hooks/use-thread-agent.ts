@@ -2,6 +2,7 @@
 
 import {
   ClientError,
+  ClientSessionStrandedError,
   isCurrentTurnBoundaryEvent,
   type ClientSessionState,
   type HandleMessageStreamEvent,
@@ -71,9 +72,15 @@ const pendingResend = new Map<string, Parameters<PrepareSend>[0]>();
  * default), reset, or minted by another deployment — with 409
  * `session_not_active`. Under 0.18 the server quietly opened a new session in
  * that case; since 0.49 sessions are fixed IDs and the client has to do it.
+ * Since 0.76 a session built by an older eve than the one serving it is
+ * *stranded* (409 `session_stranded`, `ClientSessionStrandedError`): the
+ * conversation is stored but nothing can run it, and it is never reset
+ * implicitly. Both mean the same thing here — carry the transcript to a fresh
+ * session and resend.
  */
 function isStaleSession(error: Error): boolean {
-  return error instanceof ClientError && error.code === "session_not_active";
+  if (error instanceof ClientSessionStrandedError) return true;
+  return error instanceof ClientError && (error.code === "session_not_active" || error.code === "session_stranded");
 }
 
 export function useThreadAgent(
@@ -135,6 +142,10 @@ export function useThreadAgent(
       }
       if (sessionLostRef.current) return;
       sessionLostRef.current = true;
+      // A stranded session can't be cleared or run again, only ended. Do that
+      // in the background so it stops holding its slot; the fresh session that
+      // replaces it doesn't wait on the outcome.
+      if (error instanceof ClientSessionStrandedError) session?.reset().catch(() => {});
       const { agent: live, saveSnapshot: save, threadId: id } = latestRef.current;
       // Keep every event we have; only the session pointer is wrong.
       save(id, { events: live.events, firstUserText: firstUserTextOf(live.data), session: null });

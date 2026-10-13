@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatStatus, UserContent } from "ai";
+import type { ChatStatus, FileUIPart, UserContent } from "ai";
 import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -180,12 +180,14 @@ function ComposerCard({
   const dictation = useDictation(controller.textInput.value, controller.textInput.setInput);
   const dictationStop = dictation.stop;
 
-  const handleSubmit = useCallback(
-    async (message: PromptInputMessage) => {
-      const text = message.text.trim();
-      const files = message.files ?? [];
-      if (!text && files.length === 0) return;
-
+  // The delivery, detached from the submit handler. eve's `send` promise only
+  // settles once Cael's whole answer has streamed (and rejects when the stream
+  // drops, which happens whenever the phone backgrounds the app), and
+  // PromptInput clears the box only once `onSubmit`'s promise settles — so
+  // awaiting the send here left the typed text sitting in the box for the
+  // length of the answer, or for good (Berto, 2026-10-13).
+  const deliver = useCallback(
+    async (text: string, files: readonly FileUIPart[]) => {
       const parts: Exclude<UserContent, string> = [];
       if (text) parts.push({ type: "text", text });
 
@@ -212,15 +214,34 @@ function ComposerCard({
       }
 
       if (parts.length === 0) return;
-      dictationStop();
       onSend?.(agent.data.messages.length, sent);
 
       // Collapse a lone text part to a plain string (eve's simplest input form).
       const content: UserContent =
         parts.length === 1 && parts[0]!.type === "text" ? parts[0]!.text : parts;
-      await agent.send(content);
+      try {
+        await agent.send(content);
+      } catch {
+        // eve has already reported it: the bubble is marked failed, `agent.error`
+        // shows the banner, and a dead session is resent from a fresh one.
+      }
     },
-    [agent, onSend, dictationStop],
+    [agent, onSend],
+  );
+
+  const handleSubmit = useCallback(
+    (message: PromptInputMessage) => {
+      const text = message.text.trim();
+      const files = message.files ?? [];
+      if (!text && files.length === 0) return;
+      // Returning synchronously is what clears the box right away. Enter while
+      // Cael is still answering reaches here too (the Stop button isn't a submit
+      // button), and eve would refuse the send: throwing keeps the text in place.
+      if (busy) throw new Error("Cael is still answering");
+      dictationStop();
+      void deliver(text, files);
+    },
+    [busy, deliver, dictationStop],
   );
 
   return (

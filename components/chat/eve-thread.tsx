@@ -320,7 +320,7 @@ function rendersInline(part: EveMessagePart): boolean {
 }
 
 // Plumbing the reader doesn't need to hear about in the summary line.
-const QUIET_TOOLS = new Set(["load_toolset", "load_skill"]);
+const QUIET_TOOLS = new Set(["load_toolset", "load_skill", "eve__skill", "eve__search", "eve__tool"]);
 
 const TOOL_LABELS: Record<string, string> = {
   search_memory: "your notes",

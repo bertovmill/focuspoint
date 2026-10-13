@@ -213,10 +213,27 @@ export function summarizeEvent(event: TraceEvent, toolCalls: Map<string, ToolCal
       return `Cael: ${truncate(String(data.message ?? ""), 140)}`;
     case "turn.completed":
       return `Turn ${data.sequence ?? "?"} completed`;
+    // eve ≤0.68 wrote subagent.called / subagent.completed; since 0.69 a
+    // delegation is a task whose agent session is announced separately.
     case "subagent.called":
       return `Delegated to subagent (child session ${truncate(String(data.childSessionId ?? ""), 20)})`;
     case "subagent.completed":
       return "Subagent completed";
+    case "task.started":
+      return data.kind === "agent"
+        ? `Delegated to ${data.name ?? "a subagent"}`
+        : `Task started: ${data.name ?? "tool"}`;
+    case "task.settled":
+      return `Task ${data.status ?? "settled"}${data.name ? `: ${data.name}` : ""}`;
+    case "agent.started":
+      return `Subagent session opened: ${data.name ?? "?"} (${truncate(String(data.sessionId ?? ""), 20)})`;
+    case "turn.waiting":
+      return data.on === "input" ? "Turn parked — waiting on a person" : "Turn parked — waiting on its tasks";
+    case "input.resolved": {
+      const resolutions = Array.isArray(data.resolutions) ? data.resolutions : [];
+      const outcomes = resolutions.map((r) => String(asRecord(r).outcome ?? "resolved"));
+      return `Input ${outcomes.join(", ") || "resolved"}`;
+    }
     case "input.requested":
       return "Waiting on human input (approval or question)";
     case "compaction.requested":

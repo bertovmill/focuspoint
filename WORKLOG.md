@@ -11011,3 +11011,40 @@ Gotchas: Turbopack in a worktree under `.claude/worktrees/` infers the parent
 checkout as the workspace root and didn't hot-reload edits — restart the dev
 server after each change. The `/#5-year-review` anchor id starts with a digit,
 so CSS/Playwright selectors need `[id="5-year-review"]`, not `#5-year-review`.
+
+## 2026-10-13 — Workout log: change today's target reps inline
+
+Berto: the weight next to each exercise is already editable in place; the number
+of reps ("× 10") needed the same.
+
+- On every rep row of `/training/workouts/<slug>/<date>` the "× 10" is now an
+  input (`TargetField`, `app/_components/workout-log.tsx`), styled like the
+  weight box beside it: borderless until hover, number pad on the phone, the
+  value selected on tap so typing replaces it, Enter or tapping away finishes.
+  The × is its label, so tapping it lands in the box too. The box hugs its
+  digits (`calc(Nch + 6px)`, tabular numerals) so "× 20 · BW" still fits on one
+  line in the phone's narrow exercise column, same as the old label did.
+- It edits today's `target_reps`, the same field the ladder already keeps per
+  log: the total's goal, the green "hit" state of each set, tap-to-fill and the
+  "Next: × …" panel all follow it at once, and it autosaves with the reps. Next
+  session's ladder carries on from the new number (a clean 12 climbs to 15, a
+  missed 12 stays at 12), exactly as a hand-set "Next session" target does. A
+  box left empty, or a typed 0, keeps the target it had; digits only, three at
+  most. The sled push shows "× 25 m" with the m kept.
+- The amber "All sets hit N last time. Add weight?" line now names the
+  prescription's rung (`p.target`), not whatever is typed today.
+- Timed rows are unchanged: their time targets come from the bank, and the count
+  ("× 100 reps") was already editable there.
+
+Verified: `npm run typecheck` clean. No DATABASE_URL in the cloud container and
+the project's Playwright wants a newer headless shell than is installed, so the
+real `WorkoutLog` was bundled with esbuild (next/link shimmed, fetch stubbed with
+a seeded last session) plus the app's Tailwind compiled via `@tailwindcss/node`,
+and driven in the preinstalled Chromium (`/opt/pw-browsers/chromium`) at 390px
+with touch: hammer row opened at the ladder's 15; tap → 15 in set 1; typed 12 →
+set 1 still green, total "15/48", the fill button and tap-to-fill use 12; the
+autosave PUT carried `target_reps: 12, reps: [15, 12, null, null]`; clearing the
+box or typing 0 left 12 and sent nothing; "1a2345" → 123; hammer press's
+add-weight line stayed "hit 20" after typing 25; all four at 12 → "Next: × 15";
+sled push "× 25 m"; desktop click/type/Tab. 24/24 checks, no page errors.
+Screenshots of the committed and new versions at 390px line up (same wrapping).

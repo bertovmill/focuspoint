@@ -365,12 +365,12 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
           <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />
         </span>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
-          <span className="font-medium tabular-nums text-foreground/80">{row.target ? `× ${row.target}${ex.unit === "m" ? " m" : ""}` : "log it"}</span>
+          <TargetField ex={ex} value={row.target} onChange={(n) => onChange((r) => ({ ...r, target: n }))} />
           <span aria-hidden>·</span>
           <WeightField ex={ex} value={row.weight} onChange={setWeight} />
         </div>
         {p?.bumpSuggested && sameWeightAsLast && (
-          <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">All sets hit {row.target} last time. Add weight?</p>
+          <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">All sets hit {p.target} last time. Add weight?</p>
         )}
       </td>
       {row.reps.map((v, i) => {
@@ -647,6 +647,50 @@ function ExerciseName({ name, onRename, className }: { name: string; onRename: (
 /** Fill any empty sets with the target (typed sets are kept). */
 function r0Fill(onChange: (fn: (r: Row) => Row) => void, ex?: TemplateExercise) {
   onChange((r) => (r.target ? { ...r, reps: r.reps.map((x) => (x === "" ? (ex ? display(ex, r.target) : String(r.target)) : x)) } : r));
+}
+
+/**
+ * Today's target reps per set — the "× 10" next to the weight. Tap to change it on
+ * the day (Berto, 2026-10-13): a set that hits the new number goes green, the total's
+ * goal and tap-to-fill follow it, and it's saved with today's log, so next session's
+ * ladder carries on from it. A box left empty keeps the target it had.
+ */
+function TargetField({ ex, value, onChange }: { ex: TemplateExercise; value: number; onChange: (target: number) => void }) {
+  // What's in the box while he's typing; null once he has moved on.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? (value ? String(value) : "");
+  return (
+    // A label, so a tap on the × lands in the box too.
+    <label className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-foreground/80">
+      ×
+      <input
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="off"
+        enterKeyHint="done"
+        onFocus={(e) => e.currentTarget.select()}
+        onClick={(e) => e.currentTarget.select()}
+        value={shown}
+        placeholder="—"
+        onChange={(e) => {
+          const v = e.target.value.replace(/\D/g, "").slice(0, 3);
+          setDraft(v);
+          // The row follows each digit; an emptied box keeps the old target until a new one is typed.
+          if (Number(v) > 0) onChange(Number(v));
+        }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        // Hugs the digits (tabular, so 1ch each) — the phone's exercise column is narrow.
+        style={{ width: `calc(${Math.max(2, shown.length)}ch + 6px)` }}
+        className={cn("rounded border px-0.5 py-0.5 text-base tabular-nums sm:text-sm hover:border-border focus:border-ring focus:outline-none", value ? "border-transparent bg-transparent" : "border-border bg-background")}
+        aria-label={`${ex.name} target ${ex.unit === "m" ? "metres" : "reps"} per set`}
+        title="Today's target per set"
+      />
+      {ex.unit === "m" && <span>m</span>}
+    </label>
+  );
 }
 
 /** The weight next to an exercise's name: "BW" for bodyweight, else an editable number. */

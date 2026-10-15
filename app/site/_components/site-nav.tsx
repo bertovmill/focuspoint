@@ -195,7 +195,14 @@ export function SiteNav() {
     // it collapses to the boxed Ask AI + Menu pair, same as on a phone.
     <header className="relative z-50 @container">
       {/* No bar behind the links: the header is transparent and sits over the
-          homepage wall, full-width with everything flush left, like koto.com. */}
+          homepage wall, full-width with everything flush left, like koto.com.
+          The wall's light follows the visitor's weather and time of day, so a
+          soft fade of the page colour sits behind the row to keep the links
+          readable whether the wall comes out bright or dark. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-28 bg-gradient-to-b from-background/85 via-background/50 to-transparent"
+      />
       <nav className="flex h-16 items-center gap-4 px-6 @min-[1180px]:gap-10">
         <SiteLink href="/" className="group flex shrink-0 items-center gap-3 whitespace-nowrap text-lg font-medium tracking-tight">
           <Image
@@ -219,7 +226,7 @@ export function SiteNav() {
               href={item.href}
               className={cn(
                 LABEL,
-                "text-muted-foreground transition-colors hover:text-foreground",
+                "text-foreground/75 transition-colors hover:text-foreground",
                 isActive(item.href) && "text-foreground",
               )}
             >
@@ -231,7 +238,7 @@ export function SiteNav() {
         <div className="ml-auto hidden items-center gap-4 @min-[1180px]:flex">
           {/* Icons only on wide headers: below ~1500px they push the links row onto two
               lines. They're still in the footer and the menu sheet. */}
-          <SocialIcons className="hidden @min-[1500px]:flex" />
+          <SocialIcons className="hidden @min-[1500px]:flex [&_a]:text-foreground/70 [&_a:hover]:text-foreground" />
           <a
             href={BOOKING_URL}
             target="_blank"

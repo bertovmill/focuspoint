@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { RevealOnView } from "../_components/reveal-on-view";
 import { AnimatedHeading } from "../_components/animated-heading";
@@ -61,7 +62,26 @@ export default function AboutPage() {
           className="mx-auto max-w-6xl py-16 sm:py-24"
         >
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
-            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
+            <div>
+              <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
+              {/* A print taped to the concrete: white border, a slight tilt, a
+                  strip of tape at the top and a soft shadow on the wall. */}
+              <figure className="relative mt-10 w-full max-w-sm -rotate-2 bg-white p-2.5 pb-9 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.45),0_4px_10px_-4px_rgba(0,0,0,0.25)] transition-transform duration-500 hover:rotate-0 sm:max-w-md">
+                <span
+                  aria-hidden
+                  className="absolute -top-3 left-1/2 h-6 w-24 -translate-x-1/2 rotate-3 bg-[#f3ecd8]/80 shadow-sm backdrop-blur-[1px]"
+                />
+                <Image
+                  src="/site-art/about-community.jpg"
+                  alt="Four people laughing around a table at a community event"
+                  width={1400}
+                  height={934}
+                  sizes="(min-width: 640px) 448px, 90vw"
+                  priority
+                  className="block h-auto w-full"
+                />
+              </figure>
+            </div>
             <AnimatedHeading
               as="p"
               className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"

@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-15 — "In the room": the photo carousel becomes a liquid-glass grid
+
+Berto asked for the vgpu "Liquid Layout" example (`npx vgpu examples pull liquid-layout`)
+on the homepage photo carousel. He picked a full liquid grid over keeping the scroll
+strip, and asked for it re-tuned for the light page rather than the example's dark room.
+
+- New `app/site/_components/liquid-moments/` replaces `moments-carousel.tsx`. The
+  example's WebGPU chain is kept intact: Motion owns the frame (`frame.postRender`), the
+  renderer samples each card's rect and motion values, `liquid-dynamics.ts` (unchanged)
+  turns them into smooth-min rounded rects, and seven vgpu passes (backdrop → field →
+  shade → bloom ×3 → composite) draw one liquid surface under every card. Teardown is the
+  example's `dispose()` (cancel frame, remove listeners, `gpu.dispose()`), plus the new
+  observers. `field.wgsl`, `blur.wgsl`, `bright.wgsl` are unchanged.
+- Cards are the 14 `MOMENTS` photos (photo + caption in a glass bezel); the filter is by
+  year (All / 2026 / 2025) with a Shuffle button in place of lil-gui. Drag to reorder,
+  Alt+arrows, `layoutId` hand-off to a panel with the photo, the LinkedIn post and a link
+  out; ←/→ step between photos, Esc closes and returns focus. The open photo is still
+  mirrored to `#moment-<slug>` and a link to it opens it on load.
+- Light theme: the floor is the page's own background (read from CSS via a 1×1 2D canvas
+  so oklch/lab resolve, re-read on theme change), with faint drafting lines that fade
+  out at the edges. `composite.wgsl` drops ACES and the vignette so the canvas edge is
+  exactly the page colour; `shade.wgsl` blends by paper lightness between frosted clear
+  glass with ink rims (light) and the example's smoked glass (dark). The drop shadow and
+  the open-panel dimming fade out near the canvas edge, and the canvas bleeds 24 px into
+  the page gutter so shadows never end in a seam.
+- Page-specific changes to the example: the frame loop pauses while the section is off
+  screen (IntersectionObserver); idle autoplay only moves/shuffles/filters (never opens a
+  photo over the page); drag is mouse/pen only so a finger still scrolls the page; no
+  WebGPU (or a GPU error) falls back to plain CSS cards with the same animations.
+- Verified in the browser at 1280 and 375 px, light and dark: glass renders, drag
+  reorder, open/step/close, hash deep link, focus return, no horizontal overflow.
+
+---
+
 ## 2026-10-12 — Homepage window: no more plain-sky pane before the skyline
 
 Berto: on a fresh load of bertomill.com the hero "shows one type of window, then quickly

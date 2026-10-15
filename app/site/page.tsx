@@ -12,8 +12,7 @@ import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { deskLayoutVars } from "./_components/concrete-wall/scene";
 import { DeskScene } from "./_components/concrete-wall/desk-scene";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
-import { MomentsCarousel } from "./_components/moments-carousel";
-import { MOMENTS } from "@/lib/site-moments";
+import { LiquidMoments } from "./_components/liquid-moments";
 
 // Display type: Geist (from the root layout) at semibold with tight tracking and a
 // soft ink instead of a heavy weight in pure black. Calm and current, not shouty.
@@ -130,10 +129,10 @@ export default async function SiteHomePage() {
         <DeskScene />
       </div>
 
-      {/* In the room: photos from my LinkedIn posts. Each opens the post behind it. */}
+      {/* In the room: photos from my LinkedIn posts as a liquid-glass grid. Each opens the post behind it. */}
       <section id="in-the-room" className="mx-auto max-w-6xl pt-20 sm:pt-28">
         <RevealOnView>
-          <MomentsCarousel moments={MOMENTS}>
+          <LiquidMoments>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
               In the room
             </p>
@@ -142,7 +141,7 @@ export default async function SiteHomePage() {
             >
               Talks, hackathons and events
             </h2>
-          </MomentsCarousel>
+          </LiquidMoments>
         </RevealOnView>
       </section>
 

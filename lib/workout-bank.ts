@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, OLD_KM_REP_NOTE, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -63,6 +63,17 @@ async function ensureBank() {
       changed = true;
     }
     if (changed) await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-upper-body'`;
+  }
+  // One-time: 30 Rockies after each 1 km rep on threshold intervals (Berto, 2026-10-15).
+  // Only while the rep's note is still the original, so removing them from the editor sticks.
+  const [threshold] = await sql`SELECT definition FROM workout_bank WHERE slug = 'threshold-intervals'`;
+  if (threshold) {
+    const def = (typeof threshold.definition === "string" ? JSON.parse(threshold.definition) : threshold.definition) as WorkoutTemplate;
+    const block = def.blocks.find((b) => b.exercises.some((e) => e.key === "km_rep" && e.note === OLD_KM_REP_NOTE));
+    if (block && !block.exercises.some((e) => e.key === ROCKIES.key)) {
+      block.exercises = block.exercises.flatMap((e) => (e.key === "km_rep" ? [{ ...e, note: KM_REP_NOTE }, { ...ROCKIES }] : [e]));
+      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'threshold-intervals'`;
+    }
   }
   ready = true;
 }

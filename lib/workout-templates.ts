@@ -210,6 +210,12 @@ WORKOUT_TEMPLATES.push({
   ],
 });
 
+/** The 1 km rep's note before the Rockies went in, so the bank can tell it hasn't been edited since. */
+export const OLD_KM_REP_NOTE = "Hold 3:45 on every rep · 90 s easy jog between";
+export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies between";
+/** Heavy abs between the threshold reps: one set after each rep but the last. */
+export const ROCKIES: TemplateExercise = { key: "rockies", name: "Rockies", sets: 5, ladder: [30], weight: null, note: "Between each 1 km rep" };
+
 const run = (key: string, name: string, target?: number): TemplateExercise => ({
   key, name, sets: 1, ladder: target ? [target] : [], weight: null, measure: "time",
 });
@@ -234,7 +240,9 @@ WORKOUT_TEMPLATES.push(
         key: "main-set",
         label: "Main set",
         exercises: [
-          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, note: "Hold 3:45 on every rep · 90 s easy jog between" },
+          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, note: KM_REP_NOTE },
+          // 30 Rockies (his name for them) between each rep: run, abs, run … (Berto, 2026-10-15).
+          { ...ROCKIES },
         ],
       },
     ],

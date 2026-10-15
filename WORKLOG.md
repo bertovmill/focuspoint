@@ -11122,3 +11122,24 @@ rejected send ("Load failed") leaves the box empty; a photo + text clears the
 box before the downscale/upload finishes and sends text + file + blob note,
 attachment chips gone; empty Enter sends nothing. 25/25, no page errors.
 Needs a real check on the phone against production after deploy.
+
+## 2026-10-15 — Threshold Intervals: 30 Rockies between each 1 km rep
+
+Berto asked for heavy abs between the runs: run, 30 Rockies (his own name for
+the exercise), run, and so on.
+
+- `lib/workout-templates.ts`: new `ROCKIES` exercise (key `rockies`, 5 sets ×
+  30, bodyweight, not charted) in the threshold main set after the 1 km rep —
+  one set after each rep except the last, which goes straight to cool-down.
+  The rep's note now reads "Hold 3:45 on every rep · 30 Rockies between"
+  (`KM_REP_NOTE`; the old one is kept as `OLD_KM_REP_NOTE`).
+- `lib/workout-bank.ts`: one-time patch in `ensureBank()` adds the Rockies to
+  the stored `threshold-intervals` definition, only while the rep's note is
+  still the original — so removing or editing them from /training/workouts sticks.
+- The lap timer only times `measure: "time"` exercises, so it's unchanged: after
+  each rep it still waits for a tap, which is now after the Rockies.
+- No stock ⓘ cues for Rockies (don't know his exact movement); he can write
+  them from the log. Sets/target editable inline as usual.
+
+Verified: `npm run typecheck` clean. No DATABASE_URL here, so the bank patch
+runs on the first read in production.

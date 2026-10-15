@@ -219,6 +219,9 @@ export const ROCKIES_KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies between
 export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies + 3 min rest between";
 /** Rest between threshold reps, Rockies included; the timer counts it down. */
 export const KM_REP_REST_SEC = 180;
+/** Threshold cool-down: a walk, then static stretching (Berto, 2026-10-15). Was "10 min easy". */
+export const OLD_THRESHOLD_COOLDOWN = "10 min easy";
+export const THRESHOLD_COOLDOWN = "5 min walk + 6 min static stretch";
 /** Heavy abs between the threshold reps: one set after each rep but the last. */
 export const ROCKIES: TemplateExercise = { key: "rockies", name: "Rockies", sets: 5, ladder: [30], weight: null, note: "Between each 1 km rep" };
 
@@ -240,7 +243,7 @@ WORKOUT_TEMPLATES.push(
     default_day: 3,
     plan: { km: 11, pace_sec: 225, intensity: "hard" },
     warmup: "10 min easy + 4 × 20 s strides",
-    cooldown: "10 min easy",
+    cooldown: THRESHOLD_COOLDOWN,
     blocks: [
       {
         key: "main-set",

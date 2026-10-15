@@ -11167,3 +11167,12 @@ Verified: typecheck clean; `WorkoutTimer` bundled with esbuild on the seed
 threshold workout and driven in Chromium with a fake clock — rep 1 split 3:45
 recorded, rest shows 2:59 → 0:59 → "Go", tap starts rep 2. No page errors.
 Beep/vibrate need checking on the phone.
+
+## 2026-10-15 — Threshold Intervals: cool-down is a walk + static stretch
+
+Berto: the 10 min easy cool-down becomes a 5 min walk and a 6 min static stretch.
+`THRESHOLD_COOLDOWN` = "5 min walk + 6 min static stretch" in
+`lib/workout-templates.ts` (shows as two tick-off items via `checklistParts`).
+`lib/workout-bank.ts` patches the stored threshold definition once, only while
+its cool-down is still "10 min easy" (`OLD_THRESHOLD_COOLDOWN`), so editor
+changes stick. Typecheck clean.

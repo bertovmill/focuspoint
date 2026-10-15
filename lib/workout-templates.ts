@@ -226,6 +226,9 @@ export const KM_REP_REST_SEC = 120;
 /** Threshold cool-down: a walk, then static stretching (Berto, 2026-10-15). Was "10 min easy". */
 export const OLD_THRESHOLD_COOLDOWN = "10 min easy";
 export const THRESHOLD_COOLDOWN = "5 min walk + 6 min static stretch";
+/** Threshold warm-up: dynamic stretching instead of strides (Berto, 2026-10-15). */
+export const OLD_THRESHOLD_WARMUP = "10 min easy + 4 × 20 s strides";
+export const THRESHOLD_WARMUP = "10 min easy + 5 min dynamic stretching";
 /** Heavy abs between the threshold reps: one set after each rep but the last. */
 export const ROCKIES: TemplateExercise = { key: "rockies", name: "Rockies", sets: 5, ladder: [30], weight: null, note: "Between each 1 km rep" };
 
@@ -246,7 +249,7 @@ WORKOUT_TEMPLATES.push(
     session_type: "intervals",
     default_day: 3,
     plan: { km: 11, pace_sec: 225, intensity: "hard" },
-    warmup: "10 min easy + 4 × 20 s strides",
+    warmup: THRESHOLD_WARMUP,
     cooldown: THRESHOLD_COOLDOWN,
     blocks: [
       {

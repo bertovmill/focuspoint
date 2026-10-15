@@ -11206,3 +11206,10 @@ Every production deploy since 2026-10-13 errored: eve 0.79 reserves the skill
 name "eve", and the vendored official skill lived at `agent/skills/eve/`.
 Renamed to `agent/skills/eve_framework/`. (Locally `eve build` then stops on a
 microsandbox migration error specific to this Mac; not a code issue.)
+
+## 2026-10-15 — Threshold Intervals: dynamic stretching instead of strides
+
+Berto did 5 min dynamic stretching rather than the 4 × 20 s strides. Warm-up is now
+"10 min easy + 5 min dynamic stretching" (`THRESHOLD_WARMUP`); `ensureBank` swaps it
+in while the stored warm-up is still the strides one. Ticks are per position, so
+today's two stay ticked. Checked in the preview.

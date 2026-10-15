@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -86,6 +86,11 @@ async function ensureBank() {
     // And a 5 min walk + 6 min static stretch instead of the 10 min easy cool-down.
     if (def.cooldown === OLD_THRESHOLD_COOLDOWN) {
       def.cooldown = THRESHOLD_COOLDOWN;
+      changed = true;
+    }
+    // And 5 min dynamic stretching in place of the strides.
+    if (def.warmup === OLD_THRESHOLD_WARMUP) {
+      def.warmup = THRESHOLD_WARMUP;
       changed = true;
     }
     if (changed) await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'threshold-intervals'`;

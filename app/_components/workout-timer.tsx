@@ -21,7 +21,7 @@ export function timedSegments(t: WorkoutTemplate): Segment[] {
   const out: Segment[] = [];
   for (const b of t.blocks) {
     for (const ex of b.exercises) {
-      if (ex.measure !== "time") continue;
+      if (ex.measure !== "time" || ex.selfTimed) continue;
       for (let i = 0; i < ex.sets; i++) {
         out.push({
           exKey: ex.key,
@@ -292,6 +292,100 @@ export function WorkoutTimer({
         </Button>
       </div>
       {running && <span className="sr-only">Timing {current?.label}</span>}
+    </div>
+  );
+}
+
+/** The rest countdown for a machine-timed exercise, from its template; null when there isn't one. */
+export function selfTimedRest(t: WorkoutTemplate | null): { label: string; sec: number } | null {
+  const ex = t?.blocks.flatMap((b) => b.exercises).find((e) => e.selfTimed && e.restBetweenSets);
+  return ex?.restBetweenSets ? { label: ex.name, sec: ex.restBetweenSets } : null;
+}
+
+/**
+ * Rest-only timer for reps the treadmill times (Berto, 2026-10-15): he types each
+ * rep's time from the machine, does his Rockies, then taps to start the rest.
+ * It counts down, beeps and buzzes at zero, and runs off a stored start time like
+ * the lap timer, so the phone sleeping doesn't lose it.
+ */
+export function RestTimer({ slug, date, sec }: { slug: string; date: string; sec: number }) {
+  const key = `cael.rest-timer.${slug}.${date}`;
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      setStartedAt(raw ? Number(raw) : null);
+    } catch {
+      setStartedAt(null);
+    }
+  }, [key]);
+
+  const save = (t: number | null) => {
+    setStartedAt(t);
+    try {
+      if (t) localStorage.setItem(key, String(t));
+      else localStorage.removeItem(key);
+    } catch {
+      // private mode — still works for this page view
+    }
+  };
+
+  useWakeLock(startedAt !== null);
+  useEffect(() => {
+    if (startedAt === null) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    const onVisible = () => setNow(Date.now());
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [startedAt]);
+
+  const left = startedAt !== null ? sec - (now - startedAt) / 1000 : null;
+  const alerted = useRef<number | null>(null);
+  useEffect(() => {
+    if (left === null || startedAt === null) return;
+    if (left <= 0 && left > -5 && alerted.current !== startedAt) {
+      alerted.current = startedAt;
+      restDoneAlert();
+    }
+  }, [left, startedAt]);
+
+  const start = () => {
+    unlockAudio();
+    save(Date.now());
+  };
+
+  if (left === null) {
+    return (
+      <div className="sticky bottom-20 z-20 lg:bottom-4">
+        <Button className="h-14 w-full gap-2 text-lg shadow-lg" onClick={start}>
+          <TimerIcon className="size-5" /> Start {formatTime(sec)} rest
+        </Button>
+      </div>
+    );
+  }
+
+  const over = left <= 0;
+  return (
+    <div className="sticky bottom-20 z-20 space-y-2 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur lg:bottom-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-base font-semibold">{over ? "Rest's up — go" : "Resting"}</p>
+        <span className={cn("shrink-0 text-4xl font-semibold tabular-nums", over ? "animate-pulse text-primary" : "text-muted-foreground")}>
+          {over ? "Go" : formatTime(Math.ceil(left))}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <Button className="h-16 flex-1 text-lg" onClick={() => save(null)}>
+          {over ? "Dismiss" : "Skip rest"}
+        </Button>
+        <Button variant="outline" className="h-16 shrink-0 px-4" onClick={start}>
+          Restart
+        </Button>
+      </div>
     </div>
   );
 }

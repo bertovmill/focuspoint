@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -65,20 +65,22 @@ async function ensureBank() {
     if (changed) await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'unity-standard-upper-body'`;
   }
   // One-time threshold-interval edits (Berto, 2026-10-15): 30 Rockies after each 1 km
-  // rep, then a 3 min rest the timer counts down. Each only while the rep's note is
-  // still what it was before, so changing them from the editor sticks.
+  // rep, then a 2 min rest; the treadmill times the rep, the phone only counts the rest.
+  // Each only while the rep's note is still one of ours, so editor changes stick.
   const [threshold] = await sql`SELECT definition FROM workout_bank WHERE slug = 'threshold-intervals'`;
   if (threshold) {
     const def = (typeof threshold.definition === "string" ? JSON.parse(threshold.definition) : threshold.definition) as WorkoutTemplate;
     let changed = false;
     for (const b of def.blocks) {
       const rep = b.exercises.find((e) => e.key === "km_rep");
-      if (!rep || (rep.note !== OLD_KM_REP_NOTE && rep.note !== ROCKIES_KM_REP_NOTE)) continue;
+      if (!rep || ![OLD_KM_REP_NOTE, ROCKIES_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE].includes(rep.note ?? "")) continue;
       if (rep.note === OLD_KM_REP_NOTE && !b.exercises.some((e) => e.key === ROCKIES.key)) {
         b.exercises.splice(b.exercises.indexOf(rep) + 1, 0, { ...ROCKIES });
       }
       rep.note = KM_REP_NOTE;
       rep.restBetweenSets = KM_REP_REST_SEC;
+      rep.selfTimed = true;
+      delete rep.waitBetweenSets;
       changed = true;
     }
     // And a 5 min walk + 6 min static stretch instead of the 10 min easy cool-down.

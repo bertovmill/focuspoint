@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WorkoutTimer, useSegments, type Segment } from "@/app/_components/workout-timer";
+import { RestTimer, WorkoutTimer, selfTimedRest, useSegments, type Segment } from "@/app/_components/workout-timer";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import {
@@ -153,6 +153,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const segments = useSegments(t);
+  const rest = useMemo(() => selfTimedRest(t), [t]);
   const [active, setActive] = useState<Segment | null>(null);
 
   const update = (key: string, fn: (r: Row) => Row) => {
@@ -217,8 +218,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   }
 
   // Every rep table shares the same columns so the sets line up down the page.
-  const repBlocks = t.blocks.filter((b) => !b.exercises.every(isTime));
-  const maxSets = Math.max(1, ...repBlocks.flatMap((b) => b.exercises.map((e) => e.sets)));
+  const maxSets = Math.max(1, ...t.blocks.flatMap((b) => b.exercises.filter((e) => !isTime(e)).map((e) => e.sets)));
   const pastDates = data ? [...new Set(data.history.map((l) => l.log_date))].filter((d) => d !== date).sort().reverse() : [];
 
   return (
@@ -254,30 +254,31 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
 
       {t.warmup && <Checklist key={`warmup-${date}`} id="warm-up" label="Warm-up" part="warmup" text={t.warmup} slug={t.slug} date={date} initial={data.checks?.warmup} />}
 
-      {t.blocks.map((b) =>
-          b.exercises.every(isTime) ? (
-            <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
-              <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
-              {b.exercises.map((ex) => (
-                <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
-              ))}
-            </section>
-          ) : (
+      {t.blocks.map((b) => {
+        // Timed exercises get their time boxes; anything else in the block (the
+        // Rockies between threshold reps) goes in a rep table under them.
+        const timed = b.exercises.filter(isTime);
+        const reps = b.exercises.filter((e) => !isTime(e));
+        return (
           <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
             <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
-            <div className="overflow-x-auto">
+            {timed.map((ex) => (
+              <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
+            ))}
+            {reps.length > 0 && (
+            <div className={cn("overflow-x-auto", timed.length > 0 && "border-t")}>
               <table className="w-full table-fixed border-collapse text-left">
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-3 py-2 font-medium sm:px-4">Exercise</th>
                     {Array.from({ length: maxSets }, (_, i) => (
-                      <th key={i} className="w-11 px-0.5 py-2 text-center font-medium sm:w-16 sm:px-1">{i < Math.max(...b.exercises.map((e) => e.sets)) ? <><span className="hidden sm:inline">Set </span>{i + 1}</> : ""}</th>
+                      <th key={i} className="w-11 px-0.5 py-2 text-center font-medium sm:w-16 sm:px-1">{i < Math.max(...reps.map((e) => e.sets)) ? <><span className="hidden sm:inline">Set </span>{i + 1}</> : ""}</th>
                     ))}
                     <th className="w-[4.75rem] px-2 py-2 text-right font-medium sm:w-32 sm:px-4">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {b.exercises.map((ex) => (
+                  {reps.map((ex) => (
                     <ExerciseRow
                       key={ex.key}
                       ex={ex}
@@ -292,9 +293,10 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
                 </tbody>
               </table>
             </div>
+            )}
           </section>
-          ),
-      )}
+        );
+      })}
 
       {t.cooldown && <Checklist key={`cooldown-${date}`} id="cool-down" label="Cool-down" part="cooldown" text={t.cooldown} slug={t.slug} date={date} initial={data.checks?.cooldown} />}
 
@@ -316,7 +318,11 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </section>
       )}
 
-      {segments.length > 0 && <WorkoutTimer slug={t.slug} date={date} segments={segments} onSplit={onSplit} onActive={setActive} />}
+      {segments.length > 0 ? (
+        <WorkoutTimer slug={t.slug} date={date} segments={segments} onSplit={onSplit} onActive={setActive} />
+      ) : (
+        rest && <RestTimer slug={t.slug} date={date} sec={rest.sec} />
+      )}
 
       {pastDates.length > 0 && (
         <section id="past-sessions" className="space-y-2">

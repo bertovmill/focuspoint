@@ -33,6 +33,9 @@ export interface TemplateExercise {
   waitBetweenSets?: boolean;
   /** Timer: count this rest down (seconds) while it waits between sets, then buzz. */
   restBetweenSets?: number;
+  /** Timed by the machine (the treadmill), not the phone: he types each set's time in,
+   *  the lap timer skips it, and a rest-only countdown runs between sets instead. */
+  selfTimed?: boolean;
   /** One line under the name: how to do it ("90 s easy jog between"). */
   note?: string;
   /** Coaching cues behind the ⓘ on the log. Unset = the stock cues for its key
@@ -214,11 +217,12 @@ WORKOUT_TEMPLATES.push({
 
 /** The 1 km rep's note before the Rockies went in, so the bank can tell it hasn't been edited since. */
 export const OLD_KM_REP_NOTE = "Hold 3:45 on every rep · 90 s easy jog between";
-/** The note while the Rockies were in but before the 3 min rest (2026-10-15, same day). */
+/** Earlier notes from the same day (2026-10-15), before it settled on Rockies then 2 min rest. */
 export const ROCKIES_KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies between";
-export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies + 3 min rest between";
-/** Rest between threshold reps, Rockies included; the timer counts it down. */
-export const KM_REP_REST_SEC = 180;
+export const ROCKIES_3MIN_KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies + 3 min rest between";
+export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies, then 2 min rest";
+/** Rest between threshold reps, after the Rockies; the rest timer counts it down. */
+export const KM_REP_REST_SEC = 120;
 /** Threshold cool-down: a walk, then static stretching (Berto, 2026-10-15). Was "10 min easy". */
 export const OLD_THRESHOLD_COOLDOWN = "10 min easy";
 export const THRESHOLD_COOLDOWN = "5 min walk + 6 min static stretch";
@@ -249,7 +253,7 @@ WORKOUT_TEMPLATES.push(
         key: "main-set",
         label: "Main set",
         exercises: [
-          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, restBetweenSets: KM_REP_REST_SEC, note: KM_REP_NOTE },
+          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, selfTimed: true, restBetweenSets: KM_REP_REST_SEC, note: KM_REP_NOTE },
           // 30 Rockies (his name for them) between each rep: run, abs, run … (Berto, 2026-10-15).
           { ...ROCKIES },
         ],

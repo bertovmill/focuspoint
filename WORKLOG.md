@@ -11176,3 +11176,33 @@ Berto: the 10 min easy cool-down becomes a 5 min walk and a 6 min static stretch
 `lib/workout-bank.ts` patches the stored threshold definition once, only while
 its cool-down is still "10 min easy" (`OLD_THRESHOLD_COOLDOWN`), so editor
 changes stick. Typecheck clean.
+
+## 2026-10-15 — Training: drop the week-vs-last-two chart
+
+Berto found "This week vs the last two" confusing. Removed `WeekTrend` and the
+extra 14-day sessions fetch that only fed it (`app/_components/training-plan-panel.tsx`).
+`weekStats` stays — the "3/7 done" line uses it.
+
+## 2026-10-15 — Threshold Intervals: Rockies, then a 2 min rest; the treadmill times the rep
+
+Berto: run, 30 Rockies, then 2 min rest. He times the 1 km reps on the treadmill
+and types them in, so the phone only needs to count the rest.
+
+- `TemplateExercise.selfTimed`: the lap timer (`timedSegments`) skips it; the log
+  shows `RestTimer` instead — "Start 2:00 rest", counts down, beeps/buzzes at zero
+  (same Web Audio + vibrate as the lap timer), stored start time so a sleeping
+  phone doesn't lose it. Skip / Restart / Dismiss.
+- `km_rep`: `selfTimed`, `restBetweenSets` 120 (`KM_REP_REST_SEC`), note
+  "Hold 3:45 on every rep · 30 Rockies, then 2 min rest". The `ensureBank` patch
+  now accepts any of the three earlier notes; the 3 min version never reached
+  production (see below), so the stored definition goes straight to this one.
+- Workout log: a block mixing timed and rep exercises used to fall back to the
+  reps table (the rep showed "× 225 · 0/1350"). Now timed exercises get their
+  time boxes and the rest go in a rep table under them, same section.
+
+## 2026-10-15 — Production builds were failing since the eve 0.79 bump
+
+Every production deploy since 2026-10-13 errored: eve 0.79 reserves the skill
+name "eve", and the vendored official skill lived at `agent/skills/eve/`.
+Renamed to `agent/skills/eve_framework/`. (Locally `eve build` then stops on a
+microsandbox migration error specific to this Mac; not a code issue.)

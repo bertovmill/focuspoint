@@ -13,6 +13,8 @@ export interface Segment {
   label: string;
   /** Before this segment, wait for a tap instead of timing straight on (the jog between interval reps). */
   waitFirst: boolean;
+  /** While waiting before this segment, count this rest down (seconds). */
+  restSec?: number;
 }
 
 export function timedSegments(t: WorkoutTemplate): Segment[] {
@@ -26,6 +28,7 @@ export function timedSegments(t: WorkoutTemplate): Segment[] {
           set: i,
           label: `${ex.name}${ex.sets > 1 ? ` ${i + 1}` : ""}${t.blocks.length > 1 ? ` · ${b.label.replace(/ ·.*$/, "")}` : ""}`,
           waitFirst: !!ex.waitBetweenSets && i > 0,
+          restSec: ex.waitBetweenSets && i > 0 ? ex.restBetweenSets : undefined,
         });
       }
     }
@@ -45,6 +48,8 @@ interface TimerState {
   segStart: number | null;
   pausedMs: number;
   pausedAt: number | null;
+  /** When the rest before a waiting rep began (epoch ms), for its countdown. */
+  restStart?: number | null;
 }
 
 function storageKey(slug: string, date: string) {
@@ -73,6 +78,44 @@ function elapsed(s: TimerState, now: number) {
   if (s.segStart === null) return 0;
   const pausing = s.pausedAt !== null ? now - s.pausedAt : 0;
   return Math.max(0, now - s.segStart - s.pausedMs - pausing);
+}
+
+/** Rest left before the waiting rep, in seconds (negative once it's over); null when there's no countdown. */
+function restLeft(s: TimerState, seg: Segment | null, now: number) {
+  if (s.segStart !== null || !seg?.restSec || !s.restStart) return null;
+  return seg.restSec - (now - s.restStart) / 1000;
+}
+
+// One AudioContext, unlocked by a tap (iOS only plays sound started from a gesture's context).
+let audio: AudioContext | null = null;
+function unlockAudio() {
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === "suspended") audio.resume().catch(() => {});
+  } catch {
+    // no Web Audio — the buzz and the screen still say it
+  }
+}
+
+/** Rest's over: three short beeps, and a buzz where the phone allows it. */
+function restDoneAlert() {
+  try {
+    navigator.vibrate?.([300, 150, 300]);
+  } catch {}
+  if (!audio) return;
+  try {
+    for (let i = 0; i < 3; i++) {
+      const at = audio.currentTime + i * 0.3;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.4, at);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.2);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + 0.2);
+    }
+  } catch {}
 }
 
 /** Keep the screen on while the timer runs (Screen Wake Lock, where the browser has it). */
@@ -156,16 +199,32 @@ export function WorkoutTimer({
   const next = state ? segments[state.idx + 1] ?? null : segments[0] ?? null;
   useEffect(() => onActive(current), [current, onActive]);
 
+  // Beep once when the rest runs out (not on reopening the page long after).
+  const rest = state ? restLeft(state, current, now) : null;
+  const alerted = useRef<string | null>(null);
+  useEffect(() => {
+    if (rest === null || !state) return;
+    const id = `${state.idx}:${state.restStart}`;
+    if (rest <= 0 && rest > -5 && alerted.current !== id) {
+      alerted.current = id;
+      restDoneAlert();
+    }
+  }, [rest, state]);
+
   if (segments.length === 0) return null;
 
-  const start = () => save({ idx: 0, segStart: Date.now(), pausedMs: 0, pausedAt: null });
+  const start = () => {
+    unlockAudio();
+    save({ idx: 0, segStart: Date.now(), pausedMs: 0, pausedAt: null });
+  };
   const lap = () => {
+    unlockAudio();
     const s = stateRef.current;
     if (!s) return;
     const t = Date.now();
     if (s.segStart === null) {
       // Waiting between interval reps: this tap starts the rep.
-      save({ ...s, segStart: t, pausedMs: 0, pausedAt: null });
+      save({ ...s, segStart: t, pausedMs: 0, pausedAt: null, restStart: null });
       return;
     }
     const seg = segments[s.idx];
@@ -175,7 +234,7 @@ export function WorkoutTimer({
       save(null);
       return;
     }
-    save({ idx: s.idx + 1, segStart: following.waitFirst ? null : t, pausedMs: 0, pausedAt: null });
+    save({ idx: s.idx + 1, segStart: following.waitFirst ? null : t, pausedMs: 0, pausedAt: null, restStart: following.waitFirst ? t : null });
   };
   const pause = () => state && save({ ...state, pausedAt: Date.now() });
   const resume = () => state && state.pausedAt !== null && save({ ...state, pausedMs: state.pausedMs + (Date.now() - state.pausedAt), pausedAt: null });
@@ -197,18 +256,26 @@ export function WorkoutTimer({
   const waiting = state.segStart === null;
   const paused = state.pausedAt !== null;
   const secs = elapsed(state, now) / 1000;
+  const restOver = rest !== null && rest <= 0;
 
   return (
     <div className="sticky bottom-20 z-20 space-y-2 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur lg:bottom-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-muted-foreground">
-            {state.idx + 1}/{segments.length} · {waiting ? "Resting — up next" : paused ? "Paused" : "Now"}
+            {state.idx + 1}/{segments.length} · {waiting ? (restOver ? "Rest's up — go" : "Resting — up next") : paused ? "Paused" : "Now"}
           </p>
           <p className="truncate text-base font-semibold">{current?.label}</p>
         </div>
-        <span className={cn("shrink-0 text-4xl font-semibold tabular-nums", paused && "animate-pulse text-muted-foreground", waiting && "text-muted-foreground")}>
-          {waiting ? "—" : formatTime(secs)}
+        <span
+          className={cn(
+            "shrink-0 text-4xl font-semibold tabular-nums",
+            paused && "animate-pulse text-muted-foreground",
+            waiting && !restOver && "text-muted-foreground",
+            restOver && "animate-pulse text-primary",
+          )}
+        >
+          {rest !== null ? (restOver ? "Go" : formatTime(Math.ceil(rest))) : waiting ? "—" : formatTime(secs)}
         </span>
       </div>
       <div className="flex gap-2">

@@ -31,6 +31,8 @@ export interface TemplateExercise {
   measure?: "time";
   /** Timer: after each set, wait for a tap before timing the next (the jog between interval reps). */
   waitBetweenSets?: boolean;
+  /** Timer: count this rest down (seconds) while it waits between sets, then buzz. */
+  restBetweenSets?: number;
   /** One line under the name: how to do it ("90 s easy jog between"). */
   note?: string;
   /** Coaching cues behind the ⓘ on the log. Unset = the stock cues for its key
@@ -212,7 +214,11 @@ WORKOUT_TEMPLATES.push({
 
 /** The 1 km rep's note before the Rockies went in, so the bank can tell it hasn't been edited since. */
 export const OLD_KM_REP_NOTE = "Hold 3:45 on every rep · 90 s easy jog between";
-export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies between";
+/** The note while the Rockies were in but before the 3 min rest (2026-10-15, same day). */
+export const ROCKIES_KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies between";
+export const KM_REP_NOTE = "Hold 3:45 on every rep · 30 Rockies + 3 min rest between";
+/** Rest between threshold reps, Rockies included; the timer counts it down. */
+export const KM_REP_REST_SEC = 180;
 /** Heavy abs between the threshold reps: one set after each rep but the last. */
 export const ROCKIES: TemplateExercise = { key: "rockies", name: "Rockies", sets: 5, ladder: [30], weight: null, note: "Between each 1 km rep" };
 
@@ -240,7 +246,7 @@ WORKOUT_TEMPLATES.push(
         key: "main-set",
         label: "Main set",
         exercises: [
-          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, note: KM_REP_NOTE },
+          { key: "km_rep", name: "1 km rep", sets: 6, ladder: [225], weight: null, measure: "time", tracked: true, waitBetweenSets: true, restBetweenSets: KM_REP_REST_SEC, note: KM_REP_NOTE },
           // 30 Rockies (his name for them) between each rep: run, abs, run … (Berto, 2026-10-15).
           { ...ROCKIES },
         ],

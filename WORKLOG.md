@@ -11143,3 +11143,27 @@ the exercise), run, and so on.
 
 Verified: `npm run typecheck` clean. No DATABASE_URL here, so the bank patch
 runs on the first read in production.
+
+## 2026-10-15 — Threshold Intervals: 3 min rest countdown between reps
+
+Same day, Berto: a 3 minute rest timer between each rep (the Rockies happen in it).
+
+- `lib/workout-templates.ts`: `restBetweenSets?: number` (seconds) on
+  `TemplateExercise`; `km_rep` gets `KM_REP_REST_SEC` = 180. Note now
+  "Hold 3:45 on every rep · 30 Rockies + 3 min rest between" (`KM_REP_NOTE`;
+  the Rockies-only note kept as `ROCKIES_KM_REP_NOTE`).
+- `lib/workout-bank.ts`: the threshold one-time patch now handles either earlier
+  note — adds the Rockies if they were never added, then sets the new note and the
+  rest. Skipped once the note's been changed, so editor edits stick.
+- `app/_components/workout-timer.tsx`: `Segment.restSec`, `TimerState.restStart`.
+  After "Done" on a rep, the waiting screen counts 3:00 down; at zero it shows
+  "Go" (pulsing) with "Rest's up — go", beeps three times (Web Audio, unlocked
+  by the Start/Done tap so it works on iOS) and vibrates where supported. The
+  next rep still starts on a tap, so a slow set of Rockies doesn't start the
+  clock early. The countdown runs off timestamps like the rest of the timer, so
+  it survives the phone sleeping; the beep only fires within 5 s of zero.
+
+Verified: typecheck clean; `WorkoutTimer` bundled with esbuild on the seed
+threshold workout and driven in Chromium with a fake clock — rep 1 split 3:45
+recorded, rest shows 2:59 → 0:59 → "Go", tap starts rep 2. No page errors.
+Beep/vibrate need checking on the phone.

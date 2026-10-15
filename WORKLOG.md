@@ -11213,3 +11213,8 @@ Berto did 5 min dynamic stretching rather than the 4 × 20 s strides. Warm-up is
 "10 min easy + 5 min dynamic stretching" (`THRESHOLD_WARMUP`); `ensureBank` swaps it
 in while the stored warm-up is still the strides one. Ticks are per position, so
 today's two stay ticked. Checked in the preview.
+
+## 2026-10-15 — Workout log: no "← Training" link
+
+Berto: unnecessary (the sidebar/tab bar already has Training). Removed from the
+top of `app/_components/workout-log.tsx`; the session editor keeps its own.

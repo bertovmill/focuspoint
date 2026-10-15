@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RestTimer, WorkoutTimer, selfTimedRest, useSegments, type Segment } from "@/app/_components/workout-timer";
@@ -224,9 +224,6 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-16">
       <header className="space-y-3">
-        <Link href="/training" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeftIcon className="size-4" /> Training
-        </Link>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t.name}</h1>

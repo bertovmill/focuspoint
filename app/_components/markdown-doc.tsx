@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NotionEditor } from "@/app/_components/notion-editor";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+
+// The editor (Tiptap) is ~500 KB of script, and docs sit on Home. Loading it as
+// its own chunk lets the rest of the home screen show first.
+const NotionEditor = dynamic(() => import("@/app/_components/notion-editor").then((m) => m.NotionEditor), {
+  ssr: false,
+  loading: () => <Skeleton className="h-28 w-full" />,
+});
 
 const AUTOSAVE_MS = 900;
 

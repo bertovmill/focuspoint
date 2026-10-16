@@ -11351,3 +11351,10 @@ it was just as slow; Berto uses the home-screen web app.
   at 400 entries) and Clerk's loader stale-while-revalidate. Pages and `/api`
   always hit the network. Skipped on localhost. Registered at startup from the
   layout, not only from the chat's push bell.
+- Follow-up: Home still parsed Tiptap (~520 KB, via `MarkdownDoc` → `NotionEditor`)
+  and recharts (~330 KB, via `ScoreChart`) before first paint. Both are
+  `next/dynamic` now (`markdown-doc.tsx`, `scorecard-card.tsx`); the doc shows its
+  skeleton until the editor chunk lands.
+- Measured live after the first deploy (desktop, warm SW): load event 1767 → 376 ms,
+  data requests start at 354 ms instead of 1820 ms and finish by ~1.4 s, `/api/threads`
+  3984 KB → 11 KB, 31 → 21 startup requests, 0 KB of JS from the network.

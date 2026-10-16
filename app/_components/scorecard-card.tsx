@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIcon,
@@ -12,7 +13,6 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecordConfetti } from "@/app/_components/record-confetti";
-import { ScoreChart } from "@/app/_components/score-chart";
 import { ActivityRings } from "@/app/_components/activity-rings";
 import {
   METRIC_WEIGHT,
@@ -24,6 +24,9 @@ import {
   type ScorecardSummary,
 } from "@/lib/scorecard";
 import { cn } from "@/lib/utils";
+
+// The chart library (recharts) is ~330 KB; its own chunk keeps it off Home's first paint.
+const ScoreChart = dynamic(() => import("@/app/_components/score-chart").then((m) => m.ScoreChart), { ssr: false });
 
 /**
  * "Winning day" — the daily scorecard from Berto's Aug 28 note, scored.

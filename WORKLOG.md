@@ -4,6 +4,34 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Chat: no wasted load_toolset step, cached model pick, speed budgets in evals
+
+Berto asked whether chat is tuned for speed and tool-calling quality per eve. An audit
+said mostly yes; he picked three fixes.
+
+- **`load_toolset` only offers unloaded toolsets.** It moved from a static tool
+  (`agent/tools/load_toolset.ts`, deleted) into the dynamic resolver
+  `agent/tools/toolsets.ts`, with its enum narrowed to toolsets not yet loaded, and it
+  drops out once both are in. The instructions table also named `load_toolset(...)
+  first`, which primed the model to call it even when it wasn't offered (eve silently
+  drops the call, but it still costs a step), so `agent/instructions.md` now names the
+  real tools and says to load only when they're missing. MakersLounge question: 3 steps
+  → 2 (baseline on main called `load_toolset` needlessly).
+- **Model picker read is cached.** `getChatModelCached()` in `lib/chat-model.ts` (30s
+  TTL; `setChatModel` refreshes it on the same instance). Still resolved per turn
+  (Berto wants mid-chat switches), but most turns skip the db read.
+- **Routing evals have speed budgets.** `evals/routing/route.ts` gates steps (4), tool
+  calls (6), uncached input tokens (30k) and latency (45s) per turn, with per-case
+  overrides (`budget`). MakersLounge must not call `load_toolset` and must take ≤2
+  steps. plate-today and on-track-2030 fan out to 6–8 parallel reads, so they get 8.
+  Last full run: 16/17; the one miss was on-track-2030 at 8 tool calls, which
+  now has that budget (not re-run after).
+- Next: the 25KB instructions could move per-tool rules into tool descriptions/skills.
+  "What should I work on today?" sometimes hands off to the planner subagent (~33k
+  uncached tokens) — worth a look if it feels slow.
+
+---
+
 ## 2026-10-16 — Experience timeline: real logos
 
 Swapped the coloured monograms for real logos (`public/site-art/logo-{kpmg,ivey,leland,cibc,scelta}.webp`):

@@ -1,24 +1,25 @@
 import { defineAgent, defineDynamic } from "eve";
 import { getDb } from "../lib/db";
-import { CHAT_MODEL_DEFAULT, getChatModel } from "../lib/chat-model";
+import { CHAT_MODEL_DEFAULT, getChatModelCached } from "../lib/chat-model";
 
 // One log line per switch (not per turn), so the server logs always say which
 // model answered without drowning in repeats.
 let lastLogged: string | undefined;
 
 export default defineAgent({
-  // Picked from the chat bar's model picker (lib/chat-model.ts), re-read at the
-  // start of every turn, so a new selection applies from the next message — no
-  // rebuild, no new session. Returning the gateway id (rather than a model
-  // object) lets eve look the model's real context window up in the AI Gateway
-  // catalog, so compaction triggers at 90% of *that* model's window instead of
-  // a hand-declared 200k that a smaller model would overflow before reaching.
+  // Picked from the chat bar's model picker (lib/chat-model.ts), resolved at the
+  // start of every turn (Berto wants a switch to apply mid-chat, not only to new
+  // chats), from a 30s in-memory cache so most turns skip the db read.
+  // Returning the gateway id (rather than a model object) lets eve look the
+  // model's real context window up in the AI Gateway catalog, so compaction
+  // triggers at 90% of *that* model's window instead of a hand-declared 200k
+  // that a smaller model would overflow before reaching.
   model: defineDynamic({
     events: {
       "turn.started": async () => {
         let id = CHAT_MODEL_DEFAULT;
         try {
-          id = await getChatModel(getDb());
+          id = await getChatModelCached(getDb());
         } catch {
           /* settings unreadable — the default is the honest answer */
         }

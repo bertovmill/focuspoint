@@ -166,6 +166,22 @@ export async function getChatModel(sql: Sql): Promise<string> {
   }
 }
 
+/**
+ * How long a turn may reuse the last-read selection instead of asking the db.
+ * The agent resolves its model on every turn; a picker switch takes at most this
+ * long to reach an instance that didn't serve the switch itself.
+ */
+const MODEL_CACHE_MS = 30_000;
+let cachedModel: { id: string; at: number } | null = null;
+
+/** `getChatModel`, but served from memory for MODEL_CACHE_MS after a read. */
+export async function getChatModelCached(sql: Sql): Promise<string> {
+  if (cachedModel && Date.now() - cachedModel.at < MODEL_CACHE_MS) return cachedModel.id;
+  const id = await getChatModel(sql);
+  cachedModel = { id, at: Date.now() };
+  return id;
+}
+
 /** Persist a selection. Unknown ids fall back to the default rather than throwing. */
 export async function setChatModel(sql: Sql, value: unknown): Promise<string> {
   const id = isChatModelId(value) ? value : CHAT_MODEL_DEFAULT;
@@ -173,6 +189,8 @@ export async function setChatModel(sql: Sql, value: unknown): Promise<string> {
     INSERT INTO app_settings (key, value, updated_at) VALUES (${MODEL_KEY}, ${id}, NOW())
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
   `;
+  // Same instance as the agent: the switch applies from the very next turn.
+  cachedModel = { id, at: Date.now() };
   return id;
 }
 

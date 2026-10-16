@@ -33,6 +33,9 @@ const PILLARS = [
     title: "Aucctus",
     logo: "/site-art/logo-aucctus.png",
     role: "Go-to-Market Lead",
+    image: "/site-art/moment-innovation-roundtable-paris-aucctus.webp",
+    imageAlt: "Berto at the Aucctus stand at the Innovation Roundtable in Paris",
+    stat: "A full corporate pipeline in six months",
     description:
       "Aucctus helps Fortune 500 innovation teams find, test and launch new ideas with AI agents. I run enterprise pipeline and discovery, and carry what customers say back into the product.",
     href: AUCCTUS_URL,
@@ -43,6 +46,9 @@ const PILLARS = [
     title: "MakersLounge",
     logo: "/site-art/logo-makerslounge.svg",
     role: "Founder",
+    image: "/site-art/moment-makerslounge-4-hosting.webp",
+    imageAlt: "Berto hosting a MakersLounge night in Toronto",
+    stat: "1,500 builders in Toronto",
     description:
       "A Toronto community of founders and builders using AI in their businesses. Monthly demo nights, online workshops, and a matching app for finding collaborators.",
     href: MAKERSLOUNGE_URL,
@@ -53,6 +59,9 @@ const PILLARS = [
     title: "Cael",
     logo: "/icon.svg",
     role: "Personal agent",
+    image: "/site-art/cael.webp",
+    imageAlt: "",
+    stat: "Built in public, one tool at a time",
     description:
       "A side project that runs parts of my life: goals, reading, training and calendar in one place. You can ask it about my work directly.",
     // Opens the Ask AI panel rather than leaving the page.
@@ -61,23 +70,68 @@ const PILLARS = [
   },
 ] as const;
 
-/** Where I've worked, most recent first. Roles shorter than a few months are folded in. */
+/**
+ * Where I've worked, most recent first. Roles shorter than a few months are folded in.
+ * `note` is one true line about the job; `mark` is the monogram on its timeline dot
+ * when there's no logo file.
+ */
 const EXPERIENCE = [
-  { years: "2026 –", role: "Go-to-Market Lead", org: "Aucctus" },
-  { years: "2025 – 2026", role: "AI Solutions & GTM Consultant", org: "KPMG" },
+  {
+    years: "2026 –",
+    role: "Go-to-Market Lead",
+    org: "Aucctus",
+    logo: "/site-art/logo-aucctus.png",
+    note: "Built a full corporate pipeline in the first six months, on an events motion that didn't exist when I started.",
+  },
+  {
+    years: "2025 – 2026",
+    role: "AI Solutions & GTM Consultant",
+    org: "KPMG",
+    mark: "K",
+    color: "#1e49e2",
+    note: "On the Ignition Tax team: built and demoed AI tools for tax professionals and led AI workshops across the practice.",
+  },
   {
     years: "2025 – 2026",
     role: "Teaching Assistant, MMA capstones",
     org: "Ivey Business School",
+    mark: "I",
+    color: "#4f2683",
+    note: "Guided Master of Management Analytics teams through their capstone projects.",
   },
-  { years: "2025 – 2026", role: "AI Coach", org: "Leland" },
-  { years: "2023 – 2025", role: "Innovation Strategy Consultant", org: "CIBC" },
+  {
+    years: "2025 – 2026",
+    role: "AI Coach",
+    org: "Leland",
+    mark: "L",
+    color: "#2f4a3a",
+    note: "One-on-one coaching on using AI in real work. Rated 5.0 across 9 reviews.",
+  },
+  {
+    years: "2023 – 2025",
+    role: "Innovation Strategy Consultant",
+    org: "CIBC",
+    mark: "C",
+    color: "#a6192e",
+    note: "On the enterprise innovation team, testing new ideas inside a big bank.",
+  },
   {
     years: "2022 – 2023",
     role: "Technology Consultant",
     org: "Scelta Design & Build",
+    mark: "S",
+    color: "#5b5650",
+    note: undefined,
   },
-] as const;
+] as const satisfies readonly {
+  years: string;
+  role: string;
+  org: string;
+  logo?: string;
+  mark?: string;
+  color?: string;
+  note?: string;
+}[];
 
 export default async function SiteHomePage() {
   const [writing, episodes] = await Promise.all([
@@ -158,62 +212,77 @@ export default async function SiteHomePage() {
           </h2>
         </RevealOnView>
 
-        <ul className="mt-14 grid gap-12 sm:mt-20 md:grid-cols-3 md:gap-10">
+        <ul className="mt-14 grid gap-6 sm:mt-20 md:grid-cols-3 lg:gap-8">
           {PILLARS.map((pillar, i) => {
             const inner = (
-              <>
-                <div className="flex items-baseline justify-between border-t-2 border-foreground pt-4">
-                  <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                    {pillar.label}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    0{i + 1}
-                  </span>
-                </div>
-                <h3
-                  className={`${display} mt-6 flex items-center gap-3 text-3xl tracking-[-0.035em] transition-colors group-hover:text-primary sm:text-4xl`}
-                >
+              <article className="flex h-full flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-border/70 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:ring-foreground/20">
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#0d0c0b]">
                   <Image
-                    src={pillar.logo}
-                    alt=""
-                    width={44}
-                    height={44}
-                    className="size-10 shrink-0 rounded-xl object-contain sm:size-11"
+                    src={pillar.image}
+                    alt={pillar.imageAlt}
+                    fill
+                    sizes="(min-width: 768px) 24rem, 100vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                   />
-                  {pillar.title}
-                  {pillar.external ? (
-                    <ArrowUpRightIcon className="size-6 opacity-50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                  ) : (
-                    <ArrowRightIcon className="size-6 opacity-50 transition-transform group-hover:translate-x-0.5" />
-                  )}
-                </h3>
-                <p className="mt-1 text-sm font-medium text-muted-foreground">
-                  {pillar.role}
-                </p>
-                <p className="mt-5 leading-relaxed text-muted-foreground">
-                  {pillar.description}
-                </p>
-              </>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+                  <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
+                    <span className="rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-white backdrop-blur-md">
+                      {pillar.label}
+                    </span>
+                    <span className="font-mono text-xs text-white/70 tabular-nums">
+                      0{i + 1}
+                    </span>
+                  </div>
+                  <p className="absolute inset-x-0 bottom-0 p-4 text-lg font-medium leading-snug tracking-tight text-white">
+                    {pillar.stat}
+                  </p>
+                </div>
+                <div className="flex flex-1 flex-col p-6">
+                  <h3
+                    className={`${display} flex items-center gap-3 text-2xl tracking-[-0.035em] transition-colors group-hover:text-primary sm:text-3xl`}
+                  >
+                    <Image
+                      src={pillar.logo}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="size-9 shrink-0 rounded-lg object-contain"
+                    />
+                    {pillar.title}
+                    {pillar.external ? (
+                      <ArrowUpRightIcon className="ml-auto size-5 opacity-50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
+                    ) : (
+                      <ArrowRightIcon className="ml-auto size-5 opacity-50 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100" />
+                    )}
+                  </h3>
+                  <p className="mt-1 text-sm font-medium text-muted-foreground">
+                    {pillar.role}
+                  </p>
+                  <p className="mt-4 leading-relaxed text-muted-foreground">
+                    {pillar.description}
+                  </p>
+                </div>
+              </article>
             );
             return (
-              <RevealOnView as="li" delay={i * 0.08} key={pillar.title}>
+              <RevealOnView as="li" delay={i * 0.08} key={pillar.title} className="h-full">
                 {pillar.external ? (
                   <a
                     href={pillar.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group block"
+                    className="group block h-full"
                   >
                     {inner}
                   </a>
                 ) : (pillar.href as string) === ASK_AI_HASH ? (
                   // A plain anchor, not a Link: the hash change is what opens the panel.
                   // (Widened to string: comparing the literal would narrow the else branch to never.)
-                  <a href={pillar.href} className="group block">
+                  <a href={pillar.href} className="group block h-full">
                     {inner}
                   </a>
                 ) : (
-                  <SiteLink href={pillar.href} className="group block">
+                  <SiteLink href={pillar.href} className="group block h-full">
                     {inner}
                   </SiteLink>
                 )}
@@ -310,7 +379,7 @@ export default async function SiteHomePage() {
         )}
 
         {/* Experience */}
-        <section className="border-t border-border/60 py-14">
+        <section id="experience" className="border-t border-border/60 py-14">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
               Experience
@@ -324,22 +393,56 @@ export default async function SiteHomePage() {
               Full history on LinkedIn ↗
             </a>
           </div>
-          <ul className="mt-6 divide-y divide-border/60">
-            {EXPERIENCE.map((row) => (
-              <li
+          <ol className="relative mt-8">
+            {/* The rail the dots sit on. */}
+            <span
+              aria-hidden
+              className="absolute top-5 bottom-5 left-5 w-px bg-gradient-to-b from-foreground/30 via-border to-transparent"
+            />
+            {EXPERIENCE.map((row, i) => (
+              <RevealOnView
+                as="li"
+                delay={i * 0.05}
                 key={`${row.org}-${row.role}`}
-                className="flex flex-col gap-1 py-3.5 sm:flex-row sm:items-baseline sm:gap-6"
+                className="relative flex gap-5 pb-8 last:pb-0"
               >
-                <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-                  {row.years}
+                <span className="relative z-10 grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-sm">
+                  {"logo" in row ? (
+                    <Image
+                      src={row.logo}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="size-7 object-contain"
+                    />
+                  ) : (
+                    <span
+                      className="grid size-full place-items-center text-sm font-semibold text-white"
+                      style={{ backgroundColor: row.color }}
+                    >
+                      {row.mark}
+                    </span>
+                  )}
                 </span>
-                <span className="font-medium tracking-tight">{row.role}</span>
-                <span className="text-muted-foreground sm:ml-auto sm:text-right">
-                  {row.org}
-                </span>
-              </li>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+                    <p className="font-medium tracking-tight">
+                      {row.org}
+                      <span className="text-muted-foreground"> · {row.role}</span>
+                    </p>
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums sm:ml-auto sm:shrink-0">
+                      {row.years}
+                    </span>
+                  </div>
+                  {row.note && (
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                      {row.note}
+                    </p>
+                  )}
+                </div>
+              </RevealOnView>
             ))}
-          </ul>
+          </ol>
           <p className="mt-6 text-sm text-muted-foreground">
             Ivey Business School at Western University.
           </p>

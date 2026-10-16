@@ -4,6 +4,23 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Site: Work as art cards, Experience as a logo timeline
+
+Berto felt Work and Experience were the weakest part of bertomill.com next to the room
+hero and the footer art card. `app/site/page.tsx`:
+
+- **Work** pillars are now cards: a 4:3 image on top (Aucctus stand in Paris, a
+  MakersLounge night, the Cael helix art) with the label chip, number and a one-line
+  stat over a dark gradient, then logo, name, role and description. Lift, shadow and a
+  slow image zoom on hover; equal heights across the row.
+- **Experience** (`#experience`) is a vertical timeline: the Aucctus logo or a
+  coloured monogram on the rail, "Org · Role", years, and one true line per job taken
+  from `content/work/*.md` and `lib/site-moments.ts` (no line for Scelta, nothing to
+  source it from). Rows reveal in sequence.
+- Next: real KPMG/CIBC/Ivey/Leland logo files would beat the monograms.
+
+---
+
 ## 2026-10-16 — Chat search reaches message text again (server-side)
 
 The same afternoon's "Faster launch" change made `/api/threads` titles-only, so the

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCareerDailyActions, setCareerDailyActions } from "../../lib/career-daily-actions";
 
 export default defineTool({
+  deferred: true,
   description:
     "Read or rewrite Berto's career daily actions — the markdown list on /career (#daily-actions), right under his career principles: the small things he does each day (send one message, make it a give, engage once, log a proof point, update Relationships) to make those principles true. Call with no content to read it. To change it, read it first, then pass the FULL new markdown — writing replaces the whole document, so never send a fragment. Keep his wording; don't add actions he hasn't asked for.",
   inputSchema: z.object({

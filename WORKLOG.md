@@ -4,6 +4,36 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Agent speed: reasoning off by default, luna-fast, one round of reads
+
+Berto asked for "lightning fast" replies and picked all four levers. Measured first:
+saved chats took 3–23 s to first words; each model step was 1.5–3 s before any output
+(tools themselves <0.5 s). Bench (instructions as system prompt, TTFT): gpt-6-luna
+low ~2.4 s / none ~0.8 s; gpt-6-luna-fast low ~1.7 s / none ~0.57 s.
+
+- **B — reasoning per turn** (`agent/agent.ts`): the model resolver returns
+  `{ model, reasoning }`. "none" unless his latest message is long (>400 chars) or reads
+  like thinking work (should I / plan / decide / why / on track / compare …), then "low".
+  `CAEL_REASONING` and `CAEL_CHAT_MODEL` env vars pin either for evals.
+- **D — model**: his picker setting switched gpt-6-luna → `openai/gpt-6-luna-fast`
+  ($0.20/$1 per M; eve's own default). On the routing evals it beat plain luna on both
+  speed and pass rate.
+- **A — fewer tool rounds**: the Daily snapshot now carries his whole vision (current
+  statement/method/milestone/routine/goal per title, ~10 KB) and his note folders.
+  Instructions: one parallel round of reads, never re-read the snapshot, vision comes
+  from the snapshot. `capture_thought` no longer says "call list_folders first" — that
+  pattern was 91 of 172 captures, an extra model round each time.
+- **C — smaller tool list**: 9 never-used tools are `deferred: true` (career docs,
+  import_reading_notes, log_thank_you, sync_workouts, post_task_update,
+  delete_vision_item, add_family_memory); instructions name them for `eve__tool`.
+  `list_github_prs` stays direct (deferring it cost a search round). MCP is unaffected.
+- Evals: on-track-2030 and money-decision no longer require `list_vision` (it's in the
+  snapshot); they check the reply uses the vision and take ≤2 steps.
+- Routing evals, local dev host, 4 concurrent (absolute times inflated): old (luna, low)
+  median first text 18.2 s, 12/17 pass; new 12.8–14.4 s, 14–15/17.
+- Follow-up: makerslounge-events is flaky on every config — the model sometimes calls
+  `load_toolset` for the wrong toolset and then loops on `eve__search` (polluted by
+  GitHub connection results) instead of using the already-loaded `list_luma_events`.
 ## 2026-10-16 — Corner chat: liquid-glass bubble, resizable window on desktop
 
 - **Bubble** is bolder and liquid: 60–64px, `.liquid-bubble` in `app/globals.css` —

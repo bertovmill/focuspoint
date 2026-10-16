@@ -7,6 +7,7 @@ import { addTaskUpdate } from "../../lib/task-updates";
 // an agent, so a hand-off is visible on the board instead of only in this chat.
 
 export default defineTool({
+  deferred: true,
   description:
     "Leave a short progress note on a task. Use it when you've finished an intermediary step, " +
     "hit something the user has to decide or do, or are handing the work back — the note shows " +

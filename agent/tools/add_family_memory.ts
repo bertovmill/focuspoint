@@ -4,6 +4,7 @@ import { getDb } from "../../lib/db";
 import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
+  deferred: true,
   description:
     "Log a Family memory: a title and/or description, with an optional photo and an optional date it happened (defaults to today). Use the URL returned by the /api/upload endpoint when the user has uploaded a photo to the app.",
   inputSchema: z.object({

@@ -4,6 +4,7 @@ import { getDb } from "../../lib/db";
 import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
+  deferred: true,
   description:
     "Log a Service thank-you: a screenshot or photo of a DM, email, or written card someone sent thanking the user, with an optional short title/note and an optional date it arrived (defaults to today). Use the URL returned by the /api/upload endpoint when the user has uploaded a photo to the app. Feeds the Service wealth-form chart and its goal.",
   inputSchema: z.object({

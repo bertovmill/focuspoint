@@ -4,6 +4,7 @@ import { getDb } from "../../lib/db";
 import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
+  deferred: true,
   description: "Delete a vision item (statement, goal, or image) by id. Confirm with the user first unless they explicitly asked to remove it.",
   inputSchema: z.object({
     id: z.number().describe("The vision item id (from list_vision)"),

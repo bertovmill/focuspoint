@@ -3,6 +3,7 @@ import { z } from "zod";
 import { syncWorkouts } from "../../lib/training";
 
 export default defineTool({
+  deferred: true,
   description:
     "Pull Berto's recent Fitbit workouts (runs, gym sessions — with distance, time, average heart rate, heart-rate zones and Active Zone Minutes) into the app and attach the heart rate to sessions he has ticked done. It never ticks sessions and never sets distance or time — he ticks them and types in distance + pace himself (the watch's distance runs short).",
   inputSchema: z.object({

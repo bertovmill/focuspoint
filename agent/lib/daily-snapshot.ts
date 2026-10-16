@@ -91,6 +91,48 @@ async function todos(): Promise<string | null> {
   return `## Top todos (of the open list)\n${lines.join("\n")}`;
 }
 
+// His vision is read on most "big picture" questions (2030, decisions, routines),
+// and `list_vision` was often called three times in parallel by kind, costing a
+// whole model round trip before the answer could start. It's ~10 KB and changes
+// every few months, so it rides in the brief. Newest item per (kind, title) is
+// current; images and the old "chapter" kind stay behind the tool.
+async function vision(): Promise<string | null> {
+  const sql = getDb();
+  const rows = await sql`
+    SELECT DISTINCT ON (kind, coalesce(title, id::text)) id, kind, title, content, horizon, achieved
+    FROM vision_items
+    WHERE kind IN ('statement', 'method', 'milestone', 'routine', 'goal')
+    ORDER BY kind, coalesce(title, id::text), created_at DESC
+  `;
+  if (!rows.length) return null;
+  const order = ["statement", "method", "milestone", "routine", "goal"];
+  const lines = rows
+    .sort((a, b) => order.indexOf(String(a.kind)) - order.indexOf(String(b.kind)))
+    .map((r) => {
+      const head = `[${r.kind} #${r.id}]${r.title ? ` (${r.title})` : ""}`;
+      if (r.kind === "goal") {
+        return `${head}${r.horizon ? ` ${r.horizon}` : ""}${r.achieved ? " — achieved" : ""}${r.content ? ` — ${r.content}` : ""}`;
+      }
+      return `${head} ${String(r.content ?? "").replace(/\s*\n\s*/g, " / ")}`;
+    });
+  return `## His vision (statements, methods, 2030 milestones, routines, goals — current versions)\n${lines.join("\n")}`;
+}
+
+// capture_thought is Cael's most-used tool, and it used to cost a whole extra
+// round first: list_folders, then the capture (91 of 172 captures in the saved
+// chats). The folder list is short and changes rarely, so it rides in the brief.
+async function folders(): Promise<string | null> {
+  const sql = getDb();
+  const rows = await sql`SELECT id, name, parent_id FROM folders ORDER BY parent_id NULLS FIRST, name ASC`;
+  if (!rows.length) return null;
+  const byId = new Map(rows.map((r) => [Number(r.id), r]));
+  const path = (r: (typeof rows)[number]): string => {
+    const parent = r.parent_id != null ? byId.get(Number(r.parent_id)) : undefined;
+    return parent ? `${path(parent)} / ${String(r.name)}` : String(r.name);
+  };
+  return `## Note folders (folder_id for capture_thought)\n${rows.map((r) => `- ${path(r)} (#${r.id})`).join("\n")}`;
+}
+
 async function calendar(today: string): Promise<string | null> {
   const token = await resolveGoogleToken();
   if (!token) return null;
@@ -112,6 +154,8 @@ export async function buildDailySnapshot(): Promise<string | null> {
       section(() => meals(today)),
       section(() => calendar(today)),
       section(todos),
+      section(vision),
+      section(folders),
     ])
   ).filter((s): s is string => Boolean(s));
   if (!sections.length) return null;

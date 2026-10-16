@@ -4,6 +4,7 @@ import { getDb } from "../../lib/db";
 import { parseClippings } from "../../lib/kindle-clippings";
 
 export default defineTool({
+  deferred: true,
   description:
     "Import Kindle notes from a pasted 'My Clippings.txt' file. Pass the raw text the user pastes in chat " +
     "(they'll copy it off their Kindle over USB). Only new notes get inserted — re-pasting the whole file " +

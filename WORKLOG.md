@@ -11414,3 +11414,20 @@ need the "← Training" link and should swipe between days on the phone.
   mostly horizontal, not starting in a field) `router.replace`s to the next /
   previous session, from sessions ±14 days in plan order. A 29-day range on
   purpose: exactly 7 days would trigger the week auto-fill from the bank.
+
+## 2026-10-16 — Speed evals: `npm run eval:speed`
+
+`scripts/speed-eval.mjs`, 22 code checks, no login needed, exit 1 on failure:
+- Follows static imports from `app/(app)/layout.tsx` and `home-screen.tsx`
+  (`next/dynamic` doesn't count) and fails if Home reaches Tiptap, recharts,
+  Excalidraw, FullCalendar, eve/react, or the chat/dashboard/editor/panel modules.
+  Prints the import chain to fix.
+- Home's distinct `/api` fetch paths ≤ 24 (23 today).
+- `/api/threads` keeps a titles-only query; full rows only behind `?include=events`;
+  chat waits on `useThreadLoaded`.
+- `sw.js` caches `/_next/static/` cache-first, never `/api`, and is registered at startup.
+
+First run caught a leak: the command palette (on every screen) imported
+`noteTitleAndPreview` from `notes-view`, which dragged the Tiptap editor onto
+Home's first load. Moved the helper to `lib/note-title.ts` (re-exported from
+notes-view).

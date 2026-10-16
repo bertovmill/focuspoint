@@ -35,7 +35,7 @@ import {
 import { CommandPalette, type PaletteGroup, type PaletteItem } from "@/app/_components/command-palette";
 import { usePaletteHotkey } from "@/app/_components/use-palette-hotkey";
 import { useThreads } from "@/app/_components/threads-provider";
-import { noteTitleAndPreview } from "@/app/_components/notes-view";
+import { noteTitleAndPreview } from "@/lib/note-title";
 import { PUBLIC_HOST } from "@/lib/public-site";
 
 type Icon = typeof HomeIcon;

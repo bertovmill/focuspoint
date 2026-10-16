@@ -19,6 +19,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { uploadPhoto } from "@/lib/upload-photo";
 import { NotionEditor } from "@/app/_components/notion-editor";
+import { noteTitleAndPreview } from "@/lib/note-title";
+
+export { noteTitleAndPreview };
 
 // The Notes tab, laid out like Apple Notes (Berto, 2026-10-06): notes grouped by
 // date in inset cards, each row a bold title + date + preview + photo thumbnail,
@@ -97,42 +100,6 @@ function fromEditor(markdown: string) {
 }
 
 /** Markdown bits that read as noise in a one-line title or preview. */
-function plain(line: string) {
-  return line
-    .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1")
-    .replace(/^#+\s+/, "")
-    .replace(/^[-*•]\s+/, "")
-    .replace(/^\[[ xX]\]\s+/, "")
-    .replace(/\*\*|__/g, "")
-    .trim();
-}
-
-/**
- * Title = the first line. Most notes Cael captures are one long paragraph, so with
- * no second line the first sentence becomes the title and the rest the preview,
- * rather than a title that's the whole note and "No additional text".
- */
-export function noteTitleAndPreview(content: string) {
-  const lines = content.trim().split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) return { title: "Photo", preview: "" };
-  let title = plain(lines[0]);
-  let preview = lines.slice(1).map(plain).join(" ");
-  if (!preview) {
-    const sentence = title.match(/^(.{8,100}?[.!?])\s+(.+)$/);
-    // No short first sentence: break at a word so the preview line carries on
-    // where the title stops, like a two-line clamp.
-    const words = sentence ? null : title.length > 60 ? title.match(/^(.{20,55})\s+(.+)$/) : null;
-    if (sentence) {
-      title = sentence[1];
-      preview = sentence[2];
-    } else if (words) {
-      title = `${words[1]}…`;
-      preview = words[2];
-    }
-  }
-  return { title, preview };
-}
-
 export function NotesList({
   notes,
   grouped,

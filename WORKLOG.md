@@ -11366,3 +11366,15 @@ it was just as slow; Berto uses the home-screen web app.
 - Measured live after the first deploy (desktop, warm SW): load event 1767 → 376 ms,
   data requests start at 354 ms instead of 1820 ms and finish by ~1.4 s, `/api/threads`
   3984 KB → 11 KB, 31 → 21 startup requests, 0 KB of JS from the network.
+
+## 2026-10-16 — Training: no goal line, no back link, swipe between sessions
+
+Berto: the goal sentence isn't needed in the everyday view; Edit session doesn't
+need the "← Training" link and should swipe between days on the phone.
+
+- `training-plan-panel.tsx`: removed `GoalLine` from the header (the goal itself
+  stays in the DB and still feeds Cael's weekly drafting via `/api/training/goal`).
+- `session-editor.tsx`: dropped the back link. Swiping left/right (≥60 px,
+  mostly horizontal, not starting in a field) `router.replace`s to the next /
+  previous session, from sessions ±14 days in plan order. A 29-day range on
+  purpose: exactly 7 days would trigger the week auto-fill from the bank.

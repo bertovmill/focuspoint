@@ -10,7 +10,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FlagIcon,
-  PencilIcon,
   PlusIcon,
   RefreshCwIcon,
   TrashIcon,
@@ -364,10 +363,9 @@ function TrainingWeek() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Title + goal */}
+      {/* The goal line is gone from the everyday view (Berto, 2026-10-16). */}
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Training</h1>
-        <GoalLine />
       </header>
 
       {/* Races */}
@@ -582,64 +580,6 @@ function weekStats(sessions: TrainingSession[], activities: Activity[]): WeekSta
   const effort = activities.reduce((n, a) => n + (a.azm ?? 0), 0);
   const minutes = done.reduce((n, s) => n + (s.actual_minutes ?? 0), 0);
   return { planned: real.length, done: done.length, plannedKm, doneKm, effort, minutes };
-}
-
-/** The one-sentence goal under the title; tap to rewrite it. Cael drafts every week toward it. */
-function GoalLine() {
-  const [goal, setGoal] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState("");
-
-  useEffect(() => {
-    fetch("/api/training/goal")
-      .then((r) => r.json())
-      .then((r: { goal: string }) => setGoal(r.goal))
-      .catch(() => setGoal(""));
-  }, []);
-
-  const save = async () => {
-    const next = text.trim();
-    setEditing(false);
-    if (!next || next === goal) return;
-    const prev = goal;
-    setGoal(next);
-    try {
-      const res = await fetch("/api/training/goal", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal: next }) });
-      if (!res.ok) throw new Error();
-    } catch {
-      setGoal(prev);
-      toast.error("Couldn't save the goal.");
-    }
-  };
-
-  if (goal === null) return <Skeleton className="h-6 w-80" />;
-  if (editing) {
-    return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          save();
-        }}
-      >
-        <Input autoFocus className="h-11 text-base" value={text} onChange={(e) => setText(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Escape" && setEditing(false)} />
-      </form>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        setText(goal);
-        setEditing(true);
-      }}
-      className="group flex items-center gap-2 text-left text-lg text-muted-foreground hover:text-foreground"
-    >
-      <span>
-        <span className="font-semibold text-foreground">Goal:</span> {goal}
-      </span>
-      <PencilIcon className="size-4 shrink-0 opacity-40 group-hover:opacity-80" />
-    </button>
-  );
 }
 
 /** A day column that takes dropped sessions; lights up while one from another day hovers over it. */

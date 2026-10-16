@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
+import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { INTENSITIES, SESSION_TYPES, formatPace, minutesAtPace, parsePace, type PaceSuggestion, type TrainingSession } from "@/lib/training";
-import { weekStartISO } from "@/lib/nutrition";
+import { addDaysISO, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import { ZONES, ZoneBar } from "@/app/_components/zone-bar";
 
@@ -127,6 +127,40 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
     [id],
   );
 
+  // Swipe left/right to step to the next/previous session (Berto, 2026-10-16).
+  // Sessions two weeks either side, in the order the plan shows them.
+  const [neighbours, setNeighbours] = useState<{ prev?: number; next?: number }>({});
+  const anchorDate = existing?.session_date;
+  useEffect(() => {
+    if (!id || !anchorDate) return;
+    fetch(`/api/training/sessions?from=${addDaysISO(anchorDate, -14)}&to=${addDaysISO(anchorDate, 14)}`)
+      .then((r) => (r.ok ? r.json() : { sessions: [] }))
+      .then(({ sessions }: { sessions: TrainingSession[] }) => {
+        const i = sessions.findIndex((s) => s.id === id);
+        if (i < 0) return;
+        setNeighbours({ prev: sessions[i - 1]?.id, next: sessions[i + 1]?.id });
+      })
+      .catch(() => {});
+  }, [id, anchorDate]);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const swipe = {
+    onTouchStart: (e: React.TouchEvent) => {
+      // Dragging inside a field is selecting text, not swiping.
+      const el = e.target as HTMLElement;
+      touch.current = el.closest("input, textarea") ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    },
+    onTouchEnd: (e: React.TouchEvent) => {
+      const start = touch.current;
+      touch.current = null;
+      if (!start) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = e.changedTouches[0].clientY - start.y;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      const target = dx < 0 ? neighbours.next : neighbours.prev;
+      if (target) router.replace(sessionHref(target));
+    },
+  };
+
   if (!d) {
     return (
       <div className="mx-auto max-w-xl space-y-4 py-2">
@@ -176,11 +210,8 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
   };
 
   return (
-    <div className="mx-auto max-w-xl space-y-5 pb-16">
+    <div className="mx-auto max-w-xl space-y-5 pb-16" {...swipe}>
       <header className="space-y-2">
-        <Link href={back} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeftIcon className="size-4" /> Training
-        </Link>
         <h1 className="text-3xl font-semibold tracking-tight">{existing ? "Edit session" : "Add session"}</h1>
         {d.session_date && <p className="text-lg text-muted-foreground">{longDate(d.session_date)}</p>}
       </header>

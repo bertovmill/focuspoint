@@ -4,6 +4,14 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Public site uses Cael's icon
+
+Berto wanted bertomill.com and Cael to share one tab icon; he picked Cael's green planet.
+
+- `app/site/layout.tsx`: icons now `/icon.svg` and `/apple-icon.png`, same as Cael.
+- Removed the now-unused BM mark: `public/bm-icon.svg`, `public/bm-apple-icon.png`,
+  `scripts/render-bm-apple-icon.mjs`.
+
 ## 2026-10-16 — Corner chat: Cael on every page, aware of what's open
 
 Berto wanted Cael always available bottom-right, aware of the page. His calls: same

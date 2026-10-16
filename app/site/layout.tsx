@@ -18,12 +18,10 @@ export const metadata: Metadata = {
     default: "Robert Mill",
     template: "%s · Robert Mill",
   },
-  // The public site gets its own mark; Cael's orb stays on cael.bertomill.com.
+  // Same mark as Cael, so the public site and the app read as one in a tab strip.
   icons: {
-    icon: "/bm-icon.svg",
-    // Safari ignores SVG for apple-touch-icon; the PNG is rendered from the same
-    // source by scripts/render-bm-apple-icon.mjs.
-    apple: "/bm-apple-icon.png",
+    icon: "/icon.svg",
+    apple: "/apple-icon.png",
   },
   description:
     "GTM lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on AI-native go-to-market.",

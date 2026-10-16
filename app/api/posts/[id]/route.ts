@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { draftBroadcastOnFirstPublish } from "@/lib/kit-broadcast";
 import { getPost, getPostById, postUrl, setPostChatThread, setPostStatus, slugify, updatePost } from "@/lib/posts";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -37,7 +38,10 @@ export async function PATCH(req: Request, { params }: Ctx) {
       coverAlt: typeof b.coverAlt === "string" ? b.coverAlt : undefined,
     });
     if (post && (b.status === "published" || b.status === "draft") && b.status !== post.status) {
+      const before = post;
       post = await setPostStatus(post.slug, b.status);
+      // First publish puts an unsent newsletter draft in Kit for Berto to send.
+      await draftBroadcastOnFirstPublish(before, post);
     }
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ...post, url: postUrl(post) });

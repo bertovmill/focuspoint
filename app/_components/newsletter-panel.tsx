@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
  * The newsletter list, inside Cael.
  *
  * Read-only on purpose: it answers "who's subscribed and is that growing", and
- * offers no way to email or remove anyone. Sending stays in Resend, where the
- * confirm steps and the audit trail already live.
+ * offers no way to email or remove anyone. Sending stays in Kit, where the
+ * drafts, confirm steps and the audit trail already live.
  */
 
 interface Subscriber {
@@ -92,12 +92,12 @@ export function NewsletterPanel() {
         <MailIcon className="size-4 text-primary" />
         <h1 className="font-medium tracking-tight">Newsletter</h1>
         <a
-          href="https://resend.com/audiences"
+          href="https://app.kit.com/campaigns"
           target="_blank"
           rel="noreferrer"
           className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          Send in Resend
+          Send in Kit
           <ExternalLinkIcon className="size-3" />
         </a>
       </div>

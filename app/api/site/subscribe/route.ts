@@ -1,48 +1,14 @@
 /**
  * Newsletter signup for bertomill.com.
  *
- * Writes the address into a Resend Audience (provisioned through the Vercel
- * Marketplace), which is the subscriber list broadcasts are sent from. Plain
- * `fetch` against Resend's REST API — no SDK needed for two endpoints.
+ * Adds the address to the Kit signup form (lib/kit.ts). Kit takes it from there:
+ * the double opt-in confirmation, the welcome email, unsubscribes and sending.
  *
  * Like /api/site/chat this is reachable unauthenticated, so it validates and
  * throttles hard and never reports back anything about who is already on the list.
  */
 
-import { unsubscribeUrl } from "@/lib/newsletter-token";
-import { PUBLIC_HOST } from "@/lib/public-site";
-
-const RESEND_API = "https://api.resend.com";
-
-/**
- * Links in email must be absolute and point at the real site — never at whatever
- * Host header the signup request happened to carry.
- */
-const PUBLIC_ORIGIN = `https://${PUBLIC_HOST}`;
-
-/** Must stay on the verified sending domain, or Resend refuses the send. */
-const FROM_ADDRESS = process.env.NEWSLETTER_FROM || "Berto Mill <berto@bertomill.com>";
-
-// Plain text on purpose: it reads like a note from a person, lands in the primary
-// tab more often than a styled template, and there's nothing here HTML would add.
-function welcomeText(unsubscribe: string) {
-  return `Thanks for subscribing.
-
-I'm Berto. I build AI agents — including Cael, the one that runs my own life — and
-I write down what I learn as I go. When I publish something, you'll get it here.
-No schedule I don't keep, and no spam.
-
-Two things worth a look while you wait:
-
-  The numbers I track, live: https://bertomill.com/building
-  What I've written so far:   https://bertomill.com/writing
-
-If you ever want out, one click and you're gone — no hard feelings:
-${unsubscribe}
-
-— Berto
-https://bertomill.com`;
-}
+import { kitConfigured, kitSubscribe } from "@/lib/kit";
 
 // Deliberately loose: the only reliable test of an address is sending to it.
 // This rejects obvious junk without bouncing valid-but-unusual addresses.
@@ -73,8 +39,10 @@ export async function POST(request: Request) {
   }
 
   let email: unknown;
+  let source: unknown;
+  let honeypot: unknown;
   try {
-    email = (await request.json())?.email;
+    ({ email, source, website: honeypot } = (await request.json()) ?? {});
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
@@ -83,68 +51,23 @@ export async function POST(request: Request) {
     return Response.json({ error: "That doesn't look like an email address." }, { status: 400 });
   }
 
+  // A field people can't see, so only bots fill it. Answer as if it worked.
+  if (typeof honeypot === "string" && honeypot) return Response.json({ ok: true });
+
   // Checked after validation, not before: whether the input is well-formed doesn't
   // depend on our configuration, and rejecting junk shouldn't wait on a missing key.
-  const apiKey = process.env.RESEND_API_KEY;
-  const audienceId = process.env.RESEND_AUDIENCE_ID;
-  if (!apiKey || !audienceId) {
-    console.error("[site/subscribe] RESEND_API_KEY or RESEND_AUDIENCE_ID is not set");
+  if (!kitConfigured()) {
+    console.error("[site/subscribe] KIT_API_KEY or KIT_FORM_ID is not set");
     return Response.json({ error: "Signups aren't switched on yet — try again shortly." }, { status: 503 });
   }
 
-  const res = await fetch(`${RESEND_API}/audiences/${audienceId}/contacts`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), unsubscribed: false }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    // A duplicate is a success from the visitor's point of view — and saying
-    // "you're already subscribed" would leak list membership to anyone guessing.
-    // No second welcome email either; they've had one.
-    if (res.status === 409 || /already exists/i.test(detail)) {
-      return Response.json({ ok: true });
-    }
-    console.error("[site/subscribe] Resend rejected the contact:", res.status, detail);
+  // `source` is which surface they signed up from (popup, footer, post…), kept
+  // as the form referrer in Kit so it's visible which ones actually work.
+  const referrer = typeof source === "string" ? `https://bertomill.com/#${source.slice(0, 40)}` : undefined;
+  const result = await kitSubscribe(email.trim().toLowerCase(), referrer);
+  if (!result.ok) {
+    console.error("[site/subscribe] Kit rejected the signup:", result.status, result.detail);
     return Response.json({ error: "Couldn't sign you up just now. Try again in a moment." }, { status: 502 });
   }
-
-  await sendWelcome(apiKey, email.trim().toLowerCase(), PUBLIC_ORIGIN);
   return Response.json({ ok: true });
-}
-
-/**
- * Confirms the signup landed. A subscription that produces no acknowledgement
- * reads as broken, and this doubles as a live deliverability check.
- *
- * Failures are logged and swallowed: they are already on the list, so turning a
- * successful signup into an error because the courtesy email bounced would be
- * the wrong trade.
- */
-async function sendWelcome(apiKey: string, to: string, origin: string) {
-  try {
-    const unsubscribe = unsubscribeUrl(to, origin);
-    const res = await fetch(`${RESEND_API}/emails`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: FROM_ADDRESS,
-        to,
-        subject: "You're in",
-        text: welcomeText(unsubscribe),
-        // Gives Gmail and Apple Mail their own native Unsubscribe button, which
-        // both now expect from bulk senders — and it's what keeps this out of spam.
-        headers: {
-          "List-Unsubscribe": `<${unsubscribe}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[site/subscribe] welcome email failed:", res.status, await res.text().catch(() => ""));
-    }
-  } catch (err) {
-    console.error("[site/subscribe] welcome email threw:", err);
-  }
 }

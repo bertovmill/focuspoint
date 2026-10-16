@@ -79,7 +79,7 @@ export function NewsletterPopup() {
             </div>
             <DialogTitle className="mt-4 text-lg">Almost there.</DialogTitle>
             <DialogDescription className="mt-2">
-              Finish signing up in the Substack tab that just opened.
+              Check your inbox and click the link to confirm.
             </DialogDescription>
           </div>
         ) : (
@@ -96,12 +96,13 @@ export function NewsletterPopup() {
             </DialogHeader>
 
             <SubscribeForm
+              source="popup"
               variant="stacked"
               className="mt-2"
               onSuccess={() => {
                 setSubscribed(true);
                 remember("subscribed");
-                window.setTimeout(() => setOpen(false), 2200);
+                window.setTimeout(() => setOpen(false), 3500);
               }}
             />
             <Button type="button" variant="ghost" className="mt-1 self-start" onClick={() => onOpenChange(false)}>

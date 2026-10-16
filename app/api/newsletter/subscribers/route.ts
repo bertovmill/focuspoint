@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { listKitSubscribers, type KitSubscriber } from "@/lib/kit";
 
 /**
  * The newsletter list, for the owner's eyes.
@@ -8,49 +9,20 @@ import { NextResponse } from "next/server";
  * signup form must never be able to read back who else is on the list.
  *
  * Read-only by design: this route can list subscribers and nothing else. There is
- * no path from the app to sending, removing, or editing anyone.
+ * no path from the app to sending, removing, or editing anyone; that happens in Kit.
  */
 
-const RESEND_API = "https://api.resend.com";
-
-export interface PublicSubscriber {
-  id: string;
-  email: string;
-  createdAt: string;
-  unsubscribed: boolean;
-}
+export type PublicSubscriber = KitSubscriber;
 
 export async function GET() {
-  const apiKey = process.env.RESEND_API_KEY;
-  const audienceId = process.env.RESEND_AUDIENCE_ID;
-
-  if (!apiKey || !audienceId) {
+  if (!process.env.KIT_API_KEY) {
     return NextResponse.json({ error: "Newsletter isn't configured." }, { status: 503 });
   }
 
-  const res = await fetch(`${RESEND_API}/audiences/${audienceId}/contacts`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-    // Always live — a subscriber count that lags is worse than a slow page.
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    console.error("[newsletter/subscribers] Resend rejected the read:", res.status);
-    return NextResponse.json({ error: "Couldn't reach Resend." }, { status: 502 });
-  }
-
-  const body = await res.json();
-  const subscribers: PublicSubscriber[] = (body.data ?? [])
-    .map((c: { id: string; email: string; created_at: string; unsubscribed?: boolean }) => ({
-      id: c.id,
-      email: c.email,
-      createdAt: c.created_at,
-      unsubscribed: Boolean(c.unsubscribed),
-    }))
-    .sort((a: PublicSubscriber, b: PublicSubscriber) => b.createdAt.localeCompare(a.createdAt));
+  const subscribers = await listKitSubscribers();
+  if (!subscribers) return NextResponse.json({ error: "Couldn't reach Kit." }, { status: 502 });
 
   const active = subscribers.filter((s) => !s.unsubscribed).length;
-
   return NextResponse.json({
     subscribers,
     total: subscribers.length,

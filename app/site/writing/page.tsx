@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { ArrowUpRightIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import Image from "next/image";
 import { formatDate } from "@/lib/content";
 import { listPublishedPosts } from "@/lib/posts";
-import { listSubstackPosts, SUBSTACK_URL } from "@/lib/substack";
+import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "../_components/site-link";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
@@ -73,11 +73,11 @@ export default async function WritingIndexPage() {
             here, some on Substack.
           </p>
           <SiteLink
-            href={SUBSTACK_URL}
+            href="/newsletter"
             className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-primary transition-colors hover:text-foreground"
           >
-            Subscribe on Substack
-            <ArrowUpRightIcon className="size-3.5" />
+            Subscribe
+            <ArrowRightIcon className="size-3.5" />
           </SiteLink>
         </section>
       </div>

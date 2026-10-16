@@ -25,6 +25,12 @@ lives on the site (posts table) and email goes through Kit.
 - `SubscribeForm` posts with fetch instead of a GET to Substack; success copy is "check
   your inbox to confirm". /writing's "Subscribe on Substack" → "Subscribe" (/newsletter).
 - Env: `KIT_API_KEY`, `KIT_FORM_ID` (local + Vercel production). Without them signup 503s.
+- `scripts/kit.mjs` (`npm run kit -- <cmd>`): a terminal client for Kit, since Kit has no
+  CLI and its MCP server (app.kit.com/mcp) only runs tools on paid plans. Commands: stats
+  (counts + signups by site surface), forms, subscribers, broadcasts, tags, tag, import
+  (CSV, Substack export as-is; imports `active`, skips `email_disabled`, `--dry-run`,
+  `--tag`). Paced under the 120 req/min API-key limit; bulk endpoint is OAuth-only, so
+  import goes one at a time. Nothing in it can send email.
 - Next.js refuses `react-dom/server` in route-reachable code, hence unified + hast-util-to-html
   (added as direct deps) rather than rendering react-markdown to static markup.
 

@@ -34,7 +34,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { Suggestion } from "@/components/ai-elements/suggestion";
 import {
   Tool,
   ToolContent,
@@ -127,7 +127,10 @@ export function EveThread({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-6 px-4">
         {welcome}
-        <Suggestions className="w-full max-w-md flex-wrap justify-center">
+        {/* A plain wrapping row, not <Suggestions>: that one is a full-width
+            horizontal scroller, and the max-w box inside it sat flush left
+            instead of under the greeting (Berto, 2026-10-16). */}
+        <div className="flex w-full max-w-md flex-wrap justify-center gap-2">
           {suggestions.map((prompt) => (
             <Suggestion
               key={prompt}
@@ -135,7 +138,7 @@ export function EveThread({
               onClick={(text) => void agent.send(text)}
             />
           ))}
-        </Suggestions>
+        </div>
       </div>
     );
   }

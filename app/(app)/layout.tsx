@@ -544,14 +544,18 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         >
           {/* Fixed-width inner so content doesn't reflow during animation */}
           <div className="w-64 h-full shrink-0 relative">
-            {chatOpened && <ChatSidebar className="h-full" />}
-            <button
-              onClick={() => setChatSidebarOpen(false)}
-              className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Hide chat history"
-            >
-              <PanelLeftCloseIcon className="size-3.5" />
-            </button>
+            {chatOpened && <ChatSidebar
+              className="h-full"
+              searchTrailing={
+                <button
+                  onClick={() => setChatSidebarOpen(false)}
+                  className="shrink-0 p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Hide chat history"
+                >
+                  <PanelLeftCloseIcon className="size-3.5" />
+                </button>
+              }
+            />}
           </div>
         </div>
 

@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Chat search; welcome chips centred
+
+- `app/_components/chat-sidebar.tsx`: a rounded search bar at the top of the chat
+  history (desktop rail and phone drawer). Matches titles and everything said in each
+  chat — the user's `message.received` and Cael's `message.completed` text from the saved
+  events, built once per thread-list change. Every word must appear, any order. Esc or ×
+  clears; the query survives clicking through results. "No chats match" when empty.
+- The rail's hide button moved from an absolute overlay into the search row
+  (`searchTrailing` prop) so the two don't collide.
+- `components/chat/eve-thread.tsx`: the empty-thread starter chips sat flush left —
+  `<Suggestions>` is a full-width horizontal scroller and the `max-w-md` row inside it
+  hugged its left edge. Now a plain centred wrapping row.
 ## 2026-10-16 — Site weather dial → round Apple-style buttons
 
 Berto asked to swap the horizontal weather slider on /site for round Apple-like buttons.

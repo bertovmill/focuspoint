@@ -4,8 +4,8 @@ import { requestNewChat } from "@/app/_components/new-chat-event";
 import { useThreads, type ThreadRecord } from "@/app/_components/threads-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CheckIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from "lucide-react";
-import { useState, type FC } from "react";
+import { CheckIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from "lucide-react";
+import { useMemo, useState, type FC, type ReactNode } from "react";
 
 const DAY_IN_MS = 86_400_000;
 
@@ -15,11 +15,44 @@ function groupLabel(updatedAt: number, startOfToday: number): string {
   return "Earlier";
 }
 
+/**
+ * Everything a search can match in a thread: its title plus what was said in it.
+ * Saved events carry each user message whole on `message.received` and each of
+ * Cael's replies whole on `message.completed`, so the streaming deltas and tool
+ * traffic never need reading.
+ */
+function searchText(thread: ThreadRecord): string {
+  const said: string[] = [thread.title];
+  for (const event of thread.events ?? []) {
+    if (event.type !== "message.received" && event.type !== "message.completed") continue;
+    const message = (event.data as { message?: unknown }).message;
+    if (typeof message === "string") said.push(message);
+  }
+  return said.join("\n").toLowerCase();
+}
+
 export const ChatSidebar: FC<{
   className?: string;
   onNavigate?: () => void;
-}> = ({ className, onNavigate }) => {
+  /** Controls beside the search bar, e.g. the rail's hide button. */
+  searchTrailing?: ReactNode;
+}> = ({ className, onNavigate, searchTrailing }) => {
   const { threads, activeId, switchTo } = useThreads();
+  const [query, setQuery] = useState("");
+
+  // Built once per change to the thread list, not per keystroke.
+  const haystacks = useMemo(
+    () => new Map(threads.map((t) => [t.id, searchText(t)])),
+    [threads],
+  );
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  // Every word has to appear somewhere in the chat, in any order.
+  const visible = terms.length === 0
+    ? threads
+    : threads.filter((t) => {
+        const hay = haystacks.get(t.id) ?? "";
+        return terms.every((term) => hay.includes(term));
+      });
 
   const now = new Date();
   const startOfToday = new Date(
@@ -30,7 +63,7 @@ export const ChatSidebar: FC<{
 
   // threads arrive newest-first; split into ordered date groups.
   const groups: { label: string; items: ThreadRecord[] }[] = [];
-  for (const t of threads) {
+  for (const t of visible) {
     const label = groupLabel(t.updatedAt, startOfToday);
     const last = groups[groups.length - 1];
     if (last?.label === label) last.items.push(t);
@@ -44,9 +77,41 @@ export const ChatSidebar: FC<{
 
   return (
     <div className={cn("relative flex flex-col h-full", className)}>
+      {/* Search: titles and everything said in each chat. */}
+      <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
+        <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15">
+          <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setQuery("");
+            }}
+            placeholder="Search chats"
+            aria-label="Search chats"
+            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setQuery("")}
+              className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          )}
+        </label>
+        {searchTrailing}
+      </div>
+
       {/* Scrollable thread list */}
       <div className="flex-1 overflow-y-auto pb-32 lg:pb-20">
         <div className="flex flex-col gap-0.5 p-2">
+          {terms.length > 0 && visible.length === 0 && (
+            <p className="px-2.5 pt-3 text-sm text-muted-foreground">No chats match “{query.trim()}”.</p>
+          )}
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col gap-0.5">
               <div className="text-muted-foreground px-2.5 pt-3 pb-1 text-xs font-medium">

@@ -11272,3 +11272,30 @@ today's two stay ticked. Checked in the preview.
 
 Berto: unnecessary (the sidebar/tab bar already has Training). Removed from the
 top of `app/_components/workout-log.tsx`; the session editor keeps its own.
+
+## 2026-10-16 — Faster launch on the phone: titles-only threads, split panels, cached scripts
+
+Berto: Cael takes 5–10 s to open on his phone every time. Measured on a real
+signed-in launch: `/api/threads` sent every chat's full transcript (~4 MB over
+the wire, 10.7 MB unpacked), 31 API requests fired before anything settled, and
+the shell shipped ~1.8 MB of JS. The Capacitor iOS shell loads the same site, so
+it was just as slow; Berto uses the home-screen web app.
+
+- `GET /api/threads` returns id/title/timestamps only. `?include=events` keeps
+  the full rows for the traces view. `PATCH /api/threads/[id]` no longer echoes
+  the transcript back on every 2.5 s checkpoint.
+- `threads-provider`: records carry `loaded`; `ensureLoaded(id)` fetches one
+  thread's transcript, `useThreadLoaded(id)` gates `AgentChat` and `PostChat`
+  until it's there (skeleton, or "Couldn't load this chat / Try again"). A failed
+  load never opens the chat empty: its first checkpoint would overwrite the saved
+  transcript.
+- `app/(app)/layout.tsx`: chat, chat sidebar, Dashboard, and the
+  newsletter/meals/training/career/writing/pin panels are `next/dynamic` chunks.
+  On Home the hidden Dashboard and chat are no longer mounted (they were what
+  fired most of the 31 startup requests); chat mounts on first visit and then
+  stays mounted so streaming survives tab switches.
+- `/api/github?dates=1`: Home's Craft chart only needs `merged_at` (was ~386 KB).
+- `public/sw.js` now caches `/_next/static/*` cache-first (content-hashed, capped
+  at 400 entries) and Clerk's loader stale-while-revalidate. Pages and `/api`
+  always hit the network. Skipped on localhost. Registered at startup from the
+  layout, not only from the chat's push bell.

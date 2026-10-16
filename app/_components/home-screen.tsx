@@ -67,8 +67,6 @@ interface ReadingLog {
 }
 
 interface GithubPr {
-  id: number;
-  repo: string;
   merged_at: string;
 }
 
@@ -192,7 +190,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             fetch("/api/community"),
             fetch("/api/measures?category=trips&limit=500"),
             fetch("/api/thanks?limit=500"),
-            fetch("/api/github"),
+            fetch("/api/github?dates=1"),
           ]);
         if (goalRes.ok) {
           const rows: { id: number; title: string | null; content: string | null; achieved: boolean }[] = await goalRes.json();

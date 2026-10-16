@@ -5,24 +5,16 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon } from "lucide-react";
-import { AgentChat } from "@/app/_components/agent-chat";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
 import { NEW_CHAT_EVENT } from "@/app/_components/new-chat-event";
-import { ChatSidebar } from "@/app/_components/chat-sidebar";
-import { NewsletterPanel } from "@/app/_components/newsletter-panel";
-import { WeekPlanPanel } from "@/app/_components/week-plan-panel";
-import { TrainingPlanPanel } from "@/app/_components/training-plan-panel";
-import { CareerPanel } from "@/app/_components/career-panel";
-import { WritingPanel } from "@/app/_components/writing-panel";
-import { Dashboard } from "@/app/_components/dashboard";
 import { HomeScreen, type HomeTarget } from "@/app/_components/home-screen";
 import { KonstaApp } from "@/app/_components/konsta-app";
 import { Tabbar, TabbarLink } from "konsta/react";
 import { PIN_EVENT } from "@/app/_components/pin-button";
-import { PinView } from "@/app/_components/pin-view";
 import { AppCommandPalette } from "@/app/_components/app-command-palette";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 // The streak + points live above both the dashboard and the pinned window, so a
@@ -36,6 +28,19 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+
+// Every section but Home is split into its own chunk and only downloaded when
+// it's opened. The shell used to import them all, which put ~1.8 MB of script
+// between launching the app and seeing the home screen on the phone.
+const AgentChat = dynamic(() => import("@/app/_components/agent-chat").then((m) => m.AgentChat), { ssr: false });
+const ChatSidebar = dynamic(() => import("@/app/_components/chat-sidebar").then((m) => m.ChatSidebar), { ssr: false });
+const NewsletterPanel = dynamic(() => import("@/app/_components/newsletter-panel").then((m) => m.NewsletterPanel), { ssr: false });
+const WeekPlanPanel = dynamic(() => import("@/app/_components/week-plan-panel").then((m) => m.WeekPlanPanel), { ssr: false });
+const TrainingPlanPanel = dynamic(() => import("@/app/_components/training-plan-panel").then((m) => m.TrainingPlanPanel), { ssr: false });
+const CareerPanel = dynamic(() => import("@/app/_components/career-panel").then((m) => m.CareerPanel), { ssr: false });
+const WritingPanel = dynamic(() => import("@/app/_components/writing-panel").then((m) => m.WritingPanel), { ssr: false });
+const Dashboard = dynamic(() => import("@/app/_components/dashboard").then((m) => m.Dashboard), { ssr: false });
+const PinView = dynamic(() => import("@/app/_components/pin-view").then((m) => m.PinView), { ssr: false });
 
 type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing";
 
@@ -226,6 +231,16 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       window.visualViewport?.removeEventListener("resize", settle);
     };
   }, []);
+  // The service worker keeps the app's script files on the device (public/sw.js),
+  // so it has to be running from the first launch, not just once Chat's push bell
+  // registers it. After load, so it never competes with the launch it speeds up.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const register = () => void navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register, { once: true });
+    return () => window.removeEventListener("load", register);
+  }, []);
   const [navRailOpen, setNavRailOpen] = useState(true);
   const reduceMotion = useReducedMotion();
   useEffect(() => {
@@ -252,6 +267,13 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   // Muse apps do it: the tab bar steps aside and the chat header's Home button
   // is the way back (his ask, 2026-10-04).
   const chatFullScreen = mobileTab === "chat";
+  // The chat stays mounted once opened, so an answer keeps streaming while you
+  // look at another section. Until then it isn't mounted at all: launching on
+  // Home shouldn't download the chat or the newest thread's transcript.
+  const [chatOpened, setChatOpened] = useState(mobileTab === "chat");
+  useEffect(() => {
+    if (mobileTab === "chat") setChatOpened(true);
+  }, [mobileTab]);
 
   // Starting a chat opens the full chat page on a fresh thread. Fired by the C
   // shortcut and every "new chat" button (via NEW_CHAT_EVENT).
@@ -490,7 +512,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <CareerPanel />
             </div>
-          ) : (
+          ) : mobileTab === "home" ? null : (
           <Dashboard
             activeTab={mobileTab === "notes" ? "notes" : mobileTab === "lists" ? "lists" : mobileTab === "journal-templates" ? "journal-templates" : mobileTab === "calendar" ? "calendar" : mobileTab === "media" ? "media" : mobileTab === "sketches" ? "sketches" : mobileTab === "schedule" ? "schedule" : mobileTab === "measures" ? "measures" : mobileTab === "vision" ? "vision" : mobileTab === "family" ? "family" : mobileTab === "nutrition" ? "nutrition" : mobileTab === "manual" ? "manual" : "todos"}
             onTabChange={(tab) => setMobileTab(tab === "todos" ? "tasks" : tab)}
@@ -522,7 +544,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         >
           {/* Fixed-width inner so content doesn't reflow during animation */}
           <div className="w-64 h-full shrink-0 relative">
-            <ChatSidebar className="h-full" />
+            {chatOpened && <ChatSidebar className="h-full" />}
             <button
               onClick={() => setChatSidebarOpen(false)}
               className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -534,7 +556,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {hydrated && activeId ? (
+          {chatOpened && hydrated && activeId ? (
             <AgentChat
               key={activeId}
               threadId={activeId}

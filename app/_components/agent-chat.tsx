@@ -15,6 +15,8 @@ import { EveThread, type SentFile } from "@/components/chat/eve-thread";
 import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
 import { useThreadAgent } from "@/hooks/use-thread-agent";
 import { PinButton } from "@/app/_components/pin-button";
+import { useThreadLoaded } from "@/app/_components/threads-provider";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
@@ -38,6 +40,37 @@ type AgentChatProps = {
  * remounts the session on the recovered transcript.
  */
 export function AgentChat(props: AgentChatProps) {
+  // Past threads arrive as titles only; the transcript comes down on open.
+  const { ready, failed, retry } = useThreadLoaded(props.threadId);
+  if (!ready) return <ThreadLoading failed={failed} onRetry={retry} />;
+  return <LoadedAgentChat {...props} />;
+}
+
+export function ThreadLoading({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  if (failed) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
+        <p>Couldn&apos;t load this chat.</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-lg border px-3 py-1.5 text-foreground transition-colors hover:bg-muted"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-full flex-col gap-3 p-4" aria-busy="true">
+      <Skeleton className="h-16 w-3/4" />
+      <Skeleton className="ml-auto h-10 w-1/2" />
+      <Skeleton className="h-24 w-2/3" />
+    </div>
+  );
+}
+
+function LoadedAgentChat(props: AgentChatProps) {
   const { busy, generation, resuming } = useResumeInterruptedTurn(props.threadId);
   // Ticks when the thread's saved session turns out to be dead on the server
   // (expired or from another deployment). The remount starts a fresh session on

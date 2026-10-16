@@ -105,7 +105,7 @@ export function TracesView() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/threads")
+    fetch("/api/threads?include=events")
       .then((res) => (res.ok ? res.json() : []))
       .then((rows: ThreadRow[]) => {
         setThreads(rows);

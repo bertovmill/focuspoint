@@ -22,6 +22,12 @@ export type ThreadRecord = {
   updatedAt: number;
   session?: EveSession;
   events?: EveEvents;
+  /**
+   * Whether `session` and `events` are here. The list loads titles only, so a
+   * past thread's transcript is fetched when it is opened (`ensureLoaded`).
+   * Threads made in this tab start out loaded: there is nothing to fetch.
+   */
+  loaded: boolean;
 };
 
 type Snapshot = {
@@ -36,6 +42,8 @@ type ThreadsContextValue = {
   threads: readonly ThreadRecord[];
   activeId: string;
   getThread: (id: string) => ThreadRecord | undefined;
+  /** Fetches a thread's transcript if it isn't here yet. Safe to call repeatedly; rejects on failure. */
+  ensureLoaded: (id: string) => Promise<void>;
   /** Creates and persists a thread without switching the main chat view to it. */
   createThread: (title?: string) => string;
   newThread: () => void;
@@ -57,26 +65,28 @@ const bySortKey = (a: ThreadRecord, b: ThreadRecord) => b.updatedAt - a.updatedA
 type ApiRow = {
   id: string;
   title: string;
-  session: EveSession | null;
-  events: EveEvents | null;
   created_at: string;
   updated_at: string;
+};
+
+type FullApiRow = ApiRow & {
+  session: EveSession | null;
+  events: EveEvents | null;
 };
 
 function rowToRecord(row: ApiRow): ThreadRecord {
   return {
     id: row.id,
     title: row.title ?? "",
-    session: row.session ?? undefined,
-    events: row.events ?? undefined,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
+    loaded: false,
   };
 }
 
 function freshThread(title = ""): ThreadRecord {
   const now = Date.now();
-  return { id: newId(), title, createdAt: now, updatedAt: now };
+  return { id: newId(), title, createdAt: now, updatedAt: now, loaded: true };
 }
 
 export function ThreadsProvider({ children }: { children: ReactNode }) {
@@ -127,6 +137,38 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
     (id: string) => threads.find((t) => t.id === id),
     [threads],
   );
+
+  // One request per thread, however many components ask for it at once.
+  const loadRequests = useRef(new Map<string, Promise<void>>());
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+
+  const ensureLoaded = useCallback((id: string): Promise<void> => {
+    const known = threadsRef.current.find((t) => t.id === id);
+    if (!known || known.loaded) return Promise.resolve();
+    const inFlight = loadRequests.current.get(id);
+    if (inFlight) return inFlight;
+    // A failure rejects and leaves the thread unloaded. Opening it empty instead
+    // would be worse than an error: its first checkpoint would write the new
+    // turn over the whole saved transcript.
+    const request = fetch(`/api/threads/${id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`thread ${id}: ${r.status}`);
+        return r.json() as Promise<FullApiRow>;
+      })
+      .then((row) => {
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? { ...t, session: row.session ?? undefined, events: row.events ?? undefined, loaded: true }
+              : t,
+          ),
+        );
+      })
+      .finally(() => loadRequests.current.delete(id));
+    loadRequests.current.set(id, request);
+    return request;
+  }, []);
 
   // Deleting a just-created thread must not race its create POST.
   const createRequests = useRef(new Map<string, Promise<unknown>>());
@@ -212,6 +254,7 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       threads: [...threads].sort(bySortKey),
       activeId,
       getThread,
+      ensureLoaded,
       createThread,
       newThread,
       switchTo,
@@ -219,7 +262,7 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
       remove,
       saveSnapshot,
     }),
-    [hydrated, threads, activeId, getThread, createThread, newThread, switchTo, rename, remove, saveSnapshot],
+    [hydrated, threads, activeId, getThread, ensureLoaded, createThread, newThread, switchTo, rename, remove, saveSnapshot],
   );
 
   return (
@@ -230,6 +273,23 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
 export function deriveTitle(text: string): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   return cleaned.length > 48 ? `${cleaned.slice(0, 48)}…` : cleaned;
+}
+
+/**
+ * Loads a thread's transcript and reports when it's here. A chat reads the
+ * transcript once, when it mounts, so it must not mount before `ready`.
+ */
+export function useThreadLoaded(id: string): { ready: boolean; failed: boolean; retry: () => void } {
+  const { getThread, ensureLoaded } = useThreads();
+  const ready = getThread(id)?.loaded ?? false;
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (ready) return;
+    setFailed(false);
+    ensureLoaded(id).catch(() => setFailed(true));
+  }, [id, ready, attempt, ensureLoaded]);
+  return { ready, failed, retry: useCallback(() => setAttempt((n) => n + 1), []) };
 }
 
 export function useThreads(): ThreadsContextValue {

@@ -3,8 +3,8 @@
 import type { EveMessagePart } from "eve/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircleIcon, XIcon } from "lucide-react";
-import { StatusDot } from "@/app/_components/agent-chat";
-import { useThreads } from "@/app/_components/threads-provider";
+import { StatusDot, ThreadLoading } from "@/app/_components/agent-chat";
+import { useThreadLoaded, useThreads } from "@/app/_components/threads-provider";
 import { PromptInputProvider, usePromptInputController } from "@/components/ai-elements/prompt-input";
 import { EveComposer } from "@/components/chat/eve-composer";
 import { EveThread, type EveAgent, type SentFile } from "@/components/chat/eve-thread";
@@ -101,7 +101,13 @@ export function PostChat(props: Props) {
   );
 }
 
-function PostChatSession({
+function PostChatSession(props: Props & { threadId: string; onSessionLost: () => void }) {
+  const { ready, failed, retry } = useThreadLoaded(props.threadId);
+  if (!ready) return <ThreadLoading failed={failed} onRetry={retry} />;
+  return <LoadedPostChatSession {...props} />;
+}
+
+function LoadedPostChatSession({
   threadId,
   onSessionLost,
   post,

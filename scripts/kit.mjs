@@ -106,6 +106,9 @@ async function stats() {
   // The site sends which surface a signup came from as the form referrer,
   // e.g. https://bertomill.com/#footer.
   const joined = await all(`/forms/${formId}/subscribers`, "subscribers", { status: "all" });
+  // Kit's main subscriber list leaves out unconfirmed signups; the form's list has them.
+  const pending = joined.filter((s) => s.state === "inactive").length;
+  if (pending) console.log(`  + ${pending} on the signup form still waiting to confirm`);
   const bySource = new Map();
   for (const s of joined) {
     const source = (s.referrer ?? "").split("#")[1] || "unknown";

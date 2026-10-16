@@ -4,6 +4,14 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Experience timeline: real logos
+
+Swapped the coloured monograms for real logos (`public/site-art/logo-{kpmg,ivey,leland,cibc,scelta}.webp`):
+KPMG wordmark and Ivey shield from Wikimedia, Leland/CIBC/Scelta from their site icons.
+Ivey's source is small (44×58); swap in a bigger file if it looks soft.
+
+---
+
 ## 2026-10-16 — Notes list: Apple Notes hairlines instead of a card
 
 Berto wanted the /notes list to look more like Apple Notes. `app/_components/notes-view.tsx`:

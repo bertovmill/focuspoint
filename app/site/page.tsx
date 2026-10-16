@@ -72,8 +72,7 @@ const PILLARS = [
 
 /**
  * Where I've worked, most recent first. Roles shorter than a few months are folded in.
- * `note` is one true line about the job; `mark` is the monogram on its timeline dot
- * when there's no logo file.
+ * `note` is one true line about the job; `logo` sits on its timeline dot.
  */
 const EXPERIENCE = [
   {
@@ -87,49 +86,42 @@ const EXPERIENCE = [
     years: "2025 – 2026",
     role: "AI Solutions & GTM Consultant",
     org: "KPMG",
-    mark: "K",
-    color: "#1e49e2",
+    logo: "/site-art/logo-kpmg.webp",
     note: "On the Ignition Tax team: built and demoed AI tools for tax professionals and led AI workshops across the practice.",
   },
   {
     years: "2025 – 2026",
     role: "Teaching Assistant, MMA capstones",
     org: "Ivey Business School",
-    mark: "I",
-    color: "#4f2683",
+    logo: "/site-art/logo-ivey.webp",
     note: "Guided Master of Management Analytics teams through their capstone projects.",
   },
   {
     years: "2025 – 2026",
     role: "AI Coach",
     org: "Leland",
-    mark: "L",
-    color: "#2f4a3a",
+    logo: "/site-art/logo-leland.webp",
     note: "One-on-one coaching on using AI in real work. Rated 5.0 across 9 reviews.",
   },
   {
     years: "2023 – 2025",
     role: "Innovation Strategy Consultant",
     org: "CIBC",
-    mark: "C",
-    color: "#a6192e",
+    logo: "/site-art/logo-cibc.webp",
     note: "On the enterprise innovation team, testing new ideas inside a big bank.",
   },
   {
     years: "2022 – 2023",
     role: "Technology Consultant",
     org: "Scelta Design & Build",
-    mark: "S",
-    color: "#5b5650",
+    logo: "/site-art/logo-scelta.webp",
     note: undefined,
   },
 ] as const satisfies readonly {
   years: string;
   role: string;
   org: string;
-  logo?: string;
-  mark?: string;
-  color?: string;
+  logo: string;
   note?: string;
 }[];
 
@@ -407,22 +399,13 @@ export default async function SiteHomePage() {
                 className="relative flex gap-5 pb-8 last:pb-0"
               >
                 <span className="relative z-10 grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-card ring-1 ring-border shadow-sm">
-                  {"logo" in row ? (
-                    <Image
-                      src={row.logo}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="size-7 object-contain"
-                    />
-                  ) : (
-                    <span
-                      className="grid size-full place-items-center text-sm font-semibold text-white"
-                      style={{ backgroundColor: row.color }}
-                    >
-                      {row.mark}
-                    </span>
-                  )}
+                  <Image
+                    src={row.logo}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="size-7 object-contain"
+                  />
                 </span>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">

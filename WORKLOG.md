@@ -4,6 +4,35 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Corner chat: Cael on every page, aware of what's open
+
+Berto wanted Cael always available bottom-right, aware of the page. His calls: same
+conversation as the Chat page, page + what's open as context, on desktop and phone.
+
+- **One chat, two places.** `app/(app)/layout.tsx`: the single AgentChat that already
+  stays mounted (so answers keep streaming) is restyled instead of duplicated — full
+  page on /chat, a 400×640 window bottom-right on desktop and full-screen on the phone
+  elsewhere, hidden behind a bubble when closed. A second live agent on the same
+  thread would have fought over it.
+- **Compact header** (`agent-chat.tsx`, `variant="corner"`): "Cael · on <page>", new
+  chat (stays on the page: `requestNewChat({ stay: true })`), open in Chat
+  (`/chat?thread=<id>`), minimize.
+- **Page awareness.** `app/_components/page-context.tsx`: pages publish a detail line
+  (`usePublishPageDetail`), the shell adds the section name and path, and the corner
+  chat sends it hidden with each message via `withChatContext` (stripped from the
+  bubble). Publishing now: Notes (the open note, clipped to 1500 chars), Writing editor
+  (the open article), Sketches (the open sketch). Other pages send their name only.
+  The generic line has no toolset trigger words.
+- The Writing editor hides the corner chat while its own article chat is open
+  (`useHideCornerChat`).
+- Verified locally: bubble and window on desktop, full-screen on a phone viewport,
+  expand to /chat, and the outgoing message carrying the page + open note (captured in
+  the browser with the network call blocked, so nothing was sent).
+- Next: publish details from Training (today's session), Meals and Career; the first
+  open on a phone shows blank for a moment while the chat chunk downloads.
+
+---
+
 ## 2026-10-16 — Chat: no wasted load_toolset step, cached model pick, speed budgets in evals
 
 Berto asked whether chat is tuned for speed and tool-calling quality per eve. An audit

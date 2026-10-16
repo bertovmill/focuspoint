@@ -20,6 +20,7 @@ import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider"
 // The streak + points live above both the dashboard and the pinned window, so a
 // task finished in either one scores in the same place (see lib/streak.ts).
 import { StreakProvider } from "@/app/_components/streak-provider";
+import { PageContextProvider, useCornerHidden, usePageDetail } from "@/app/_components/page-context";
 import { setNativePinMode } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
@@ -68,6 +69,30 @@ const TAB_PATHS: Record<MobileTab, string> = {
   training: "/training",
   career: "/career",
   writing: "/writing",
+};
+
+// How the corner chat names the page Berto is on, in its header and to Cael.
+const SECTION_LABELS: Record<MobileTab, string> = {
+  home: "Home",
+  chat: "Chat",
+  tasks: "Tasks",
+  notes: "Notes",
+  lists: "Lists",
+  calendar: "Calendar",
+  "journal-templates": "Journal",
+  schedule: "Schedule",
+  media: "Media",
+  sketches: "Sketches",
+  measures: "Measures",
+  vision: "Vision",
+  family: "Family",
+  manual: "Manual",
+  newsletter: "Newsletter",
+  nutrition: "Nutrition",
+  meals: "Meals",
+  training: "Training",
+  career: "Career",
+  writing: "Writing",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -179,7 +204,9 @@ export default function AppLayout({ children }: { readonly children: ReactNode }
   return (
     <ThreadsProvider>
       <StreakProvider>
-        <Workspace>{children}</Workspace>
+        <PageContextProvider>
+          <Workspace>{children}</Workspace>
+        </PageContextProvider>
       </StreakProvider>
     </ThreadsProvider>
   );
@@ -271,18 +298,33 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   // look at another section. Until then it isn't mounted at all: launching on
   // Home shouldn't download the chat or the newest thread's transcript.
   const [chatOpened, setChatOpened] = useState(mobileTab === "chat");
+  // The corner chat (Berto, 2026-10-16): on every page but Chat, Cael sits in a
+  // bubble bottom-right and opens into a small window on the *same* chat — the
+  // one AgentChat below, restyled, so a conversation is never live twice. It
+  // sends what's on screen with each message (page-context.tsx).
+  const [cornerOpen, setCornerOpen] = useState(false);
+  const corner = mobileTab !== "chat";
+  const cornerHidden = useCornerHidden();
   useEffect(() => {
-    if (mobileTab === "chat") setChatOpened(true);
-  }, [mobileTab]);
+    if (mobileTab === "chat" || cornerOpen) setChatOpened(true);
+  }, [mobileTab, cornerOpen]);
+  const pageDetail = usePageDetail();
+  const sectionLabel = SECTION_LABELS[mobileTab];
+  const pageContext =
+    `Berto is on the ${sectionLabel} page (${pathname}) of the Cael app, talking to you from the chat in its corner. ` +
+    "\"This\" or \"here\" means what's on that page." +
+    (pageDetail ? ` ${pageDetail}` : "");
 
   // Starting a chat opens the full chat page on a fresh thread. Fired by the C
   // shortcut and every "new chat" button (via NEW_CHAT_EVENT).
-  const openNewChat = useCallback(() => {
+  const openNewChat = useCallback((event?: Event) => {
     // A thread only gets a title once it has been talked to, so an untitled
     // active thread is a blank one — reuse it rather than stacking up empty
     // "New chat" rows in the history rail.
     const active = activeId ? getThread(activeId) : undefined;
     if (!active || active.title) newThread();
+    // The corner chat's "new chat" starts over where Berto is.
+    if ((event as CustomEvent<{ stay?: boolean }> | undefined)?.detail?.stay) return;
     setMobileTab("chat");
   }, [activeId, getThread, newThread, setMobileTab]);
 
@@ -364,7 +406,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
     <KonstaApp>
     {/* `/` or ⌘K: jump anywhere. Lives beside the T/N/C shortcuts above; see app-command-palette.tsx. */}
     <AppCommandPalette
-      onNewChat={openNewChat}
+      onNewChat={() => openNewChat()}
       onNewTask={() => {
         setMobileTab("tasks");
         setFocusNewTaskSignal((n) => n + 1);
@@ -529,15 +571,27 @@ function Workspace({ children }: { readonly children: ReactNode }) {
 
       {/* Chat panel — shown only when the chat tab is active, on both mobile and desktop */}
       <div
+        role={corner && cornerOpen && !cornerHidden ? "dialog" : undefined}
+        aria-label={corner && cornerOpen && !cornerHidden ? "Chat with Cael" : undefined}
         className={cn(
           "min-w-0 flex-row",
-          mobileTab === "chat" ? "flex flex-1" : "hidden",
+          !corner
+            ? "flex flex-1"
+            : cornerOpen && !cornerHidden
+              ? cn(
+                  // Phone: the whole screen, over the tab bar. Desktop: a window
+                  // bottom-right, clear of the page's own controls.
+                  "fixed inset-0 z-[60] flex bg-background pt-[var(--safe-top)]",
+                  "lg:inset-auto lg:right-5 lg:bottom-5 lg:h-[min(640px,calc(100dvh-2.5rem))] lg:w-[400px] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:pt-0 lg:shadow-2xl lg:shadow-black/15",
+                )
+              : "hidden",
         )}
       >
         {/* Desktop chat-history rail */}
         <div
           className={cn(
             "hidden shrink-0 flex-col border-r border-border overflow-hidden",
+            corner && "lg:hidden!",
             "lg:flex lg:flex-none lg:transition-[width] lg:duration-300 lg:ease-in-out",
             chatSidebarOpen ? "lg:w-64" : "lg:w-0",
           )}
@@ -570,10 +624,34 @@ function Workspace({ children }: { readonly children: ReactNode }) {
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
               chatSidebarOpen={chatSidebarOpen}
               onToggleChatSidebar={() => setChatSidebarOpen((v) => !v)}
+              variant={corner ? "corner" : "page"}
+              pageContext={pageContext}
+              pageLabel={`on ${sectionLabel}`}
+              onClose={() => setCornerOpen(false)}
+              onExpand={() => {
+                setCornerOpen(false);
+                router.push(`/chat?thread=${encodeURIComponent(activeId)}`);
+              }}
             />
           ) : null}
         </div>
       </div>
+
+      {corner && !cornerOpen && !cornerHidden && hydrated ? (
+        <button
+          type="button"
+          onClick={() => setCornerOpen(true)}
+          className={cn(
+            "fixed right-4 z-50 flex size-13 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/20 transition-transform hover:scale-105 active:scale-95",
+            // Above the phone's floating tab bar; bottom-right corner on desktop.
+            "bottom-[calc(var(--mobile-nav-h)_+_0.75rem)] lg:right-5 lg:bottom-5",
+          )}
+          aria-label="Chat with Cael"
+          title="Chat with Cael"
+        >
+          <MessageCircleIcon className="size-6" />
+        </button>
+      ) : null}
 
       {/* Mobile bottom navigation bar — Konsta's Tabbar as a floating pill above the
           bottom edge, every tab in its own colour, and a filled pill that slides to

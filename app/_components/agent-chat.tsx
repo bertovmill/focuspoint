@@ -1,22 +1,23 @@
 "use client";
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
-import { ActivityIcon, AlertCircleIcon, ChevronLeftIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, SquarePenIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, ChevronLeftIcon, DatabaseIcon, HistoryIcon, InfoIcon, Maximize2Icon, MinusIcon, PanelLeftIcon, PlusIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { PushBell } from "@/app/_components/push-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { requestNewChat } from "@/app/_components/new-chat-event";
 import { TracePanel } from "@/app/_components/trace-panel";
 import { EveComposer } from "@/components/chat/eve-composer";
-import { EveThread, type SentFile } from "@/components/chat/eve-thread";
+import { EveThread, type EveAgent, type SentFile } from "@/components/chat/eve-thread";
 import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
 import { useThreadAgent } from "@/hooks/use-thread-agent";
 import { PinButton } from "@/app/_components/pin-button";
 import { useThreadLoaded } from "@/app/_components/threads-provider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { withChatContext } from "@/lib/chat-context";
 import { cn } from "@/lib/utils";
 
 export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
@@ -32,6 +33,18 @@ type AgentChatProps = {
   onToggleChatSidebar?: () => void;
   initialMessage?: string;
   onInitialMessageSent?: () => void;
+  /**
+   * "corner": the floating chat in the bottom-right of every other page. Same
+   * thread as the Chat page, a compact header, and `pageContext` sent (hidden)
+   * with every message so Cael knows what Berto is looking at.
+   */
+  variant?: "page" | "corner";
+  pageContext?: string | null;
+  /** Corner only: a short label for the header, e.g. "on Notes". */
+  pageLabel?: string;
+  onClose?: () => void;
+  /** Corner only: open this conversation on the full Chat page. */
+  onExpand?: () => void;
 };
 
 /**
@@ -100,6 +113,11 @@ function ChatSession({
   initialMessage,
   onInitialMessageSent,
   onSessionLost,
+  variant = "page",
+  pageContext,
+  pageLabel,
+  onClose,
+  onExpand,
 }: AgentChatProps & {
   busyRef: MutableRefObject<boolean>;
   resuming: boolean;
@@ -108,7 +126,34 @@ function ChatSession({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
 
-  const agent = useThreadAgent(threadId, { onSessionLost });
+  const rawAgent = useThreadAgent(threadId, { onSessionLost });
+  const corner = variant === "corner";
+
+  // In the corner, every send carries a hidden line about the page Berto is on
+  // (lib/chat-context strips it from the bubble). Read through a ref so the
+  // line is the page at send time, not when the chat mounted.
+  const contextRef = useRef<string | null>(null);
+  contextRef.current = corner ? pageContext ?? null : null;
+  const agent = useMemo(
+    () =>
+      new Proxy(rawAgent, {
+        get(target, prop, receiver) {
+          if (prop !== "send") return Reflect.get(target, prop, receiver);
+          return (content: Parameters<EveAgent["send"]>[0], ...rest: unknown[]) => {
+            const context = contextRef.current;
+            const next = !context
+              ? content
+              : typeof content === "string"
+                ? withChatContext(context, content)
+                : Array.isArray(content)
+                  ? [{ type: "text" as const, text: withChatContext(context, "") }, ...content]
+                  : content;
+            return (target.send as (...a: unknown[]) => unknown)(next, ...rest);
+          };
+        },
+      }) as typeof rawAgent,
+    [rawAgent],
+  );
 
   // A resume that lands mid-answer must not remount us out from under a live turn.
   busyRef.current = agent.status === "submitted" || agent.status === "streaming";
@@ -160,9 +205,46 @@ function ChatSession({
         // Fills the shell rather than the viewport: the shell gives the status bar
         // its strip on a phone, and a full h-dvh here would push the composer off the bottom.
         "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground",
-        hasMobileNav ? "pb-[var(--mobile-nav-h)] lg:pb-0" : "pb-[var(--safe-bottom)] lg:pb-0",
+        corner ? "pb-[var(--safe-bottom)] lg:pb-0" : hasMobileNav ? "pb-[var(--mobile-nav-h)] lg:pb-0" : "pb-[var(--safe-bottom)] lg:pb-0",
       )}
     >
+      {corner ? (
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border pl-3 pr-1.5">
+          <span className="text-sm font-medium">Cael</span>
+          <StatusDot status={agent.status} />
+          {pageLabel ? <span className="ml-1 truncate text-xs text-muted-foreground">{pageLabel}</span> : null}
+          <span className="ml-auto flex items-center">
+            <button
+              onClick={() => requestNewChat({ stay: true })}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="New chat"
+              aria-label="New chat"
+            >
+              <SquarePenIcon className="size-4" />
+            </button>
+            {onExpand ? (
+              <button
+                onClick={onExpand}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Open in Chat"
+                aria-label="Open in Chat"
+              >
+                <Maximize2Icon className="size-4" />
+              </button>
+            ) : null}
+            {onClose ? (
+              <button
+                onClick={onClose}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Minimize"
+                aria-label="Minimize chat"
+              >
+                <MinusIcon className="size-4" />
+              </button>
+            ) : null}
+          </span>
+        </header>
+      ) : (
       <header className="flex h-14 shrink-0 items-center justify-between pl-2 pr-3 border-b border-border">
         <span className="flex min-w-0 items-center gap-1">
           {onGoHome && !hasMobileNav ? (
@@ -244,6 +326,7 @@ function ChatSession({
           </Link>
         </span>
       </header>
+      )}
 
       {resuming ? (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">
@@ -283,11 +366,24 @@ function ChatSession({
           <EveThread
             agent={agent}
             sentFiles={sentFilesRef.current}
-            welcome={<PersonalizedWelcome />}
+            welcome={
+              corner ? (
+                <p className="max-w-64 text-center text-sm text-muted-foreground">
+                  Ask Cael anything. It can see the page you&apos;re on.
+                </p>
+              ) : (
+                <PersonalizedWelcome />
+              )
+            }
+            {...(corner ? { suggestions: [], className: "gap-5 px-3 pt-3 pb-4" } : {})}
           />
         </div>
-        <div className="mx-auto w-full max-w-3xl shrink-0 px-3 pb-3 pt-1 sm:px-4 sm:pb-4">
-          <EveComposer agent={agent} onSend={rememberSentFiles} />
+        <div className={cn("mx-auto w-full shrink-0 px-3 pb-3 pt-1", corner ? "" : "max-w-3xl sm:px-4 sm:pb-4")}>
+          <EveComposer
+            agent={agent}
+            onSend={rememberSentFiles}
+            {...(corner ? { placeholder: "Ask Cael about this page…", autoFocus: false, globalDrop: false } : {})}
+          />
         </div>
       </div>
 

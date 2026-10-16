@@ -16,6 +16,7 @@ import { ListsPanel } from "@/app/_components/lists-panel";
 import { SketchesPanel } from "@/app/_components/sketches-panel";
 import { CalendarPanel } from "@/app/_components/calendar-panel";
 import { ComposeButton, NoNoteSelected, NoteDetail, NotesList, type NotePatch } from "@/app/_components/notes-view";
+import { clipForContext, usePublishPageDetail } from "@/app/_components/page-context";
 import { UrlParamWatcher } from "@/app/_components/url-param-watcher";
 import { toast } from "sonner";
 import {
@@ -793,6 +794,17 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     : openNote
       ? { key: String(openNote.id), note: openNote }
       : null;
+  // The corner chat sends the open note along, so "tidy this up" or "what do you
+  // make of this?" mean this note.
+  usePublishPageDetail(
+    activeTab !== "notes"
+      ? null
+      : composeKey
+        ? "He's writing a new, still-empty note."
+        : openNote
+          ? `He has note #${openNote.id} open${openNote.tags?.length ? ` (tags: ${openNote.tags.join(", ")})` : ""}:\n"""\n${clipForContext(openNote.content)}\n"""`
+          : null,
+  );
 
 
   return (

@@ -37,6 +37,7 @@ import {
 import { NotionEditor } from "@/app/_components/notion-editor";
 import { UrlParamWatcher } from "@/app/_components/url-param-watcher";
 import { PostChat } from "@/app/_components/post-chat";
+import { useHideCornerChat, usePublishPageDetail } from "@/app/_components/page-context";
 import { cn } from "@/lib/utils";
 import {
   estimateTweetCost,
@@ -638,6 +639,14 @@ function PostEditor({
     } catch {}
     setChatOpen(stored ? stored === "1" : window.matchMedia("(min-width: 1024px)").matches);
   }, []);
+  // The editor has its own Cael beside the article, so the corner one steps
+  // aside while that's open — and names the article when it isn't.
+  useHideCornerChat(chatOpen && !!post);
+  usePublishPageDetail(
+    post
+      ? `Writing editor — he has the article "${post.title}" (slug: ${post.slug}, ${post.status}) open. Read it with get_post before changing it; don't publish unless he says so.`
+      : null,
+  );
   const toggleChat = (open: boolean) => {
     setChatOpen(open);
     try {

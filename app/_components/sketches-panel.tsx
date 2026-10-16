@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { usePublishPageDetail } from "@/app/_components/page-context";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import { BrushIcon, DownloadIcon, TrashIcon, XIcon } from "lucide-react";
@@ -62,6 +63,11 @@ export function SketchesPanel() {
   const [dirty, setDirty] = useState(false);
   // Bumped on every edit so the debounce effect re-arms even when `dirty` was already true.
   const [editVersion, setEditVersion] = useState(0);
+  usePublishPageDetail(
+    editingId !== null
+      ? `He has the sketch "${title || "Untitled"}" (id ${editingId}) open on the canvas; read_sketch reads it.`
+      : "He's on a blank sketch canvas.",
+  );
 
   const { resolvedTheme } = useTheme();
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);

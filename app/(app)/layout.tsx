@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
@@ -247,7 +247,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
   const [focusNewTaskSignal, setFocusNewTaskSignal] = useState(0);
   const [pinned, setPinned] = useState(false);
-  const { hydrated, activeId, getThread, newThread } = useThreads();
+  const { hydrated, activeId, getThread, newThread, switchTo } = useThreads();
   // On the phone a conversation gets the whole screen, the way the Claude and
   // Muse apps do it: the tab bar steps aside and the chat header's Home button
   // is the way back (his ask, 2026-10-04).
@@ -263,6 +263,28 @@ function Workspace({ children }: { readonly children: ReactNode }) {
     if (!active || active.title) newThread();
     setMobileTab("chat");
   }, [activeId, getThread, newThread, setMobileTab]);
+
+  // Arriving at Chat from anywhere else — the nav rail, the tab bar, a link, a
+  // fresh load of /chat — lands on a blank thread, not the last conversation
+  // (Berto, 2026-10-16). Past chats stay one click away in the history rail. A
+  // specific chat is opened with /chat?thread=<id> (the command palette does).
+  // Waits for the threads to hydrate, or the reuse check can't see them.
+  const pendingChatEntryRef = useRef(false);
+  const prevTabRef = useRef<MobileTab | null>(null);
+  useEffect(() => {
+    if (mobileTab === "chat" && prevTabRef.current !== "chat") pendingChatEntryRef.current = true;
+    if (mobileTab !== "chat") pendingChatEntryRef.current = false;
+    prevTabRef.current = mobileTab;
+    if (!pendingChatEntryRef.current || !hydrated) return;
+    pendingChatEntryRef.current = false;
+    const requested = new URLSearchParams(window.location.search).get("thread");
+    if (requested && getThread(requested)) {
+      switchTo(requested);
+      return;
+    }
+    const active = activeId ? getThread(activeId) : undefined;
+    if (!active || active.title) newThread();
+  }, [mobileTab, hydrated, activeId, getThread, newThread, switchTo]);
 
   useEffect(() => {
     window.addEventListener(NEW_CHAT_EVENT, openNewChat);

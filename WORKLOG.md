@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Chat opens on a fresh thread; prewarmed sessions; eve 0.80.1
+
+Berto asked for Chat to open a new chat on arrival, and for chat to be sped up with the
+latest from eve.
+
+- `app/(app)/layout.tsx`: arriving at /chat from any other section (rail, tab bar, link,
+  fresh load) lands on a blank thread; an untitled active thread is reused so empty rows
+  don't stack up. `/chat?thread=<id>` opens a specific chat instead (the ⌘K palette uses
+  it). Waits for thread hydration before deciding. Side effect: reloading /chat also
+  lands on a blank thread; the previous one stays at the top of history.
+- `components/chat/eve-composer.tsx`: the first keystroke in a brand-new thread calls
+  `agent.prewarm()`, so the durable session (workflow + inbox) is created while he types
+  rather than in front of the first reply. A send before it's ready waits for it.
+- eve 0.79.0 → 0.80.1 (faster session startup and skill sync; expired streams now 410
+  immediately instead of retrying ~38s). No retention/trace policies are used, so the
+  0.80 data-deletion change doesn't apply. Typecheck + production build pass.
+- Not browser-verified locally (the password sign-in is the production password).
+
+---
+
 ## 2026-10-15 — "In the room": the photo carousel becomes a liquid-glass grid
 
 Berto asked for the vgpu "Liquid Layout" example (`npx vgpu examples pull liquid-layout`)

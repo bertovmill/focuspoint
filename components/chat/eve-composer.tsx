@@ -180,6 +180,19 @@ function ComposerCard({
   const dictation = useDictation(controller.textInput.value, controller.textInput.setInput);
   const dictationStop = dictation.stop;
 
+  // A brand-new thread has no session until its first send, and creating one
+  // (starting the workflow, opening its inbox) used to sit in front of the first
+  // reply. Start it on the first keystroke instead, the way eve's docs suggest,
+  // so it is ready by the time Enter lands. A send made before it's ready just
+  // waits for it. Once per composer: a failed prewarm falls back to the send.
+  const prewarmedRef = useRef(false);
+  useEffect(() => {
+    if (!hasContent || prewarmedRef.current) return;
+    if (agent.session?.sessionId || agent.events.length > 0) return;
+    prewarmedRef.current = true;
+    agent.prewarm().catch(() => {});
+  }, [agent, hasContent]);
+
   // The delivery, detached from the submit handler. eve's `send` promise only
   // settles once Cael's whole answer has streamed (and rejects when the stream
   // drops, which happens whenever the phone backgrounds the app), and

@@ -180,7 +180,8 @@ export function AppCommandPalette({ onNewChat, onNewTask }: { onNewChat: () => v
         icon: <MessageCircleIcon />,
         onSelect: () => {
           switchTo(t.id);
-          router.push("/chat");
+          // The thread param keeps the chat page from opening a blank thread on arrival.
+          router.push(`/chat?thread=${t.id}`);
         },
       }));
 

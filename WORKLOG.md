@@ -25,7 +25,7 @@ said mostly yes; he picked three fixes.
   overrides (`budget`). MakersLounge must not call `load_toolset` and must take ≤2
   steps. plate-today and on-track-2030 fan out to 6–8 parallel reads, so they get 8.
   Last full run: 16/17; the one miss was on-track-2030 at 8 tool calls, which
-  now has that budget (not re-run after).
+  now has that budget (passes on re-run).
 - Next: the 25KB instructions could move per-tool rules into tool descriptions/skills.
   "What should I work on today?" sometimes hands off to the planner subagent (~33k
   uncached tokens) — worth a look if it feels slow.

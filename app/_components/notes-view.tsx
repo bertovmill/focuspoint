@@ -163,7 +163,8 @@ export function NotesList({
       {groups.map((group) => (
         <section key={group.label}>
           <h2 className="mb-1.5 px-1 text-lg font-bold tracking-tight">{group.label}</h2>
-          <div className="overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border/60">
+          {/* Apple Notes list: no card, just hairlines between rows. */}
+          <div>
             {group.notes.map((note, i) => {
               const { title, preview } = noteTitleAndPreview(note.content);
               const selected = note.id === selectedId;
@@ -173,12 +174,11 @@ export function NotesList({
                   type="button"
                   onClick={() => onOpen(note.id)}
                   className={cn(
-                    "flex w-full items-center gap-3 pl-4 text-left transition-colors",
+                    "flex w-full items-center gap-3 rounded-lg px-3 text-left transition-colors",
                     selected ? "bg-primary/15" : "hover:bg-muted/60 active:bg-muted",
                   )}
                 >
-                  {/* Inset divider: starts at the text, not the card edge. */}
-                  <div className={cn("flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4", i > 0 && "border-t border-border/70")}>
+                  <div className={cn("flex min-w-0 flex-1 items-center gap-3 py-2.5", i > 0 && "border-t border-border/70")}>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-semibold leading-snug">{title}</p>
                       <p className="mt-0.5 truncate text-[13px] leading-snug">

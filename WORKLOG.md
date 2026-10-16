@@ -4,6 +4,14 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Notes list: Apple Notes hairlines instead of a card
+
+Berto wanted the /notes list to look more like Apple Notes. `app/_components/notes-view.tsx`:
+each date group's notes no longer sit in a white rounded card; rows sit on the page
+background separated by a single hairline, and the selected row gets a rounded highlight.
+
+---
+
 ## 2026-10-16 — Site: Work as art cards, Experience as a logo timeline
 
 Berto felt Work and Experience were the weakest part of bertomill.com next to the room

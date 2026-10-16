@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRightIcon, CheckIcon } from "lucide-react";
+import { CheckIcon, Loader2Icon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +13,17 @@ import { Input } from "@/components/ui/input";
  * there is a single path and a single success state to keep right. `variant`
  * only changes the layout.
  *
- * The list lives on Substack. The form is a plain GET to Substack's own
- * subscribe page with the email carried along, so it works without JavaScript,
- * nothing is stored here, and Substack handles confirmation and unsubscribes.
+ * The list lives in Kit. The form posts to /api/site/subscribe, which adds the
+ * address to the Kit signup form; Kit then sends the confirmation email and
+ * handles unsubscribes. Nothing is stored here.
  */
-
-// Mirrors SUBSTACK_URL in lib/substack.ts, which is server-only and can't be
-// imported from a client component.
-const SUBSTACK_SUBSCRIBE_URL = "https://robertmillwriting.substack.com/subscribe";
 
 interface SubscribeFormProps {
   /** `inline` puts the field and button on one row; `stacked` is for narrow columns. */
   variant?: "inline" | "stacked";
-  /** Shown in place of the form once the visitor has been handed to Substack. */
+  /** Which surface this is (popup, footer, post, newsletter-page), recorded in Kit. */
+  source?: string;
+  /** Shown in place of the form once the signup has gone through. */
   successMessage?: string;
   className?: string;
   onSuccess?: () => void;
@@ -34,22 +32,42 @@ interface SubscribeFormProps {
 
 export function SubscribeForm({
   variant = "inline",
-  successMessage = "Finish signing up in the Substack tab that just opened.",
+  source,
+  successMessage = "Check your inbox and click the link to confirm.",
   className,
   onSuccess,
   autoFocus,
 }: SubscribeFormProps) {
   const [email, setEmail] = useState("");
-  const [done, setDone] = useState(false);
+  const [website, setWebsite] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "done">("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  // Let the browser submit the form to Substack in a new tab; we only note
-  // that it happened so the surface can swap to its success state.
-  function onSubmit() {
-    setDone(true);
-    onSuccess?.();
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setState("sending");
+    setError(null);
+    try {
+      const res = await fetch("/api/site/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source, website }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error ?? "Couldn't sign you up just now. Try again in a moment.");
+        setState("idle");
+        return;
+      }
+      setState("done");
+      onSuccess?.();
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+      setState("idle");
+    }
   }
 
-  if (done) {
+  if (state === "done") {
     return (
       <p className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)} role="status">
         <CheckIcon className="size-4 shrink-0 text-primary" />
@@ -59,14 +77,7 @@ export function SubscribeForm({
   }
 
   return (
-    <form
-      action={SUBSTACK_SUBSCRIBE_URL}
-      method="get"
-      target="_blank"
-      rel="noopener"
-      onSubmit={onSubmit}
-      className={cn("w-full", className)}
-    >
+    <form onSubmit={onSubmit} className={cn("w-full", className)}>
       <div className={cn("flex gap-2", variant === "stacked" && "flex-col")}>
         <Input
           type="email"
@@ -80,11 +91,27 @@ export function SubscribeForm({
           onChange={(e) => setEmail(e.target.value)}
           className={variant === "inline" ? "flex-1" : undefined}
         />
-        <Button type="submit" disabled={email.trim().length === 0}>
-          Subscribe on Substack
-          <ArrowUpRightIcon className="size-4" />
+        {/* Hidden from people, and from screen readers; bots fill it in. */}
+        <input
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          className="absolute -left-[9999px] h-0 w-0 opacity-0"
+        />
+        <Button type="submit" disabled={email.trim().length === 0 || state === "sending"}>
+          {state === "sending" && <Loader2Icon className="size-4 animate-spin" />}
+          Subscribe
         </Button>
       </div>
+      {error && (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

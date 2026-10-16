@@ -133,6 +133,7 @@ function NewsletterCard() {
             to leave.
           </p>
           <SubscribeForm
+            source="footer"
             variant="stacked"
             className="mt-3.5 [&_input]:border-white/20 [&_input]:bg-white/10 [&_input]:text-white [&_input]:placeholder:text-white/50 [&_p]:text-white/80"
           />

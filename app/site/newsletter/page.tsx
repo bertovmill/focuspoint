@@ -27,7 +27,7 @@ export default async function NewsletterPage() {
           works as I go. When I publish something, you get it. That&apos;s the whole deal.
         </p>
 
-        <SubscribeForm className="mt-8 sm:max-w-md" />
+        <SubscribeForm source="newsletter-page" className="mt-8 sm:max-w-md" />
 
         <p className="mt-4 text-sm text-muted-foreground">
           No spam, no schedule I don&apos;t keep, one click to leave.

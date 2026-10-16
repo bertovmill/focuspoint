@@ -4,6 +4,35 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Newsletter moves from Substack to Kit
+
+Berto picked Kit (free up to 10k subscribers) and chose to move the list fully off
+Substack. Old Substack posts stay listed on /writing and keep linking out; new writing
+lives on the site (posts table) and email goes through Kit.
+
+- `lib/kit.ts`: v4 REST client (`X-Kit-Api-Key`). `kitSubscribe` creates the subscriber
+  `inactive`, then adds them to `KIT_FORM_ID`, so the form's double opt-in sends Kit's
+  confirmation email. `listKitSubscribers` (confirmed only) feeds Cael's Newsletter panel.
+- `lib/kit-broadcast.ts`: a post's *first* publish (editor PATCH or the `publish_post`
+  tool) creates an unsent Kit broadcast with the article as HTML (unified/remark, links
+  and images made absolute, cover image, "Read on bertomill.com" link). Nothing sends
+  automatically. `before.publishedAt === null` marks a first publish, so unpublish →
+  republish doesn't duplicate. Never throws into the publish.
+- `/api/site/subscribe`: Resend → Kit; same validation + throttle, plus a honeypot
+  (`website`) and a `source` (popup/footer/post/newsletter-page) passed as the referrer.
+  Kit sends the welcome, so the Resend welcome email is gone. `/api/site/unsubscribe`
+  stays for links in old Resend welcome emails.
+- `SubscribeForm` posts with fetch instead of a GET to Substack; success copy is "check
+  your inbox to confirm". /writing's "Subscribe on Substack" → "Subscribe" (/newsletter).
+- Env: `KIT_API_KEY`, `KIT_FORM_ID` (local + Vercel production). Without them signup 503s.
+- `scripts/kit.mjs` (`npm run kit -- <cmd>`): a terminal client for Kit, since Kit has no
+  CLI and its MCP server (app.kit.com/mcp) only runs tools on paid plans. Commands: stats
+  (counts + signups by site surface), forms, subscribers, broadcasts, tags, tag, import
+  (CSV, Substack export as-is; imports `active`, skips `email_disabled`, `--dry-run`,
+  `--tag`). Paced under the 120 req/min API-key limit; bulk endpoint is OAuth-only, so
+  import goes one at a time. Nothing in it can send email.
+- Next.js refuses `react-dom/server` in route-reachable code, hence unified + hast-util-to-html
+  (added as direct deps) rather than rendering react-markdown to static markup.
 ## 2026-10-16 — Agent speed: reasoning off by default, luna-fast, one round of reads
 
 Berto asked for "lightning fast" replies and picked all four levers. Measured first:

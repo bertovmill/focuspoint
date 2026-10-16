@@ -15,7 +15,7 @@ export function PostNewsletterCta() {
         I write these as I go. Drop your email and the next one lands in your inbox — no spam, one
         click to leave.
       </p>
-      <SubscribeForm className="mt-5 sm:max-w-md" />
+      <SubscribeForm source="post" className="mt-5 sm:max-w-md" />
     </aside>
   );
 }

@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Chat search reaches message text again (server-side)
+
+The same afternoon's "Faster launch" change made `/api/threads` titles-only, so the
+history rail's search could only match titles. New `GET /api/threads/search?q=` scans
+each thread's saved `message.received` / `message.completed` text in SQL (every word,
+any order, LIKE-escaped, ~50–200 ms) and returns IDs. The rail filters titles (and any
+loaded transcripts) instantly and merges the server hits 200 ms after typing stops.
+
+---
+
 ## 2026-10-16 — Chat search; welcome chips centred
 
 - `app/_components/chat-sidebar.tsx`: a rounded search bar at the top of the chat

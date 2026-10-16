@@ -5,7 +5,7 @@ import { useThreads, type ThreadRecord } from "@/app/_components/threads-provide
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CheckIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from "lucide-react";
-import { useMemo, useState, type FC, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FC, type ReactNode } from "react";
 
 const DAY_IN_MS = 86_400_000;
 
@@ -16,8 +16,9 @@ function groupLabel(updatedAt: number, startOfToday: number): string {
 }
 
 /**
- * Everything a search can match in a thread: its title plus what was said in it.
- * Saved events carry each user message whole on `message.received` and each of
+ * What this browser can match in a thread on its own: the title, plus what was
+ * said if the transcript is loaded (the list itself is titles only). Everything
+ * else comes from /api/threads/search. Saved events carry each user message whole on `message.received` and each of
  * Cael's replies whole on `message.completed`, so the streaming deltas and tool
  * traffic never need reading.
  */
@@ -46,10 +47,33 @@ export const ChatSidebar: FC<{
     [threads],
   );
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const trimmed = query.trim();
+
+  // Content matches from the server, for the query they answer. Titles filter
+  // instantly below; these merge in a beat later.
+  const [contentHits, setContentHits] = useState<{ q: string; ids: ReadonlySet<string> }>();
+  useEffect(() => {
+    if (!trimmed) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/threads/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : { ids: [] }))
+        .then(({ ids }: { ids: string[] }) => setContentHits({ q: trimmed, ids: new Set(ids) }))
+        .catch(() => {});
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [trimmed]);
+  const serverIds = contentHits?.q === trimmed ? contentHits.ids : undefined;
+  const searching = terms.length > 0 && !serverIds;
+
   // Every word has to appear somewhere in the chat, in any order.
   const visible = terms.length === 0
     ? threads
     : threads.filter((t) => {
+        if (serverIds?.has(t.id)) return true;
         const hay = haystacks.get(t.id) ?? "";
         return terms.every((term) => hay.includes(term));
       });
@@ -109,7 +133,7 @@ export const ChatSidebar: FC<{
       {/* Scrollable thread list */}
       <div className="flex-1 overflow-y-auto pb-32 lg:pb-20">
         <div className="flex flex-col gap-0.5 p-2">
-          {terms.length > 0 && visible.length === 0 && (
+          {terms.length > 0 && visible.length === 0 && !searching && (
             <p className="px-2.5 pt-3 text-sm text-muted-foreground">No chats match “{query.trim()}”.</p>
           )}
           {groups.map((group) => (

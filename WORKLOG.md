@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Site weather dial → round Apple-style buttons
+
+Berto asked to swap the horizontal weather slider on /site for round Apple-like buttons.
+
+- `app/site/_components/concrete-wall/wall-clock.tsx`: the Radix slider is gone; four
+  round icon buttons (Sunny / Cloudy / Overcast / Rain, lucide sun / cloud-sun / cloudy /
+  cloud-rain) in a `radiogroup`. Active one is filled (foreground bg, inverted icon);
+  others are frosted glass. Small mono labels under each. After dark, Sunny→Clear with a
+  moon and Cloudy gets a cloud-moon. "Live" reset unchanged. Snaps to the four stops
+  (no in-between values any more).
+
+---
+
 ## 2026-10-16 — Chat opens on a fresh thread; prewarmed sessions; eve 0.80.1
 
 Berto asked for Chat to open a new chat on arrival, and for chat to be sped up with the

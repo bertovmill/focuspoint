@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-16 — Corner chat: liquid-glass bubble, resizable window on desktop
+
+- **Bubble** is bolder and liquid: 60–64px, `.liquid-bubble` in `app/globals.css` —
+  layered white highlights over a green gradient, backdrop blur, inner shadow, a
+  green glow, a slow border-radius wobble and drifting sheen (off under reduced
+  motion), springy hover. Gotcha: the class must not set `position`, since unlayered
+  CSS beats Tailwind's `fixed` and the bubble fell into the page's flex row.
+- **Resizable on desktop** (`app/_components/corner-resize.tsx`): the window is
+  anchored bottom-right, so it grows from its top edge, left edge and top-left corner.
+  Size is clamped (min 320×380, max viewport − 40px), saved in localStorage
+  (`cael:corner-chat-size`), double-click a handle to reset to 400×640. The phone keeps
+  the full-screen sheet.
+
+---
+
 ## 2026-10-16 — Public site uses Cael's icon
 
 Berto wanted bertomill.com and Cael to share one tab icon; he picked Cael's green planet.

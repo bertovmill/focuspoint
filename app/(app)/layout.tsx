@@ -21,6 +21,7 @@ import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider"
 // task finished in either one scores in the same place (see lib/streak.ts).
 import { StreakProvider } from "@/app/_components/streak-provider";
 import { PageContextProvider, useCornerHidden, usePageDetail } from "@/app/_components/page-context";
+import { CornerResizeHandles, useCornerSize } from "@/app/_components/corner-resize";
 import { setNativePinMode } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import {
@@ -305,6 +306,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   const [cornerOpen, setCornerOpen] = useState(false);
   const corner = mobileTab !== "chat";
   const cornerHidden = useCornerHidden();
+  const cornerSize = useCornerSize();
   useEffect(() => {
     if (mobileTab === "chat" || cornerOpen) setChatOpened(true);
   }, [mobileTab, cornerOpen]);
@@ -573,6 +575,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       <div
         role={corner && cornerOpen && !cornerHidden ? "dialog" : undefined}
         aria-label={corner && cornerOpen && !cornerHidden ? "Chat with Cael" : undefined}
+        style={corner ? cornerSize.style : undefined}
         className={cn(
           "min-w-0 flex-row",
           !corner
@@ -582,11 +585,12 @@ function Workspace({ children }: { readonly children: ReactNode }) {
                   // Phone: the whole screen, over the tab bar. Desktop: a window
                   // bottom-right, clear of the page's own controls.
                   "fixed inset-0 z-[60] flex bg-background pt-[var(--safe-top)]",
-                  "lg:inset-auto lg:right-5 lg:bottom-5 lg:h-[min(640px,calc(100dvh-2.5rem))] lg:w-[400px] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:pt-0 lg:shadow-2xl lg:shadow-black/15",
+                  "lg:inset-auto lg:right-5 lg:bottom-5 lg:h-[min(var(--corner-h),calc(100dvh-2.5rem))] lg:w-[min(var(--corner-w),calc(100vw-2.5rem))] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:pt-0 lg:shadow-2xl lg:shadow-black/15",
                 )
               : "hidden",
         )}
       >
+        {corner && cornerOpen && !cornerHidden ? <CornerResizeHandles {...cornerSize} /> : null}
         {/* Desktop chat-history rail */}
         <div
           className={cn(
@@ -642,14 +646,15 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           type="button"
           onClick={() => setCornerOpen(true)}
           className={cn(
-            "fixed right-4 z-50 flex size-13 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/20 transition-transform hover:scale-105 active:scale-95",
+            // Liquid glass (globals.css .liquid-bubble), bigger than a stock FAB.
+            "liquid-bubble fixed right-4 z-50 flex size-15 items-center justify-center lg:size-16",
             // Above the phone's floating tab bar; bottom-right corner on desktop.
-            "bottom-[calc(var(--mobile-nav-h)_+_0.75rem)] lg:right-5 lg:bottom-5",
+            "bottom-[calc(var(--mobile-nav-h)_+_0.75rem)] lg:right-6 lg:bottom-6",
           )}
           aria-label="Chat with Cael"
           title="Chat with Cael"
         >
-          <MessageCircleIcon className="size-6" />
+          <MessageCircleIcon className="size-7 drop-shadow-[0_1px_1px_rgb(0_0_0_/_0.25)]" strokeWidth={2.4} />
         </button>
       ) : null}
 

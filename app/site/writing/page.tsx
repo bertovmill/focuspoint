@@ -111,7 +111,7 @@ export default async function WritingIndexPage() {
           <ul className="divide-y divide-border/60">
             {posts.map((post) => (
               <li key={post.key}>
-                <SiteLink href={post.href} className="group flex gap-5 py-6">
+                <SiteLink href={post.href} className="group flex flex-col-reverse gap-4 py-6 sm:flex-row sm:gap-6">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-4">
                       <h2 className="text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
@@ -139,10 +139,11 @@ export default async function WritingIndexPage() {
                     <Image
                       src={post.coverUrl}
                       alt=""
-                      width={240}
-                      height={160}
-                      sizes="120px"
-                      className="hidden aspect-[3/2] w-28 shrink-0 self-center rounded-md border border-border object-cover sm:block"
+                      width={384}
+                      height={240}
+                      // Full width above the title on phones, a 12rem thumbnail beside it from sm up.
+                      sizes="(min-width: 640px) 192px, 100vw"
+                      className="aspect-[16/10] w-full shrink-0 self-start rounded-lg border border-border object-cover transition-transform duration-300 group-hover:scale-[1.02] sm:w-48"
                     />
                   )}
                 </SiteLink>

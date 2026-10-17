@@ -11765,3 +11765,9 @@ miro.medium.com for next/image.
 Limit: Medium's feed only carries the latest 10 posts, so older ones drop off as new
 ones arrive. Medium tags are skipped (they're noisy slugs).
 Verified on site.localhost:3017: 10 Medium rows, all 10 covers load.
+
+## 2026-10-17 — Writing page: bigger covers
+
+Berto liked the Apple-style list but found the 112 px thumbnails hard to see. Covers
+are now 192 × 120 (16:10) beside each post from `sm` up, and full width above the
+title on phones (they used to be hidden there), with a slight zoom on hover.

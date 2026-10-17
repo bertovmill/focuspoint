@@ -523,6 +523,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
 
       {/* Dashboard panel — sidebar when chat is active, takes over the full main view otherwise */}
       <aside
+        data-cael-page
         className={cn(
           "shrink-0 flex-col border-r border-border overflow-hidden",
           // The fixed bottom nav reserves no space, so the panel gives it back here

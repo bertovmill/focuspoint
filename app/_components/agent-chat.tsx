@@ -17,6 +17,7 @@ import { useThreadAgent } from "@/hooks/use-thread-agent";
 import { PinButton } from "@/app/_components/pin-button";
 import { useThreadLoaded } from "@/app/_components/threads-provider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { readPageText } from "@/app/_components/page-context";
 import { withChatContext } from "@/lib/chat-context";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,8 @@ type AgentChatProps = {
   onInitialMessageSent?: () => void;
   /**
    * "corner": the floating chat in the bottom-right of every other page. Same
-   * thread as the Chat page, a compact header, and `pageContext` sent (hidden)
-   * with every message so Cael knows what Berto is looking at.
+   * thread as the Chat page, a compact header, and `pageContext` plus the text
+   * on screen sent (hidden) with every message so Cael sees what Berto sees.
    */
   variant?: "page" | "corner";
   pageContext?: string | null;
@@ -140,7 +141,9 @@ function ChatSession({
         get(target, prop, receiver) {
           if (prop !== "send") return Reflect.get(target, prop, receiver);
           return (content: Parameters<EveAgent["send"]>[0], ...rest: unknown[]) => {
-            const context = contextRef.current;
+            // The page's own line, then the text on screen at the moment of sending.
+            const screen = contextRef.current ? readPageText() : null;
+            const context = contextRef.current && screen ? `${contextRef.current}\n\nOn his screen:\n"""\n${screen}\n"""` : contextRef.current;
             const next = !context
               ? content
               : typeof content === "string"

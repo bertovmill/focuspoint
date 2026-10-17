@@ -64,3 +64,32 @@ export function clipForContext(text: string, max = 1500): string {
   const flat = text.trim();
   return flat.length > max ? `${flat.slice(0, max)}… (cut; ${flat.length} characters in all)` : flat;
 }
+
+/**
+ * The text on Berto's screen right now, so Cael sees what he sees on any page
+ * (Berto, 2026-10-17) — not only the ones that publish a detail line. Reads the
+ * visible page area (marked `data-cael-page` in the shell; the nav rail and the
+ * chat sit outside it), plus whatever is typed into its fields, since
+ * innerText skips those. Text only: no images or layout.
+ */
+export function readPageText(max = 6000): string | null {
+  if (typeof document === "undefined") return null;
+  const parts: string[] = [];
+  for (const root of document.querySelectorAll<HTMLElement>("[data-cael-page]")) {
+    // A hidden element's innerText falls back to all of its text, hidden or not.
+    if (!root.checkVisibility()) continue;
+    const text = root.innerText.replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+    if (text) parts.push(text);
+    const fields: string[] = [];
+    for (const el of root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("textarea, input:not([type]), input[type=text], input[type=search]")) {
+      const value = el.value.trim();
+      if (!value || !el.checkVisibility()) continue;
+      const name = el.getAttribute("aria-label") || el.placeholder || el.name;
+      fields.push(name ? `${name}: ${value}` : value);
+    }
+    if (fields.length) parts.push(`Typed into fields:\n${fields.join("\n")}`);
+  }
+  const all = parts.join("\n\n");
+  if (!all) return null;
+  return all.length > max ? `${all.slice(0, max)}… (cut; ${all.length} characters on screen in all)` : all;
+}

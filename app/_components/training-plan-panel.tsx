@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ArchiveIcon,
+  ArrowLeftIcon,
   CalendarRangeIcon,
+  FileTextIcon,
   DumbbellIcon,
   CheckIcon,
   ChevronLeftIcon,
@@ -96,6 +99,9 @@ export function TrainingPlanPanel() {
   const pathname = usePathname();
   // The workout bank and its editor.
   if (/^\/training\/workouts\/?$/.test(pathname)) return <WorkoutBank />;
+  // The written plan and the old lift log, moved off the week view into the ⋯ menu (Berto, 2026-10-17).
+  if (/^\/training\/plan\/?$/.test(pathname)) return <SubPage title="Written plan"><TrainingPlanDoc /></SubPage>;
+  if (/^\/training\/past\/?$/.test(pathname)) return <SubPage title="Past programs" blurb="5×5 lifts and 10K times, logged one number per day before the structured workouts."><PastPrograms /></SubPage>;
   if (/^\/training\/workouts\/new\/?$/.test(pathname)) return <WorkoutEditor />;
   const editing = pathname.match(/^\/training\/workouts\/([^/]+)\/edit\/?$/);
   if (editing) return <WorkoutEditor key={editing[1]} slug={editing[1]} />;
@@ -466,29 +472,29 @@ function TrainingWeek() {
         </section>
       )}
 
-      {/* Week controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Previous week">
+      {/* Week controls — one line even on a 375px phone. */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="flex size-10 shrink-0 items-center sm:size-11 justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Previous week">
             <ChevronLeftIcon className="size-5" />
           </button>
-          <span className="min-w-36 text-center text-base font-medium tabular-nums">{weekRangeLabel(weekStart)}</span>
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Next week">
+          <span className="whitespace-nowrap text-center text-sm font-medium tabular-nums sm:min-w-36 sm:text-base">{weekRangeLabel(weekStart)}</span>
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="flex size-10 shrink-0 items-center sm:size-11 justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Next week">
             <ChevronRightIcon className="size-5" />
           </button>
           {!isCurrentWeek && (
-            <Button variant="ghost" className="h-11 text-base" onClick={() => setWeekStart(weekStartISO(today))}>
+            <Button variant="ghost" className="h-10 px-2 text-sm sm:h-11 sm:text-base" onClick={() => setWeekStart(weekStartISO(today))}>
               This week
             </Button>
           )}
         </div>
-        <span className={cn("text-base font-medium tabular-nums", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-muted-foreground")}>
+        <span className={cn("whitespace-nowrap text-sm font-medium tabular-nums sm:text-base", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-muted-foreground")}>
           {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
         {/* The bank and the watch live behind one ⋯ so the row reads week · progress (Berto, 2026-10-17). */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="ml-auto flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="More">
+            <button type="button" className="ml-auto flex size-10 shrink-0 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground sm:size-11" aria-label="More">
               {filling || syncing ? <Spinner className="size-5" /> : <MoreHorizontalIcon className="size-5" />}
             </button>
           </DropdownMenuTrigger>
@@ -496,6 +502,16 @@ function TrainingWeek() {
             <DropdownMenuItem asChild>
               <Link href="/training/workouts">
                 <DumbbellIcon /> Workout bank
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/training/plan">
+                <FileTextIcon /> Written plan
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/training/past">
+                <ArchiveIcon /> Past programs
               </Link>
             </DropdownMenuItem>
             {weekStart >= weekStartISO(today) && (
@@ -650,18 +666,6 @@ function TrainingWeek() {
         </DragOverlay>
       </DndContext>
 
-      {/* The long-form plan, tucked away until it's wanted */}
-      <details className="group rounded-xl border p-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold">
-          Your written plan
-          <ChevronRightIcon className="size-5 text-muted-foreground transition-transform group-open:rotate-90" />
-        </summary>
-        <div className="mt-4">
-          <TrainingPlanDoc />
-        </div>
-      </details>
-
-      <PastPrograms />
 
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent>
@@ -876,24 +880,25 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
 /** The old one-number-per-lift log (workout_logs), archived when the structured workouts replaced it. */
 function PastPrograms() {
   const [logs, setLogs] = useState<OldWorkoutLog[] | null>(null);
+  useEffect(() => {
+    fetch("/api/workouts").then((r) => r.json()).then(setLogs).catch(() => setLogs([]));
+  }, []);
+  return logs === null ? <Skeleton className="h-40 w-full" /> : <WorkoutChart logs={logs} />;
+}
+
+/** A page off the week view, in the workout bank's style: back to Training, then a title. */
+function SubPage({ title, blurb, children }: { title: string; blurb?: string; children: React.ReactNode }) {
   return (
-    <details
-      id="past-programs"
-      className="group rounded-xl border p-4"
-      onToggle={(e) => {
-        if ((e.currentTarget as HTMLDetailsElement).open && logs === null)
-          fetch("/api/workouts").then((r) => r.json()).then(setLogs).catch(() => setLogs([]));
-      }}
-    >
-      <summary className="flex cursor-pointer list-none items-center justify-between text-lg font-semibold">
-        Past programs
-        <ChevronRightIcon className="size-5 text-muted-foreground transition-transform group-open:rotate-90" />
-      </summary>
-      <div className="mt-4 space-y-2">
-        <p className="text-sm text-muted-foreground">5×5 lifts and 10K times, logged one number per day before the structured workouts.</p>
-        {logs === null ? <Skeleton className="h-40 w-full" /> : <WorkoutChart logs={logs} />}
-      </div>
-    </details>
+    <div className="mx-auto max-w-3xl space-y-6 pb-16">
+      <header className="space-y-2">
+        <Link href="/training" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeftIcon className="size-4" /> Training
+        </Link>
+        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        {blurb && <p className="text-muted-foreground">{blurb}</p>}
+      </header>
+      {children}
+    </div>
   );
 }
 

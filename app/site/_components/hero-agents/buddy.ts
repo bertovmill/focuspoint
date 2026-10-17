@@ -21,6 +21,8 @@ export type BuddyPose = {
   look: { x: number; y: number } | null;
   /** Waiting on a reply: a slow, curious sway. */
   thinking: boolean;
+  /** Holding something up over its head with both arms (the water jar). */
+  carrying?: boolean;
 };
 
 const SAGE = new THREE.Color("#b7cfa7");
@@ -241,6 +243,13 @@ export function createBuddy() {
       sway = -Math.sin(w) * 0.2;
     } else {
       for (const f of feet) f.position.y += (0.035 - f.position.y) * Math.min(1, dt * 12);
+    }
+
+    if (pose.carrying) {
+      // Both arms straight up under the load, bobbing a little with the step.
+      const bob = pose.walking ? Math.sin(pose.time * 9) * 0.06 : Math.sin(clock * 2.1) * 0.03;
+      armL = 2.6 + bob;
+      armR = -2.6 + bob;
     }
 
     if (pose.thinking && !move) {

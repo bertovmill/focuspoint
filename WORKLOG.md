@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — The buddy waters the money tree (click the plant, or every hour)
+
+Berto: "how amazing would it be if the agent grabbed the glass and watered the
+plant every hour or if you click on the plant". Picked: real cutouts (the jar and
+plant were already their own layers from 2026-10-11), triggers = plant click +
+top of every hour, Toronto time.
+
+- `hero-agents/stage.ts`: errands — `beginErrand`/`endErrand` stop wandering,
+  `goTo(x)` walks to a hero-pixel x (past the lane's ends too) and resolves on
+  arrival, `setCarrying` holds both arms up (`buddy.ts` `carrying` pose).
+- `hero-agents/hero-agents.tsx`: `water()` walks under the jar, hops, carries it
+  overhead (streams `buddy:hold` hand positions each frame), stands beside the pot,
+  pours, carries it back, hops, sets it down, nods. Hourly timer at :00 Toronto
+  (skipped when the tab is hidden or reduced motion is on). No WebGL / buddy not on
+  the desk: the jar pours by itself.
+- `concrete-wall/desk-scene.tsx`: listens for `desk:jar` (held/pour/home) and
+  `buddy:hold`; a click (not drag) on the plant fires `desk:water`; `data-desk-jar`
+  and `data-desk-pot` markers let the buddy find them. Dragging the jar still works
+  when no errand is running.
+- Verified in the browser: full sequence, stream renders into the pot.
 ## 2026-10-17 — HYROX Toronto 2026 result on /fitness
 
 Berto said the Toronto 2026 race wasn't showing (he thought it was entered as

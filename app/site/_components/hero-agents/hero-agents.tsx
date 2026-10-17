@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAskAi } from "../ask-ai-context";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow } from "../concrete-wall/sky";
 import type { AgentStage, Pose, RoomLayout } from "./stage";
+import type { JarErrandEvent, JarHoldEvent } from "../concrete-wall/desk-scene";
 
 // The chat (and its network code) loads the first time someone opens it.
 const AgentCard = dynamic(() => import("./agent-card").then((m) => m.AgentCard), { ssr: false });
@@ -19,6 +20,13 @@ const AgentCard = dynamic(() => import("./agent-card").then((m) => m.AgentCard),
  * idle and only runs while the hero is on screen. Over the buddy sits a plain
  * button that follows it around, so it's clickable, focusable and named for
  * screen readers; the rest of the layer lets the pointer through.
+ *
+ * It also looks after the money tree: when the plant is clicked, and at the
+ * top of every hour (Toronto time), it walks to the jar on the sill, hops up
+ * for it, carries it over its head to the pot, waters the plant and takes the
+ * jar back. The jar and the plant live in DeskScene; the two talk through
+ * window events (`desk:water`, `desk:jar`, `buddy:hold`) since they share the
+ * same full-bleed box and so the same pixel coordinates.
  */
 export function HeroAgents() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -32,6 +40,9 @@ export function HeroAgents() {
   const [anchor, setAnchor] = useState<Pose | null>(null);
   // Asked to open before the buddy has loaded: open as soon as it has.
   const pendingOpen = useRef(false);
+  // Mid-errand with the jar in its arms: report where its hands are every frame.
+  const carryingRef = useRef(false);
+  const wateringRef = useRef(false);
 
   // Where the desk is, remeasured when the hero changes size.
   const layoutRef = useRef<RoomLayout>({ width: 0, height: 0, desk: null });
@@ -75,6 +86,11 @@ export function HeroAgents() {
   // Move the button with the buddy without re-rendering React every frame.
   const onPose = useCallback((pose: Pose) => {
     poseRef.current = pose;
+    if (carryingRef.current && pose.visible) {
+      // The jar's base sits in its raised hands, just over the top of its head.
+      const detail: JarHoldEvent = { x: pose.x, y: pose.y - pose.height * 0.9 };
+      window.dispatchEvent(new CustomEvent("buddy:hold", { detail }));
+    }
     const el = buttonRef.current;
     if (!el) return;
     el.style.display = pose.visible ? "" : "none";
@@ -178,6 +194,88 @@ export function HeroAgents() {
     }, 100);
     return () => window.clearInterval(id);
   }, [ready, show]);
+
+  // Water the plant: fetch the jar, carry it over, pour, put it back.
+  const water = useCallback(async () => {
+    if (wateringRef.current || openRef.current) return;
+    const jarEvent = (state: JarErrandEvent["state"]) =>
+      window.dispatchEvent(new CustomEvent<JarErrandEvent>("desk:jar", { detail: { state } }));
+    const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
+    const root = rootRef.current;
+    const jarEl = document.querySelector<HTMLElement>("[data-desk-jar]");
+    const potEl = document.querySelector<HTMLElement>("[data-desk-pot]");
+    if (!root || !jarEl || !potEl) return;
+    wateringRef.current = true;
+    const stage = stageRef.current;
+    const pose = poseRef.current;
+    try {
+      if (!stage || !pose?.visible) {
+        // No buddy (no WebGL, or not on the desk yet): the jar waters the plant by itself.
+        jarEvent("pour");
+        await sleep(3200);
+        jarEvent("home");
+        return;
+      }
+      const r = root.getBoundingClientRect();
+      const j = jarEl.getBoundingClientRect();
+      const p = potEl.getBoundingClientRect();
+      // Under the upright jar (it stands at the left of its box, a bit narrower than it).
+      const jarX = j.left - r.left + j.height * 0.44;
+      // Beside the pot, with the jar held out over it.
+      const potX = p.left - r.left - pose.height * 0.22;
+      stage.beginErrand();
+      await stage.goTo(jarX);
+      stage.react("hop");
+      await sleep(250);
+      carryingRef.current = true;
+      stage.setCarrying(true);
+      jarEvent("held");
+      await sleep(800);
+      await stage.goTo(potX);
+      jarEvent("pour");
+      await sleep(3400);
+      jarEvent("held");
+      await sleep(700);
+      await stage.goTo(jarX);
+      stage.react("hop");
+      await sleep(200);
+      carryingRef.current = false;
+      stage.setCarrying(false);
+      jarEvent("home");
+      await sleep(900);
+      stage.react("nod");
+    } finally {
+      carryingRef.current = false;
+      stage?.endErrand();
+      wateringRef.current = false;
+    }
+  }, []);
+
+  // A click on the plant asks for water.
+  useEffect(() => {
+    const onWater = () => void water();
+    window.addEventListener("desk:water", onWater);
+    return () => window.removeEventListener("desk:water", onWater);
+  }, [water]);
+
+  // And it waters it at the top of every hour, Toronto time, while someone's looking.
+  useEffect(() => {
+    if (!ready) return;
+    const clock = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", minute: "numeric", second: "numeric" });
+    let timer: number | undefined;
+    const schedule = () => {
+      const now = new Date();
+      const part = (type: string) => Number(clock.formatToParts(now).find((x) => x.type === type)?.value ?? 0);
+      const msLeft = (3600 - part("minute") * 60 - part("second")) * 1000 - now.getMilliseconds();
+      timer = window.setTimeout(() => {
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (document.visibilityState === "visible" && !calm) void water();
+        schedule();
+      }, Math.max(1000, msLeft));
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [ready, water]);
 
   // Ask AI, ⌘I and #ask-cael open (or close) the buddy's chat on this page.
   const { setOpener } = useAskAi();

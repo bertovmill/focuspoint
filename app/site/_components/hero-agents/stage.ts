@@ -11,7 +11,8 @@ import { BUDDY, DESK_TOP } from "./cast";
  *
  * It potters along the desk: stands about, hops now and then, wanders off
  * somewhere else, and keeps an eye on the pointer. While you're chatting
- * with it, it stops and faces you.
+ * with it, it stops and faces you. On an errand (watering the plant, run
+ * from hero-agents.tsx) it stops wandering and walks where it's sent.
  */
 
 /** Where the desk is, in pixels inside the hero. */
@@ -106,6 +107,11 @@ export function createAgentStage(
 
   let talking = false;
   let thinking = false;
+  // An errand: no wandering, and walks go where they're sent (in hero pixels,
+  // which may lie past the lane's ends, e.g. beside the pot).
+  let onErrand = false;
+  let goal: { x: number; arrive: () => void } | null = null;
+  let carrying = false;
   let mode: Mode = "idle";
   let wait = rand(1, 3);
   let u = 0.45;
@@ -138,6 +144,13 @@ export function createAgentStage(
     }
 
     const still = opts.reducedMotion();
+    if (goal && !talking) {
+      target = (goal.x - lane.x0) / Math.max(1, lane.x1 - lane.x0);
+      if (mode !== "walk") {
+        mode = "walk";
+        walkTime = 0;
+      }
+    }
     if (talking) {
       if (mode !== "talk") {
         mode = "talk";
@@ -155,7 +168,12 @@ export function createAgentStage(
         u = target;
         mode = "idle";
         wait = rand(3, 8);
+        const arrived = goal?.arrive;
+        goal = null;
+        arrived?.();
       }
+    } else if (onErrand) {
+      // Stand by for the next step.
     } else {
       wait -= dt;
       if (wait <= 0 && !still) {
@@ -187,7 +205,7 @@ export function createAgentStage(
     const p = opts.pointer();
     const faceY = lane.y - lane.height * 0.6;
     const look = p && !walking ? { x: clamp((p.x - x) / 400, -1, 1), y: clamp((faceY - p.y) / 300, -1, 1) } : null;
-    buddy.animate(dt, { walking, time: walkTime, look, thinking });
+    buddy.animate(dt, { walking, time: walkTime, look, thinking, carrying });
 
     holder.position.set(x, -lane.y, 0);
     holder.scale.setScalar(lane.height);
@@ -220,6 +238,28 @@ export function createAgentStage(
     /** A one-off move: a nod when a reply lands, a shrug when it fails, a wave hello. */
     react(move: BuddyMove) {
       buddy.play(move);
+    },
+    /** Start an errand: it stops wandering until `endErrand`. */
+    beginErrand() {
+      onErrand = true;
+    },
+    /** Walk to `x` (hero pixels); resolves on arrival. Pauses while you're chatting. */
+    goTo(x: number) {
+      goal?.arrive();
+      return new Promise<void>((arrive) => {
+        goal = { x, arrive };
+      });
+    },
+    /** Hold the jar up over its head. */
+    setCarrying(on: boolean) {
+      carrying = on;
+    },
+    endErrand() {
+      goal?.arrive();
+      goal = null;
+      onErrand = false;
+      carrying = false;
+      wait = rand(2, 4);
     },
     /** Dim with the room: `light` 1 by day, lower at night and under cloud. */
     setLight(light: number) {

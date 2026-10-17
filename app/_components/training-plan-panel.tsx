@@ -329,6 +329,9 @@ function TrainingWeek() {
   const week = useMemo(() => weekStats(sessions, activities), [sessions, activities]);
   const upcoming = events.filter((e) => daysUntil(e.event_date) >= 0);
   const isCurrentWeek = weekStart === weekStartISO(today);
+  // Phone: which day the week strip shows. Today when it's in view, else the week's first day.
+  const [pickedDay, setPickedDay] = useState(today);
+  const selectedDay = days.includes(pickedDay) ? pickedDay : days.includes(today) ? today : days[0];
 
   // "Fill from bank": lay the default lineup over this week, keeping anything done.
   const [filling, setFilling] = useState(false);
@@ -360,6 +363,9 @@ function TrainingWeek() {
   const todayList = byDay.get(today) ?? [];
   const todayActs = (activitiesByDay.get(today) ?? []).filter((a) => !linked.has(a.id));
   const todayRace = events.find((e) => e.event_date === today);
+  const selectedList = byDay.get(selectedDay) ?? [];
+  const selectedActs = (activitiesByDay.get(selectedDay) ?? []).filter((a) => !linked.has(a.id));
+  const selectedRace = events.find((e) => e.event_date === selectedDay);
 
   return (
     <div className="space-y-6 pb-10">
@@ -401,9 +407,9 @@ function TrainingWeek() {
         )}
       </div>
 
-      {/* Today, front and centre. No frame of its own: the session card is the card. */}
+      {/* Today, front and centre. No frame of its own: the session card is the card. Desktop only: the phone's week strip below shows the selected day. */}
       {isCurrentWeek && (
-        <section className="space-y-3">
+        <section className="hidden space-y-3 md:block">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today · {shortDayLabel(today)}</p>
             <Button variant="outline" className="h-10 gap-1.5 px-3 text-sm" onClick={() => router.push(newSessionHref(today))}>
@@ -485,7 +491,83 @@ function TrainingWeek() {
       </div>
 
 
-      {/* Week — stacked rows on phones, columns on wide screens. Cards drag between days. */}
+      {/* Phone: a Runna-style week strip — tap a day, its sessions show underneath (step 1 of the training redesign, 2026-10-17). */}
+      <section className="space-y-4 md:hidden">
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((d) => {
+            const list = (byDay.get(d) ?? []).filter((s) => s.type !== "rest");
+            const isToday = d === today;
+            const isSelected = d === selectedDay;
+            const race = events.some((e) => e.event_date === d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setPickedDay(d)}
+                aria-label={shortDayLabel(d)}
+                aria-pressed={isSelected}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-xl border py-2",
+                  isSelected ? "border-foreground bg-foreground text-background" : "text-foreground",
+                  !isSelected && isToday && "border-foreground/50",
+                  !isSelected && race && "border-rose-500/60",
+                  !isSelected && d < today && "text-muted-foreground",
+                )}
+              >
+                <span className={cn("text-[11px] font-semibold uppercase", isSelected ? "text-background/70" : "text-muted-foreground")}>{weekdayLetter(d)}</span>
+                <span className="text-base font-semibold tabular-nums">{Number(d.slice(8))}</span>
+                <span className="flex h-1.5 items-center gap-0.5">
+                  {list.slice(0, 3).map((s) => (
+                    <span key={s.id} className={cn("size-1.5 rounded-full", s.done ? "bg-emerald-500" : isSelected ? "bg-background/70" : sessionMeta(s.type).color)} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              {selectedDay === today ? "Today · " : ""}
+              {shortDayLabel(selectedDay)}
+            </p>
+            <Button variant="outline" className="h-10 gap-1.5 px-3 text-sm" onClick={() => router.push(newSessionHref(selectedDay))}>
+              <PlusIcon className="size-4" /> Add
+            </Button>
+          </div>
+          {selectedRace && (
+            <p className="flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
+              <FlagIcon className="size-5" /> {selectedDay === today ? "Race day" : "Race"}: {selectedRace.name}
+            </p>
+          )}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dropSession}>
+            <SortableContext items={selectedList.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {selectedList.length === 0 && selectedActs.length === 0 && !selectedRace && (
+                  <p className="rounded-xl border border-dashed px-5 py-6 text-center text-base text-muted-foreground">{selectedDay < today ? "Nothing logged." : "Nothing planned."}</p>
+                )}
+                {selectedList.map((s) => (
+                  <SortableSession key={s.id} id={s.id}>
+                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
+                  </SortableSession>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+          {selectedActs.length > 0 && (
+            <div className="pt-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From your Fitbit</p>
+              <div className="divide-y">
+                {selectedActs.map((a) => (
+                  <ActivityChip key={a.id} a={a} big />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Week — seven columns on wide screens (the phone has the strip above). Cards drag between days. */}
       <DndContext
         sensors={sensors}
         collisionDetection={dayThenCard}
@@ -497,7 +579,7 @@ function TrainingWeek() {
           setOverDay(null);
         }}
       >
-      <section className="grid gap-3 md:grid-cols-7">
+      <section className="hidden gap-3 md:grid md:grid-cols-7">
         {days.map((d) => {
           const list = byDay.get(d) ?? [];
           const acts = activitiesByDay.get(d) ?? [];
@@ -560,6 +642,12 @@ function TrainingWeek() {
 
     </div>
   );
+}
+
+/** "M", "T", "W"… for the phone's week strip; the date number beside it tells the two T's and S's apart. */
+function weekdayLetter(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "narrow" });
 }
 
 interface WeekStats {

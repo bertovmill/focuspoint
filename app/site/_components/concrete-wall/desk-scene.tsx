@@ -49,8 +49,9 @@ const CLICK_MS = 450;
  * full-bleed like the wall, and only the plant and the jar take the pointer.
  *
  * - The money tree turns a little when you drag it sideways (a 3D turn
- *   around the pot, with the pot as the pivot) and springs back when you
- *   let go. It lives on its own layer, cut out of the desk image by
+ *   about its trunk, pivoting at the soil) and springs back when you let
+ *   go. The pot stays on the desk image; the tree above the soil lives on
+ *   its own layer, cut out of the desk image by
  *   scripts/split-desk-plant.mjs, and laid back exactly where it stood using
  *   the same `--desk-*` custom properties the wall uses for the desk.
  * - A mason jar of water stands on the windowsill (where the shader draws
@@ -282,6 +283,8 @@ export function DeskScene() {
     "--desk-light": (1 - sky.night * 0.45 - overcast * 0.12).toFixed(3),
     "--desk-tone": (1 - sky.night * 0.25).toFixed(3),
   } as CSSProperties;
+  // The tree pivots where the trunk meets the soil, so the pot never moves.
+  const soil = `${(PLANT_ART.pot.x * 100).toFixed(2)}% ${(PLANT_ART.pot.top * 100).toFixed(2)}%`;
   const spring = reducedMotion ? "transform 250ms ease-out" : "transform 900ms cubic-bezier(0.34, 1.56, 0.64, 1)";
   const glide = reducedMotion ? "transform 250ms ease-out" : "transform 650ms cubic-bezier(0.2, 0.8, 0.2, 1)";
 
@@ -307,7 +310,8 @@ export function DeskScene() {
         onPointerCancel={onPlantUp}
       >
         <div
-          className={cn("relative origin-[50%_96%]", drinking && !reducedMotion && "animate-[plant-drink_2.6s_ease-in-out]")}
+          className={cn("relative", drinking && !reducedMotion && "animate-[plant-drink_2.6s_ease-in-out]")}
+          style={{ transformOrigin: soil }}
         >
           <Image
             src={PLANT_ART.src}
@@ -320,7 +324,7 @@ export function DeskScene() {
             className="h-auto w-full"
             style={{
               transform: `perspective(1100px) rotateY(${turn.toFixed(2)}deg)`,
-              transformOrigin: "50% 96%",
+              transformOrigin: soil,
               transition: holdingPlant ? "none" : spring,
               filter:
                 "drop-shadow(18px 22px 24px var(--desk-shadow)) brightness(calc(var(--desk-light) * var(--desk-dim))) saturate(var(--desk-tone))",

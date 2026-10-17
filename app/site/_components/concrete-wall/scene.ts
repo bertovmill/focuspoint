@@ -89,8 +89,8 @@ export function deskLayoutVars() {
 }
 
 /**
- * The potted money tree, split out of the desk image by
- * scripts/split-desk-plant.mjs. `left`/`right`/`top`/`bottom` are where its
+ * The money tree above the soil, split out of the desk image by
+ * scripts/split-desk-plant.mjs (the pot stays on the desk image). `left`/`right`/`top`/`bottom` are where its
  * box sits in the desk image (fractions), so it lands back exactly on the
  * desk; `pot` is the pot's opening inside the plant image (fractions of its
  * own box): centre x, top y, and half width. All printed by that script.
@@ -103,7 +103,7 @@ export const PLANT_ART = {
   right: 0.971,
   top: 0.0011,
   bottom: 0.4632,
-  pot: { x: 0.5146, top: 0.8273, r: 0.118 },
+  pot: { x: 0.5344, top: 0.8273, r: 0.1357 },
 } as const;
 
 /**

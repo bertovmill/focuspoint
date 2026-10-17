@@ -7,7 +7,7 @@
  * they keep animating.
  */
 export async function uploadPhoto(file: File, maxSide = 2000): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("Only image files are supported");
+  if (!file.type.startsWith("image/") && !/\.hei[cf]$/i.test(file.name)) throw new Error("Only image files are supported");
   const body = new FormData();
   body.append("file", file.type === "image/gif" ? file : await shrink(file, maxSide));
   const res = await fetch("/api/upload", { method: "POST", body });

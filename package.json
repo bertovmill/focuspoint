@@ -80,6 +80,7 @@
     "eve": "^0.80.1",
     "gray-matter": "^4.0.3",
     "hast-util-to-html": "^9.0.5",
+    "heic-convert": "^2.1.0",
     "konsta": "^5.4.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "1.16.0",
@@ -120,6 +121,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@types/heic-convert": "^2.1.1",
     "@types/node": "24.x",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",

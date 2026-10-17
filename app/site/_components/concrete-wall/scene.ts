@@ -11,11 +11,10 @@ export type WindowRect = { x: number; y: number; hw: number; hh: number };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /**
- * The glazing: how many panes across, and how many rows in each sash (the
- * meeting rail between the sashes is always there). The shader has the same
- * numbers as constants; keep them together.
+ * The glazing: how many panes across, split by black mullions. The shader
+ * has the same number as a constant; keep them together.
  */
-export const WINDOW_GRID = { cols: 2, rowsPerSash: 1 } as const;
+export const WINDOW_GRID = { cols: 2 } as const;
 
 /**
  * Where the window's glass goes for a wall of this aspect ratio (width /
@@ -23,8 +22,8 @@ export const WINDOW_GRID = { cols: 2, rowsPerSash: 1 } as const;
  * right, behind the desk and the money tree, clear of the headline in the
  * bottom left. Phones get a smaller one beside the headshot, above the desk.
  *
- * The casing adds about 0.086 of the height around the glass (half that on
- * phones), so the top keeps that clear of the nav (64px). On narrow laptops
+ * The frame adds under 0.01 of the height around the glass, so the top
+ * stays well clear of the nav (64px). On narrow laptops
  * the glass starts further right so the headline's first line still fits
  * beside it.
  */
@@ -118,16 +117,18 @@ export const JAR_ART = {
 } as const;
 
 /**
- * Where the sill is for a window, so things can stand on it: the sill's front
- * edge as a fraction of the wall's height, and a spot on its left as a
- * fraction of the wall's width. `joinery` is the casing scale the shader
- * uses (1 on wide screens, down to 0.5 for a phone's small window).
+ * Where the ledge under the window is, so things can stand on it: a point
+ * on the ledge's top face as a fraction of the wall's height, and a spot on
+ * its left as a fraction of the wall's width. `joinery` is the frame scale
+ * the shader uses (1 on wide screens, down to 0.5 for a phone's small
+ * window). The frame (0.0085) and the ledge's top face (0.004) match the
+ * shader's `frame_w` and `ledge_top`.
  */
 export function sillAnchor(rect: WindowRect) {
   const joinery = Math.min(1, Math.max(0.5, rect.hh / 0.24));
   return {
     x: rect.x - rect.hw + rect.hw * 2 * 0.14,
-    y: rect.y + rect.hh + 0.056 * joinery,
+    y: rect.y + rect.hh + (0.0085 + 0.004 * 0.7) * joinery,
     joinery,
   };
 }

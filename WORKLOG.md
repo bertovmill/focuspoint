@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Homepage window: slim black steel frame, no deep casing
+
+Berto: the window "doesn't look modern enough — the depth makes it a bit
+clunky". Picked from three options: slim black frame (over frameless or slim
+white), and keep a thin floating ledge for the jar.
+
+- `concrete-wall/wall.wgsl`: replaced the painted sash window (deep reveal,
+  moulded architrave, stepped sill, meeting rail, glazing bars) with a flush
+  matte-black frame (`frame_w` 0.0085), one centre mullion, and a thin black
+  ledge under it (`ledge_top`/`ledge_h`). Depth is now only a soft contact
+  shadow around the frame, the ledge's shadow, and a faint inner shadow on the
+  glass. Rain, reflections, city cross-fades and the daylight halo unchanged.
+- `concrete-wall/scene.ts`: `WINDOW_GRID` is just `cols`; `sillAnchor` puts the
+  jar on the new ledge's top face (keep in step with the shader constants).
+- `concrete-wall/concrete-wall.tsx`: CSS fallback window matches (black 6px
+  frame, mullion, soft inner shadow; no rails).
+- Verified at 1440x900 and 375x812 on site.localhost.
+
 ## 2026-10-17 — The buddy waters the money tree (click the plant, or every hour)
 
 Berto: "how amazing would it be if the agent grabbed the glass and watered the

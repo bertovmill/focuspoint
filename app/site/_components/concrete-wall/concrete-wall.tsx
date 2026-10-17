@@ -181,14 +181,14 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
           that cross-fades through the day. Only while the shader isn't up. */}
       {scene && !live && (
         <div
-          className="absolute overflow-hidden bg-[#9fb3c8] [--frame:#ebe7e0] dark:[--frame:#3d3b38]"
+          className="absolute overflow-hidden bg-[#9fb3c8] [--frame:#161617]"
           style={{
             left: `${(rect.x - rect.hw) * 100}%`,
             top: `${(rect.y - rect.hh) * 100}%`,
             width: `${rect.hw * 200}%`,
             height: `${rect.hh * 200}%`,
             boxShadow:
-              "0 0 0 10px var(--frame), 0 0 0 11px rgba(0,0,0,0.14), 0 0 0 34px rgba(0,0,0,0.06), 0 28px 34px -8px rgba(30,25,20,0.32)",
+              "0 0 0 6px var(--frame), 0 4px 10px 4px rgba(30,25,20,0.12)",
           }}
         >
           <Image src={CITY_VIEWS[0]} alt="" fill unoptimized className="object-cover" />
@@ -208,26 +208,16 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
             className="object-cover transition-opacity duration-1000"
             style={{ opacity: sky.night }}
           />
-          {/* Glazing bars and the meeting rail, as the shader draws them. */}
+          {/* The mullions, as the shader draws them. */}
           {Array.from({ length: WINDOW_GRID.cols - 1 }, (_, i) => (
             <div
               key={`col-${i}`}
-              className="absolute inset-y-0 w-[2%] -translate-x-1/2 bg-[var(--frame)]"
+              className="absolute inset-y-0 w-[4px] -translate-x-1/2 bg-[var(--frame)]"
               style={{ left: `${((i + 1) / WINDOW_GRID.cols) * 100}%` }}
             />
           ))}
-          {Array.from({ length: WINDOW_GRID.rowsPerSash * 2 - 1 }, (_, i) => (
-            <div
-              key={`row-${i}`}
-              className="absolute inset-x-0 -translate-y-1/2 bg-[var(--frame)]"
-              style={{
-                top: `${((i + 1) / (WINDOW_GRID.rowsPerSash * 2)) * 100}%`,
-                height: i + 1 === WINDOW_GRID.rowsPerSash ? "4%" : "2%",
-              }}
-            />
-          ))}
-          {/* The reveal's shadow on the glass, so it reads as set into the wall. */}
-          <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.25),inset_0_22px_30px_-12px_rgba(0,0,0,0.5),inset_14px_0_24px_-14px_rgba(0,0,0,0.35)]" />
+          {/* A faint inner shadow against the frame. */}
+          <div className="absolute inset-0 shadow-[inset_0_0_10px_rgba(0,0,0,0.18)]" />
         </div>
       )}
 

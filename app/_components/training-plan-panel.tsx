@@ -391,53 +391,87 @@ function TrainingWeek() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* The goal line is gone from the everyday view (Berto, 2026-10-16). */}
+      {/* Title, with one ⋯ menu for everything that isn't this week (Berto, 2026-10-17: as simple as possible). */}
       <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Training</h1>
-      </header>
-
-      {/* Races */}
-      <div className="flex flex-wrap items-center gap-2">
-        {upcoming.map((e) =>
-          editingEvent === e.id ? (
-            <EventForm key={e.id} initial={e} onSave={(n, d) => saveEvent(e.id, n, d)} onCancel={() => setEditingEvent(null)} onDelete={() => removeEvent(e.id)} />
-          ) : (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => setEditingEvent(e.id)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm",
-                daysUntil(e.event_date) <= 7 ? "border-rose-500/60 bg-rose-500/5 text-rose-600 dark:text-rose-400" : "text-foreground",
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">Training</h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="-mr-2 flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="More">
+                {filling || syncing ? <Spinner className="size-5" /> : <MoreHorizontalIcon className="size-5" />}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onSelect={() => setEditingEvent("new")}>
+                <FlagIcon /> Add race
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/training/workouts">
+                  <DumbbellIcon /> Workout bank
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/training/plan">
+                  <FileTextIcon /> Written plan
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/training/past">
+                  <ArchiveIcon /> Past programs
+                </Link>
+              </DropdownMenuItem>
+              {weekStart >= weekStartISO(today) && (
+                <DropdownMenuItem disabled={filling} onSelect={fillFromBank}>
+                  <CalendarRangeIcon /> Fill from bank
+                </DropdownMenuItem>
               )}
-              title={`${e.event_date}${e.notes ? ` — ${e.notes}` : ""} · tap to edit`}
-            >
-              <FlagIcon className="size-4" />
-              <span className="font-semibold">{e.name}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {daysUntil(e.event_date) === 0 ? "today" : `${daysUntil(e.event_date)} days`}
-              </span>
-            </button>
-          ),
-        )}
-        {editingEvent === "new" ? (
-          <EventForm onSave={(n, d) => saveEvent("new", n, d)} onCancel={() => setEditingEvent(null)} />
+              {watch.connected && (
+                <DropdownMenuItem disabled={syncing} onSelect={() => sync()}>
+                  <RefreshCwIcon /> Sync Fitbit
+                  {watch.last_synced_at && <span className="ml-auto text-xs text-muted-foreground">{new Date(watch.last_synced_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {/* Races read as one line ("Hyrox in 123 days"); tap one to edit it. */}
+        {editingEvent === null ? (
+          upcoming.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {upcoming.map((e) => {
+                const n = daysUntil(e.event_date);
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setEditingEvent(e.id)}
+                    className={cn("inline-flex items-center gap-1.5 text-base", n <= 7 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground hover:text-foreground")}
+                    title={`${e.event_date}${e.notes ? ` — ${e.notes}` : ""} · tap to edit`}
+                  >
+                    <FlagIcon className="size-4" />
+                    {e.name} {n === 0 ? "today" : `in ${n} day${n === 1 ? "" : "s"}`}
+                  </button>
+                );
+              })}
+            </div>
+          )
         ) : (
-          <button type="button" onClick={() => setEditingEvent("new")} className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-            <PlusIcon className="size-4" /> Race
-          </button>
+          <div className="pt-2">
+            <EventForm
+              key={String(editingEvent)}
+              initial={editingEvent === "new" ? undefined : upcoming.find((e) => e.id === editingEvent)}
+              onSave={(n, d) => saveEvent(editingEvent, n, d)}
+              onCancel={() => setEditingEvent(null)}
+              onDelete={editingEvent === "new" ? undefined : () => removeEvent(editingEvent)}
+            />
+          </div>
         )}
-      </div>
+      </header>
 
       {/* Today, front and centre. No frame of its own: the session card is the card. Desktop only: the phone's week strip below shows the selected day. */}
       {isCurrentWeek && (
-        <section className="hidden space-y-3 md:block">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Today · {shortDayLabel(today)}</p>
-            <Button variant="outline" className="h-10 gap-1.5 px-3 text-sm" onClick={() => router.push(newSessionHref(today))}>
-              <PlusIcon className="size-4" /> Add
-            </Button>
-          </div>
+        <section className="hidden max-w-xl space-y-3 md:block">
+          <p className="text-sm text-muted-foreground">Today</p>
           {todayRace && (
             <p className="flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
               <FlagIcon className="size-5" /> Race day: {todayRace.name}
@@ -448,7 +482,7 @@ function TrainingWeek() {
             <SortableContext items={todayList.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
                 {todayList.length === 0 && todayActs.length === 0 && !todayRace && (
-                  <p className="rounded-xl border border-dashed px-5 py-6 text-center text-base text-muted-foreground">Nothing planned today.</p>
+                  <p className="rounded-2xl bg-muted/50 px-5 py-6 text-center text-base text-muted-foreground">Nothing planned today.</p>
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
@@ -469,111 +503,58 @@ function TrainingWeek() {
               </div>
             </div>
           )}
+          <AddSessionLink date={today} />
         </section>
       )}
 
-      {/* Week controls — one line even on a 375px phone. */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="flex size-10 shrink-0 items-center sm:size-11 justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Previous week">
-            <ChevronLeftIcon className="size-5" />
+      {/* Week: small and quiet — the strip and the sessions are the page. */}
+      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-0.5">
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, -7))} className="-ml-2 flex size-9 items-center justify-center rounded-full hover:bg-muted hover:text-foreground" aria-label="Previous week">
+            <ChevronLeftIcon className="size-4" />
           </button>
-          <span className="whitespace-nowrap text-center text-sm font-medium tabular-nums sm:min-w-36 sm:text-base">{weekRangeLabel(weekStart)}</span>
-          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="flex size-10 shrink-0 items-center sm:size-11 justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="Next week">
-            <ChevronRightIcon className="size-5" />
+          <span className="whitespace-nowrap tabular-nums">{weekRangeLabel(weekStart)}</span>
+          <button type="button" onClick={() => setWeekStart((w) => addDaysISO(w, 7))} className="flex size-9 items-center justify-center rounded-full hover:bg-muted hover:text-foreground" aria-label="Next week">
+            <ChevronRightIcon className="size-4" />
           </button>
           {!isCurrentWeek && (
-            <Button variant="ghost" className="h-10 px-2 text-sm sm:h-11 sm:text-base" onClick={() => setWeekStart(weekStartISO(today))}>
+            <button type="button" onClick={() => setWeekStart(weekStartISO(today))} className="rounded-full px-2 py-1 hover:bg-muted hover:text-foreground">
               This week
-            </Button>
+            </button>
           )}
         </div>
-        <span className={cn("whitespace-nowrap text-sm font-medium tabular-nums sm:text-base", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-muted-foreground")}>
-          {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
+        <span className={cn("whitespace-nowrap tabular-nums", week.done >= week.planned && week.planned > 0 && "text-emerald-600")}>
+          {week.done} of {week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
-        {/* The bank and the watch live behind one ⋯ so the row reads week · progress (Berto, 2026-10-17). */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="ml-auto flex size-10 shrink-0 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground sm:size-11" aria-label="More">
-              {filling || syncing ? <Spinner className="size-5" /> : <MoreHorizontalIcon className="size-5" />}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem asChild>
-              <Link href="/training/workouts">
-                <DumbbellIcon /> Workout bank
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/training/plan">
-                <FileTextIcon /> Written plan
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/training/past">
-                <ArchiveIcon /> Past programs
-              </Link>
-            </DropdownMenuItem>
-            {weekStart >= weekStartISO(today) && (
-              <DropdownMenuItem disabled={filling} onSelect={fillFromBank}>
-                <CalendarRangeIcon /> Fill from bank
-              </DropdownMenuItem>
-            )}
-            {watch.connected && (
-              <DropdownMenuItem disabled={syncing} onSelect={() => sync()}>
-                <RefreshCwIcon /> Sync Fitbit
-                {watch.last_synced_at && <span className="ml-auto text-xs text-muted-foreground">{new Date(watch.last_synced_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
-
-      {/* Phone: a Runna-style week strip — tap a day, its sessions show underneath (step 1 of the training redesign, 2026-10-17). */}
-      <section className="space-y-4 md:hidden">
-        <div className="grid grid-cols-7 gap-1">
+      {/* Phone: a Runna-style week strip — no boxes; the selected day is a filled circle, a green dot means done (2026-10-17). */}
+      <section className="space-y-5 md:hidden">
+        <div className="grid grid-cols-7 text-center">
           {days.map((d) => {
             const list = (byDay.get(d) ?? []).filter((s) => s.type !== "rest");
             const isToday = d === today;
             const isSelected = d === selectedDay;
             const race = events.some((e) => e.event_date === d);
+            const allDone = list.length > 0 && list.every((s) => s.done);
             return (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setPickedDay(d)}
-                aria-label={shortDayLabel(d)}
-                aria-pressed={isSelected}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-xl border py-2",
-                  isSelected ? "border-foreground bg-foreground text-background" : "text-foreground",
-                  !isSelected && isToday && "border-foreground/50",
-                  !isSelected && race && "border-rose-500/60",
-                  !isSelected && d < today && "text-muted-foreground",
-                )}
-              >
-                <span className={cn("text-[11px] font-semibold uppercase", isSelected ? "text-background/70" : "text-muted-foreground")}>{weekdayLetter(d)}</span>
-                <span className="text-base font-semibold tabular-nums">{Number(d.slice(8))}</span>
-                <span className="flex h-1.5 items-center gap-0.5">
-                  {list.slice(0, 3).map((s) => (
-                    <span key={s.id} className={cn("size-1.5 rounded-full", s.done ? "bg-emerald-500" : isSelected ? "bg-background/70" : sessionMeta(s.type).color)} />
-                  ))}
+              <button key={d} type="button" onClick={() => setPickedDay(d)} aria-label={shortDayLabel(d)} aria-pressed={isSelected} className="flex flex-col items-center gap-1 py-1">
+                <span className="text-[11px] font-medium uppercase text-muted-foreground">{weekdayLetter(d)}</span>
+                <span
+                  className={cn(
+                    "flex size-9 items-center justify-center rounded-full text-base tabular-nums",
+                    isSelected ? "bg-foreground font-semibold text-background" : isToday ? "font-semibold text-foreground ring-1 ring-foreground/30" : d < today ? "text-muted-foreground" : "text-foreground",
+                  )}
+                >
+                  {Number(d.slice(8))}
                 </span>
+                <span className={cn("size-1.5 rounded-full", race ? "bg-rose-500" : list.length === 0 ? "bg-transparent" : allDone ? "bg-emerald-500" : "bg-muted-foreground/30")} />
               </button>
             );
           })}
         </div>
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {selectedDay === today ? "Today · " : ""}
-              {shortDayLabel(selectedDay)}
-            </p>
-            <Button variant="outline" className="h-10 gap-1.5 px-3 text-sm" onClick={() => router.push(newSessionHref(selectedDay))}>
-              <PlusIcon className="size-4" /> Add
-            </Button>
-          </div>
+          <p className="text-sm text-muted-foreground">{selectedDay === today ? "Today" : shortDayLabel(selectedDay)}</p>
           {selectedRace && (
             <p className="flex items-center gap-2 text-lg font-semibold text-rose-600 dark:text-rose-400">
               <FlagIcon className="size-5" /> {selectedDay === today ? "Race day" : "Race"}: {selectedRace.name}
@@ -583,11 +564,11 @@ function TrainingWeek() {
             <SortableContext items={selectedList.map((s) => s.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
                 {selectedList.length === 0 && selectedActs.length === 0 && !selectedRace && (
-                  <p className="rounded-xl border border-dashed px-5 py-6 text-center text-base text-muted-foreground">{selectedDay < today ? "Nothing logged." : "Nothing planned."}</p>
+                  <p className="rounded-2xl bg-muted/50 px-5 py-6 text-center text-base text-muted-foreground">{selectedDay < today ? "Nothing logged." : "Nothing planned."}</p>
                 )}
                 {selectedList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
+                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -603,6 +584,7 @@ function TrainingWeek() {
               </div>
             </div>
           )}
+          <AddSessionLink date={selectedDay} />
         </div>
       </section>
 
@@ -779,51 +761,43 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
       : null;
 
   if (big) {
-    // Today's hero: one plain card in the page's own style, the title first and biggest.
-    // Done is said once, by the filled check — no wash, no strikethrough — so the workout stays legible.
+    // The day's hero, Runna-style (Berto, 2026-10-17): one soft card, no borders — a meta line,
+    // the title, a round tick, then one dark button. Delete lives on the session page.
+    const metaLine = [meta.short, s.intensity === "hard" ? "hard" : null, targetLabel(s)].filter(Boolean).join(" · ");
     return (
-      <div className="group relative rounded-xl border">
-        <div className="flex items-start gap-4 p-5">
-          {!rest && (
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-label={s.done ? "Mark not done" : "Mark done"}
-              className={cn("flex size-9 shrink-0 items-center justify-center rounded-md border-2", s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}
-            >
-              {s.done && <CheckIcon className="size-6" />}
-            </button>
-          )}
+      <div className="rounded-2xl bg-muted/60 p-5 dark:bg-muted/40">
+        <div className="flex items-start gap-3">
           <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
-            <span className="block text-2xl font-semibold leading-snug tracking-tight">{s.title}</span>
-            <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
-                <span className="font-semibold uppercase tracking-wide">{meta.short}</span>
-              </span>
-              {s.intensity === "hard" && <span className="rounded-full border px-2 py-px text-xs font-medium">hard</span>}
-              {targetLabel(s) && <span className="tabular-nums">{targetLabel(s)}</span>}
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
+              <span className="tabular-nums">{metaLine}</span>
             </span>
+            <span className="mt-1 block text-xl font-semibold leading-snug tracking-tight">{s.title}</span>
             {s.notes && !template && <span className="mt-2 block text-base text-muted-foreground">{s.notes}</span>}
             {actuals && <span className="mt-2 block text-base tabular-nums text-emerald-700 dark:text-emerald-400">{actuals}</span>}
             {heart && <span className={cn("block text-base tabular-nums text-muted-foreground", !actuals && "mt-2")}>{heart}</span>}
             {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className="mt-2.5 h-2" />}
           </button>
-          {onDelete && (
+          {!rest && (
             <button
               type="button"
-              onClick={onDelete}
-              aria-label={`Remove ${s.title}`}
-              // Always there on a phone; on desktop it shows on hover.
-              className="-m-1 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              onClick={onToggle}
+              aria-label={s.done ? "Mark not done" : "Mark done"}
+              className={cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/30 text-transparent hover:border-muted-foreground/60",
+              )}
             >
-              <TrashIcon className="size-5" />
+              <CheckIcon className="size-5" />
             </button>
           )}
         </div>
         {template && (
-          <Link href={workoutHref(template.slug, s.session_date)} className="flex h-12 items-center justify-between rounded-b-xl border-t px-5 text-base font-medium hover:bg-muted/50">
-            {logLabel} <ChevronRightIcon className="size-5 text-muted-foreground" />
+          <Link
+            href={workoutHref(template.slug, s.session_date)}
+            className="mt-4 flex h-11 items-center justify-center rounded-lg bg-foreground text-base font-medium text-background hover:bg-foreground/90"
+          >
+            {logLabel}
           </Link>
         )}
       </div>
@@ -886,6 +860,15 @@ function PastPrograms() {
   return logs === null ? <Skeleton className="h-40 w-full" /> : <WorkoutChart logs={logs} />;
 }
 
+/** "+ Add session" under a day's cards — a quiet link, not another box. */
+function AddSessionLink({ date }: { date: string }) {
+  return (
+    <Link href={newSessionHref(date)} className="inline-flex items-center gap-1.5 text-base text-muted-foreground hover:text-foreground">
+      <PlusIcon className="size-4" /> Add session
+    </Link>
+  );
+}
+
 /** A page off the week view, in the workout bank's style: back to Training, then a title. */
 function SubPage({ title, blurb, children }: { title: string; blurb?: string; children: React.ReactNode }) {
   return (
@@ -927,27 +910,32 @@ function ActivityChip({ a, big }: { a: Activity; big?: boolean }) {
 function EventForm({ initial, onSave, onCancel, onDelete }: { initial?: TrainingEvent; onSave: (name: string, date: string) => void; onCancel: () => void; onDelete?: () => void }) {
   const [name, setName] = useState(initial?.name ?? "Hyrox");
   const [date, setDate] = useState(initial?.event_date ?? "");
+  // A soft card like the session cards, stacked on a phone so nothing runs off the edge.
   return (
     <form
-      className="inline-flex items-center gap-1"
+      className="space-y-3 rounded-2xl bg-muted/60 p-4 dark:bg-muted/40"
       onSubmit={(e) => {
         e.preventDefault();
         if (name.trim() && date) onSave(name.trim(), date);
       }}
     >
-      <Input autoFocus className="h-10 w-36 text-base" value={name} onChange={(e) => setName(e.target.value)} placeholder="Race" />
-      <Input type="date" className="h-10 w-40 text-base" value={date} onChange={(e) => setDate(e.target.value)} />
-      <Button type="submit" size="sm" className="h-10 text-base" disabled={!name.trim() || !date}>
-        Save
-      </Button>
-      <Button type="button" size="sm" variant="ghost" className="h-10 text-base" onClick={onCancel}>
-        Cancel
-      </Button>
-      {onDelete && (
-        <button type="button" onClick={onDelete} className="tap-target rounded p-1 text-muted-foreground hover:text-destructive" aria-label="Remove race">
-          <TrashIcon className="size-3.5" />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input autoFocus className="h-11 bg-background text-base" value={name} onChange={(e) => setName(e.target.value)} placeholder="Race" aria-label="Race name" />
+        <Input type="date" className="h-11 bg-background text-base" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Race date" />
+      </div>
+      <div className="flex items-center gap-2">
+        {onDelete && (
+          <button type="button" onClick={onDelete} className="text-sm text-muted-foreground hover:text-destructive">
+            Remove race
+          </button>
+        )}
+        <Button type="button" variant="ghost" className="ml-auto h-10 text-base" onClick={onCancel}>
+          Cancel
+        </Button>
+        <button type="submit" disabled={!name.trim() || !date} className="h-10 rounded-lg bg-foreground px-5 text-base font-medium text-background hover:bg-foreground/90 disabled:opacity-40">
+          Save
         </button>
-      )}
+      </div>
     </form>
   );
 }

@@ -4,6 +4,28 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Public Cael speaks in Berto's spirit, from an approved persona
+
+Berto wanted the bertomill.com chat to carry his personality and values, drawn
+from his notes, without ever disclosing the notes, and with a more formal presence.
+
+- Decided with Berto: notes are distilled into a persona profile he reviews and
+  approves; only the approved text reaches the public prompt (raw notes never do,
+  so prompt-injection can't leak them). Cael speaks *about* Berto in the third
+  person. Only notes tagged `persona` feed it. Review lives on its own page, /persona.
+- `lib/persona.ts`: draft/approved docs in `app_settings` (`persona.draft.markdown`,
+  `persona.approved.markdown`); `generatePersonaDraft()` distills tagged notes with
+  `anthropic/claude-sonnet-4.6` under strict rules (no quotes, names, dates, money,
+  health, family, anecdotes). Tested on sample notes: values kept, private detail dropped.
+- `app/api/persona/*`: status + unpublish, draft (MarkdownDoc endpoint), generate, approve.
+- `app/_components/persona-panel.tsx` + `/persona` route, nav rail, More tab, command palette.
+- `app/api/site/chat/route.ts`: loads the approved persona into a "Berto's character"
+  section; voice is now composed and professional, third person, no slang or emoji.
+  With no approved persona the chat behaves as before (plus the new voice).
+- Next: tag a few notes `persona`, Generate, edit, Approve, then try the site chat.
+
+---
+
 ## 2026-10-17 — Corner chat sends the text on screen, so Cael sees what Berto sees
 
 Berto wanted Cael to have the same view of the page as him. Before, only pages

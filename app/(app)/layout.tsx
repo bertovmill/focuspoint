@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon, UserRoundIcon } from "lucide-react";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
@@ -40,11 +40,12 @@ const NewsletterPanel = dynamic(() => import("@/app/_components/newsletter-panel
 const WeekPlanPanel = dynamic(() => import("@/app/_components/week-plan-panel").then((m) => m.WeekPlanPanel), { ssr: false });
 const TrainingPlanPanel = dynamic(() => import("@/app/_components/training-plan-panel").then((m) => m.TrainingPlanPanel), { ssr: false });
 const CareerPanel = dynamic(() => import("@/app/_components/career-panel").then((m) => m.CareerPanel), { ssr: false });
+const PersonaPanel = dynamic(() => import("@/app/_components/persona-panel").then((m) => m.PersonaPanel), { ssr: false });
 const WritingPanel = dynamic(() => import("@/app/_components/writing-panel").then((m) => m.WritingPanel), { ssr: false });
 const Dashboard = dynamic(() => import("@/app/_components/dashboard").then((m) => m.Dashboard), { ssr: false });
 const PinView = dynamic(() => import("@/app/_components/pin-view").then((m) => m.PinView), { ssr: false });
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing" | "persona";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -70,6 +71,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   training: "/training",
   career: "/career",
   writing: "/writing",
+  persona: "/persona",
 };
 
 // How the corner chat names the page Berto is on, in its header and to Cael.
@@ -94,13 +96,14 @@ const SECTION_LABELS: Record<MobileTab, string> = {
   training: "Training",
   career: "Career",
   writing: "Writing",
+  persona: "Persona",
 };
 
 const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat, Notes, Writing, Sketches, Training, Meals and Career (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30). Every other
+// The nav shows only Home, Chat, Notes, Writing, Sketches, Training, Meals, Career and Persona (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30; Persona 2026-10-17). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more. On the phone the bar holds five slots
 // (Berto, 2026-09-30): the first four tabs plus "More", which opens the rest.
@@ -110,6 +113,7 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
   { tab: "career", label: "Career", icon: BriefcaseIcon },
+  { tab: "persona", label: "Persona", icon: UserRoundIcon },
 ];
 
 // The selected state is one element that travels between items rather than a
@@ -127,6 +131,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "training", label: "Training", icon: DumbbellIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
   { tab: "career", label: "Career", icon: BriefcaseIcon },
+  { tab: "persona", label: "Persona", icon: UserRoundIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -553,6 +558,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             </div>
           ) : mobileTab === "writing" ? (
             <WritingPanel />
+          ) : mobileTab === "persona" ? (
+            <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
+              <PersonaPanel />
+            </div>
           ) : mobileTab === "career" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <CareerPanel />

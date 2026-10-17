@@ -29,6 +29,22 @@ const DRY_MS = 9000;
 type Stream = { x: number; y: number; height: number };
 
 /**
+ * The buddy's watering errand, told to this layer by hero-agents.tsx:
+ * `held` — the jar rides in its raised arms (positions come as `buddy:hold`
+ * events, hero pixels of the jar's base); `pour` — tip it over the pot;
+ * `home` — back on the sill. `desk:water` goes the other way: a click on the
+ * plant asks for a drink.
+ */
+export type JarErrandEvent = { state: "held" | "pour" | "home" };
+export type JarHoldEvent = { x: number; y: number };
+
+/** How long the jar takes to float up from the sill into the buddy's arms. */
+const LIFT_MS = 650;
+/** A click on the plant, not a drag: moved less than this, released sooner than that. */
+const CLICK_PX = 5;
+const CLICK_MS = 450;
+
+/**
  * The things on the desk and the sill you can touch. Sits over the hero,
  * full-bleed like the wall, and only the plant and the jar take the pointer.
  *
@@ -41,6 +57,8 @@ type Stream = { x: number; y: number; height: number };
  *   the sill, via `sillAnchor`). Pick it up and hold it over the pot: it
  *   tips, water runs into the soil, the soil darkens and the plant perks up.
  *   Let go anywhere and it goes back to the sill.
+ * - Click the plant (or wait for the top of the hour) and the buddy fetches
+ *   the jar, carries it over, waters the plant and puts the jar back.
  *
  * The plant is lit like the desk: dimmer after dark and under cloud.
  */
@@ -81,12 +99,17 @@ export function DeskScene() {
   // The plant's turn, in degrees, and whether a finger is on it.
   const [turn, setTurn] = useState(0);
   const [holdingPlant, setHoldingPlant] = useState(false);
-  const plantDrag = useRef<{ x: number; from: number } | null>(null);
+  const plantDrag = useRef<{ x: number; y: number; from: number; at: number } | null>(null);
 
   // The jar's offset from its spot on the sill, in pixels.
   const [jarOffset, setJarOffset] = useState({ x: 0, y: 0 });
   const [holdingJar, setHoldingJar] = useState(false);
   const jarDrag = useRef<{ x: number; y: number; fromX: number; fromY: number } | null>(null);
+  // The buddy has the jar: no dragging, and it glides only while being lifted.
+  const [errand, setErrand] = useState<JarErrandEvent["state"] | null>(null);
+  const [lifting, setLifting] = useState(false);
+  const liftTimer = useRef<number | undefined>(undefined);
+  const pourTimer = useRef<number | undefined>(undefined);
   // The water going into the pot, in layer pixels, while it is.
   const [stream, setStream] = useState<Stream | null>(null);
   const [wet, setWet] = useState(false);
@@ -97,6 +120,8 @@ export function DeskScene() {
     () => () => {
       window.clearTimeout(drinkTimer.current);
       window.clearTimeout(dryTimer.current);
+      window.clearTimeout(liftTimer.current);
+      window.clearTimeout(pourTimer.current);
     },
     [],
   );
@@ -113,7 +138,7 @@ export function DeskScene() {
 
   const onPlantDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     capture(e);
-    plantDrag.current = { x: e.clientX, from: turn };
+    plantDrag.current = { x: e.clientX, y: e.clientY, from: turn, at: performance.now() };
     setHoldingPlant(true);
   };
   const onPlantMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -121,7 +146,16 @@ export function DeskScene() {
     if (!drag) return;
     setTurn(clamp(drag.from + (e.clientX - drag.x) * TURN_PER_PX, -MAX_TURN, MAX_TURN));
   };
-  const onPlantUp = () => {
+  const onPlantUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = plantDrag.current;
+    if (
+      e.type === "pointerup" &&
+      drag &&
+      Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < CLICK_PX &&
+      performance.now() - drag.at < CLICK_MS
+    ) {
+      window.dispatchEvent(new Event("desk:water"));
+    }
     plantDrag.current = null;
     setHoldingPlant(false);
     setTurn(0);
@@ -155,16 +189,85 @@ export function DeskScene() {
     setJarOffset(next);
     const pouring = streamFor(next);
     setStream(pouring);
-    if (pouring) {
-      setWet(true);
-      window.clearTimeout(dryTimer.current);
-      if (!drinking) {
-        setDrinking(true);
-        window.clearTimeout(drinkTimer.current);
-        drinkTimer.current = window.setTimeout(() => setDrinking(false), DRINK_MS);
-      }
+    if (pouring) drink();
+  };
+
+  /** Water is reaching the soil: darken it and let the plant perk up. */
+  const drink = () => {
+    setWet(true);
+    window.clearTimeout(dryTimer.current);
+    if (!drinking) {
+      setDrinking(true);
+      window.clearTimeout(drinkTimer.current);
+      drinkTimer.current = window.setTimeout(() => setDrinking(false), DRINK_MS);
     }
   };
+
+  // The buddy's errand. Kept in refs so the window listeners bind once.
+  const errandRef = useRef(errand);
+  errandRef.current = errand;
+  const geometry = useRef({ jarLeft, jarTop, jarW, jarH });
+  geometry.current = { jarLeft, jarTop, jarW, jarH };
+  const streamForRef = useRef(streamFor);
+  streamForRef.current = streamFor;
+  const drinkRef = useRef(drink);
+  drinkRef.current = drink;
+  useEffect(() => {
+    const onHold = (e: Event) => {
+      if (errandRef.current !== "held") return;
+      const { x, y } = (e as CustomEvent<JarHoldEvent>).detail;
+      const g = geometry.current;
+      // The upright jar's base, centred in the buddy's hands.
+      setJarOffset({ x: x - (g.jarLeft + (JAR_ART.upright.aspect * g.jarH) / 2), y: y - (g.jarTop + g.jarH) });
+    };
+    const onErrand = (e: Event) => {
+      const { state } = (e as CustomEvent<JarErrandEvent>).detail;
+      window.clearTimeout(pourTimer.current);
+      setErrand(state === "home" ? null : state);
+      if (state === "held") {
+        setStream(null);
+        // Float up off the sill (or back upright from pouring), then follow the hands exactly.
+        setLifting(true);
+        window.clearTimeout(liftTimer.current);
+        liftTimer.current = window.setTimeout(() => setLifting(false), LIFT_MS);
+      } else if (state === "pour") {
+        const root = rootRef.current;
+        const plant = plantRef.current;
+        if (!root || !plant) return;
+        const r = root.getBoundingClientRect();
+        const p = plant.getBoundingClientRect();
+        const g = geometry.current;
+        const potX = p.left - r.left + p.width * PLANT_ART.pot.x;
+        const potTop = p.top - r.top + p.height * PLANT_ART.pot.top;
+        const potR = p.width * PLANT_ART.pot.r;
+        // Mouth over the near side of the pot (close to the buddy's hands), a jar's height above the soil.
+        const offset = {
+          x: potX - potR * 0.45 - (g.jarLeft + g.jarW * JAR_ART.pouring.mouth.x),
+          y: potTop - g.jarH * 0.95 - (g.jarTop + g.jarH * JAR_ART.pouring.mouth.y),
+        };
+        setLifting(true);
+        setJarOffset(offset);
+        pourTimer.current = window.setTimeout(() => {
+          setLifting(false);
+          const pouring = streamForRef.current(offset);
+          setStream(pouring);
+          if (pouring) drinkRef.current();
+        }, LIFT_MS);
+      } else {
+        setLifting(false);
+        setStream(null);
+        setJarOffset({ x: 0, y: 0 });
+        window.clearTimeout(dryTimer.current);
+        dryTimer.current = window.setTimeout(() => setWet(false), DRY_MS);
+      }
+    };
+    window.addEventListener("buddy:hold", onHold);
+    window.addEventListener("desk:jar", onErrand);
+    return () => {
+      window.removeEventListener("buddy:hold", onHold);
+      window.removeEventListener("desk:jar", onErrand);
+    };
+  }, []);
   const onJarUp = () => {
     jarDrag.current = null;
     setHoldingJar(false);
@@ -223,6 +326,16 @@ export function DeskScene() {
                 "drop-shadow(18px 22px 24px var(--desk-shadow)) brightness(calc(var(--desk-light) * var(--desk-dim))) saturate(var(--desk-tone))",
             }}
           />
+          {/* Where the buddy stands to pour: the pot's opening. */}
+          <div
+            data-desk-pot
+            className="absolute h-px"
+            style={{
+              left: `${((PLANT_ART.pot.x - PLANT_ART.pot.r) * 100).toFixed(2)}%`,
+              width: `${(PLANT_ART.pot.r * 2 * 100).toFixed(2)}%`,
+              top: `${(PLANT_ART.pot.top * 100).toFixed(2)}%`,
+            }}
+          />
           {/* Wet soil at the top of the pot. */}
           <div
             className="absolute rounded-[50%]"
@@ -266,14 +379,18 @@ export function DeskScene() {
 
       {/* The jar on the sill. */}
       <div
-        className="pointer-events-auto absolute cursor-grab touch-none active:cursor-grabbing"
+        data-desk-jar
+        className={cn(
+          "absolute touch-none",
+          errand ? "pointer-events-none" : "pointer-events-auto cursor-grab active:cursor-grabbing",
+        )}
         style={{
           left: jarLeft,
           top: jarTop,
           width: jarW,
           height: jarH,
           transform: `translate(${jarOffset.x}px, ${jarOffset.y}px)`,
-          transition: holdingJar ? "none" : glide,
+          transition: holdingJar || (errand && !lifting) ? "none" : glide,
           filter: "drop-shadow(6px 8px 8px rgba(35, 28, 20, 0.28))",
         }}
         onPointerDown={onJarDown}
@@ -289,7 +406,7 @@ export function DeskScene() {
           draggable={false}
           sizes="10vw"
           className="absolute bottom-0 left-0 h-full w-auto transition-opacity duration-150"
-          style={{ opacity: stream ? 0 : 1 }}
+          style={{ opacity: stream || errand === "pour" ? 0 : 1 }}
         />
         <Image
           src={JAR_ART.pouring.src}
@@ -299,7 +416,7 @@ export function DeskScene() {
           draggable={false}
           sizes="10vw"
           className="absolute bottom-0 left-0 h-full w-auto transition-opacity duration-150"
-          style={{ opacity: stream ? 1 : 0 }}
+          style={{ opacity: stream || errand === "pour" ? 1 : 0 }}
         />
       </div>
     </div>

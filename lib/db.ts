@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 
 export function getDb() {
@@ -6,7 +7,47 @@ export function getDb() {
   return neon(url);
 }
 
-export async function ensureSchema() {
+/**
+ * Make sure every table exists, cheaply.
+ *
+ * `applySchema` below is ~110 sequential statements, so running it on every cold
+ * start (and on every request in the routes that call this) was slow, and one
+ * dropped connection mid-way crashed the instance. Instead it runs once per
+ * schema version: the version is a hash of `applySchema`'s own code, stored in
+ * `schema_meta`, so editing the schema and deploying re-applies it and nothing
+ * else does. Within one process the check itself happens only once.
+ */
+let ensured: Promise<void> | null = null;
+
+export function ensureSchema(): Promise<void> {
+  ensured ??= ensureSchemaOnce().catch((err) => {
+    ensured = null; // let the next caller try again
+    throw err;
+  });
+  return ensured;
+}
+
+const SCHEMA_VERSION = createHash("sha256").update(applySchema.toString()).digest("hex").slice(0, 16);
+
+async function ensureSchemaOnce() {
+  const sql = getDb();
+  await sql`
+    CREATE TABLE IF NOT EXISTS schema_meta (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      version TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  const [row] = await sql`SELECT version FROM schema_meta WHERE id = 1`;
+  if (row?.version === SCHEMA_VERSION) return;
+  await applySchema();
+  await sql`
+    INSERT INTO schema_meta (id, version) VALUES (1, ${SCHEMA_VERSION})
+    ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, applied_at = NOW()
+  `;
+}
+
+async function applySchema() {
   const sql = getDb();
   await sql`CREATE EXTENSION IF NOT EXISTS vector`;
   await sql`

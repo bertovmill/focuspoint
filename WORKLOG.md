@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Schema check runs once per version, and can't crash a boot
+
+Berto recreated the Neon database from scratch. Cael rebuilt its tables on boot, but
+`ensureSchema()` ran ~110 sequential statements on every cold start (and on every
+request in 10 routes/tools), and a single dropped connection during it crashed the
+instance (`instrumentation hook` errors, exit 128).
+
+- `lib/db.ts`: the statements are now `applySchema()`. `ensureSchema()` is a wrapper that
+  hashes `applySchema`'s source into `SCHEMA_VERSION`, compares it with `schema_meta`,
+  and only re-applies when it differs (i.e. after a schema edit is deployed). Memoized
+  per process; a failure clears the memo so the next caller retries. Callers unchanged.
+- `instrumentation.ts`: a failed check is logged instead of thrown, so boot continues.
+- Measured against the local DB: cold start 7.8s → 0.26s once the version is recorded.
+
+---
+
 ## 2026-10-17 — Newsletter signup under the homepage headline
 
 Berto wants the site to build an owned audience (founder path), so the Kit signup now

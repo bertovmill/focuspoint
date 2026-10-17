@@ -11737,3 +11737,16 @@ Berto said resizing felt laggy. There were three causes:
 3. The `backdrop-blur` was re-blurred every frame. It's dropped while resizing (`data-resizing`).
 The thread is also memoized (`useMemo` on messages), so typing in the box doesn't re-render it.
 Verified: height tracks the pointer 1:1 during the drag.
+
+## 2026-10-17 — Writing page: Medium posts with covers
+
+/writing now lists Berto's Medium posts alongside his own articles and Substack.
+`lib/medium.ts` reads https://medium.com/feed/@bertomill (hourly cache, browser-ish
+user agent, an empty list if it's down). It takes each post's first image as the cover
+(at 480 px) and the first real paragraph as the summary, and strips `?source=rss` from
+links. Rows are tagged "· Medium" and show the cover thumbnail. A post cross-posted
+under the same title appears once. `next.config.ts` allows cdn-images-1.medium.com and
+miro.medium.com for next/image.
+Limit: Medium's feed only carries the latest 10 posts, so older ones drop off as new
+ones arrive. Medium tags are skipped (they're noisy slugs).
+Verified on site.localhost:3017: 10 Medium rows, all 10 covers load.

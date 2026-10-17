@@ -28,7 +28,12 @@ const nextConfig: NextConfig = {
     // 1024px PNGs of ~1.5 MB and they render at 24–44px (thumbnails) or a card
     // width, so they go through the image optimizer rather than down the wire
     // whole.
-    remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+      // Medium post covers on the writing index.
+      { protocol: "https", hostname: "cdn-images-1.medium.com" },
+      { protocol: "https", hostname: "miro.medium.com" },
+    ],
   },
 };
 

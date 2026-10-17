@@ -3,15 +3,16 @@ import { ArrowRightIcon } from "lucide-react";
 import Image from "next/image";
 import { formatDate } from "@/lib/content";
 import { listPublishedPosts } from "@/lib/posts";
+import { listMediumPosts } from "@/lib/medium";
 import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "../_components/site-link";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
 // Short, so a post Cael publishes shows up within a minute. The Substack feed
-// keeps its own hour-long fetch cache underneath.
+// and Medium feeds keep their own hour-long fetch caches underneath.
 export const revalidate = 60;
 
-/** One row on the index: an article on this site, or a Substack post that links out. */
+/** One row on the index: an article on this site, or a Substack or Medium post that links out. */
 interface IndexEntry {
   key: string;
   title: string;
@@ -21,7 +22,7 @@ interface IndexEntry {
   tags: string[];
   readingMinutes: number;
   coverUrl: string | null;
-  source: "site" | "substack";
+  source: "site" | "substack" | "medium";
 }
 
 export const metadata: Metadata = {
@@ -31,7 +32,11 @@ export const metadata: Metadata = {
 };
 
 export default async function WritingIndexPage() {
-  const [own, substack] = await Promise.all([listPublishedPosts(), listSubstackPosts()]);
+  const [own, substack, medium] = await Promise.all([
+    listPublishedPosts(),
+    listSubstackPosts(),
+    listMediumPosts(),
+  ]);
   const posts: IndexEntry[] = [
     ...own.map((p) => ({
       key: `site:${p.slug}`,
@@ -55,7 +60,24 @@ export default async function WritingIndexPage() {
       coverUrl: null,
       source: "substack" as const,
     })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
+    ...medium.map((p) => ({
+      key: `medium:${p.url}`,
+      title: p.title,
+      href: p.url,
+      date: p.date,
+      summary: p.summary,
+      tags: [] as string[],
+      readingMinutes: p.readingMinutes,
+      coverUrl: p.coverUrl,
+      source: "medium" as const,
+    })),
+  ]
+    // A post cross-posted to Medium shows once, as the version listed first above.
+    .filter(
+      (post, i, all) =>
+        all.findIndex((other) => sameTitle(other.title, post.title)) === i,
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="mx-auto max-w-3xl px-6">
@@ -70,7 +92,7 @@ export default async function WritingIndexPage() {
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             Notes on building AI agents, shipping software, and what it&apos;s
             actually like to hand parts of your life to one. Some of it lives
-            here, some on Substack.
+            here, some on Substack and Medium.
           </p>
           <SiteLink
             href="/newsletter"
@@ -106,8 +128,11 @@ export default async function WritingIndexPage() {
                     )}
                     <p className="mt-3 font-mono text-xs text-muted-foreground">
                       {post.readingMinutes} min read
-                      {post.tags.length > 0 ? ` · ${post.tags.join(" · ")}` : ""}
+                      {post.tags.length > 0
+                        ? ` · ${post.tags.join(" · ")}`
+                        : ""}
                       {post.source === "substack" ? " · Substack" : ""}
+                      {post.source === "medium" ? " · Medium" : ""}
                     </p>
                   </div>
                   {post.coverUrl && (
@@ -128,4 +153,14 @@ export default async function WritingIndexPage() {
       </section>
     </div>
   );
+}
+
+/** Titles match when they're the same words, ignoring case, quotes and punctuation. */
+function sameTitle(a: string, b: string): boolean {
+  const norm = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  return norm(a) === norm(b);
 }

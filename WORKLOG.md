@@ -11672,3 +11672,13 @@ shrug (error), a curious sway while it thinks, and eyes that follow the pointer.
 - The GLB models and the `.glb` public-asset allowance are removed.
 - Verified on site.localhost:3017: Ask AI opened the bubble (the panel stayed shut),
   and "How's his HYROX going?" answered from the live /fitness page.
+
+## 2026-10-17 (later) — Buddy chat bubble is resizable
+
+Berto wanted the buddy's chat bubble resizable. There are grips in both top corners
+(only the right one on phones, height only). It's anchored at the bottom above the
+buddy's head, so dragging up makes it taller and dragging sideways widens it on both
+sides, keeping it centred over the buddy. Clamped to 300–760 px wide and 240 px up to
+just under the nav. Arrow keys resize too (Shift for bigger steps); double-click
+resets. The size is remembered in localStorage (`buddy-chat-size`).
+File: `app/site/_components/hero-agents/agent-card.tsx`.

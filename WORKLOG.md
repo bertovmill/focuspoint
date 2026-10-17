@@ -11854,3 +11854,9 @@ where people signed up.
 /podcast now has the same sign-up as the homepage and /writing under its intro: the
 "Get what I'm learning building AI, by email" label plus `SubscribeForm` with
 `source="podcast"`.
+
+## 2026-10-17 — Fitness page: inline subscribe
+
+/fitness now has the same sign-up as the homepage, /writing and /podcast, under the
+"Fitness" title in the hero's left column: the "Get what I'm learning building AI, by
+email" label plus `SubscribeForm` with `source="fitness"`.

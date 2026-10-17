@@ -3,6 +3,7 @@ import { ArrowUpRightIcon } from "lucide-react";
 import { RevealOnView } from "../_components/reveal-on-view";
 import { AnimatedHeading } from "../_components/animated-heading";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
+import { SubscribeForm } from "../_components/subscribe-form";
 import {
   HYROX_RESULTS,
   HYROX_STATIONS,
@@ -59,7 +60,16 @@ export default function FitnessPage() {
           className="mx-auto max-w-6xl py-16 sm:py-24"
         >
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
-            <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">Fitness</h1>
+            <div>
+              <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">Fitness</h1>
+              {/* The same sign-up as the homepage hero, /writing and /podcast. */}
+              <div id="fitness-newsletter" className="mt-8 max-w-md">
+                <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/60">
+                  Get what I&apos;m learning building AI, by email
+                </p>
+                <SubscribeForm source="fitness" />
+              </div>
+            </div>
             <AnimatedHeading
               as="p"
               className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"

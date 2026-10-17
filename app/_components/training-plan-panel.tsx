@@ -13,11 +13,15 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FlagIcon,
+  MinusIcon,
   MoreHorizontalIcon,
   PlusIcon,
   RefreshCwIcon,
   TrashIcon,
+  TrendingDownIcon,
+  TrendingUpIcon,
 } from "lucide-react";
+import type { WeeklyProgress } from "@/lib/progress";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -660,6 +664,9 @@ function TrainingWeek() {
         </DragOverlay>
       </DndContext>
 
+      {/* How much better this week's sets are than last time (Berto, 2026-10-17). Under the workouts on both sizes. */}
+      <WeeklyProgressLine />
+
 
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent>
@@ -883,6 +890,69 @@ function PastPrograms() {
     fetch("/api/workouts").then((r) => r.json()).then(setLogs).catch(() => setLogs([]));
   }, []);
   return logs === null ? <Skeleton className="h-40 w-full" /> : <WorkoutChart logs={logs} />;
+}
+
+/**
+ * "You've gotten X% better this week": every exercise logged in the past 7 days against the
+ * last time that workout was done — volume for rep sets, faster for timed ones, averaged
+ * (lib/progress.ts). Tap for the per-exercise list.
+ */
+function WeeklyProgressLine() {
+  const [data, setData] = useState<WeeklyProgress | null>(null);
+  useEffect(() => {
+    fetch(`/api/training/progress?today=${todayISO()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setData)
+      .catch(() => setData(null));
+  }, []);
+  if (!data) return null;
+  if (data.change === null) {
+    return <p className="max-w-xl text-sm text-muted-foreground">Repeat a workout this week to see how much better you’re getting.</p>;
+  }
+  const pct = Math.abs(data.change * 100).toFixed(1);
+  const up = data.change >= 0.0005;
+  const down = data.change <= -0.0005;
+  const headline = up ? `You’ve gotten ${pct}% better this week` : down ? `You’re ${pct}% down this week` : "Holding steady this week";
+  const n = data.items.length;
+  return (
+    <details className="group max-w-xl rounded-2xl bg-muted/60 p-4 dark:bg-muted/40">
+      <summary className="flex cursor-pointer list-none items-center gap-3">
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            up ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : down ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {up ? <TrendingUpIcon className="size-5" /> : down ? <TrendingDownIcon className="size-5" /> : <MinusIcon className="size-5" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold">{headline}</span>
+          <span className="block text-sm text-muted-foreground">
+            {n} exercise{n === 1 ? "" : "s"} vs last time
+          </span>
+        </span>
+        <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+      </summary>
+      <ul className="mt-3 divide-y divide-foreground/5">
+        {data.items.map((i) => (
+          <li key={`${i.template}|${i.exercise}`} className="flex flex-col gap-0.5 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+            <span className="min-w-0">
+              <span className="font-medium">{i.name}</span> <span className="text-muted-foreground">· {i.workout}</span>
+            </span>
+            <span className="shrink-0 tabular-nums">
+              <span className="text-muted-foreground">
+                {i.before} → {i.now}
+              </span>{" "}
+              <span className={cn("font-medium", i.change > 0 ? "text-emerald-700 dark:text-emerald-400" : i.change < 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")}>
+                {i.change >= 0 ? "+" : "−"}
+                {Math.abs(i.change * 100).toFixed(1)}%
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
 /** "+ Add session" under a day's cards — a quiet link, not another box. */

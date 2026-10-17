@@ -65,6 +65,16 @@ export async function getStrengthLogs(template: string): Promise<StrengthLog[]> 
   return rows.map((r) => shape(r as Record<string, unknown>));
 }
 
+/** Every logged set across all workouts, oldest first — for the weekly progress line. */
+export async function getAllStrengthLogs(): Promise<StrengthLog[]> {
+  await ensureTable();
+  const rows = await getDb()`
+    SELECT template, to_char(log_date, 'YYYY-MM-DD') AS log_date, exercise, weight, amount, target_reps, next_target, reps
+    FROM strength_logs ORDER BY log_date ASC, template ASC, exercise ASC
+  `;
+  return rows.map((r) => shape(r as Record<string, unknown>));
+}
+
 /**
  * Everything the session page needs: the day's logged rows, what each exercise
  * should aim for (from the last session before this date), and the full history

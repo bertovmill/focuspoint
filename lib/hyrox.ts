@@ -64,6 +64,31 @@ export type HyroxUpcoming = {
 /** Newest first. */
 export const HYROX_RESULTS: readonly HyroxResult[] = [
   {
+    slug: "hyrox-toronto-2026",
+    event: "HYROX Toronto 2026",
+    date: "2026-10-02",
+    division: "Solo, Pro division",
+    ageGroup: "25–29",
+    total: "1:07:12",
+    rank: 32,
+    fieldSize: 404,
+    fieldLabel: "pro men",
+    runTotal: "33:21",
+    roxzone: "3:22",
+    splits: [
+      { run: "3:57", station: "4:03", stationRank: 11 },
+      { run: "3:42", station: "3:18", stationRank: 73 },
+      { run: "4:16", station: "3:36", stationRank: 13 },
+      { run: "4:30", station: "3:06", stationRank: 24 },
+      { run: "4:35", station: "4:05", stationRank: 11 },
+      { run: "4:24", station: "1:46", stationRank: 109 },
+      { run: "4:16", station: "3:02", stationRank: 5 },
+      { run: "3:44", station: "7:38", stationRank: 199 },
+    ],
+    resultUrl:
+      "https://results.hyrox.com/season-9/?content=detail&idp=LR3MS4JI595F55&event=HPRO_LR3MS4JI189F&lang=EN_CAP",
+  },
+  {
     slug: "hyrox-ottawa-2026",
     event: "HYROX Ottawa 2026",
     date: "2026-05-16",
@@ -118,17 +143,7 @@ export const HYROX_RESULTS: readonly HyroxResult[] = [
 ];
 
 /** Races Berto is entered in. Soonest first. */
-export const HYROX_UPCOMING: readonly HyroxUpcoming[] = [
-  {
-    slug: "hyrox-toronto-2026",
-    event: "HYROX Toronto 2026",
-    date: "2026-10-02",
-    division: "Solo, Pro division",
-    ageGroup: "25–29",
-    resultUrl:
-      "https://results.hyrox.com/season-9/?content=detail&idp=LR3MS4JI595F55&event=HPRO_LR3MS4JI189F&lang=EN_CAP",
-  },
-];
+export const HYROX_UPCOMING: readonly HyroxUpcoming[] = [];
 
 /** "55:20" or "1:02:10" → seconds. */
 export function hyroxSeconds(time: string): number {

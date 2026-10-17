@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — HYROX Toronto 2026 result on /fitness
+
+Berto said the Toronto 2026 race wasn't showing (he thought it was entered as
+"Berto Myll"). Searched every Toronto 2026 and 2025 division for "Myll": none.
+The result is on the official site as "Mill, Berto" at the URL already saved,
+the page just still had it under "Up next".
+
+- `lib/hyrox.ts`: added the Pro solo result (1:07:12, 32nd of 404 pro men, 6th
+  in 25–29, full splits) and emptied HYROX_UPCOMING.
+- Side effect: `paceSuggestions()` intervals now use Toronto 2026 run splits
+  (HYROX_RESULTS[0]).
+
+---
+
 ## 2026-10-17 — Tag notes from the note itself, or by asking Cael
 
 Berto asked how to tag a note for the persona; there was no way to (tags only

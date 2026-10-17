@@ -13,7 +13,7 @@ import { deskLayoutVars } from "./_components/concrete-wall/scene";
 import { DeskScene } from "./_components/concrete-wall/desk-scene";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
 import { SubscribeForm } from "./_components/subscribe-form";
-import { LiquidMoments } from "./_components/liquid-moments";
+import { MomentsCarousel } from "./_components/moments-carousel";
 
 // Display type: Geist (from the root layout) at semibold with tight tracking and a
 // soft ink instead of a heavy weight in pure black. Calm and current, not shouty.
@@ -135,7 +135,7 @@ export default async function SiteHomePage() {
   const latestEpisode = episodes[0];
 
   return (
-    <div className="px-6">
+    <div className="overflow-x-clip px-6">
       {/* Intro: the pitch over the concrete wall, with the desk and the window
           to Toronto. Full-viewport, headline pinned bottom-left the way koto.com
           does it, resting on the wall just above the desk. `--desk-w` is the
@@ -183,10 +183,10 @@ export default async function SiteHomePage() {
         <DeskScene />
       </div>
 
-      {/* In the room: photos from my LinkedIn posts as a liquid-glass grid. Each opens the post behind it. */}
+      {/* In the room: photos from my LinkedIn posts as a big swipeable row. Each opens the post behind it. */}
       <section id="in-the-room" className="mx-auto max-w-6xl pt-20 sm:pt-28">
         <RevealOnView>
-          <LiquidMoments>
+          <MomentsCarousel>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
               In the room
             </p>
@@ -195,7 +195,7 @@ export default async function SiteHomePage() {
             >
               Talks, hackathons and events
             </h2>
-          </LiquidMoments>
+          </MomentsCarousel>
         </RevealOnView>
       </section>
 

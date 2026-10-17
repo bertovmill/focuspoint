@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Homepage "Talks, hackathons and events" is now a big swipeable carousel
+
+Berto wanted the events section bigger and more like a carousel. The WebGPU
+liquid-glass grid (four small cards per row, shuffle, drag-to-reorder) is gone.
+
+- `app/site/_components/moments-carousel.tsx` (new): one row of large photo
+  cards (30rem on desktop, ~2.5 visible, 82vw on phones) with CSS scroll-snap,
+  bleeding off the right edge of the window. Prev/next arrow buttons (hidden on
+  phones, which swipe) and the year filter are kept; shuffle is dropped. Photos
+  are newest first. Clicking one opens its LinkedIn post in a shadcn dialog with
+  prev/next and arrow keys; `#moment-<slug>` deep links still work.
+- `app/site/page.tsx`: uses `MomentsCarousel`; the page wrapper gets
+  `overflow-x-clip` so the full-bleed row can't cause sideways page scroll.
+- Deleted `app/site/_components/liquid-moments/` (in git history if wanted back).
+  `vgpu` stays — the glass sculpture still uses it.
+
+---
+
 ## 2026-10-17 — Removing a training session asks in-page, not with a browser popup
 
 Deleting a workout from a day used `window.confirm()`, which showed the browser's

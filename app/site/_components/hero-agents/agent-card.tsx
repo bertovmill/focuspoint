@@ -9,8 +9,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useEveAgent } from "eve/react";
+import { useEveAgent, type EveMessage } from "eve/react";
 import { ArrowUpIcon, XIcon } from "lucide-react";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import { cn } from "@/lib/utils";
 import { Prose } from "../prose";
 import { BUDDY } from "./cast";
@@ -42,6 +43,22 @@ function savedSize(): { w: number; h: number } | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * What the buddy is doing while no reply text is showing: the page it's
+ * reading, or just thinking. Null once words are streaming. The model reasons
+ * and reads pages before it writes, and those steps add an assistant message
+ * with no text, so "is the last message the user's?" isn't enough.
+ */
+function activityLabel(messages: readonly EveMessage[]): string | null {
+  const last = messages.at(-1);
+  if (last?.role !== "assistant") return "Thinking";
+  const part = last.parts.findLast((p) => p.type !== "step-start");
+  if (part?.type === "text" && part.text.trim()) return null;
+  if (part?.type === "dynamic-tool" && !part.state.startsWith("output"))
+    return part.toolMetadata?.eve?.label ?? "Thinking";
+  return "Thinking";
 }
 
 const CHAT_PROSE =
@@ -122,6 +139,7 @@ export function AgentCard({
       }),
     [messages],
   );
+  const activity = busy ? activityLabel(messages) : null;
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -325,15 +343,18 @@ export function AgentCard({
           </div>
         )}
         {thread}
-        {busy && messages.at(-1)?.role === "user" && (
-          <p className="flex gap-1 py-1" aria-label="Thinking">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="size-1.5 animate-bounce rounded-full bg-foreground/40"
-                style={{ animationDelay: `${i * 0.12}s` }}
-              />
-            ))}
+        {activity && (
+          <p className="flex items-center gap-2 py-1 text-sm" role="status">
+            <span className="flex gap-1" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="size-1.5 animate-bounce rounded-full bg-foreground/40"
+                  style={{ animationDelay: `${i * 0.12}s` }}
+                />
+              ))}
+            </span>
+            <Shimmer as="span" duration={1.4}>{`${activity}…`}</Shimmer>
           </p>
         )}
         {agent.status === "error" && (

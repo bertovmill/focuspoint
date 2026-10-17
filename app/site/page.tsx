@@ -161,7 +161,7 @@ export default async function SiteHomePage() {
               width={320}
               height={320}
               priority
-              className="mb-6 size-24 rounded-full object-cover shadow-lg ring-1 ring-black/10 sm:size-28 lg:size-32"
+              className="mb-6 size-32 rounded-[24%] object-cover shadow-lg ring-1 ring-black/10 sm:size-40 lg:size-44"
             />
             <WallClock className="mb-5" />
             <AnimatedHeading

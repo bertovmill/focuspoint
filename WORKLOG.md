@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Newsletter signup under the homepage headline
+
+Berto wants the site to build an owned audience (founder path), so the Kit signup now
+sits right under the hero headline instead of only in the popup/footer.
+
+- `app/site/page.tsx`: `#hero-newsletter` block after the AnimatedHeading — mono label
+  "Get what I'm learning building AI, by email" + `<SubscribeForm source="hero" />`
+  (max-w-md). Kit records `source=hero`, so `npm run kit -- stats` shows how it compares.
+- Kit env: `KIT_API_KEY` and `KIT_FORM_ID` (10056765, "Clare form") added to Vercel
+  production on 2026-10-16 and production redeployed.
+- Note: local `.env.local` `DATABASE_URL` password is stale (Neon auth fails), so
+  `npm run dev` crashes in instrumentation until it's refreshed.
+
+---
+
 ## 2026-10-16 — Newsletter moves from Substack to Kit
 
 Berto picked Kit (free up to 10k subscribers) and chose to move the list fully off

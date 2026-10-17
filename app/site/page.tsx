@@ -12,6 +12,7 @@ import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { deskLayoutVars } from "./_components/concrete-wall/scene";
 import { DeskScene } from "./_components/concrete-wall/desk-scene";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
+import { SubscribeForm } from "./_components/subscribe-form";
 import { LiquidMoments } from "./_components/liquid-moments";
 
 // Display type: Geist (from the root layout) at semibold with tight tracking and a
@@ -169,6 +170,13 @@ export default async function SiteHomePage() {
                 "a fast-scaling AI startup.",
               ]}
             />
+            {/* The newsletter signup, where every visitor sees it. */}
+            <div id="hero-newsletter" className="mt-8 max-w-md">
+              <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/60">
+                Get what I&apos;m learning building AI, by email
+              </p>
+              <SubscribeForm source="hero" />
+            </div>
           </div>
         </RevealOnView>
         {/* The money tree and the jar on the sill, over the text, touchable. */}

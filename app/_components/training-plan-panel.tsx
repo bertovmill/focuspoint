@@ -10,6 +10,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FlagIcon,
+  MoreHorizontalIcon,
   PlusIcon,
   RefreshCwIcon,
   TrashIcon,
@@ -44,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -483,25 +485,32 @@ function TrainingWeek() {
         <span className={cn("text-base font-medium tabular-nums", week.done >= week.planned && week.planned > 0 ? "text-emerald-600" : "text-muted-foreground")}>
           {week.done}/{week.planned} done{week.doneKm > 0 && ` · ${week.doneKm.toFixed(1)} km`}
         </span>
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <Button variant="outline" className="h-11 gap-2 px-4 text-base" asChild>
-            <Link href="/training/workouts">
-              <DumbbellIcon className="size-4" /> Workout bank
-            </Link>
-          </Button>
-          {weekStart >= weekStartISO(today) && (
-            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={filling} onClick={fillFromBank}>
-              {filling ? <Spinner className="size-4" /> : <CalendarRangeIcon className="size-4" />}
-              Fill from bank
-            </Button>
-          )}
-          {watch.connected && (
-            <Button variant="outline" className="h-11 gap-2 px-4 text-base" disabled={syncing} onClick={() => sync()} title={watch.last_synced_at ? `Workouts last synced ${new Date(watch.last_synced_at).toLocaleString()}` : undefined}>
-              {syncing ? <Spinner className="size-4" /> : <RefreshCwIcon className="size-4" />}
-              Sync Fitbit
-            </Button>
-          )}
-        </div>
+        {/* The bank and the watch live behind one ⋯ so the row reads week · progress (Berto, 2026-10-17). */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="ml-auto flex size-11 items-center justify-center rounded-lg border text-muted-foreground hover:text-foreground" aria-label="More">
+              {filling || syncing ? <Spinner className="size-5" /> : <MoreHorizontalIcon className="size-5" />}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuItem asChild>
+              <Link href="/training/workouts">
+                <DumbbellIcon /> Workout bank
+              </Link>
+            </DropdownMenuItem>
+            {weekStart >= weekStartISO(today) && (
+              <DropdownMenuItem disabled={filling} onSelect={fillFromBank}>
+                <CalendarRangeIcon /> Fill from bank
+              </DropdownMenuItem>
+            )}
+            {watch.connected && (
+              <DropdownMenuItem disabled={syncing} onSelect={() => sync()}>
+                <RefreshCwIcon /> Sync Fitbit
+                {watch.last_synced_at && <span className="ml-auto text-xs text-muted-foreground">{new Date(watch.last_synced_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
 

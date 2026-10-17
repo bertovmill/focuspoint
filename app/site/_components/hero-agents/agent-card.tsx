@@ -61,6 +61,22 @@ function activityLabel(messages: readonly EveMessage[]): string | null {
   return "Thinking";
 }
 
+/**
+ * A message's text. Text from separate agent steps (before and after a page
+ * read) becomes separate paragraphs instead of running together.
+ */
+function replyText(message: EveMessage): string {
+  let text = "";
+  let step: number | undefined;
+  for (const part of message.parts) {
+    if (part.type !== "text") continue;
+    if (text && part.stepIndex !== step) text += "\n\n";
+    text += part.text;
+    step = part.stepIndex;
+  }
+  return text.trim();
+}
+
 const CHAT_PROSE =
   "text-sm/6 [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5";
 
@@ -119,10 +135,7 @@ export function AgentCard({
   const thread = useMemo(
     () =>
       messages.map((message) => {
-        const text = message.parts
-          .map((part) => (part.type === "text" ? part.text : ""))
-          .join("")
-          .trim();
+        const text = replyText(message);
         if (!text) return null;
         return message.role === "user" ? (
           <p

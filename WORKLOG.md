@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Removing a training session asks in-page, not with a browser popup
+
+Deleting a workout from a day used `window.confirm()`, which showed the browser's
+"cael.bertomill.com says" box. Berto wanted it in the UI.
+
+- `app/_components/training-plan-panel.tsx`: the trash button now opens a shadcn
+  `AlertDialog` ("Remove Hyrox Sim?" / "It comes off 17 Sat. Splits and sets you logged
+  stay in your workout log." / Cancel · Remove). Same pattern as Lists and Notes.
+  `removing` stays set after close so the title doesn't blank during the exit animation.
+- Other `window.confirm()`s still exist (fill-from-bank, workout bank, timer stop, home
+  sections, task canvas, portfolio) — swap them the same way if wanted.
+
+---
+
 ## 2026-10-17 — Winning Day card removed from the home screen
 
 Berto doesn't find steps / sleep / keystrokes worth a daily score, so the "Winning Day"

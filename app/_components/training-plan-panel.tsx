@@ -33,6 +33,16 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -113,6 +123,11 @@ function TrainingWeek() {
   }, []);
   const days = useMemo(() => weekDates(weekStart), [weekStart]);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  // The session waiting on the in-page "Remove?" dialog (was a browser confirm()).
+  // Kept after close so the title doesn't blank out during the exit animation.
+  const [removing, setRemoving] = useState<TrainingSession | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const askRemove = (s: TrainingSession) => { setRemoving(s); setRemoveOpen(true); };
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
   const [watch, setWatch] = useState<SyncStatus>({ connected: false, last_synced_at: null });
@@ -247,7 +262,6 @@ function TrainingWeek() {
   // Take a session off its day (Berto swaps workouts out). Logged splits/sets stay
   // in the workout log — they're keyed by workout and date, not the session.
   const removeSession = async (s: TrainingSession) => {
-    if (!window.confirm(`Remove ${s.title} from ${shortDayLabel(s.session_date)}?`)) return;
     const prev = sessions;
     setSessions((ss) => ss.filter((x) => x.id !== s.id));
     try {
@@ -430,7 +444,7 @@ function TrainingWeek() {
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
+                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -606,7 +620,7 @@ function TrainingWeek() {
                 <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {list.map((s) => (
                     <DragSession key={s.id} id={s.id}>
-                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
+                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
                     </DragSession>
                   ))}
                 </SortableContext>
@@ -640,6 +654,20 @@ function TrainingWeek() {
 
       <PastPrograms />
 
+      <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {removing?.title}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It comes off {removing ? shortDayLabel(removing.session_date) : "that day"}. Splits and sets you logged stay in your workout log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => removing && removeSession(removing)}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

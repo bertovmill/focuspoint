@@ -265,7 +265,7 @@ type TweetRow = {
 };
 
 /**
- * /writing?tab=tweets — write a tweet and post it as @berto_vmill, and every
+ * /writing?tab=tweets — write a tweet and post it as @bert_mill_, and every
  * tweet Cael has posted (from here, a post's Tweet button, the agent, or the
  * daily-tweet task). Tweets written on X itself aren't here.
  */
@@ -348,8 +348,8 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           <h1 className="text-xl font-semibold">Writing</h1>
           <p className="text-sm text-muted-foreground">
             Tweets posted as{" "}
-            <a href="https://x.com/berto_vmill" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
-              @berto_vmill
+            <a href="https://x.com/bert_mill_" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+              @bert_mill_
             </a>{" "}
             from Cael: here, a post&apos;s Tweet button, or by asking Cael.
           </p>
@@ -991,7 +991,7 @@ function PostEditor({
           <DialogHeader>
             <DialogTitle>Tweet this post</DialogTitle>
             <DialogDescription>
-              Posts publicly to X as @berto_vmill.
+              Posts publicly to X as @bert_mill_.
               {post?.tweetedAt && ` You already tweeted it on ${formatMoment(post.tweetedAt)}.`}
             </DialogDescription>
           </DialogHeader>

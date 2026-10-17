@@ -271,6 +271,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
           and throws a soft shadow onto the plaster from the window light. */}
       {scene && (
         <div
+          data-hero-desk
           className="absolute right-[2vw] w-[var(--desk-w)] [--desk-dim:1] [--desk-shadow:rgba(35,28,20,0.38)] dark:[--desk-dim:0.72] dark:[--desk-shadow:rgba(0,0,0,0.6)]"
           style={deskStyle}
         >

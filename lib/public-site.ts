@@ -65,11 +65,11 @@ const PUBLIC_PASSTHROUGH = ["/_next", "/api/site", "/favicon.ico", "/icon.svg", 
 const PUBLIC_ASSET_DIRS = ["site-art"];
 
 const PUBLIC_ASSET_RE = new RegExp(
-  `^/(?:(?:${PUBLIC_ASSET_DIRS.join("|")})/)?[\\w.-]+\\.(?:jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?)$`,
+  `^/(?:(?:${PUBLIC_ASSET_DIRS.join("|")})/)?[\\w.-]+\\.(?:jpg|jpeg|png|webp|avif|gif|svg|ico|woff2?|glb)$`,
   "i",
 );
 
-/** A file in `public/` — an image or font, never a page or an API route. */
+/** A file in `public/` — an image, font or 3D model (.glb), never a page or an API route. */
 export function isPublicAsset(pathname: string): boolean {
   return PUBLIC_ASSET_RE.test(pathname);
 }

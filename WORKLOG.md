@@ -11619,3 +11619,35 @@ First run caught a leak: the command palette (on every screen) imported
 `noteTitleAndPreview` from `notes-view`, which dragged the Tiptap editor onto
 Home's first load. Moved the helper to `lib/note-title.ts` (re-exported from
 notes-view).
+
+## 2026-10-17 — Homepage: three eve agents living in the room
+
+Berto wanted video-game characters wandering bertomill.com's hero that you can
+click and talk to, each a real eve agent. Cast (his picks): **Robot = Work**
+(on the desk), **Pigeon = Social** (writing, podcast, on the windowsill),
+**Yeti = Fitness** (HYROX, on the desk, in front).
+
+- `app/site/_components/hero-agents/`: `cast.ts` (who, where, which clips),
+  `stage.ts` (three.js on a transparent canvas, orthographic camera in CSS pixels,
+  so characters stand on DOM-measured lanes: the desk top via `[data-hero-desk]`,
+  the sill via `windowRect`/`sillAnchor`), `hero-agents.tsx` (lazy-loads the
+  stage after idle, runs only while the hero is on screen, one real `<button>`
+  per character that follows it), `agent-card.tsx` (`useEveAgent` chat bubble above
+  the character's head; it nods on a reply and shakes its head on an error).
+- Layering: characters at z-9, under DeskScene (z-10), so the money tree and jar
+  stay in front; the chat card is on its own z-30 layer.
+- Models (CC0) in `public/site-art/agent-*.glb`: RobotExpressive (Tomás Laulhé,
+  three.js examples) and Quaternius Ultimate Monsters (Pigeon, Yeti). `.glb` added
+  to the public-host asset allowlist in `lib/public-site.ts`. Berto rejected
+  human low-poly characters as "too human"; he wants cartoonish.
+- The agents live in a **separate** repo and Vercel project,
+  `bertovmill/bertomill-agents` (eve workspace, https://bertomill-agents.vercel.app/eve/{work,social,fitness}),
+  so nothing public shares a deploy with Cael. Each agent has one tool that reads an
+  allowlist of public bertomill.com pages. Anonymous auth, CORS limited to bertomill.com
+  and localhost/site.localhost, rate limits and per-session caps. See its INTEGRATION.md.
+- Verified on site.localhost:3017 (desktop and phone): the characters walk, fidget
+  and face you when clicked, and the Yeti answered "best time" with 55:20 (Ottawa 2026)
+  from the live /fitness page.
+
+Next: bertomill-agents has no git auto-deploy (`vercel git connect` would add it);
+its rate limits are per instance (in memory).

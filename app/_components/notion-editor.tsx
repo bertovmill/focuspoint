@@ -38,6 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { outdentFromToggle } from "@/lib/toggle-outdent";
 
 /** tiptap-markdown hangs its serializer off editor.storage without typing it. */
 function toMarkdown(editor: Editor): string {
@@ -242,6 +243,17 @@ function toggleLineAt(tr: Transaction, pos: number, foldSection: boolean): boole
 const ToggleShortcuts = Extension.create({
   name: "toggleShortcuts",
   priority: 200,
+  addKeyboardShortcuts() {
+    return {
+      // Steps a block out of a toggle's body to sit after the toggle (see lib/toggle-outdent.ts).
+      "Shift-Tab": ({ editor }) => {
+        const tr = outdentFromToggle(editor.state);
+        if (!tr) return false;
+        editor.view.dispatch(tr);
+        return true;
+      },
+    };
+  },
   addInputRules() {
     return [
       new InputRule({

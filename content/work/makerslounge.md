@@ -2,6 +2,8 @@
 title: A builder community that sparks inspiration
 org: MakersLounge
 role: Founder
+url: https://www.makerslounge.ca
+previewImage: /site-art/makerslounge-site.webp
 outcome: A 1,500-person community of builders in Toronto, and hundreds of deep connections made in a room.
 color: "#2f4a3a"
 tags: [community, events, toronto, ai]

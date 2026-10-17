@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — /work: click a tile to browse the site in a browser-window frame
+
+Berto wanted visitors to peruse the Aucctus, MakersLounge and Leland coaching sites
+without leaving the Work tab. He chose: click a tile to open a frame (not inline
+frames), and a screenshot for sites that block framing.
+
+- `app/site/work/work-preview.tsx` (client): wraps a tile in a button; click opens a
+  radix Dialog styled as a browser window (close, address pill, "Open" in a new tab,
+  footer link to the case study). Live iframe when `previewUrl` is set, a scrollable
+  tall screenshot when `previewImage` is set. Nothing third-party loads until opened.
+- `lib/content.ts`: new work frontmatter `previewUrl` / `previewImage`.
+- Aucctus: live iframe (www.aucctus.com allows framing). Leland blocks framing
+  (X-Frame-Options), so its tile uses `public/site-art/leland-profile.webp`.
+- MakersLounge: screenshot too (`makerslounge-site.webp`). Its live site can't be
+  framed: it runs a Clerk *development* instance (amusing-gobbler-48.clerk.accounts.dev)
+  that now returns 404, and first-time browser visits get redirected to that dead
+  handshake. Not fixed here; needs a look in makerslounge-web.
+- Screenshots live in `public/site-art/` because the public host only serves that
+  folder (see `PUBLIC_ASSET_DIRS`); `public/work/` would 404 on bertomill.com.
+- `content/work/ai-coaching.md` rewritten (who it's for, how a session works, review
+  quotes, free Leland+ resources), using only facts from the public Leland profile.
+- Screenshots are a snapshot: re-take them when the sites change.
+
+---
+
 ## 2026-10-17 — /fitness: race picker instead of stacked tables
 
 Berto didn't like three full split tables stacked down the page with an empty

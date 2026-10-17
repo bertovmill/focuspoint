@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { listContent } from "@/lib/content";
 import { SiteLink } from "../_components/site-link";
 import { WorkTile } from "./work-tile";
+import { WorkPreview } from "./work-preview";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
 export const revalidate = 300;
@@ -68,12 +69,25 @@ export default async function WorkIndexPage() {
                   key={project.slug}
                   className={i === 0 ? "sm:col-span-2" : undefined}
                 >
-                  <SiteLink
-                    href={`/work/${project.slug}`}
-                    className="group block"
-                  >
-                    <WorkTile project={project} featured={i === 0} />
-                  </SiteLink>
+                  {project.previewUrl || project.previewImage ? (
+                    <WorkPreview
+                      slug={project.slug}
+                      title={project.title}
+                      name={project.org ?? project.title}
+                      url={project.url}
+                      previewUrl={project.previewUrl}
+                      previewImage={project.previewImage}
+                    >
+                      <WorkTile project={project} featured={i === 0} />
+                    </WorkPreview>
+                  ) : (
+                    <SiteLink
+                      href={`/work/${project.slug}`}
+                      className="group block"
+                    >
+                      <WorkTile project={project} featured={i === 0} />
+                    </SiteLink>
+                  )}
                 </li>
               ))}
             </ul>

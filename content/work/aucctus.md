@@ -4,6 +4,7 @@ org: Aucctus
 role: Go-to-Market Lead
 year: 2026 –
 url: https://aucctus.com
+previewUrl: https://www.aucctus.com
 outcome: A full corporate pipeline in the first six months, built on an events motion and a go-to-market system that didn't exist when I started.
 color: "#8f5a3c"
 # The wordmark replaces the typeset name on the tile. Light file = black type

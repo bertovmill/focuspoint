@@ -41,6 +41,17 @@ export interface ContentMeta {
   /** Work only — the organisation's website, linked from the case study. */
   url?: string;
   /**
+   * Work only — a page the work grid opens in a browser-window frame. Only
+   * set it for sites that allow being framed (no X-Frame-Options / CSP
+   * frame-ancestors); otherwise use `previewImage`.
+   */
+  previewUrl?: string;
+  /**
+   * Work only — a tall screenshot under `public/` shown in the same frame,
+   * scrollable, for sites that refuse to be framed.
+   */
+  previewImage?: string;
+  /**
    * Work only — a wordmark under `public/` shown on the tile instead of the
    * typeset name. `logo` is the light-theme file (dark type); `logoDark` the
    * white-type file the tile swaps in when the site is in dark mode.
@@ -98,6 +109,10 @@ function toMeta(
     color: typeof data.color === "string" ? data.color : undefined,
     image: typeof data.image === "string" ? data.image : undefined,
     url: typeof data.url === "string" ? data.url : undefined,
+    previewUrl:
+      typeof data.previewUrl === "string" ? data.previewUrl : undefined,
+    previewImage:
+      typeof data.previewImage === "string" ? data.previewImage : undefined,
     logo: typeof data.logo === "string" ? data.logo : undefined,
     logoDark: typeof data.logoDark === "string" ? data.logoDark : undefined,
     published: data.published !== false,

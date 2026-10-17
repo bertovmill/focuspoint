@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Notes editor: Shift+Tab steps a block out of a toggle
+
+A block inside a toggle's body (e.g. a nested toggle under "What goals am I
+pursuing?" on the Vision page) was stuck there, so you couldn't make it a sibling
+of the toggle above. Shift+Tab now lifts it out to sit right after its parent toggle.
+
+- `lib/toggle-outdent.ts`: `outdentFromToggle(state)` returns the transaction (or
+  null). Wired as `Shift-Tab` in `ToggleShortcuts` in `app/_components/notion-editor.tsx`.
+- Inside a bullet/to-do item the list's own Shift+Tab still wins; on a top-level
+  line or a top-level toggle summary it does nothing (browser default).
+- If the toggle body would be left empty, a blank line stays behind.
+- Known gap: lifting a block from the *middle* of a body moves it after the toggle
+  while later siblings stay inside (Notion would adopt them as children).
+- Not built (Berto only asked for the outdent): Tab to indent a block into the
+  toggle above it.
+- Tested headlessly against a ProseMirror schema mirroring the toggle nodes; the
+  live app sits behind Clerk so it wasn't clicked through.
+
+---
+
 ## 2026-10-17 — /work: click a tile to browse the site in a browser-window frame
 
 Berto wanted visitors to peruse the Aucctus, MakersLounge and Leland coaching sites

@@ -32,7 +32,6 @@ import { PinButton } from "@/app/_components/pin-button";
 import type { WorkoutLog } from "@/app/_components/workout-chart";
 import { TodaySnapshot } from "@/app/_components/today-snapshot";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
-import { ScorecardCard } from "@/app/_components/scorecard-card";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { DayPlanCard } from "@/app/_components/day-plan-card";
 import { HomeSections } from "@/app/_components/home-sections";
@@ -458,11 +457,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
 
         {/* Everything in here follows the day swipe. */}
         <div ref={dayScope}>
-          {/* The daily scorecard — "did I win today?". First thing on the page because
-              it's the one block that's actionable at 7am. A future day has nothing to
-              score yet, so it shows only what's planned. */}
-          {dayOffset <= 0 && <ScorecardCard date={date} />}
-
           {/* What's on the day — sessions from /training and the sittings from /meals */}
           <TodaySnapshot date={date} />
 

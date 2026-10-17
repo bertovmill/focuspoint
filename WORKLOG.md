@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Winning Day card removed from the home screen
+
+Berto doesn't find steps / sleep / keystrokes worth a daily score, so the "Winning Day"
+scorecard card is gone from home.
+
+- `app/_components/home-screen.tsx`: dropped `<ScorecardCard>` and its import.
+- Deleted `scorecard-card.tsx`, `activity-rings.tsx`, `record-confetti.tsx` (only the card
+  used them).
+- Kept `lib/scorecard.ts`, `/api/scorecard`, and the `get_scorecard` / `log_metrics` agent
+  tools, so watch sync and any logged data keep working. Remove those too if the
+  metrics are dropped entirely.
+
+---
+
 ## 2026-10-17 — Schema check runs once per version, and can't crash a boot
 
 Berto recreated the Neon database from scratch. Cael rebuilt its tables on boot, but

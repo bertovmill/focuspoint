@@ -48,6 +48,7 @@ import career_daily_actions_doc from "@/agent/tools/career_daily_actions_doc";
 import career_plan from "@/agent/tools/career_plan";
 import read_sketch from "@/agent/tools/read_sketch";
 import search_memory from "@/agent/tools/search_memory";
+import tag_note from "@/agent/tools/tag_note";
 import set_daily_meal from "@/agent/tools/set_daily_meal";
 import set_training_session from "@/agent/tools/set_training_session";
 import sync_workouts from "@/agent/tools/sync_workouts";
@@ -112,6 +113,7 @@ export const agentTools = {
   career_plan,
   read_sketch,
   search_memory,
+  tag_note,
   set_daily_meal,
   set_training_session,
   sync_workouts,

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { uploadPhoto } from "@/lib/upload-photo";
 import { NotionEditor } from "@/app/_components/notion-editor";
 import { noteTitleAndPreview } from "@/lib/note-title";
+import { normalizeTag, MAX_NOTE_TAGS } from "@/lib/note-tags";
 
 export { noteTitleAndPreview };
 
@@ -225,6 +226,8 @@ export function NoteDetail({
   onDelete,
   onBack,
   onTagClick,
+  onTagsChange,
+  knownTags = [],
 }: {
   note: Note;
   onSave: (id: number, patch: NotePatch) => void;
@@ -235,6 +238,10 @@ export function NoteDetail({
   /** Only on a phone, where the note covers the list. */
   onBack?: () => void;
   onTagClick: (tag: string) => void;
+  /** Saves a note's full tag list. */
+  onTagsChange?: (id: number, tags: string[]) => void;
+  /** Every tag in use, offered as suggestions when adding one. */
+  knownTags?: string[];
 }) {
   const isNew = note.id === 0;
   // Whether the cursor is in the note — only decides when Done shows.
@@ -246,6 +253,11 @@ export function NoteDetail({
   const [titled] = useState(() => (note.content.trim().split("\n")[0] ?? "").length <= 100);
   const [photo, setPhoto] = useState<string | null>(note.image_url ?? null);
   const [uploading, setUploading] = useState(false);
+  const [tags, setTags] = useState<string[]>(note.tags ?? []);
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
+  // The "+ Tag" field: null when closed, its text while open.
+  const [tagDraft, setTagDraft] = useState<string | null>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -277,7 +289,11 @@ export function NoteDetail({
       });
     } else if (onCreate) {
       creating.current = onCreate({ content, image_url: patch.image_url }).then((created) => {
-        if (created) idRef.current = created.id;
+        if (created) {
+          idRef.current = created.id;
+          // Tags added before the note had any words wait for its id.
+          if (tagsRef.current.length) onTagsChange?.(created.id, tagsRef.current);
+        }
         // Failed: forget it was saved so the next pause tries again.
         else saved.current = { content: "", image_url: null };
         creating.current = null;
@@ -296,6 +312,17 @@ export function NoteDetail({
     const t = setTimeout(() => commitRef.current(), 1000);
     return () => clearTimeout(t);
   }, [draft]);
+
+  const saveTags = (next: string[]) => {
+    setTags(next);
+    if (idRef.current) onTagsChange?.(idRef.current, next);
+  };
+
+  const addTag = (raw: string) => {
+    const tag = normalizeTag(raw);
+    if (tag && !tags.includes(tag) && tags.length < MAX_NOTE_TAGS) saveTags([...tags, tag]);
+    setTagDraft(null);
+  };
 
   const finishEditing = () => {
     // Done on a blank new note: there's nothing to keep, so it just goes away.
@@ -413,20 +440,63 @@ export function NoteDetail({
 
       <article className="mx-auto w-full max-w-2xl flex-1 px-5 pb-16 lg:px-8">
         <p className="mb-1 text-center text-xs text-muted-foreground">{created}</p>
-        {note.tags?.length > 0 && (
-          <div className="mb-3 flex flex-wrap justify-center gap-1">
-            {note.tags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => onTagClick(tag)}
-                className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-              >
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-1">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="group flex items-center rounded-full bg-muted text-xs text-muted-foreground"
+            >
+              <button type="button" onClick={() => onTagClick(tag)} className="py-0.5 pl-2 pr-1 hover:text-foreground">
                 #{tag}
               </button>
-            ))}
-          </div>
-        )}
+              {onTagsChange && (
+                <button
+                  type="button"
+                  aria-label={`Remove tag ${tag}`}
+                  onClick={() => saveTags(tags.filter((t) => t !== tag))}
+                  className="rounded-full py-0.5 pr-1.5 opacity-60 hover:text-foreground hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-60"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              )}
+            </span>
+          ))}
+          {onTagsChange && tags.length < MAX_NOTE_TAGS && (tagDraft === null ? (
+            <button
+              type="button"
+              onClick={() => setTagDraft("")}
+              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <TagIcon className="size-3" />
+              {tags.length ? "Add" : "Add tag"}
+            </button>
+          ) : (
+            <>
+              <input
+                autoFocus
+                value={tagDraft}
+                list="note-tag-suggestions"
+                placeholder="tag"
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagDraft);
+                  } else if (e.key === "Escape") {
+                    setTagDraft(null);
+                  }
+                }}
+                onBlur={() => addTag(tagDraft)}
+                className="w-24 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground outline-none"
+              />
+              <datalist id="note-tag-suggestions">
+                {knownTags.filter((t) => !tags.includes(t)).map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </>
+          ))}
+        </div>
 
         {photo && (
           <div className="group/photo relative my-3">

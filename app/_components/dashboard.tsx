@@ -465,6 +465,26 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
     }
   };
 
+  // Tag edits from the open note. Separate from the text save so they don't re-embed.
+  const handleTagsChange = async (id: number, tags: string[]) => {
+    const apply = (list: Thought[]) => list.map((t) => (t.id === id ? { ...t, tags } : t));
+    const prevThoughts = thoughts;
+    setThoughts(apply);
+    setSemanticResults((prev) => (prev ? apply(prev) : prev));
+    setUrlNote((cur) => (cur && cur.id === id ? { ...cur, tags } : cur));
+    try {
+      const res = await fetch(`/api/thoughts/${id}/tags`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setThoughts(prevThoughts);
+      toast.error("Couldn't save tags.");
+    }
+  };
+
   // A blank note's first save. It joins the list (and gets highlighted there)
   // while the pane stays put, so the cursor isn't lost mid-sentence.
   const handleCreateThought = async (patch: NotePatch): Promise<Thought | null> => {
@@ -1028,6 +1048,8 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                   onCreate={handleCreateThought}
                   onDelete={handleDeleteThought}
                   onTagClick={(tag) => { clearSearch(); setTagFilter(tag); }}
+                  onTagsChange={handleTagsChange}
+                  knownTags={allTags}
                 />
               ) : (
                 <NoNoteSelected />
@@ -1043,6 +1065,8 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
                 onDelete={handleDeleteThought}
                 onBack={() => openExistingNote(null)}
                 onTagClick={(tag) => { clearSearch(); setTagFilter(tag); openExistingNote(null); }}
+                onTagsChange={handleTagsChange}
+                knownTags={allTags}
               />
             </div>
           )}

@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Tag notes from the note itself, or by asking Cael
+
+Berto asked how to tag a note for the persona; there was no way to (tags only
+came from capture_thought). Built both ways he picked:
+
+- Open note: tag chips under the date, "Add tag" opens a small field (Enter or
+  comma saves, Esc cancels, suggestions from tags in use), × removes. Tags are
+  normalised (lowercase, no #, spaces → dashes) by `lib/note-tags.ts`.
+- `PUT /api/thoughts/[id]/tags`: replaces tags without touching text/embedding.
+- `agent/tools/tag_note.ts` (+ registry, so MCP has it too): add/remove tags on an
+  existing note; instructions point "tag this note persona" at it.
+- Tested on note 5 with a temporary tag via UI and tool, then removed.
+
+---
+
 ## 2026-10-17 — Public Cael speaks in Berto's spirit, from an approved persona
 
 Berto wanted the bertomill.com chat to carry his personality and values, drawn

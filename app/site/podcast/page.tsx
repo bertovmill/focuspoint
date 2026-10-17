@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { listContent, formatDate } from "@/lib/content";
 import { SiteLink } from "../_components/site-link";
+import { SubscribeForm } from "../_components/subscribe-form";
 
 export const metadata: Metadata = {
   title: "Podcast",
@@ -18,6 +19,13 @@ export default async function PodcastIndexPage() {
           Conversations with Cael, my personal agent — recorded as they actually happen. I ask, it
           answers out loud, and we work through whatever I&apos;m stuck on.
         </p>
+        {/* The same sign-up as the homepage hero and /writing. */}
+        <div id="podcast-newsletter" className="mt-8 max-w-md">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/60">
+            Get what I&apos;m learning building AI, by email
+          </p>
+          <SubscribeForm source="podcast" />
+        </div>
       </section>
 
       <section className="py-8">

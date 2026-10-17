@@ -11778,3 +11778,9 @@ The "Subscribe →" link in the /writing header is now the homepage hero's sign-
 "Get what I'm learning building AI, by email" label plus the inline `SubscribeForm`
 (email box and Subscribe button), with `source="writing"`, so Kit's referrer shows
 where people signed up.
+
+## 2026-10-17 — Podcast page: inline subscribe
+
+/podcast now has the same sign-up as the homepage and /writing under its intro: the
+"Get what I'm learning building AI, by email" label plus `SubscribeForm` with
+`source="podcast"`.

@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — /fitness: race picker instead of stacked tables
+
+Berto didn't like three full split tables stacked down the page with an empty
+left column. He picked the race-picker layout:
+
+- `app/site/fitness/race-picker.tsx` (client): left column (sticky on desktop) has
+  the Results stats plus one row per race (event, division, time, place); the
+  right column shows the selected race's splits. Newest race is open by default.
+- The URL hash picks the race (`/fitness#hyrox-ottawa-2026`); the hero's jump
+  links and shared links still work. Picking a race uses replaceState, so the
+  page doesn't jump.
+- `app/site/fitness/page.tsx`: RaceResult moved into the picker.
+- Checked at 1400px and 375px (no horizontal scroll) on site.localhost.
+
+---
+
 ## 2026-10-17 — Buddy chat: rotating Tab suggestion, click away to close
 
 Berto wanted the homepage buddy's input to hold a faint, ready-made question

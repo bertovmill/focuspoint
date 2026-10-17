@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { ArrowRightIcon } from "lucide-react";
 import Image from "next/image";
 import { formatDate } from "@/lib/content";
 import { listPublishedPosts } from "@/lib/posts";
 import { listMediumPosts } from "@/lib/medium";
 import { listSubstackPosts } from "@/lib/substack";
 import { SiteLink } from "../_components/site-link";
+import { SubscribeForm } from "../_components/subscribe-form";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 
 // Short, so a post Cael publishes shows up within a minute. The Substack feed
@@ -94,13 +94,13 @@ export default async function WritingIndexPage() {
             actually like to hand parts of your life to one. Some of it lives
             here, some on Substack and Medium.
           </p>
-          <SiteLink
-            href="/newsletter"
-            className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-primary transition-colors hover:text-foreground"
-          >
-            Subscribe
-            <ArrowRightIcon className="size-3.5" />
-          </SiteLink>
+          {/* The same sign-up as the homepage hero. */}
+          <div id="writing-newsletter" className="mt-8 max-w-md">
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/60">
+              Get what I&apos;m learning building AI, by email
+            </p>
+            <SubscribeForm source="writing" />
+          </div>
         </section>
       </div>
 

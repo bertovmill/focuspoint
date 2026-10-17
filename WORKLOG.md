@@ -11771,3 +11771,10 @@ Verified on site.localhost:3017: 10 Medium rows, all 10 covers load.
 Berto liked the Apple-style list but found the 112 px thumbnails hard to see. Covers
 are now 192 × 120 (16:10) beside each post from `sm` up, and full width above the
 title on phones (they used to be hidden there), with a slight zoom on hover.
+
+## 2026-10-17 — Writing page: inline subscribe like the homepage
+
+The "Subscribe →" link in the /writing header is now the homepage hero's sign-up: the
+"Get what I'm learning building AI, by email" label plus the inline `SubscribeForm`
+(email box and Subscribe button), with `source="writing"`, so Kit's referrer shows
+where people signed up.

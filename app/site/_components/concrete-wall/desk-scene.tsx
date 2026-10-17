@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
 import { JAR_ART, PLANT_ART, sillAnchor, windowRect } from "./scene";
+import { WindowBlind } from "./window-blind";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -294,6 +295,9 @@ export function DeskScene() {
       aria-hidden
       className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-screen -translate-x-1/2 select-none overflow-hidden"
     >
+      {/* The roller shade in the window, under everything that stands in front of it. */}
+      <WindowBlind rect={rect} width={shape.width} height={shape.height} style={light} />
+
       {/* The money tree, back on the desk where it was cut from. */}
       <div
         ref={plantRef}

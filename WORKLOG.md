@@ -11908,3 +11908,17 @@ The footer's newsletter card no longer has the glass-wing portrait behind it. It
 plain bordered card (`bg-card`) with the heading, blurb and the same `SubscribeForm`.
 Dropped the `next/image` import from `site-footer.tsx`; `public/site-art/writing.webp` is
 now unused (left in place).
+
+## 2026-10-17 — Homepage: roller shade in the window
+
+The window on the homepage wall now has a linen roller shade, drawn partway down (30% of
+the glass) from a slim roller tube, with a dark hem bar and a small pull tab beneath.
+Drag the bar or the tab up and down; it stays where you leave it (not persisted across
+reloads). `app/site/_components/concrete-wall/window-blind.tsx`, mounted in `DeskScene`
+under the plant and jar so they still stand in front of it.
+Decisions: it's a DOM layer over the glass, not part of the shader, so it looks the same
+on the WebGPU wall and the CSS fallback and needs no shader change; it reuses
+`windowRect` and the wall's black mullions (drawn over the shade); the linen dims after
+dark with the desk's `--desk-light` / `--desk-tone`.
+Verified at 1440x900 (CSS-fallback path): default, dragged down, dragged up, fully closed.
+Next: maybe persist the position, or make it follow the sky.

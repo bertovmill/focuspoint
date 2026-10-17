@@ -19,6 +19,10 @@ struct WallParams {
   weather: vec4f,
   // The window's glass in uv: xy centre, zw half size. z <= 0 means no window.
   window: vec4f,
+  // The roller shade in the window: x how far its hem hangs down the glass (0
+  // rolled up, 1 closed), y 1 when the shader draws it (0 leaves it to the
+  // page). zw unused.
+  blind: vec4f,
 }
 
 @group(0) @binding(0) var<uniform> params: WallParams;
@@ -58,6 +62,31 @@ fn height(p: vec2f) -> f32 {
   h += value_noise(p * 81.0) * 0.0625;
   h += value_noise(p * 240.0) * 0.025;
   return h;
+}
+
+// The view out of the window at one point, sampled without derivatives so it can
+// be called from inside a branch. The same mix of the four skies as the glass uses.
+fn city_view_at(tuv: vec2f, warmth: f32, cloud: f32, night: f32) -> vec3f {
+  let day = textureSampleLevel(city, city_sampler, tuv, 0, 0.0).rgb;
+  let golden = textureSampleLevel(city, city_sampler, tuv, 1, 0.0).rgb;
+  let dark_sky = textureSampleLevel(city, city_sampler, tuv, 2, 0.0).rgb;
+  let grey = textureSampleLevel(city, city_sampler, tuv, 3, 0.0).rgb;
+  let clear_sky = mix(day, golden, warmth);
+  let cloudy = mix(clear_sky, grey, smoothstep(0.15, 0.85, cloud) * 0.85);
+  return mix(cloudy, dark_sky * (1.0 - cloud * 0.35), night);
+}
+
+// The same view, softened: what a light-filtering shade lets through. A golden-angle
+// spiral of taps, so the blur has no grid to it.
+fn city_view_diffused(tuv: vec2f, warmth: f32, cloud: f32, night: f32, radius: f32) -> vec3f {
+  var acc = city_view_at(tuv, warmth, cloud, night);
+  for (var i = 0; i < 14; i++) {
+    let a = f32(i) * 2.399963;
+    let r = radius * sqrt((f32(i) + 0.5) / 14.0);
+    let tap = clamp(tuv + vec2f(cos(a), sin(a)) * r, vec2f(0.001), vec2f(0.999));
+    acc += city_view_at(tap, warmth, cloud, night);
+  }
+  return acc / 15.0;
 }
 
 // A soft-edged rectangle of window light, rotated slightly so it reads as
@@ -339,11 +368,52 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let glass_lit = view * (0.90 + 0.10 * pane_inset) * (1.0 - drops.x * 0.18) * (0.97 + 0.06 * pane_rand)
     + drops.y * 0.18 * (0.3 + daylight) + reflection;
 
+  // ---- The roller shade ---------------------------------------------------
+  //
+  // A light-filtering linen shade hanging in front of the glass (and the
+  // mullion), from the roller at the top to a hem that the page moves. It is
+  // translucent: the view behind it is softened and dimmed, and the fabric
+  // itself glows with the day, so the buildings read as ghosts through it.
+  // No hem bar, no tube: just a faint seam and a soft shadow on the view below.
+  let hem = params.blind.x;
+  let shade_on = step(0.5, params.blind.y) * step(0.002, hem);
+  let hem_px = px / (2.0 * safe_wh.y);
+  let shade_cov = (1.0 - smoothstep(hem - hem_px, hem + hem_px, local.y)) * glass * shade_on;
+  // Height above the hem and below the roller, in wall units.
+  let hem_dist = (hem - local.y) * 2.0 * safe_wh.y;
+  let top_dist = local.y * 2.0 * safe_wh.y;
+
+  // The shade's shadow on the view just under its hem.
+  let hem_shadow = (1.0 - smoothstep(0.0, 0.03 * joinery, -hem_dist)) * step(0.0, -hem_dist) * glass * shade_on;
+  var glass_final = glass_lit * (1.0 - 0.28 * hem_shadow);
+
+  if (shade_cov > 0.001) {
+    let diffused = city_view_diffused(tuv, warmth, cloud, night, 0.024);
+    var behind = mix(fallback, diffused * mix(1.06, 1.0, night), city_ready);
+    // The mullion, softened, behind the fabric.
+    let mull_soft = (1.0 - smoothstep(0.0, mullion_w * 3.5, bar_x)) * 0.75;
+    behind = mix(behind, steel_room, mull_soft);
+
+    let linen = vec3f(0.93, 0.90, 0.83);
+    // Light scattered in the weave (the day coming through it), plus what gets
+    // straight through.
+    var shade_rgb = behind * 0.38 + linen * (0.55 * daylight + 0.06);
+    // Thread-scale weave, a touch denser along the hem, a darker curve under the
+    // roller, and a faint seam where the hem is stitched.
+    let weave = (value_noise(q * 460.0) - 0.5) * 0.035
+      + (value_noise(vec2f(q.x * 36.0, q.y * 3.0)) - 0.5) * 0.02;
+    let curve = 0.20 * exp(-top_dist / (0.02 * joinery));
+    let pocket = (1.0 - smoothstep(0.0, 0.010 * joinery, hem_dist)) * 0.10;
+    let seam = (1.0 - smoothstep(0.0, 2.5 * px, abs(hem_dist - 0.011 * joinery))) * 0.05;
+    shade_rgb *= (1.0 + weave) * (1.0 - curve - pocket - seam);
+    glass_final = mix(glass_final, shade_rgb, shade_cov);
+  }
+
   var lit = wall_lit;
   lit = mix(lit, ledge_lit, ledge);
   lit = mix(lit, frame_lit, frame);
-  lit = mix(lit, glass_lit, glass);
-  lit = mix(lit, mullion_lit, mullion);
+  lit = mix(lit, glass_final, glass);
+  lit = mix(lit, mullion_lit, mullion * (1.0 - shade_cov));
 
   // Dither so the broad gradients don't band on 8-bit panels.
   let dither = (hash(uv * resolution + time) - 0.5) / 255.0;

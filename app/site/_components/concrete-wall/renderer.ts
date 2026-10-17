@@ -12,6 +12,8 @@ export interface WallRendererOptions {
   readonly reducedMotion: () => boolean;
   /** Read each frame: the sun and weather over the desk. */
   readonly sky: () => Sky;
+  /** Read each frame: how far down the glass the roller shade's hem hangs, 0 to 1. */
+  readonly blind: () => number;
   /** Cut the window into the wall and load the view through it. */
   readonly scene: boolean;
   /**
@@ -147,6 +149,7 @@ export function createWallRenderer(
             sky: [sky.sunHeight, sky.sunProgress, sky.warmth, sky.night],
             weather: [sky.cloudCover, sky.rain, cityBlend, 0],
             window: window ? [window.x, window.y, window.hw, window.hh] : [0, 0, 0, 0],
+            blind: [options.blind(), window ? 1 : 0, 0, 0],
           },
         });
         frame.pass(output, wall);

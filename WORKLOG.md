@@ -11942,3 +11942,20 @@ on the WebGPU wall and the CSS fallback and needs no shader change; it reuses
 dark with the desk's `--desk-light` / `--desk-tone`.
 Verified at 1440x900 (CSS-fallback path): default, dragged down, dragged up, fully closed.
 Next: maybe persist the position, or make it follow the sky.
+
+## 2026-10-17 — Homepage: shade is now translucent, drawn by the shader
+
+Berto: make the roller shade semi-transparent and in front of the window, no black
+border, GPU quality. The shade is now drawn in `wall.wgsl` (new `blind` uniform: hem
+position + "shader draws it" flag): a light-filtering linen sheet in front of the glass
+and the mullion. The view behind is diffused (14-tap golden-angle blur of the city
+photo) and dimmed, the fabric scatters daylight (dark at night), fine linen weave, a
+curve of shadow under the roller, a faint stitched seam at the hem and a soft shadow on
+the view below it. No black hem bar, tube or border.
+`blind-store.ts` is a tiny external store holding the hem position and whether the
+shader is live; the renderer reads it each frame. `window-blind.tsx` is now just the
+drag strip along the hem + the pull tab, plus a CSS version (translucent, backdrop-blur
+panel) for browsers without WebGPU. Rolled fully up (hem at 0) the shade disappears.
+Verified at 1440x900 with WebGPU (headless Chromium, swiftshader/metal) and without:
+default, dragged down/up/closed.
+Next: persist hem position across reloads; maybe let the sky drive it.

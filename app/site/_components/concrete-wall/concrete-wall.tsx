@@ -5,6 +5,7 @@ import { preload } from "react-dom";
 import Image from "next/image";
 import { PaperTexture } from "@paper-design/shaders-react";
 import { cn } from "@/lib/utils";
+import { blindStore } from "./blind-store";
 import { createWallRenderer } from "./renderer";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
 import { CITY_VIEWS, DESK_ART, WINDOW_GRID, windowRect } from "./scene";
@@ -70,6 +71,12 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
     setSupported(typeof navigator !== "undefined" && "gpu" in navigator);
   }, []);
 
+  // While the shader is up it draws the roller shade; otherwise the page does.
+  useEffect(() => {
+    blindStore.setShaderDraws(scene && live);
+    return () => blindStore.setShaderDraws(false);
+  }, [scene, live]);
+
   useEffect(() => {
     const root = rootRef.current;
     if (!scene || !root) return;
@@ -109,6 +116,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
       pointer: () => pointer,
       reducedMotion: () => motion.matches,
       sky: () => skyRef.current,
+      blind: blindStore.getLower,
       scene,
       onFail: (error) => {
         console.warn("Concrete wall stopped", error);

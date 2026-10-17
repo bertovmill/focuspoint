@@ -10,7 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useEveAgent, type EveMessage } from "eve/react";
-import { ArrowUpIcon, XIcon } from "lucide-react";
+import { ArrowUpIcon, ArrowUpRightIcon, XIcon } from "lucide-react";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { cn } from "@/lib/utils";
 import { Prose } from "../prose";
@@ -93,6 +93,84 @@ function replyText(message: EveMessage): string {
     step = part.stepIndex;
   }
   return text.trim();
+}
+
+interface Source {
+  href: string;
+  label: string;
+  external: boolean;
+}
+
+/** Off-site links a pill may point at: Berto's own channels, nothing else. */
+function channelLabel(url: URL): string | null {
+  const host = url.hostname.replace(/^www\./, "");
+  if (/(^|\.)linkedin\.com$/.test(host))
+    return url.pathname.startsWith("/posts/") ? "LinkedIn post" : "LinkedIn";
+  if (host === "robertmillwriting.substack.com") return "Substack";
+  if (host === "youtube.com" || host === "youtu.be")
+    return url.pathname === "/watch" || host === "youtu.be" ? "YouTube video" : "YouTube";
+  if (host === "x.com" || host === "twitter.com")
+    return url.pathname.includes("/status/") ? "X post" : "X";
+  return null;
+}
+
+/** "/work/hyrox-coach" reads as "Work: Hyrox coach". */
+function pageLabel(path: string): string {
+  const [section, slug] = path.split("/").filter(Boolean);
+  if (!section) return "Home";
+  const words = (s: string) => s.replace(/-/g, " ");
+  const title = words(section).replace(/^./, (c) => c.toUpperCase());
+  if (!slug) return title;
+  const rest = words(slug);
+  return `${title}: ${rest.length > 28 ? `${rest.slice(0, 27)}…` : rest}`;
+}
+
+function parseSources(list: string): Source[] {
+  const seen = new Set<string>();
+  const out: Source[] = [];
+  for (const raw of list.split(",")) {
+    let item = raw.trim().replace(/[.)\]]+$/, "");
+    if (!item) continue;
+    if (/^(www\.)?bertomill\.com/i.test(item)) item = `https://${item}`;
+    let source: Source | null = null;
+    if (item.startsWith("/") && !item.startsWith("//")) {
+      const path = item.split(/[?#\s]/)[0];
+      source = { href: path, label: pageLabel(path), external: false };
+    } else {
+      try {
+        const url = new URL(item);
+        if (url.protocol !== "https:") continue;
+        if (/^(www\.)?bertomill\.com$/.test(url.hostname)) {
+          source = { href: url.pathname, label: pageLabel(url.pathname), external: false };
+        } else {
+          const label = channelLabel(url);
+          if (label) source = { href: url.href, label, external: true };
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (source && !seen.has(source.href)) {
+      seen.add(source.href);
+      out.push(source);
+    }
+  }
+  return out.slice(0, 4);
+}
+
+/**
+ * The agent ends answers with a "Sources: /work, https://…" line. Split it
+ * off into link pills. While the reply streams, a half-written "Sour…" last
+ * line is hidden too, so the raw line never flashes up.
+ */
+function splitSources(text: string): { body: string; sources: Source[] } {
+  const done = /(?:^|\n)[ \t]*\**Sources:?\**:?([^\n]*)\s*$/i.exec(text);
+  if (done && done[1].trim()) return { body: text.slice(0, done.index).trim(), sources: parseSources(done[1]) };
+  const lastBreak = text.lastIndexOf("\n");
+  const lastLine = text.slice(lastBreak + 1).trim().toLowerCase();
+  if (lastBreak > 0 && lastLine && "sources:".startsWith(lastLine.replace(/^\*+/, "")))
+    return { body: text.slice(0, lastBreak).trim(), sources: [] };
+  return { body: text, sources: [] };
 }
 
 const CHAT_PROSE =
@@ -191,9 +269,7 @@ export function AgentCard({
             {text}
           </p>
         ) : (
-          <Prose key={message.id} className={CHAT_PROSE}>
-            {text}
-          </Prose>
+          <AssistantReply key={message.id} text={text} />
         );
       }),
     [messages],
@@ -487,6 +563,31 @@ export function AgentCard({
           <ArrowUpIcon className="size-4" />
         </button>
       </form>
+    </div>
+  );
+}
+
+function AssistantReply({ text }: { text: string }) {
+  const { body, sources } = splitSources(text);
+  return (
+    <div>
+      <Prose className={CHAT_PROSE}>{body}</Prose>
+      {sources.length > 0 && (
+        <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Sources">
+          {sources.map((source) => (
+            <li key={source.href}>
+              <a
+                href={source.href}
+                {...(source.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2.5 py-0.5 text-xs text-foreground/70 transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                {source.label}
+                {source.external && <ArrowUpRightIcon className="size-3" aria-hidden />}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

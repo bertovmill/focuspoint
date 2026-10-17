@@ -11901,3 +11901,10 @@ where people signed up.
 /fitness now has the same sign-up as the homepage, /writing and /podcast, under the
 "Fitness" title in the hero's left column: the "Get what I'm learning building AI, by
 email" label plus `SubscribeForm` with `source="fitness"`.
+
+## 2026-10-17 — Footer: newsletter card loses the art
+
+The footer's newsletter card no longer has the glass-wing portrait behind it. It's now a
+plain bordered card (`bg-card`) with the heading, blurb and the same `SubscribeForm`.
+Dropped the `next/image` import from `site-footer.tsx`; `public/site-art/writing.webp` is
+now unused (left in place).

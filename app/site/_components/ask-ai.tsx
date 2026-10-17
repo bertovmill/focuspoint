@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { SparklesIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,12 +21,26 @@ export function AskAiProvider({ children }: { readonly children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const toggle = useCallback(() => setOpen((o) => !o), []);
   const pathname = usePathname();
+  // Set by a page that answers Ask AI itself (the homepage buddy), cleared when it unmounts.
+  const openerRef = useRef<(() => void) | null>(null);
+  const setOpener = useCallback((opener: (() => void) | null) => {
+    openerRef.current = opener;
+  }, []);
+  const request = useCallback(() => {
+    if (openerRef.current) openerRef.current();
+    else setOpen(true);
+  }, []);
 
   // The panel has an address: bertomill.com/#ask-cael opens it on arrival, and a
   // plain <a href="#ask-cael"> anywhere on the site does too, via hashchange.
   useEffect(() => {
     const fromHash = () => {
-      if (window.location.hash === ASK_AI_HASH) setOpen(true);
+      if (window.location.hash !== ASK_AI_HASH) return;
+      if (openerRef.current) {
+        openerRef.current();
+        const { pathname: path, search } = window.location;
+        window.history.replaceState(null, "", `${path}${search}`);
+      } else setOpen(true);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
@@ -48,7 +62,8 @@ export function AskAiProvider({ children }: { readonly children: ReactNode }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "i") {
         e.preventDefault();
-        setOpen((o) => !o);
+        if (openerRef.current) openerRef.current();
+        else setOpen((o) => !o);
       } else if (e.key === "Escape" && !e.defaultPrevented) {
         setOpen(false);
       }
@@ -57,7 +72,7 @@ export function AskAiProvider({ children }: { readonly children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const value = useMemo(() => ({ open, setOpen, toggle }), [open, toggle]);
+  const value = useMemo(() => ({ open, setOpen, toggle, request, setOpener }), [open, toggle, request, setOpener]);
 
   return (
     <AskAiContext.Provider value={value}>
@@ -81,7 +96,7 @@ export function AskAiProvider({ children }: { readonly children: ReactNode }) {
  * neighbours through `className`, and `children` swaps the label.
  */
 export function AskAiButton({ className, children, onClick, ...props }: ComponentProps<"button">) {
-  const { open, setOpen } = useAskAi();
+  const { open, request } = useAskAi();
   return (
     <button
       type="button"
@@ -89,7 +104,7 @@ export function AskAiButton({ className, children, onClick, ...props }: Componen
       aria-controls="ask-ai-panel"
       onClick={(e) => {
         onClick?.(e);
-        setOpen(true);
+        request();
       }}
       className={cn(
         "inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border/70 bg-background/70 px-4 py-2.5 text-sm font-medium text-foreground backdrop-blur-md transition-colors hover:bg-muted",

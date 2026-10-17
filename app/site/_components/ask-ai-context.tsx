@@ -7,6 +7,13 @@ export interface AskAiState {
   open: boolean;
   setOpen: (open: boolean) => void;
   toggle: () => void;
+  /**
+   * Opens Ask AI the way the current page wants: the homepage's plush buddy
+   * registers itself (see `setOpener`) so the button, ⌘I and #ask-cael open
+   * its chat in the room instead; everywhere else this opens the panel.
+   */
+  request: () => void;
+  setOpener: (opener: (() => void) | null) => void;
 }
 
 export const AskAiContext = createContext<AskAiState | null>(null);

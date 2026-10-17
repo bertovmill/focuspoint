@@ -3,81 +3,47 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  NEUTRAL_SKY,
-  skyAt,
-  useSiteWeather,
-  wallNow,
-} from "../concrete-wall/sky";
-import { sillAnchor, windowRect } from "../concrete-wall/scene";
-import { CAST, type AgentId } from "./cast";
+import { useAskAi } from "../ask-ai-context";
+import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow } from "../concrete-wall/sky";
 import type { AgentStage, Pose, RoomLayout } from "./stage";
 
-// The chat (and its network code) loads the first time someone clicks a character.
-const AgentCard = dynamic(
-  () => import("./agent-card").then((m) => m.AgentCard),
-  { ssr: false },
-);
+// The chat (and its network code) loads the first time someone opens it.
+const AgentCard = dynamic(() => import("./agent-card").then((m) => m.AgentCard), { ssr: false });
 
 /**
- * Three little characters living in the homepage room, each one a real eve
- * agent you can click and talk to: the robot on the desk knows Berto's work,
- * the pigeon on the windowsill his writing and podcast, the yeti his training.
+ * A little plush buddy that lives on the homepage desk and is the site's
+ * assistant: click it (or Ask AI, ⌘I, #ask-cael) and it waves and opens a
+ * chat bubble above its head, backed by the `guide` eve agent.
  *
- * The 3D (three.js, in `stage.ts`) loads after the page is idle and only runs
- * while the hero is on screen. Over each character sits a plain button that
- * follows it around, so they're clickable, focusable and named for screen
- * readers; everything else on the layer lets the pointer through to the plant
- * and the jar underneath.
+ * The 3D (three.js, in `stage.ts` and `buddy.ts`) loads after the page is
+ * idle and only runs while the hero is on screen. Over the buddy sits a plain
+ * button that follows it around, so it's clickable, focusable and named for
+ * screen readers; the rest of the layer lets the pointer through.
  */
 export function HeroAgents() {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<AgentStage | null>(null);
-  const buttonRefs = useRef(new Map<AgentId, HTMLButtonElement>());
-  const posesRef = useRef<Pose[]>([]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const poseRef = useRef<Pose | null>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [ready, setReady] = useState(false);
-  const [active, setActive] = useState<AgentId | null>(null);
+  const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<Pose | null>(null);
+  // Asked to open before the buddy has loaded: open as soon as it has.
+  const pendingOpen = useRef(false);
 
-  // Where the desk and the sill are, remeasured when the hero changes size.
-  const layoutRef = useRef<RoomLayout>({
-    width: 0,
-    height: 0,
-    desk: null,
-    sill: null,
-  });
+  // Where the desk is, remeasured when the hero changes size.
+  const layoutRef = useRef<RoomLayout>({ width: 0, height: 0, desk: null });
   const measure = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
     const r = root.getBoundingClientRect();
-    const deskEl =
-      root.parentElement?.querySelector<HTMLElement>("[data-hero-desk]");
-    const d = deskEl?.getBoundingClientRect();
-    const w = r.width;
-    const h = r.height;
-    const rect = windowRect(w / h, w);
-    const sill = sillAnchor(rect);
+    const d = root.parentElement?.querySelector<HTMLElement>("[data-hero-desk]")?.getBoundingClientRect();
     layoutRef.current = {
-      width: w,
-      height: h,
-      desk:
-        d && d.width > 0
-          ? {
-              left: d.left - r.left,
-              top: d.top - r.top,
-              width: d.width,
-              height: d.height,
-            }
-          : null,
-      sill: {
-        left: (rect.x - rect.hw) * w,
-        right: (rect.x + rect.hw) * w,
-        // Stand a touch back from the sill's front edge.
-        y: (sill.y - 0.012 * sill.joinery) * h,
-        // What the jar on the sill is sized by.
-        unit: sill.joinery * h,
-      },
+      width: r.width,
+      height: r.height,
+      desk: d && d.width > 0 ? { left: d.left - r.left, top: d.top - r.top, width: d.width, height: d.height } : null,
     };
   }, []);
 
@@ -88,24 +54,34 @@ export function HeroAgents() {
     const observer = new ResizeObserver(measure);
     observer.observe(root);
     // The desk image can settle after first paint.
-    const deskEl =
-      root.parentElement?.querySelector<HTMLElement>("[data-hero-desk]");
+    const deskEl = root.parentElement?.querySelector<HTMLElement>("[data-hero-desk]");
     if (deskEl) observer.observe(deskEl);
-    return () => observer.disconnect();
+    const onPointer = (e: PointerEvent) => {
+      const r = root.getBoundingClientRect();
+      pointerRef.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+    };
+    const onLeave = () => {
+      pointerRef.current = null;
+    };
+    window.addEventListener("pointermove", onPointer, { passive: true });
+    document.addEventListener("pointerleave", onLeave);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("pointermove", onPointer);
+      document.removeEventListener("pointerleave", onLeave);
+    };
   }, [measure]);
 
-  // Move the buttons with the characters without re-rendering React every frame.
-  const onPoses = useCallback((poses: Pose[]) => {
-    posesRef.current = poses;
-    for (const pose of poses) {
-      const el = buttonRefs.current.get(pose.id);
-      if (!el) continue;
-      el.style.display = pose.visible ? "" : "none";
-      const w = pose.height * 0.8;
-      el.style.width = `${w}px`;
-      el.style.height = `${pose.height * 1.05}px`;
-      el.style.transform = `translate(${pose.x - w / 2}px, ${pose.y - pose.height * 1.05}px)`;
-    }
+  // Move the button with the buddy without re-rendering React every frame.
+  const onPose = useCallback((pose: Pose) => {
+    poseRef.current = pose;
+    const el = buttonRef.current;
+    if (!el) return;
+    el.style.display = pose.visible ? "" : "none";
+    const w = pose.height * 0.95;
+    el.style.width = `${w}px`;
+    el.style.height = `${pose.height * 1.1}px`;
+    el.style.transform = `translate(${pose.x - w / 2}px, ${pose.y - pose.height * 1.1}px)`;
   }, []);
 
   // Start the stage once the page has settled.
@@ -117,8 +93,7 @@ export function HeroAgents() {
     let stage: AgentStage | null = null;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let onScreen = true;
-    const sync = () =>
-      stage?.setRunning(onScreen && document.visibilityState === "visible");
+    const sync = () => stage?.setRunning(onScreen && document.visibilityState === "visible");
     const io = new IntersectionObserver(([entry]) => {
       onScreen = entry.isIntersecting;
       sync();
@@ -131,37 +106,25 @@ export function HeroAgents() {
       if (cancelled) return;
       try {
         stage = createAgentStage(canvas, {
-          cast: CAST,
           layout: () => layoutRef.current,
+          pointer: () => pointerRef.current,
           reducedMotion: () => motion.matches,
-          onPoses,
+          onPose,
         });
       } catch (error) {
-        // No WebGL: the room is just the room.
-        console.warn("Hero agents could not start", error);
+        // No WebGL: the room is just the room, and Ask AI falls back to the panel.
+        console.warn("Hero buddy could not start", error);
         return;
       }
       stageRef.current = stage;
       sync();
-      stage.ready
-        .then(() => !cancelled && setReady(true))
-        .catch((error: unknown) =>
-          console.warn("Hero agents failed to load", error),
-        );
+      setReady(true);
     };
     // Safari has no requestIdleCallback.
     const idle =
       typeof window.requestIdleCallback === "function"
-        ? {
-            cancel: (id: number) => window.cancelIdleCallback(id),
-            id: window.requestIdleCallback(() => void start(), {
-              timeout: 2500,
-            }),
-          }
-        : {
-            cancel: (id: number) => window.clearTimeout(id),
-            id: window.setTimeout(() => void start(), 1200),
-          };
+        ? { cancel: (id: number) => window.cancelIdleCallback(id), id: window.requestIdleCallback(() => void start(), { timeout: 2500 }) }
+        : { cancel: (id: number) => window.clearTimeout(id), id: window.setTimeout(() => void start(), 1200) };
 
     return () => {
       cancelled = true;
@@ -171,42 +134,69 @@ export function HeroAgents() {
       stage?.dispose();
       stageRef.current = null;
     };
-  }, [onPoses]);
+  }, [onPose]);
 
-  // Light them like the desk: dimmer after dark, under cloud, and in dark mode.
+  // Light it like the desk: dimmer after dark, under cloud, and in dark mode.
   const weather = useSiteWeather();
   useEffect(() => {
     const update = () => {
       const sky = ready ? skyAt(wallNow(), weather) : NEUTRAL_SKY;
       const overcast = sky.cloudCover * (1 - sky.night);
-      const dim = document.documentElement.classList.contains("dark")
-        ? 0.72
-        : 1;
-      stageRef.current?.setLight(
-        (1 - sky.night * 0.45 - overcast * 0.12) * dim,
-      );
+      const dim = document.documentElement.classList.contains("dark") ? 0.72 : 1;
+      stageRef.current?.setLight((1 - sky.night * 0.45 - overcast * 0.12) * dim);
     };
     update();
     const id = window.setInterval(update, 30_000);
     return () => window.clearInterval(id);
   }, [weather, ready]);
 
-  const open = (id: AgentId) => {
-    setActive(id);
-    setAnchor(posesRef.current.find((p) => p.id === id) ?? null);
-    stageRef.current?.setTalking(id);
-  };
+  const show = useCallback(() => {
+    const pose = poseRef.current;
+    if (!pose?.visible) {
+      pendingOpen.current = true;
+      return;
+    }
+    setAnchor(pose);
+    setOpen(true);
+    stageRef.current?.setTalking(true);
+  }, []);
   const close = useCallback(() => {
-    setActive(null);
-    stageRef.current?.setTalking(null);
+    setOpen(false);
+    stageRef.current?.setTalking(false);
+    stageRef.current?.setThinking(false);
   }, []);
 
-  const member = CAST.find((m) => m.id === active);
+  // Once it's on the desk, honour an open that came in early.
+  useEffect(() => {
+    if (!ready || !pendingOpen.current) return;
+    const id = window.setInterval(() => {
+      if (poseRef.current?.visible) {
+        window.clearInterval(id);
+        pendingOpen.current = false;
+        show();
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [ready, show]);
+
+  // Ask AI, ⌘I and #ask-cael open (or close) the buddy's chat on this page.
+  const { setOpener } = useAskAi();
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    setOpener(() => {
+      if (openRef.current) return close();
+      // From further down the page, come back up to the desk first.
+      if (window.scrollY > 120) window.scrollTo({ top: 0, behavior: "smooth" });
+      window.setTimeout(show, window.scrollY > 120 ? 450 : 0);
+    });
+    return () => setOpener(null);
+  }, [setOpener, show, close]);
 
   return (
     <>
       {/* Under the desk scene's layer (z-10), so the money tree and the jar stay
-        in front of anyone who wanders behind them. */}
+          in front of the buddy if it wanders behind them. */}
       <div
         ref={rootRef}
         className="pointer-events-none absolute inset-y-0 left-1/2 z-[9] w-screen -translate-x-1/2 select-none overflow-hidden"
@@ -214,49 +204,32 @@ export function HeroAgents() {
         <canvas
           ref={canvasRef}
           aria-hidden
-          className={cn(
-            "absolute inset-0 h-full w-full transition-opacity duration-700",
-            ready ? "opacity-100" : "opacity-0",
-          )}
+          className={cn("absolute inset-0 h-full w-full transition-opacity duration-700", ready ? "opacity-100" : "opacity-0")}
         />
-        {ready &&
-          CAST.map((m) => (
-            <button
-              key={m.id}
-              ref={(el) => {
-                if (el) buttonRefs.current.set(m.id, el);
-                else buttonRefs.current.delete(m.id);
-              }}
-              type="button"
-              onClick={() => (active === m.id ? close() : open(m.id))}
-              aria-label={`Talk to the ${m.name.toLowerCase()} about ${m.topic}`}
-              aria-expanded={active === m.id}
-              className="group pointer-events-auto absolute left-0 top-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        {ready && (
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => (open ? close() : show())}
+            aria-label="Chat with Berto's helper"
+            aria-expanded={open}
+            className="group pointer-events-auto absolute left-0 top-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span
+              className={cn(
+                "pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-full bg-background/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-foreground shadow-sm ring-1 ring-black/5 backdrop-blur transition-opacity",
+                open ? "opacity-0" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+              )}
             >
-              <span
-                className={cn(
-                  "pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-full bg-background/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-foreground shadow-sm ring-1 ring-black/5 backdrop-blur transition-opacity",
-                  active === m.id
-                    ? "opacity-0"
-                    : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
-                )}
-              >
-                Ask about {m.topic}
-              </span>
-            </button>
-          ))}
+              Say hi
+            </span>
+          </button>
+        )}
       </div>
       {/* The chat sits over everything, on the same full-bleed box. */}
-      {member && anchor && (
+      {open && anchor && (
         <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 w-screen -translate-x-1/2">
-          <AgentCard
-            key={member.id}
-            member={member}
-            anchor={anchor}
-            bounds={layoutRef.current}
-            onClose={close}
-            stage={stageRef.current}
-          />
+          <AgentCard anchor={anchor} bounds={layoutRef.current} onClose={close} stage={stageRef.current} />
         </div>
       )}
     </>

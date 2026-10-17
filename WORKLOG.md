@@ -11651,3 +11651,24 @@ click and talk to, each a real eve agent. Cast (his picks): **Robot = Work**
 
 Next: bertomill-agents has no git auto-deploy (`vercel git connect` would add it);
 its rate limits are per instance (in memory).
+
+## 2026-10-17 (later) — Homepage: one plush buddy instead of three characters
+
+Berto found the yeti scary and three agents confusing. Now there's **one** soft
+plush buddy on the desk, built entirely in code (`hero-agents/buddy.ts`): a sage
+felt gumdrop (MeshPhysicalMaterial sheen plus a fine noise normal map) with a two-leaf
+sprout (a nod to the money tree), dot eyes with glints, blush and stubby arms.
+Muse Spark's mascot was the inspiration, not the template. Motion is all
+procedural: breathing, blinking, waddle-walk, wave, hop, nod (reply landed),
+shrug (error), a curious sway while it thinks, and eyes that follow the pointer.
+
+- The backend is one eve agent, `guide` (bertomill-agents, `/eve/guide`), with the
+  union of the old page allowlists. work/social/fitness are deleted.
+- **Ask AI on the homepage opens the buddy**: `AskAiProvider` gained
+  `request()`/`setOpener()`. The buddy registers itself, so the nav button, ⌘I
+  and `#ask-cael` open its speech bubble (scrolling back up first if needed).
+  Inner pages still open the Ask Cael panel. Without WebGL, nothing registers
+  and Ask AI falls back to the panel.
+- The GLB models and the `.glb` public-asset allowance are removed.
+- Verified on site.localhost:3017: Ask AI opened the bubble (the panel stayed shut),
+  and "How's his HYROX going?" answered from the live /fitness page.

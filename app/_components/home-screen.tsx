@@ -396,6 +396,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         />
       )}
     <div
+      data-cael-page
       className="flex-1 overflow-y-auto min-h-0 pb-[var(--mobile-nav-h)] lg:pb-0"
       onTouchStart={(e) => {
         const t = e.touches[0];

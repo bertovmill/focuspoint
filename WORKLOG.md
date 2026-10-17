@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Corner chat sends the text on screen, so Cael sees what Berto sees
+
+Berto wanted Cael to have the same view of the page as him. Before, only pages
+that published a detail line (Notes, Writing, Sketches) told Cael more than the
+section name.
+
+- `app/_components/page-context.tsx`: `readPageText()` reads the visible text of
+  every `[data-cael-page]` area plus whatever is typed into its fields (innerText
+  skips those), capped at 6,000 characters. Hidden areas are skipped, since a
+  hidden element's innerText returns all of its text.
+- `app/(app)/layout.tsx` (section `<aside>`) and `app/_components/home-screen.tsx`
+  are marked `data-cael-page`; the nav rail and the chat sit outside them.
+- `app/_components/agent-chat.tsx`: the corner chat appends `On his screen:` with
+  that text to the hidden `[[Context: …]]` line at the moment of sending.
+- `agent/instructions.md`: answer "this"/"here" from the screen text without a
+  tool call; use tools only for more than the screen shows or before changing things.
+- Text only, no images or layout (decided with Berto; a screenshot would cost more).
+  Each message carries up to ~6k characters, so long threads grow faster.
+
+---
+
 ## 2026-10-17 — Homepage "Talks, hackathons and events" is now a big swipeable carousel
 
 Berto wanted the events section bigger and more like a carousel. The WebGPU

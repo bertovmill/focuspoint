@@ -11725,3 +11725,15 @@ sides, keeping it centred over the buddy. Clamped to 300–760 px wide and 240 p
 just under the nav. Arrow keys resize too (Shift for bigger steps); double-click
 resets. The size is remembered in localStorage (`buddy-chat-size`).
 File: `app/site/_components/hero-agents/agent-card.tsx`.
+
+## 2026-10-17 (later) — Buddy chat resize: no more lag
+
+Berto said resizing felt laggy. There were three causes:
+1. The card's `duration-200` (meant for the entrance animation) also gave it a
+   `transition: all 0.2s`, so every size change eased in over 200 ms. Fixed with `transition-none`.
+2. Each pointermove set React state, re-rendering the whole chat and re-parsing every
+   message's markdown. The drag now writes the CSS variables straight onto the card, at
+   most once a frame, and commits the size to state once on release.
+3. The `backdrop-blur` was re-blurred every frame. It's dropped while resizing (`data-resizing`).
+The thread is also memoized (`useMemo` on messages), so typing in the box doesn't re-render it.
+Verified: height tracks the pointer 1:1 during the drag.

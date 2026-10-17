@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -97,6 +98,30 @@ export function AgentCard({
   }, [onClose]);
 
   const messages = agent.data.messages;
+  // Rendered once per change to the conversation, not on every keystroke or resize.
+  const thread = useMemo(
+    () =>
+      messages.map((message) => {
+        const text = message.parts
+          .map((part) => (part.type === "text" ? part.text : ""))
+          .join("")
+          .trim();
+        if (!text) return null;
+        return message.role === "user" ? (
+          <p
+            key={message.id}
+            className="ml-auto w-fit max-w-[85%] rounded-2xl bg-muted px-3 py-1.5 text-sm/6"
+          >
+            {text}
+          </p>
+        ) : (
+          <Prose key={message.id} className={CHAT_PROSE}>
+            {text}
+          </Prose>
+        );
+      }),
+    [messages],
+  );
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -150,6 +175,22 @@ export function AgentCard({
         ? 1
         : -1;
     let latest = { w: start.w, h: start.h };
+    // While dragging, size the card straight through its CSS variables, at
+    // most once a frame, and leave React (and the chat's markdown) alone;
+    // the size goes into state once, on release.
+    card.style.removeProperty("--card-max");
+    card.dataset.resizing = "";
+    let frame = 0;
+    const apply = () => {
+      frame = 0;
+      const left = Math.min(
+        Math.max(16, anchor.x - latest.w / 2),
+        bounds.width - latest.w - 16,
+      );
+      card.style.setProperty("--card-w", `${latest.w}px`);
+      card.style.setProperty("--card-h", `${latest.h}px`);
+      card.style.setProperty("--card-left", `${left}px`);
+    };
     const move = (ev: PointerEvent) => {
       latest = {
         w: Math.min(
@@ -158,12 +199,16 @@ export function AgentCard({
         ),
         h: Math.min(Math.max(start.h - (ev.clientY - start.y), MIN_H), maxH),
       };
-      setSize(latest);
+      if (!frame) frame = requestAnimationFrame(apply);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
+      cancelAnimationFrame(frame);
+      apply();
+      delete card.dataset.resizing;
+      setSize(latest);
       try {
         localStorage.setItem(SIZE_KEY, JSON.stringify(latest));
       } catch {
@@ -203,7 +248,10 @@ export function AgentCard({
       style={placed}
       className={cn(
         "pointer-events-auto absolute inset-x-3 bottom-[var(--card-bottom)] z-30 flex h-[var(--card-h,auto)] max-h-[var(--card-max,none)] flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-2xl backdrop-blur-md",
-        "animate-in fade-in slide-in-from-bottom-2 duration-200",
+        // `duration-200` would otherwise also ease every size change, which made resizing lag.
+        "animate-in fade-in slide-in-from-bottom-2 duration-200 transition-none",
+        // Re-blurring the room behind it every frame is what makes a resize stutter.
+        "data-[resizing]:bg-background data-[resizing]:backdrop-blur-none",
         "sm:inset-x-auto sm:left-[var(--card-left)] sm:w-[var(--card-w)]",
       )}
     >
@@ -276,25 +324,7 @@ export function AgentCard({
             ))}
           </div>
         )}
-        {messages.map((message) => {
-          const text = message.parts
-            .map((part) => (part.type === "text" ? part.text : ""))
-            .join("")
-            .trim();
-          if (!text) return null;
-          return message.role === "user" ? (
-            <p
-              key={message.id}
-              className="ml-auto w-fit max-w-[85%] rounded-2xl bg-muted px-3 py-1.5 text-sm/6"
-            >
-              {text}
-            </p>
-          ) : (
-            <Prose key={message.id} className={CHAT_PROSE}>
-              {text}
-            </Prose>
-          );
-        })}
+        {thread}
         {busy && messages.at(-1)?.role === "user" && (
           <p className="flex gap-1 py-1" aria-label="Thinking">
             {[0, 1, 2].map((i) => (

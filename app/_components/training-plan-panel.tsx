@@ -600,7 +600,7 @@ function TrainingWeek() {
           setOverDay(null);
         }}
       >
-      <section className="hidden gap-3 md:grid md:grid-cols-7">
+      <section className="hidden gap-2 md:grid md:grid-cols-7">
         {days.map((d) => {
           const list = byDay.get(d) ?? [];
           const acts = activitiesByDay.get(d) ?? [];
@@ -608,22 +608,34 @@ function TrainingWeek() {
           const past = d < today;
           const race = events.find((e) => e.event_date === d);
           return (
-            <DropDay key={d} day={d} over={overDay === d && dragging !== null && dragging.session_date !== d} className={cn("flex flex-col rounded-xl border transition-shadow", isToday && "border-foreground/40", race && "border-rose-500/60")}>
-              <div className={cn("flex items-center justify-between rounded-t-[11px] border-b px-3 py-2", isToday && "bg-foreground text-background")}>
-                <span className={cn("text-sm font-semibold uppercase tracking-wide", past && !isToday && "text-muted-foreground/70")}>{shortDayLabel(d)}</span>
-                <button type="button" onClick={() => router.push(newSessionHref(d))} className={cn("flex size-9 items-center justify-center rounded-md", isToday ? "text-background/80 hover:text-background" : "text-muted-foreground hover:text-foreground")} aria-label={`Add session on ${shortDayLabel(d)}`}>
-                  <PlusIcon className="size-5" />
+            <DropDay key={d} day={d} over={overDay === d && dragging !== null && dragging.session_date !== d} className="group/day flex min-w-0 flex-col gap-2 rounded-xl p-1 transition-shadow">
+              <div className="flex items-center justify-between pl-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{weekdayShort(d)}</span>
+                  <span
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full text-sm tabular-nums",
+                      isToday ? "bg-foreground font-semibold text-background" : past ? "text-muted-foreground" : "text-foreground",
+                    )}
+                  >
+                    {Number(d.slice(8))}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => router.push(newSessionHref(d))}
+                  className="flex size-7 items-center justify-center rounded-full text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/day:opacity-100"
+                  aria-label={`Add session on ${shortDayLabel(d)}`}
+                >
+                  <PlusIcon className="size-4" />
                 </button>
               </div>
               {race && (
-                <div className="flex items-center gap-1.5 border-b bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-600 dark:text-rose-400">
-                  <FlagIcon className="size-4" /> {race.name}
-                </div>
+                <p className="flex items-center gap-1 px-1 text-xs font-medium text-rose-600 dark:text-rose-400">
+                  <FlagIcon className="size-3.5" /> {race.name}
+                </p>
               )}
-              <div className="flex flex-1 flex-col gap-2 p-2">
-                {list.length === 0 && acts.length === 0 && (
-                  <p className={cn("py-3 text-center text-sm text-muted-foreground/60", past && "opacity-60")}>—</p>
-                )}
+              <div className="flex min-h-24 flex-1 flex-col gap-2">
                 <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {list.map((s) => (
                     <DragSession key={s.id} id={s.id}>
@@ -641,7 +653,7 @@ function TrainingWeek() {
       </section>
         <DragOverlay>
           {dragging && (
-            <div className="rotate-1 rounded-lg bg-background shadow-xl">
+            <div className="rotate-1 rounded-xl bg-background shadow-xl">
               <SessionCard s={dragging} past={false} onToggle={() => {}} onEdit={() => {}} />
             </div>
           )}
@@ -665,6 +677,12 @@ function TrainingWeek() {
       </AlertDialog>
     </div>
   );
+}
+
+/** "Mon", "Tue"… for the desktop grid's day headers. */
+function weekdayShort(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short" });
 }
 
 /** "M", "T", "W"… for the phone's week strip; the date number beside it tells the two T's and S's apart. */
@@ -697,7 +715,7 @@ function weekStats(sessions: TrainingSession[], activities: Activity[]): WeekSta
 function DropDay({ day, over, className, children }: { day: string; over: boolean; className: string; children: React.ReactNode }) {
   const { setNodeRef } = useDroppable({ id: day });
   return (
-    <div ref={setNodeRef} className={cn(className, over && "border-primary ring-2 ring-primary/40")}>
+    <div ref={setNodeRef} className={cn(className, over && "bg-primary/5 ring-2 ring-primary/40")}>
       {children}
     </div>
   );
@@ -804,49 +822,56 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
     );
   }
 
-  // Week-grid card: compact, with the done wash so a week scans at a glance.
+  // Week-grid card (desktop): a small soft card like the day's hero — no border, a round tick,
+  // a quiet log link. Done is said by the tick; a missed session just fades (2026-10-17).
   return (
-    <div className={cn("group relative rounded-lg border p-2.5", s.done && "border-emerald-500/50 bg-emerald-500/5", past && !s.done && !rest && "border-dashed opacity-70")}>
-      <div className="flex items-start gap-2.5">
+    <div className={cn("group relative rounded-xl bg-muted/60 p-3 dark:bg-muted/40", past && !s.done && !rest && "opacity-60")}>
+      <div className="flex items-start gap-2">
+        <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn("size-1.5 shrink-0 rounded-full", meta.color)} />
+            {meta.short}
+            {s.intensity === "hard" && " · hard"}
+          </span>
+          <span className="mt-0.5 block text-sm font-medium leading-snug">{s.title}</span>
+          {targetLabel(s) && <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">{targetLabel(s)}</span>}
+          {actuals && <span className="mt-0.5 block text-xs tabular-nums text-emerald-700 dark:text-emerald-400">{actuals}</span>}
+          {heart && <span className="block text-xs tabular-nums text-muted-foreground">{heart}</span>}
+          {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className="mt-1.5 h-1.5" />}
+        </button>
         {!rest && (
           <button
             type="button"
             onClick={onToggle}
             aria-label={s.done ? "Mark not done" : "Mark done"}
-            className={cn("flex size-6 shrink-0 items-center justify-center rounded-md border-2", s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40")}
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
+              s.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/30 text-transparent hover:border-muted-foreground/60",
+            )}
           >
-            {s.done && <CheckIcon className="size-4" />}
+            <CheckIcon className="size-3.5" />
           </button>
         )}
-        <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
-          <span className="flex items-center gap-1.5">
-            <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{meta.short}</span>
-            {s.intensity === "hard" && <span className="text-xs text-rose-500">hard</span>}
-          </span>
-          <span className={cn("block text-sm font-medium leading-snug", s.done && "line-through text-muted-foreground")}>{s.title}</span>
-          {targetLabel(s) && <span className="block text-xs tabular-nums text-muted-foreground">{targetLabel(s)}</span>}
-          {actuals && <span className="block text-xs tabular-nums text-emerald-700 dark:text-emerald-400">{actuals}</span>}
-          {heart && <span className="block text-xs tabular-nums text-muted-foreground">{heart}</span>}
-          {s.done && s.actual_zones && <ZoneBar zones={s.actual_zones} className="mt-1 h-1.5" />}
-        </button>
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        {template ? (
+          <Link href={workoutHref(template.slug, s.session_date)} className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+            {logLabel} <ChevronRightIcon className="size-3.5" />
+          </Link>
+        ) : (
+          <span />
+        )}
         {onDelete && (
           <button
             type="button"
             onClick={onDelete}
             aria-label={`Remove ${s.title}`}
-            // Always there on a phone; on desktop it shows on hover so the narrow week columns stay clean.
-            className="-m-1 flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 hover:text-destructive md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
           >
-            <TrashIcon className="size-4" />
+            <TrashIcon className="size-3.5" />
           </button>
         )}
       </div>
-      {template && (
-        <Link href={workoutHref(template.slug, s.session_date)} className="mt-2 flex h-8 items-center justify-center gap-1 rounded-md bg-violet-500/10 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-300">
-          {logLabel} <ChevronRightIcon className="size-3.5" />
-        </Link>
-      )}
     </div>
   );
 }

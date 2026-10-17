@@ -14,6 +14,17 @@ export const BUDDY = {
   /** The first line in its chat, before anyone has said anything. */
   hello: "Hi! I'm Berto's little helper. Ask me about his work, what he writes and records, or his HYROX training.",
   starters: ["What does Berto do?", "What's the podcast?", "How's his HYROX going?", "How do I book a meeting?"],
+  /** Faint ghost questions that rotate in the empty input; Tab fills one in. */
+  suggestions: [
+    "What is Berto building right now?",
+    "What has he written lately?",
+    "What's Aucctus?",
+    "What talks has he given?",
+    "What's his HYROX race time?",
+    "What's the best way to reach him?",
+    "What does he think about AI agents?",
+    "What's his latest podcast episode?",
+  ],
   /** Along the desk, from/to across its width; depth 0 is the back edge, 1 the front. */
   lane: { from: 0.3, to: 0.68, depth: 0.6 },
   /** Height as a multiple of the desk's width. */

@@ -36,6 +36,24 @@ const MAX_W = 760;
 /** The size you dragged it to, remembered for next time. */
 const SIZE_KEY = "buddy-chat-size";
 
+/** How long each ghost suggestion sits in the empty input before the next. */
+const ROTATE_MS = 4000;
+const SUGGESTIONS = [...BUDDY.suggestions, ...BUDDY.starters];
+
+/**
+ * The faint text shown after what's typed: a whole rotating question while the
+ * input is empty, or the rest of one that starts with what's been typed so far.
+ */
+function ghostFor(input: string, tick: number): string | null {
+  if (!input) return SUGGESTIONS[tick % SUGGESTIONS.length];
+  if (input.includes("\n")) return null;
+  const typed = input.toLowerCase();
+  const match = SUGGESTIONS.find(
+    (q) => q.length > input.length && q.toLowerCase().startsWith(typed),
+  );
+  return match ? match.slice(input.length) : null;
+}
+
 function savedSize(): { w: number; h: number } | null {
   try {
     const v = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "null");
@@ -102,6 +120,22 @@ export function AgentCard({
   });
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Which ghost suggestion is up; it only moves on while the input is empty.
+  const [tick, setTick] = useState(() =>
+    Math.floor(Math.random() * SUGGESTIONS.length),
+  );
+  useEffect(() => {
+    if (input) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), ROTATE_MS);
+    return () => window.clearInterval(id);
+  }, [input]);
+  const ghost = ghostFor(input, tick);
+  const acceptGhost = () => {
+    if (!ghost) return;
+    setInput(input + ghost);
+    inputRef.current?.focus({ preventScroll: true });
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const busy = agent.status === "submitted" || agent.status === "streaming";
   // Dragged size; null until someone drags (or a saved size loads).
@@ -124,10 +158,22 @@ export function AgentCard({
       e.preventDefault();
       onClose();
     };
+    // A click or tap anywhere else closes it, except on the buttons that
+    // toggle it, which would otherwise close it and open it straight back up.
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      if (!target || cardRef.current?.contains(target)) return;
+      if (target.closest("[data-chat-toggle]")) return;
+      onClose();
+    };
     window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown);
     if (window.matchMedia("(min-width: 640px)").matches)
       inputRef.current?.focus({ preventScroll: true });
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [onClose]);
 
   const messages = agent.data.messages;
@@ -274,6 +320,7 @@ export function AgentCard({
 
   return (
     <div
+      ref={cardRef}
       role="dialog"
       aria-label="Chat with Berto's helper"
       style={placed}
@@ -384,22 +431,53 @@ export function AgentCard({
         }}
         className="flex items-end gap-2 border-t border-border/60 p-2"
       >
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={input}
-          maxLength={MAX_CHARS}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit(input);
-            }
-          }}
-          placeholder="Ask me anything about Berto…"
-          aria-label="Message Berto's helper"
-          className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-foreground/40"
-        />
+        <div className="relative min-w-0 flex-1">
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={input}
+            maxLength={MAX_CHARS}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Tab" && !e.shiftKey && ghost) {
+                e.preventDefault();
+                acceptGhost();
+              } else if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit(input);
+              }
+            }}
+            aria-label="Message Berto's helper"
+            aria-description={ghost ? `Press Tab for: ${input + ghost}` : undefined}
+            className="block max-h-28 min-h-9 w-full resize-none bg-transparent px-2 py-1.5 text-sm outline-none"
+          />
+          {/* The ghost suggestion, laid over the textarea in the same type so
+              its words line up after what's typed. */}
+          {ghost && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-2 py-1.5 text-sm"
+            >
+              <span className="invisible">{input}</span>
+              <span
+                key={input ? "rest" : ghost}
+                className="text-foreground/35 animate-in fade-in duration-500"
+              >
+                {ghost}
+              </span>
+              <button
+                type="button"
+                tabIndex={-1}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={acceptGhost}
+                className="pointer-events-auto ml-1.5 inline-block translate-y-[-1px] rounded border border-border/70 px-1 font-mono text-[10px] leading-4 text-foreground/40 transition-colors hover:text-foreground/70"
+              >
+                <span className="max-sm:hidden">Tab</span>
+                <span className="sm:hidden">Use</span>
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           disabled={!input.trim() || busy}

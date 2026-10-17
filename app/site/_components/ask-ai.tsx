@@ -102,6 +102,7 @@ export function AskAiButton({ className, children, onClick, ...props }: Componen
       type="button"
       aria-expanded={open}
       aria-controls="ask-ai-panel"
+      data-chat-toggle
       onClick={(e) => {
         onClick?.(e);
         request();

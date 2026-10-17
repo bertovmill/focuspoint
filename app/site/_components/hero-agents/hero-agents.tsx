@@ -311,6 +311,7 @@ export function HeroAgents() {
             onClick={() => (open ? close() : show())}
             aria-label="Chat with Berto's helper"
             aria-expanded={open}
+            data-chat-toggle
             className="group pointer-events-auto absolute left-0 top-0 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span

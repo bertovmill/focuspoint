@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Buddy chat: rotating Tab suggestion, click away to close
+
+Berto wanted the homepage buddy's input to hold a faint, ready-made question
+that rotates, accepted with Tab, and the chat to close when you click away.
+
+- `agent-card.tsx`: the placeholder is now a ghost suggestion laid over the
+  textarea. Empty input: a question that fades to the next every 4s. Typing:
+  the rest of any suggestion that starts with what's typed. Tab (or the small
+  "Tab"/"Use" chip, for touch) fills it in. Pool is `BUDDY.suggestions` plus the
+  starters, in `cast.ts`.
+- A pointerdown outside the card closes it. The buddy and Ask AI buttons carry
+  `data-chat-toggle` so clicking them doesn't close-then-reopen. Closing still
+  drops the conversation, as before.
+- Tested locally on site.localhost: rotation, prefix ghost alignment, Tab,
+  click-away, and Ask AI opening.
+
+---
+
 ## 2026-10-17 — Homepage window: slim black steel frame, no deep casing
 
 Berto: the window "doesn't look modern enough — the depth makes it a bit

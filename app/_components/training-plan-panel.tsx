@@ -562,7 +562,7 @@ function TrainingWeek() {
                 )}
                 {selectedList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
+                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
                   </SortableSession>
                 ))}
               </div>

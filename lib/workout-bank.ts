@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, RUN_MOBILITY, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -32,6 +32,9 @@ async function ensureBank() {
     await sql`UPDATE training_sessions SET workout_slug = 'unity-standard-upper-body' WHERE workout_slug IS NULL AND type = 'strength' AND title ~* 'upper[[:space:]-]*body'`;
     await sql`UPDATE training_sessions SET workout_slug = 'unity-standard-lower-body' WHERE workout_slug IS NULL AND type = 'strength' AND title ~* 'lower[[:space:]-]*body'`;
   }
+  // Run + dynamic mobility joins the bank (Berto, 2026-10-18). Insert-if-absent, so an
+  // edit or an archive from the editor sticks.
+  await sql`INSERT INTO workout_bank (slug, position, definition) VALUES (${RUN_MOBILITY.slug}, (SELECT COALESCE(MAX(position), -1) + 1 FROM workout_bank), ${JSON.stringify(RUN_MOBILITY)}) ON CONFLICT DO NOTHING`;
   // One-time: rear-foot elevated split squats replace the wall balls on lower body
   // (Berto, 2026-10-06). Skipped once the split squat is in, so wall balls added
   // back from the editor stay.

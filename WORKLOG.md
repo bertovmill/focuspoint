@@ -12011,3 +12011,13 @@ Berto couldn't find the swap from /training (it was only on the home dashboard c
 beside the trash. Both open `SwapWorkoutDialog` (one dialog in `TrainingWeek`, reloads the
 week on swap). Not shown for rest or done sessions.
 Verified: `tsc --noEmit` clean. Not clicked through in a browser.
+
+## 2026-10-18 — New workout: Run + Dynamic Mobility
+
+Berto: a workout of a 10 min run, then 8 dynamic mobility exercises, 10 yards and jog back,
+3 sets. Added `RUN_MOBILITY` (slug `run-and-mobility`, type easy, no default day) to
+`lib/workout-templates.ts`; `ensureBank` inserts it if absent (so existing databases get it,
+and later edits/archives stick). Run block (timed) + mobility block, 8 drills x 3 sets.
+The 8 drills are my pick (walking lunge w/ rotation, high knees, butt kicks, leg swings,
+inchworm, carioca, A-skips, lateral shuffle) — Berto to rename in /training/workouts.
+Use it via Swap workout. Verified: tsc clean; not run against the DB.

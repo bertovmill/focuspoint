@@ -335,6 +335,37 @@ WORKOUT_TEMPLATES.push({
   ],
 });
 
+// Run + dynamic mobility (Berto, 2026-10-18): a 10 min run, then 8 dynamic mobility
+// drills, each 10 yards out and a jog back, 3 sets. Not on the default week; swap it in.
+const mobility = (key: string, name: string): TemplateExercise => ({
+  key, name, sets: 3, ladder: [], weight: null, note: "10 yards, then jog back",
+});
+export const RUN_MOBILITY: WorkoutTemplate = {
+  slug: "run-and-mobility",
+  name: "Run + Dynamic Mobility",
+  session_type: "easy",
+  default_day: null,
+  plan: { minutes: 10, intensity: "easy" },
+  blocks: [
+    { key: "run", label: "Run", exercises: [{ ...run("easy_run", "10 min run"), note: "Easy, conversational" }] },
+    {
+      key: "mobility",
+      label: "Dynamic mobility · 10 yards + jog back × 3",
+      exercises: [
+        mobility("walking_lunge", "Walking lunge with rotation"),
+        mobility("high_knees", "High knees"),
+        mobility("butt_kicks", "Butt kicks"),
+        mobility("leg_swings", "Walking leg swings"),
+        mobility("inchworm", "Inchworm"),
+        mobility("carioca", "Carioca"),
+        mobility("a_skips", "A-skips"),
+        mobility("lateral_shuffle", "Lateral shuffle"),
+      ],
+    },
+  ],
+};
+WORKOUT_TEMPLATES.push(RUN_MOBILITY);
+
 /** "15 min easy + 4 × 20 s strides" → the parts he ticks off one by one. */
 export function checklistParts(text: string | undefined): string[] {
   return (text ?? "").split(/\s+\+\s+/).map((p) => p.trim()).filter(Boolean);

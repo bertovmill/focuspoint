@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronRightIcon, FlagIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { sessionHref } from "@/app/_components/session-editor";
+import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
 import { DEFAULT_PROTEIN_TARGET_G, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
@@ -55,6 +56,7 @@ function TrainingToday({ today }: { today: string }) {
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
+  const [swapping, setSwapping] = useState<TrainingSession | null>(null);
 
   // `isStale` drops an answer for a day the home screen has already swiped past.
   const load = useCallback(async (isStale: () => boolean = () => false) => {
@@ -159,6 +161,17 @@ function TrainingToday({ today }: { today: string }) {
                       </p>
                     )}
                   </Link>
+                  {!rest && !s.done && (
+                    <button
+                      type="button"
+                      onClick={() => setSwapping(s)}
+                      aria-label="Swap workout"
+                      title="Swap workout"
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <ArrowLeftRightIcon className="size-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -170,6 +183,14 @@ function TrainingToday({ today }: { today: string }) {
               </p>
             ))}
           </div>
+        )}
+        {swapping && (
+          <SwapWorkoutDialog
+            session={swapping}
+            open
+            onOpenChange={(o) => !o && setSwapping(null)}
+            onSwapped={() => load()}
+          />
         )}
         {nextRace && (
           <p

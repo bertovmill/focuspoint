@@ -11986,3 +11986,19 @@ commit conflicted with the thread refactor in agent-chat / chat-sidebar / thread
 and was re-applied on top of it. Pushed to origin.
 Verified: `npm run typecheck` clean for source. Not clicked through in a browser.
 Next: maybe link the Vancouver HYROX race line to the race page too.
+
+## 2026-10-18 — Swap the workout of the day
+
+Berto: swap today's workout for another, either just this one or all following.
+Dashboard's Today's training card has a swap icon on each unfinished, non-rest session
+that opens `SwapWorkoutDialog` (pick a bank workout, then "Just this one" or "This and
+all following"). `POST /api/training/sessions/[id]/swap { workout_slug, scope }` calls
+`swapSessionWorkout` in `lib/workout-bank.ts`: it rewrites the session's title, type,
+targets and `workout_slug` from the bank workout (notes cleared). "Following" also swaps
+every later unfinished session of the same workout (matched by slug, or title+type when
+unlinked) and moves the default week: the new workout takes the old one's default day,
+the old one is unscheduled, so weeks not yet filled follow.
+Decisions: done sessions never change; if the new workout already had a default day, its
+existing future sessions are left alone (only its default day moves).
+Verified: `npm install` + `tsc --noEmit` clean. Not clicked through in a browser.
+Next: offer the swap from the session edit page and the training week view too.

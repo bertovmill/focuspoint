@@ -256,3 +256,56 @@ export async function fillWeekFromBank(weekStart: string, opts: { replace?: bool
   await remember();
   return true;
 }
+
+// ── swapping a workout ───────────────────────────────────────────────────
+
+/**
+ * Swaps one calendar session for another bank workout. `scope: "one"` changes only
+ * that session. `scope: "following"` also changes every later unfinished session of
+ * the same workout, and moves the default week over — the new workout takes the old
+ * one's default day and the old one is unscheduled — so weeks not yet filled follow.
+ * Done sessions never change. Returns the ids of the sessions that were swapped.
+ */
+export async function swapSessionWorkout(
+  sessionId: number,
+  newSlug: string,
+  scope: "one" | "following",
+): Promise<number[]> {
+  await ensureBank();
+  const sql = getDb();
+  const next = await getWorkout(newSlug);
+  if (!next) throw new Error("Workout not found");
+  const [cur] = await sql`SELECT to_char(session_date, 'YYYY-MM-DD') AS d, workout_slug, title, type FROM training_sessions WHERE id = ${sessionId}`;
+  if (!cur) throw new Error("Session not found");
+  const p = next.plan ?? {};
+  const minutes = minutesAtPace(p.km ?? null, p.pace_sec ?? null) ?? p.minutes ?? null;
+  const oldSlug = (cur.workout_slug as string | null) ?? null;
+
+  // The session itself always swaps (even a done one has been explicitly picked);
+  // "following" adds later unfinished sessions of the same workout.
+  const rows = await sql`
+    UPDATE training_sessions SET type = ${next.session_type}, title = ${next.name}, workout_slug = ${next.slug},
+      target_km = ${p.km ?? null}, target_minutes = ${minutes}, target_pace_sec = ${p.pace_sec ?? null},
+      intensity = ${p.intensity ?? null}, notes = NULL, updated_at = NOW()
+    WHERE id = ${sessionId}
+       OR (${scope === "following"} AND done = FALSE AND session_date > ${cur.d}
+           AND (CASE WHEN ${oldSlug}::text IS NOT NULL THEN workout_slug = ${oldSlug}
+                     ELSE workout_slug IS NULL AND title = ${cur.title as string} AND type = ${cur.type as string} END))
+    RETURNING id
+  `;
+
+  if (scope === "following" && oldSlug && oldSlug !== next.slug) {
+    const old = await getWorkout(oldSlug);
+    if (old && old.default_day !== null) {
+      await sql`
+        UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', ${JSON.stringify(old.default_day)}::jsonb), updated_at = NOW()
+        WHERE slug = ${next.slug}
+      `;
+      await sql`
+        UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', 'null'::jsonb), updated_at = NOW()
+        WHERE slug = ${old.slug}
+      `;
+    }
+  }
+  return rows.map((r) => Number(r.id));
+}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProteinRing } from "@/app/_components/protein-ring";
+import { sessionHref } from "@/app/_components/session-editor";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
 import { DEFAULT_PROTEIN_TARGET_G, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
@@ -142,7 +143,10 @@ function TrainingToday({ today }: { today: string }) {
                       {s.done && <CheckIcon className="size-4" />}
                     </button>
                   )}
-                  <div className="min-w-0 flex-1">
+                  <Link
+                    href={sessionHref(s.id)}
+                    className="group/session -m-1 min-w-0 flex-1 rounded-md p-1 transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring"
+                  >
                     <span className="flex items-center gap-1.5">
                       <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{meta.short}</span>
@@ -154,7 +158,7 @@ function TrainingToday({ today }: { today: string }) {
                         {targetLabel(s)}
                       </p>
                     )}
-                  </div>
+                  </Link>
                 </div>
               );
             })}

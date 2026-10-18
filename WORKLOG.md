@@ -11959,3 +11959,17 @@ panel) for browsers without WebGPU. Rolled fully up (hem at 0) the shade disappe
 Verified at 1440x900 with WebGPU (headless Chromium, swiftshader/metal) and without:
 default, dragged down/up/closed.
 Next: persist hem position across reloads; maybe let the sky drive it.
+
+## 2026-10-18 — Dashboard: today's workout is clickable
+
+Berto: make the workout of the day on the home dashboard clickable. In
+`today-snapshot.tsx` (Today's training card) each session's title and target block is now
+a `Link` to `/training/sessions/<id>` (the existing session edit page, via `sessionHref`),
+with a subtle hover tint. The done checkbox stays its own button, so ticking a session
+off doesn't navigate. Rest days have no link target change (they still open their
+session page).
+Also: pulled and merged origin/main (710 files) into local main; the running-status-dot
+commit conflicted with the thread refactor in agent-chat / chat-sidebar / threads-provider
+and was re-applied on top of it. Pushed to origin.
+Verified: `npm run typecheck` clean for source. Not clicked through in a browser.
+Next: maybe link the Vancouver HYROX race line to the race page too.

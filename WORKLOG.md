@@ -4,6 +4,4819 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-17 — Notes editor: Shift+Tab steps a block out of a toggle
+
+A block inside a toggle's body (e.g. a nested toggle under "What goals am I
+pursuing?" on the Vision page) was stuck there, so you couldn't make it a sibling
+of the toggle above. Shift+Tab now lifts it out to sit right after its parent toggle.
+
+- `lib/toggle-outdent.ts`: `outdentFromToggle(state)` returns the transaction (or
+  null). Wired as `Shift-Tab` in `ToggleShortcuts` in `app/_components/notion-editor.tsx`.
+- Inside a bullet/to-do item the list's own Shift+Tab still wins; on a top-level
+  line or a top-level toggle summary it does nothing (browser default).
+- If the toggle body would be left empty, a blank line stays behind.
+- Known gap: lifting a block from the *middle* of a body moves it after the toggle
+  while later siblings stay inside (Notion would adopt them as children).
+- Not built (Berto only asked for the outdent): Tab to indent a block into the
+  toggle above it.
+- Tested headlessly against a ProseMirror schema mirroring the toggle nodes; the
+  live app sits behind Clerk so it wasn't clicked through.
+
+---
+
+## 2026-10-17 — /work: click a tile to browse the site in a browser-window frame
+
+Berto wanted visitors to peruse the Aucctus, MakersLounge and Leland coaching sites
+without leaving the Work tab. He chose: click a tile to open a frame (not inline
+frames), and a screenshot for sites that block framing.
+
+- `app/site/work/work-preview.tsx` (client): wraps a tile in a button; click opens a
+  radix Dialog styled as a browser window (close, address pill, "Open" in a new tab,
+  footer link to the case study). Live iframe when `previewUrl` is set, a scrollable
+  tall screenshot when `previewImage` is set. Nothing third-party loads until opened.
+- `lib/content.ts`: new work frontmatter `previewUrl` / `previewImage`.
+- Aucctus: live iframe (www.aucctus.com allows framing). Leland blocks framing
+  (X-Frame-Options), so its tile uses `public/site-art/leland-profile.webp`.
+- MakersLounge: screenshot too (`makerslounge-site.webp`). Its live site can't be
+  framed: it runs a Clerk *development* instance (amusing-gobbler-48.clerk.accounts.dev)
+  that now returns 404, and first-time browser visits get redirected to that dead
+  handshake. Not fixed here; needs a look in makerslounge-web.
+- Screenshots live in `public/site-art/` because the public host only serves that
+  folder (see `PUBLIC_ASSET_DIRS`); `public/work/` would 404 on bertomill.com.
+- `content/work/ai-coaching.md` rewritten (who it's for, how a session works, review
+  quotes, free Leland+ resources), using only facts from the public Leland profile.
+- Screenshots are a snapshot: re-take them when the sites change.
+
+---
+
+## 2026-10-17 — /fitness: race picker instead of stacked tables
+
+Berto didn't like three full split tables stacked down the page with an empty
+left column. He picked the race-picker layout:
+
+- `app/site/fitness/race-picker.tsx` (client): left column (sticky on desktop) has
+  the Results stats plus one row per race (event, division, time, place); the
+  right column shows the selected race's splits. Newest race is open by default.
+- The URL hash picks the race (`/fitness#hyrox-ottawa-2026`); the hero's jump
+  links and shared links still work. Picking a race uses replaceState, so the
+  page doesn't jump.
+- `app/site/fitness/page.tsx`: RaceResult moved into the picker.
+- Checked at 1400px and 375px (no horizontal scroll) on site.localhost.
+
+---
+
+## 2026-10-17 — Buddy chat: rotating Tab suggestion, click away to close
+
+Berto wanted the homepage buddy's input to hold a faint, ready-made question
+that rotates, accepted with Tab, and the chat to close when you click away.
+
+- `agent-card.tsx`: the placeholder is now a ghost suggestion laid over the
+  textarea. Empty input: a question that fades to the next every 4s. Typing:
+  the rest of any suggestion that starts with what's typed. Tab (or the small
+  "Tab"/"Use" chip, for touch) fills it in. Pool is `BUDDY.suggestions` plus the
+  starters, in `cast.ts`.
+- A pointerdown outside the card closes it. The buddy and Ask AI buttons carry
+  `data-chat-toggle` so clicking them doesn't close-then-reopen. Closing still
+  drops the conversation, as before.
+- Tested locally on site.localhost: rotation, prefix ghost alignment, Tab,
+  click-away, and Ask AI opening.
+
+---
+
+## 2026-10-17 — Homepage window: slim black steel frame, no deep casing
+
+Berto: the window "doesn't look modern enough — the depth makes it a bit
+clunky". Picked from three options: slim black frame (over frameless or slim
+white), and keep a thin floating ledge for the jar.
+
+- `concrete-wall/wall.wgsl`: replaced the painted sash window (deep reveal,
+  moulded architrave, stepped sill, meeting rail, glazing bars) with a flush
+  matte-black frame (`frame_w` 0.0085), one centre mullion, and a thin black
+  ledge under it (`ledge_top`/`ledge_h`). Depth is now only a soft contact
+  shadow around the frame, the ledge's shadow, and a faint inner shadow on the
+  glass. Rain, reflections, city cross-fades and the daylight halo unchanged.
+- `concrete-wall/scene.ts`: `WINDOW_GRID` is just `cols`; `sillAnchor` puts the
+  jar on the new ledge's top face (keep in step with the shader constants).
+- `concrete-wall/concrete-wall.tsx`: CSS fallback window matches (black 6px
+  frame, mullion, soft inner shadow; no rails).
+- Verified at 1440x900 and 375x812 on site.localhost.
+
+## 2026-10-17 — The buddy waters the money tree (click the plant, or every hour)
+
+Berto: "how amazing would it be if the agent grabbed the glass and watered the
+plant every hour or if you click on the plant". Picked: real cutouts (the jar and
+plant were already their own layers from 2026-10-11), triggers = plant click +
+top of every hour, Toronto time.
+
+- `hero-agents/stage.ts`: errands — `beginErrand`/`endErrand` stop wandering,
+  `goTo(x)` walks to a hero-pixel x (past the lane's ends too) and resolves on
+  arrival, `setCarrying` holds both arms up (`buddy.ts` `carrying` pose).
+- `hero-agents/hero-agents.tsx`: `water()` walks under the jar, hops, carries it
+  overhead (streams `buddy:hold` hand positions each frame), stands beside the pot,
+  pours, carries it back, hops, sets it down, nods. Hourly timer at :00 Toronto
+  (skipped when the tab is hidden or reduced motion is on). No WebGL / buddy not on
+  the desk: the jar pours by itself.
+- `concrete-wall/desk-scene.tsx`: listens for `desk:jar` (held/pour/home) and
+  `buddy:hold`; a click (not drag) on the plant fires `desk:water`; `data-desk-jar`
+  and `data-desk-pot` markers let the buddy find them. Dragging the jar still works
+  when no errand is running.
+- Verified in the browser: full sequence, stream renders into the pot.
+## 2026-10-17 — HYROX Toronto 2026 result on /fitness
+
+Berto said the Toronto 2026 race wasn't showing (he thought it was entered as
+"Berto Myll"). Searched every Toronto 2026 and 2025 division for "Myll": none.
+The result is on the official site as "Mill, Berto" at the URL already saved,
+the page just still had it under "Up next".
+
+- `lib/hyrox.ts`: added the Pro solo result (1:07:12, 32nd of 404 pro men, 6th
+  in 25–29, full splits) and emptied HYROX_UPCOMING.
+- Side effect: `paceSuggestions()` intervals now use Toronto 2026 run splits
+  (HYROX_RESULTS[0]).
+
+---
+
+## 2026-10-17 — Tag notes from the note itself, or by asking Cael
+
+Berto asked how to tag a note for the persona; there was no way to (tags only
+came from capture_thought). Built both ways he picked:
+
+- Open note: tag chips under the date, "Add tag" opens a small field (Enter or
+  comma saves, Esc cancels, suggestions from tags in use), × removes. Tags are
+  normalised (lowercase, no #, spaces → dashes) by `lib/note-tags.ts`.
+- `PUT /api/thoughts/[id]/tags`: replaces tags without touching text/embedding.
+- `agent/tools/tag_note.ts` (+ registry, so MCP has it too): add/remove tags on an
+  existing note; instructions point "tag this note persona" at it.
+- Tested on note 5 with a temporary tag via UI and tool, then removed.
+
+---
+
+## 2026-10-17 — Public Cael speaks in Berto's spirit, from an approved persona
+
+Berto wanted the bertomill.com chat to carry his personality and values, drawn
+from his notes, without ever disclosing the notes, and with a more formal presence.
+
+- Decided with Berto: notes are distilled into a persona profile he reviews and
+  approves; only the approved text reaches the public prompt (raw notes never do,
+  so prompt-injection can't leak them). Cael speaks *about* Berto in the third
+  person. Only notes tagged `persona` feed it. Review lives on its own page, /persona.
+- `lib/persona.ts`: draft/approved docs in `app_settings` (`persona.draft.markdown`,
+  `persona.approved.markdown`); `generatePersonaDraft()` distills tagged notes with
+  `anthropic/claude-sonnet-4.6` under strict rules (no quotes, names, dates, money,
+  health, family, anecdotes). Tested on sample notes: values kept, private detail dropped.
+- `app/api/persona/*`: status + unpublish, draft (MarkdownDoc endpoint), generate, approve.
+- `app/_components/persona-panel.tsx` + `/persona` route, nav rail, More tab, command palette.
+- `app/api/site/chat/route.ts`: loads the approved persona into a "Berto's character"
+  section; voice is now composed and professional, third person, no slang or emoji.
+  With no approved persona the chat behaves as before (plus the new voice).
+- Next: tag a few notes `persona`, Generate, edit, Approve, then try the site chat.
+
+---
+
+## 2026-10-17 — Corner chat sends the text on screen, so Cael sees what Berto sees
+
+Berto wanted Cael to have the same view of the page as him. Before, only pages
+that published a detail line (Notes, Writing, Sketches) told Cael more than the
+section name.
+
+- `app/_components/page-context.tsx`: `readPageText()` reads the visible text of
+  every `[data-cael-page]` area plus whatever is typed into its fields (innerText
+  skips those), capped at 6,000 characters. Hidden areas are skipped, since a
+  hidden element's innerText returns all of its text.
+- `app/(app)/layout.tsx` (section `<aside>`) and `app/_components/home-screen.tsx`
+  are marked `data-cael-page`; the nav rail and the chat sit outside them.
+- `app/_components/agent-chat.tsx`: the corner chat appends `On his screen:` with
+  that text to the hidden `[[Context: …]]` line at the moment of sending.
+- `agent/instructions.md`: answer "this"/"here" from the screen text without a
+  tool call; use tools only for more than the screen shows or before changing things.
+- Text only, no images or layout (decided with Berto; a screenshot would cost more).
+  Each message carries up to ~6k characters, so long threads grow faster.
+
+---
+
+## 2026-10-17 — Homepage "Talks, hackathons and events" is now a big swipeable carousel
+
+Berto wanted the events section bigger and more like a carousel. The WebGPU
+liquid-glass grid (four small cards per row, shuffle, drag-to-reorder) is gone.
+
+- `app/site/_components/moments-carousel.tsx` (new): one row of large photo
+  cards (30rem on desktop, ~2.5 visible, 82vw on phones) with CSS scroll-snap,
+  bleeding off the right edge of the window. Prev/next arrow buttons (hidden on
+  phones, which swipe) and the year filter are kept; shuffle is dropped. Photos
+  are newest first. Clicking one opens its LinkedIn post in a shadcn dialog with
+  prev/next and arrow keys; `#moment-<slug>` deep links still work.
+- `app/site/page.tsx`: uses `MomentsCarousel`; the page wrapper gets
+  `overflow-x-clip` so the full-bleed row can't cause sideways page scroll.
+- Deleted `app/site/_components/liquid-moments/` (in git history if wanted back).
+  `vgpu` stays — the glass sculpture still uses it.
+
+---
+
+## 2026-10-17 — Removing a training session asks in-page, not with a browser popup
+
+Deleting a workout from a day used `window.confirm()`, which showed the browser's
+"cael.bertomill.com says" box. Berto wanted it in the UI.
+
+- `app/_components/training-plan-panel.tsx`: the trash button now opens a shadcn
+  `AlertDialog` ("Remove Hyrox Sim?" / "It comes off 17 Sat. Splits and sets you logged
+  stay in your workout log." / Cancel · Remove). Same pattern as Lists and Notes.
+  `removing` stays set after close so the title doesn't blank during the exit animation.
+- Other `window.confirm()`s still exist (fill-from-bank, workout bank, timer stop, home
+  sections, task canvas, portfolio) — swap them the same way if wanted.
+
+---
+
+## 2026-10-17 — Winning Day card removed from the home screen
+
+Berto doesn't find steps / sleep / keystrokes worth a daily score, so the "Winning Day"
+scorecard card is gone from home.
+
+- `app/_components/home-screen.tsx`: dropped `<ScorecardCard>` and its import.
+- Deleted `scorecard-card.tsx`, `activity-rings.tsx`, `record-confetti.tsx` (only the card
+  used them).
+- Kept `lib/scorecard.ts`, `/api/scorecard`, and the `get_scorecard` / `log_metrics` agent
+  tools, so watch sync and any logged data keep working. Remove those too if the
+  metrics are dropped entirely.
+
+---
+
+## 2026-10-17 — Schema check runs once per version, and can't crash a boot
+
+Berto recreated the Neon database from scratch. Cael rebuilt its tables on boot, but
+`ensureSchema()` ran ~110 sequential statements on every cold start (and on every
+request in 10 routes/tools), and a single dropped connection during it crashed the
+instance (`instrumentation hook` errors, exit 128).
+
+- `lib/db.ts`: the statements are now `applySchema()`. `ensureSchema()` is a wrapper that
+  hashes `applySchema`'s source into `SCHEMA_VERSION`, compares it with `schema_meta`,
+  and only re-applies when it differs (i.e. after a schema edit is deployed). Memoized
+  per process; a failure clears the memo so the next caller retries. Callers unchanged.
+- `instrumentation.ts`: a failed check is logged instead of thrown, so boot continues.
+- Measured against the local DB: cold start 7.8s → 0.26s once the version is recorded.
+
+---
+
+## 2026-10-17 — Newsletter signup under the homepage headline
+
+Berto wants the site to build an owned audience (founder path), so the Kit signup now
+sits right under the hero headline instead of only in the popup/footer.
+
+- `app/site/page.tsx`: `#hero-newsletter` block after the AnimatedHeading — mono label
+  "Get what I'm learning building AI, by email" + `<SubscribeForm source="hero" />`
+  (max-w-md). Kit records `source=hero`, so `npm run kit -- stats` shows how it compares.
+- Kit env: `KIT_API_KEY` and `KIT_FORM_ID` (10056765, "Clare form") added to Vercel
+  production on 2026-10-16 and production redeployed.
+- Note: local `.env.local` `DATABASE_URL` password is stale (Neon auth fails), so
+  `npm run dev` crashes in instrumentation until it's refreshed.
+
+---
+
+## 2026-10-16 — Newsletter moves from Substack to Kit
+
+Berto picked Kit (free up to 10k subscribers) and chose to move the list fully off
+Substack. Old Substack posts stay listed on /writing and keep linking out; new writing
+lives on the site (posts table) and email goes through Kit.
+
+- `lib/kit.ts`: v4 REST client (`X-Kit-Api-Key`). `kitSubscribe` creates the subscriber
+  `inactive`, then adds them to `KIT_FORM_ID`, so the form's double opt-in sends Kit's
+  confirmation email. `listKitSubscribers` (confirmed only) feeds Cael's Newsletter panel.
+- `lib/kit-broadcast.ts`: a post's *first* publish (editor PATCH or the `publish_post`
+  tool) creates an unsent Kit broadcast with the article as HTML (unified/remark, links
+  and images made absolute, cover image, "Read on bertomill.com" link). Nothing sends
+  automatically. `before.publishedAt === null` marks a first publish, so unpublish →
+  republish doesn't duplicate. Never throws into the publish.
+- `/api/site/subscribe`: Resend → Kit; same validation + throttle, plus a honeypot
+  (`website`) and a `source` (popup/footer/post/newsletter-page) passed as the referrer.
+  Kit sends the welcome, so the Resend welcome email is gone. `/api/site/unsubscribe`
+  stays for links in old Resend welcome emails.
+- `SubscribeForm` posts with fetch instead of a GET to Substack; success copy is "check
+  your inbox to confirm". /writing's "Subscribe on Substack" → "Subscribe" (/newsletter).
+- Env: `KIT_API_KEY`, `KIT_FORM_ID` (local + Vercel production). Without them signup 503s.
+- `scripts/kit.mjs` (`npm run kit -- <cmd>`): a terminal client for Kit, since Kit has no
+  CLI and its MCP server (app.kit.com/mcp) only runs tools on paid plans. Commands: stats
+  (counts + signups by site surface), forms, subscribers, broadcasts, tags, tag, import
+  (CSV, Substack export as-is; imports `active`, skips `email_disabled`, `--dry-run`,
+  `--tag`). Paced under the 120 req/min API-key limit; bulk endpoint is OAuth-only, so
+  import goes one at a time. Nothing in it can send email.
+- Next.js refuses `react-dom/server` in route-reachable code, hence unified + hast-util-to-html
+  (added as direct deps) rather than rendering react-markdown to static markup.
+## 2026-10-16 — Agent speed: reasoning off by default, luna-fast, one round of reads
+
+Berto asked for "lightning fast" replies and picked all four levers. Measured first:
+saved chats took 3–23 s to first words; each model step was 1.5–3 s before any output
+(tools themselves <0.5 s). Bench (instructions as system prompt, TTFT): gpt-6-luna
+low ~2.4 s / none ~0.8 s; gpt-6-luna-fast low ~1.7 s / none ~0.57 s.
+
+- **B — reasoning per turn** (`agent/agent.ts`): the model resolver returns
+  `{ model, reasoning }`. "none" unless his latest message is long (>400 chars) or reads
+  like thinking work (should I / plan / decide / why / on track / compare …), then "low".
+  `CAEL_REASONING` and `CAEL_CHAT_MODEL` env vars pin either for evals.
+- **D — model**: his picker setting switched gpt-6-luna → `openai/gpt-6-luna-fast`
+  ($0.20/$1 per M; eve's own default). On the routing evals it beat plain luna on both
+  speed and pass rate.
+- **A — fewer tool rounds**: the Daily snapshot now carries his whole vision (current
+  statement/method/milestone/routine/goal per title, ~10 KB) and his note folders.
+  Instructions: one parallel round of reads, never re-read the snapshot, vision comes
+  from the snapshot. `capture_thought` no longer says "call list_folders first" — that
+  pattern was 91 of 172 captures, an extra model round each time.
+- **C — smaller tool list**: 9 never-used tools are `deferred: true` (career docs,
+  import_reading_notes, log_thank_you, sync_workouts, post_task_update,
+  delete_vision_item, add_family_memory); instructions name them for `eve__tool`.
+  `list_github_prs` stays direct (deferring it cost a search round). MCP is unaffected.
+- Evals: on-track-2030 and money-decision no longer require `list_vision` (it's in the
+  snapshot); they check the reply uses the vision and take ≤2 steps.
+- Routing evals, local dev host, 4 concurrent (absolute times inflated): old (luna, low)
+  median first text 18.2 s, 12/17 pass; new 12.8–14.4 s, 14–15/17.
+- Follow-up: makerslounge-events is flaky on every config — the model sometimes calls
+  `load_toolset` for the wrong toolset and then loops on `eve__search` (polluted by
+  GitHub connection results) instead of using the already-loaded `list_luma_events`.
+## 2026-10-16 — Corner chat: liquid-glass bubble, resizable window on desktop
+
+- **Bubble** is bolder and liquid: 60–64px, `.liquid-bubble` in `app/globals.css` —
+  layered white highlights over a green gradient, backdrop blur, inner shadow, a
+  green glow, a slow border-radius wobble and drifting sheen (off under reduced
+  motion), springy hover. Gotcha: the class must not set `position`, since unlayered
+  CSS beats Tailwind's `fixed` and the bubble fell into the page's flex row.
+- **Resizable on desktop** (`app/_components/corner-resize.tsx`): the window is
+  anchored bottom-right, so it grows from its top edge, left edge and top-left corner.
+  Size is clamped (min 320×380, max viewport − 40px), saved in localStorage
+  (`cael:corner-chat-size`), double-click a handle to reset to 400×640. The phone keeps
+  the full-screen sheet.
+
+---
+
+## 2026-10-16 — Public site uses Cael's icon
+
+Berto wanted bertomill.com and Cael to share one tab icon; he picked Cael's green planet.
+
+- `app/site/layout.tsx`: icons now `/icon.svg` and `/apple-icon.png`, same as Cael.
+- Removed the now-unused BM mark: `public/bm-icon.svg`, `public/bm-apple-icon.png`,
+  `scripts/render-bm-apple-icon.mjs`.
+
+## 2026-10-16 — Corner chat: Cael on every page, aware of what's open
+
+Berto wanted Cael always available bottom-right, aware of the page. His calls: same
+conversation as the Chat page, page + what's open as context, on desktop and phone.
+
+- **One chat, two places.** `app/(app)/layout.tsx`: the single AgentChat that already
+  stays mounted (so answers keep streaming) is restyled instead of duplicated — full
+  page on /chat, a 400×640 window bottom-right on desktop and full-screen on the phone
+  elsewhere, hidden behind a bubble when closed. A second live agent on the same
+  thread would have fought over it.
+- **Compact header** (`agent-chat.tsx`, `variant="corner"`): "Cael · on <page>", new
+  chat (stays on the page: `requestNewChat({ stay: true })`), open in Chat
+  (`/chat?thread=<id>`), minimize.
+- **Page awareness.** `app/_components/page-context.tsx`: pages publish a detail line
+  (`usePublishPageDetail`), the shell adds the section name and path, and the corner
+  chat sends it hidden with each message via `withChatContext` (stripped from the
+  bubble). Publishing now: Notes (the open note, clipped to 1500 chars), Writing editor
+  (the open article), Sketches (the open sketch). Other pages send their name only.
+  The generic line has no toolset trigger words.
+- The Writing editor hides the corner chat while its own article chat is open
+  (`useHideCornerChat`).
+- Verified locally: bubble and window on desktop, full-screen on a phone viewport,
+  expand to /chat, and the outgoing message carrying the page + open note (captured in
+  the browser with the network call blocked, so nothing was sent).
+- Next: publish details from Training (today's session), Meals and Career; the first
+  open on a phone shows blank for a moment while the chat chunk downloads.
+
+---
+
+## 2026-10-16 — Chat: no wasted load_toolset step, cached model pick, speed budgets in evals
+
+Berto asked whether chat is tuned for speed and tool-calling quality per eve. An audit
+said mostly yes; he picked three fixes.
+
+- **`load_toolset` only offers unloaded toolsets.** It moved from a static tool
+  (`agent/tools/load_toolset.ts`, deleted) into the dynamic resolver
+  `agent/tools/toolsets.ts`, with its enum narrowed to toolsets not yet loaded, and it
+  drops out once both are in. The instructions table also named `load_toolset(...)
+  first`, which primed the model to call it even when it wasn't offered (eve silently
+  drops the call, but it still costs a step), so `agent/instructions.md` now names the
+  real tools and says to load only when they're missing. MakersLounge question: 3 steps
+  → 2 (baseline on main called `load_toolset` needlessly).
+- **Model picker read is cached.** `getChatModelCached()` in `lib/chat-model.ts` (30s
+  TTL; `setChatModel` refreshes it on the same instance). Still resolved per turn
+  (Berto wants mid-chat switches), but most turns skip the db read.
+- **Routing evals have speed budgets.** `evals/routing/route.ts` gates steps (4), tool
+  calls (6), uncached input tokens (30k) and latency (45s) per turn, with per-case
+  overrides (`budget`). MakersLounge must not call `load_toolset` and must take ≤2
+  steps. plate-today and on-track-2030 fan out to 6–8 parallel reads, so they get 8.
+  Last full run: 16/17; the one miss was on-track-2030 at 8 tool calls, which
+  now has that budget (passes on re-run).
+- Next: the 25KB instructions could move per-tool rules into tool descriptions/skills.
+  "What should I work on today?" sometimes hands off to the planner subagent (~33k
+  uncached tokens) — worth a look if it feels slow.
+
+---
+
+## 2026-10-16 — Experience timeline: real logos
+
+Swapped the coloured monograms for real logos (`public/site-art/logo-{kpmg,ivey,leland,cibc,scelta}.webp`):
+KPMG wordmark and Ivey shield from Wikimedia, Leland/CIBC/Scelta from their site icons.
+Ivey's source is small (44×58); swap in a bigger file if it looks soft.
+
+---
+
+## 2026-10-16 — Notes list: Apple Notes hairlines instead of a card
+
+Berto wanted the /notes list to look more like Apple Notes. `app/_components/notes-view.tsx`:
+each date group's notes no longer sit in a white rounded card; rows sit on the page
+background separated by a single hairline, and the selected row gets a rounded highlight.
+
+---
+
+## 2026-10-16 — Site: Work as art cards, Experience as a logo timeline
+
+Berto felt Work and Experience were the weakest part of bertomill.com next to the room
+hero and the footer art card. `app/site/page.tsx`:
+
+- **Work** pillars are now cards: a 4:3 image on top (Aucctus stand in Paris, a
+  MakersLounge night, the Cael helix art) with the label chip, number and a one-line
+  stat over a dark gradient, then logo, name, role and description. Lift, shadow and a
+  slow image zoom on hover; equal heights across the row.
+- **Experience** (`#experience`) is a vertical timeline: the Aucctus logo or a
+  coloured monogram on the rail, "Org · Role", years, and one true line per job taken
+  from `content/work/*.md` and `lib/site-moments.ts` (no line for Scelta, nothing to
+  source it from). Rows reveal in sequence.
+- Next: real KPMG/CIBC/Ivey/Leland logo files would beat the monograms.
+
+---
+
+## 2026-10-16 — Chat search reaches message text again (server-side)
+
+The same afternoon's "Faster launch" change made `/api/threads` titles-only, so the
+history rail's search could only match titles. New `GET /api/threads/search?q=` scans
+each thread's saved `message.received` / `message.completed` text in SQL (every word,
+any order, LIKE-escaped, ~50–200 ms) and returns IDs. The rail filters titles (and any
+loaded transcripts) instantly and merges the server hits 200 ms after typing stops.
+
+---
+
+## 2026-10-16 — Chat search; welcome chips centred
+
+- `app/_components/chat-sidebar.tsx`: a rounded search bar at the top of the chat
+  history (desktop rail and phone drawer). Matches titles and everything said in each
+  chat — the user's `message.received` and Cael's `message.completed` text from the saved
+  events, built once per thread-list change. Every word must appear, any order. Esc or ×
+  clears; the query survives clicking through results. "No chats match" when empty.
+- The rail's hide button moved from an absolute overlay into the search row
+  (`searchTrailing` prop) so the two don't collide.
+- `components/chat/eve-thread.tsx`: the empty-thread starter chips sat flush left —
+  `<Suggestions>` is a full-width horizontal scroller and the `max-w-md` row inside it
+  hugged its left edge. Now a plain centred wrapping row.
+## 2026-10-16 — Site weather dial → round Apple-style buttons
+
+Berto asked to swap the horizontal weather slider on /site for round Apple-like buttons.
+
+- `app/site/_components/concrete-wall/wall-clock.tsx`: the Radix slider is gone; four
+  round icon buttons (Sunny / Cloudy / Overcast / Rain, lucide sun / cloud-sun / cloudy /
+  cloud-rain) in a `radiogroup`. Active one is filled (foreground bg, inverted icon);
+  others are frosted glass. Small mono labels under each. After dark, Sunny→Clear with a
+  moon and Cloudy gets a cloud-moon. "Live" reset unchanged. Snaps to the four stops
+  (no in-between values any more).
+
+---
+
+## 2026-10-16 — Chat opens on a fresh thread; prewarmed sessions; eve 0.80.1
+
+Berto asked for Chat to open a new chat on arrival, and for chat to be sped up with the
+latest from eve.
+
+- `app/(app)/layout.tsx`: arriving at /chat from any other section (rail, tab bar, link,
+  fresh load) lands on a blank thread; an untitled active thread is reused so empty rows
+  don't stack up. `/chat?thread=<id>` opens a specific chat instead (the ⌘K palette uses
+  it). Waits for thread hydration before deciding. Side effect: reloading /chat also
+  lands on a blank thread; the previous one stays at the top of history.
+- `components/chat/eve-composer.tsx`: the first keystroke in a brand-new thread calls
+  `agent.prewarm()`, so the durable session (workflow + inbox) is created while he types
+  rather than in front of the first reply. A send before it's ready waits for it.
+- eve 0.79.0 → 0.80.1 (faster session startup and skill sync; expired streams now 410
+  immediately instead of retrying ~38s). No retention/trace policies are used, so the
+  0.80 data-deletion change doesn't apply. Typecheck + production build pass.
+- Not browser-verified locally (the password sign-in is the production password).
+
+---
+
+## 2026-10-15 — "In the room": the photo carousel becomes a liquid-glass grid
+
+Berto asked for the vgpu "Liquid Layout" example (`npx vgpu examples pull liquid-layout`)
+on the homepage photo carousel. He picked a full liquid grid over keeping the scroll
+strip, and asked for it re-tuned for the light page rather than the example's dark room.
+
+- New `app/site/_components/liquid-moments/` replaces `moments-carousel.tsx`. The
+  example's WebGPU chain is kept intact: Motion owns the frame (`frame.postRender`), the
+  renderer samples each card's rect and motion values, `liquid-dynamics.ts` (unchanged)
+  turns them into smooth-min rounded rects, and seven vgpu passes (backdrop → field →
+  shade → bloom ×3 → composite) draw one liquid surface under every card. Teardown is the
+  example's `dispose()` (cancel frame, remove listeners, `gpu.dispose()`), plus the new
+  observers. `field.wgsl`, `blur.wgsl`, `bright.wgsl` are unchanged.
+- Cards are the 14 `MOMENTS` photos (photo + caption in a glass bezel); the filter is by
+  year (All / 2026 / 2025) with a Shuffle button in place of lil-gui. Drag to reorder,
+  Alt+arrows, `layoutId` hand-off to a panel with the photo, the LinkedIn post and a link
+  out; ←/→ step between photos, Esc closes and returns focus. The open photo is still
+  mirrored to `#moment-<slug>` and a link to it opens it on load.
+- Light theme: the floor is the page's own background (read from CSS via a 1×1 2D canvas
+  so oklch/lab resolve, re-read on theme change), with faint drafting lines that fade
+  out at the edges. `composite.wgsl` drops ACES and the vignette so the canvas edge is
+  exactly the page colour; `shade.wgsl` blends by paper lightness between frosted clear
+  glass with ink rims (light) and the example's smoked glass (dark). The drop shadow and
+  the open-panel dimming fade out near the canvas edge, and the canvas bleeds 24 px into
+  the page gutter so shadows never end in a seam.
+- Page-specific changes to the example: the frame loop pauses while the section is off
+  screen (IntersectionObserver); idle autoplay only moves/shuffles/filters (never opens a
+  photo over the page); drag is mouse/pen only so a finger still scrolls the page; no
+  WebGPU (or a GPU error) falls back to plain CSS cards with the same animations.
+- Verified in the browser at 1280 and 375 px, light and dark: glass renders, drag
+  reorder, open/step/close, hash deep link, focus return, no horizontal overflow.
+
+---
+
+## 2026-10-12 — Homepage window: no more plain-sky pane before the skyline
+
+Berto: on a fresh load of bertomill.com the hero "shows one type of window, then quickly
+switches to the other", and suspected stale cache or legacy code. It was neither: the
+WebGPU wall only fetched the four Toronto views *after* its first frame, so the canvas
+faded in (700 ms) over the CSS wall with the shader's plain-sky fallback in the panes,
+and the photo then snapped in (`city_ready` was a hard 0→1) when the fetches landed.
+Three windows in a row on every cold load: CSS window → plain-sky pane → skyline.
+
+- `renderer.ts`: the views are fetched and decoded before `init()` (no GPU needed), and
+  `ready` waits for them to be on the GPU, up to `CITY_WAIT_MS` (2.5 s), before
+  resolving — so the canvas is revealed with the skyline already in the window. Past
+  that it reveals on the plain sky and the view eases in over `CITY_FADE_S` (0.7 s) via
+  `weather.z`, now a blend rather than a flag. Marks `concrete-wall:city-landed` and
+  `concrete-wall:reveal` on the performance timeline for checking the order.
+- `concrete-wall.tsx`: the four views are `preload()`ed into the document head on the
+  homepage, and the CSS window's `next/image`s are `unoptimized` so they read the same
+  URLs — one download serves whichever wall ends up showing. Measured locally: preloads
+  done by ~220 ms, renderer fetches were cache hits, city-landed and reveal at the same
+  millisecond.
+
+Built in a sibling worktree (~/focuspoint-window-load, own `npm ci`, dev on :3002 via a
+`window-load-3002` launch entry) because the main checkout is parked on
+site-presence-tweaks with uncommitted work.
+
+---
+
+## 2026-10-12 — Training: today's card flattened (the phone view felt messy)
+
+Berto: the mobile Today workout "seems messy, not very pleasing, can't put my thumb on
+it". Diagnosis: four nested boxes each styled differently (thick-bordered Today frame →
+green-washed session card → violet "View splits" slab → grey Fitbit chips), three accent
+colours in one card, done signalled four ways (check, strikethrough, grey title, green
+wash), and the unclaimed Fitbit runs as unlabelled text-xs orphans under a text-xl card.
+He chose "flatten it" + "label the Fitbit rows".
+
+- The Today section has no frame of its own now: a small "Today · 12 Mon" eyebrow with
+  the Add button, then the session card *is* the card (`rounded-xl border`, the same
+  style as the comparison card). Title first and biggest (text-2xl, never struck through
+  or greyed); the meta line under it: type dot + short name, "hard" as a quiet outlined
+  pill, the target. Done is said once, by the filled green check. "View/Log splits" is a
+  plain footer row with a chevron instead of a violet block. Trash stays top-right.
+- Unclaimed Fitbit workouts sit under a "From your Fitbit" caption as text-base rows with
+  2 px zone bars (`ActivityChip big`), separated by hairlines — no grey chips.
+- Empty today = dashed card. Race-day line unchanged. The week-grid cards keep their
+  compact look and green wash (`SessionCard` now branches on `big` instead of ternaries).
+- Noticed while verifying: today's Stations row (session 26) is stored as type `yoga`,
+  so it reads YOGA; Berto's screenshot had it as Hyrox. Data, not layout — left for him.
+
+Built on main in a sibling worktree (~/focuspoint-today-card with its own `npm ci`; the
+main checkout was parked on site-presence-tweaks with another session's uncommitted
+edits). Verified on :3791 at 390 px light/dark and 1280 px: no console errors, week grid
+unchanged.
+
+## 2026-10-11 — Site footer redesign: headline, columns, newsletter art card
+
+Berto wanted bertomill.com's footer "a bit nicer", with the Cofounder site's footer as loose
+inspiration (big two-line headline, link columns, square social icon buttons, a portrait art
+card with a caption and CTA). Asked what the card should hold; he picked the newsletter, so
+the separate subscribe strip is gone and the form now sits on a frosted panel over
+`site-art/writing.webp`.
+
+- New `app/site/_components/site-footer.tsx` (`#footer`, `#newsletter-card`): headline
+  "Putting AI to work, / one agent at a time.", Explore / Follow / Contact columns,
+  `SocialIcons variant="buttons"`, © row with "Toronto, Canada · Built with Cael".
+- `social-icons.tsx` gained a `buttons` variant (bordered 40px squares).
+- `app/site/layout.tsx` renders `<SiteFooter />` instead of the inline strips.
+- Verified at desktop and 375px in the in-app browser.
+
+## 2026-10-11 — Site footer redesign: headline, columns, newsletter art card
+
+Berto wanted bertomill.com's footer "a bit nicer", with the Cofounder site's footer as loose
+inspiration (big two-line headline, link columns, square social icon buttons, a portrait art
+card with a caption and CTA). Asked what the card should hold; he picked the newsletter, so
+the separate subscribe strip is gone and the form now sits on a frosted panel over
+`site-art/writing.webp`.
+
+- New `app/site/_components/site-footer.tsx` (`#footer`, `#newsletter-card`): headline
+  "Putting AI to work, / one agent at a time.", Explore / Follow / Contact columns,
+  `SocialIcons variant="buttons"`, © row with "Toronto, Canada · Built with Cael".
+- `social-icons.tsx` gained a `buttons` variant (bordered 40px squares).
+- `app/site/layout.tsx` renders `<SiteFooter />` instead of the inline strips.
+- Verified at desktop and 375px in the in-app browser.
+
+## 2026-10-11 — Homepage: a mason jar you can water the plant with; the plant turns
+
+Berto: *"add a little mason jar of water on the windowsill that you can actually drag
+and water the plant with. You can also drag to rotate the plant a little."* (He said
+"plane"; read as the plant.)
+
+- **The plant is its own layer now.** `scripts/split-desk-plant.mjs` cuts the potted
+  tree out of `desk-oak-money-tree.webp` into `plant-money-tree.webp` and clears the
+  leaves out of the desk (`desk-oak-base.webp`, now `DESK_ART.src`); the pot's lower
+  half stays in the desk under the overlay so the join is seamless. It prints
+  `PLANT_ART` (the tree's box in the desk image, and the pot's opening inside the
+  tree image) which `desk-scene.tsx` uses to lay the plant back with the same
+  `--desk-*` custom properties, lit by the same sky as the desk.
+- **`DeskScene`** (`app/site/_components/concrete-wall/desk-scene.tsx`): a full-bleed
+  layer over the hero, `pointer-events-none` except the plant and the jar. Drag the
+  plant sideways → `perspective(1100px) rotateY(±18°)` around the pot (0.14° a pixel),
+  springing back on release. The jar stands on the sill (`sillAnchor`: the shader's
+  sill front edge, 14% in from the glass's left; 8.5% of the hero tall, scaled with
+  the window). Pick it up and carry it; when the tipped jar's mouth is over the pot
+  (within 1.15 pot radii, 6–360px above it) it swaps to the tipped cutout, a stream
+  runs from the mouth to the soil (animated repeating gradient + two ripple rings),
+  the soil darkens and the plant does a 2.6 s sway. Let go anywhere → it glides back
+  to the sill; the soil dries over 9 s. Reduced motion: no spring, sway or flow.
+  `setPointerCapture` is wrapped (synthetic pointers throw).
+- **Jar art**: two fresh gpt-image-1 cutouts (`jar-upright.webp` 422×480,
+  `jar-pouring.webp` 375×480, prompts now in `generate-desk-art.mjs`). An *edit* of the
+  upright jar to tip it came back on an opaque backdrop, so the tipped one is a fresh
+  generation. `JAR_ART` holds each image's aspect and mouth point.
+- Keyframes `plant-drink`, `water-flow`, `water-ripple` in `app/globals.css`.
+
+Verified on :3010: scripted pointer drags in the desktop app's browser confirmed the
+DOM states (rotateY 13.3° while held → 0° with the spring; jar translated, tipped
+image on, stream from the mouth to the pot top), and Playwright (no WebGPU, CSS wall)
+captured the pour mid-stream, the jar back on the sill, and the plant turned.
+
+---
+
+## 2026-10-11 — Homepage desk scene, round two: oak desk, a proper sash window
+
+Berto on the first pass: *"not bad … I also don't like what the window looks like. The
+window's not really nice enough … I wanted it to look premium."* He sent a library desk
+by a sash window and a white corner desk as references. His calls: **desk B** (oak
+trestle slab with a brass lamp and leather notebook, over a walnut writing desk with
+drawers), and **"make the window a little bigger, and less cross hatching."**
+
+- **Window rebuilt in the shader** as painted joinery, from the glass out: glazing bars
+  (`PANE_COLS` × `PANE_ROWS` a sash, now 2 × 1, so one centre bar) and a heavier meeting
+  rail that shades the lower sash; the sash frame with a bevel; a deep **white-painted
+  reveal** (sill lit by the sky, head in shadow, jambs between, occluded corner); a
+  **sill lip** stepping out past the casing with a shadow down the apron and wall; and a
+  **moulded architrave** (`moulding()` profile: inner shadow line, bead, field, outer
+  bead). Each pane has its own slight tilt and tint, and a soft rim shadow from the
+  glazing. Joinery widths scale with the window (`joinery`), so a phone's small window
+  doesn't get a casing as deep as its glass. The bar distance was first measured from
+  each pane's *centre* (bars at the quarter lines, 12 panes); fixed to the nearest edge.
+- **Bigger glass on desktop** (`windowRect`): x 0.655–0.935, y 0.16–0.70 of the hero,
+  casing clear of the nav. The glass's left edge now also depends on the viewport width
+  (0.72 at 1024px → 0.655 at 1440px+) and the lg headline is `clamp(2.6rem, 3.7vw, 6rem)`,
+  so the first line always clears the casing (77px spare at 1024×768, measured).
+- **Desk**: `desk-oak-money-tree.webp` (new name, so no cache serves the old slab). The
+  layout numbers now come from the art itself: `DESK_ART.clear` (how far down the image
+  the lamp reaches) and `sink` feed `deskLayoutVars()` → `--desk-ratio`,
+  `--desk-tree-clear`, `--desk-top-clear`, `--desk-sink`, which the hero's padding and
+  the desk's offset read. Swapping the image is one edit plus a remeasure.
+- **Overcast view regenerated** as an edit with "air clear, no mist": the first one was
+  fog. Overcast blend capped at 85% so some colour survives.
+- **Robustness**: `gpu.onError` now tears the renderer down and hands the page back to
+  the CSS wall (`onFail`); before, a shader that failed to compile left a blank canvas
+  over the CSS wall with the window hidden. The CSS fallback draws the same grid from
+  `WINDOW_GRID`.
+
+Verified on :3010 at 1920×1080, 1440×900, 1280×720, 1024×768 and 390×844 (day, night).
+Note for future verification: when the desktop app's browser pane is hidden,
+`document.visibilityState` is "hidden" and the hero's reveal animation never runs, so
+the headline is invisible in screenshots and the compositor can draw stale layers;
+measure the DOM instead, or force the styles. Not done: the candidate images and the
+one-off generation script live only in the session scratchpad.
+
+---
+
+## 2026-10-11 — Homepage: the drawings come off the wall; a desk, a money tree and a window on Toronto
+
+Berto: *"remove all the drawing on the wall … I still like the stucco-looking wall with
+the WebGPU … add a nice, gorgeous desk with a gorgeous plant, a money tree, sitting on
+that desk, so it's almost like you're walking up to my desk … add a window in the wall
+that opens up to Toronto."* His calls when asked: photoreal generated cutout for the
+desk (not three.js), the window cut into the wall shader (not a framed photo), the desk
+pulled back so a little of its legs show, and **Toronto's sky for everyone**.
+
+- **Chalk plan and etched sketches are gone** (`chalk-blueprint.tsx`, `etched-sketches.tsx`
+  deleted; the `sketches` prop with them). Inner pages pass nothing; the homepage passes
+  `scene`.
+- **Window in the shader** (`wall.wgsl`): a square-cornered opening with a plaster reveal
+  (sill lit, head in shadow, jambs between, occluded inner corner), a painted frame
+  (charcoal in dark mode) with one mullion, and glass showing a cover-fit crop of a
+  `texture_2d_array` of four photographs of the same Toronto frame — day, golden hour,
+  night, overcast — cross-faded by warmth, night and cloud. Rain moved off the wall onto
+  the glass: drops bead, run and refract the view. The room reflects faintly in the glass
+  (the warm lamp at night); daylight spills onto the plaster beside the window and the
+  sill throws a shadow down the wall. `window.z <= 0` is a plain wall. The texture needs
+  `render_attachment` usage or `copyExternalImageToTexture` silently fails (black glass).
+- **Desk + money tree**: one gpt-image-1 cutout on alpha (`desk-money-tree.webp`,
+  1194×909 after trim), laid over the wall with a drop shadow, dimmed and desaturated by
+  the same sky. Its width is the `--desk-w` custom property the page sets
+  (`110vw` / `85vw` / `min(60vw, 80vh)` on lg); it sits low enough that only the top of
+  the legs shows before the page fade. The hero's bottom padding is derived from it so
+  the headline rests just above the desk on wide screens and above the whole tree on
+  phones (where the desk goes under the text, not beside it). Headshot shrank a step and
+  the lg headline is `clamp(3.5rem, 4.4vw, 6rem)` in a 68%-wide column so it never runs
+  into the tree.
+- **Placement** (`scene.ts` `windowRect`): edges interpolated by aspect ratio so the top
+  always clears the nav; wide screens get a tall window upper right above the tree,
+  phones a small one beside the headshot. Shared with the CSS fallback, which draws the
+  same window as a framed picture (day image, overcast and night layers fading over it).
+- **Toronto's sky for everyone**: `/api/site/weather` no longer reads the visitor's IP geo;
+  it always answers for Toronto (public cache, 10 min). `sky.ts` works in Toronto's time
+  zone via `Intl` (`WALL_ZONE`), including sunrise/sunset and the `?hour=` override; the
+  label is always "TORONTO · time · condition". The wall's first render is a fixed
+  `NEUTRAL_SKY` (clear noon) — rendering the real sky on the server caused a hydration
+  mismatch React refuses to patch, which left the desk at full brightness at night.
+- **Art pipeline**: `scripts/generate-desk-art.mjs` (desk prompt, city prompt, three
+  edits of the day photo via `generateImage({ prompt: { images, text } })` — edits work
+  through the gateway, so the buildings stay put between skies; crops the sliver of
+  frame the model paints and resizes to 1200×800). A fresh `VERCEL_OIDC_TOKEN` came from
+  `vercel env pull` (works again now that `.vercel` is linked to bertoaucctus/cael-agent).
+
+Verified on a worktree server (:3010, `site.localhost`) in the desktop app's WebGPU
+browser at 1440×900 and 390×844: day/overcast (live), rain, night, golden hour, dark
+mode, and the CSS fallback via Playwright with `--disable-webgpu`. Not done: the view
+through the glass has no mipmaps (slight shimmer when the window is small); no parallax.
+
+---
+
+## 2026-10-11 — Two-way sync between GitLab (source of truth) and GitHub (mobile sessions)
+
+Claude Code mobile/cloud sessions can only clone and push via GitHub, but Vercel deploys from
+GitLab. Two pieces close the loop:
+
+- **GitLab → GitHub push mirror** (GitLab project Settings → Repository → Mirroring), all
+  branches, divergent refs overwritten (GitLab wins). Auth: a classic GitHub PAT "gitlab
+  mirror" with `repo` scope. Status: `glab api projects/bertmill191%2Fcael/remote_mirrors`.
+- **GitHub → GitLab Action** `.github/workflows/sync-to-gitlab.yml`: on any push, pushes the
+  same branch to GitLab, fast-forward only, using the `GITLAB_TOKEN` repo secret (a GitLab
+  PAT "github sync" with `write_repository`). If GitLab's branch has moved on, the run fails
+  and a desktop session merges by hand.
+
+Verified both directions: the mirror carried the workflow file to GitHub, and a throwaway
+`sync-test` branch pushed to GitHub arrived on GitLab via the action within a minute.
+Rule of thumb: desktop pushes GitLab, mobile pushes GitHub, both end up everywhere.
+
+---
+
+## 2026-10-11 — Unity Upper Body warm-up: 3 rounds of raises, push-ups between rounds
+
+The warm-up read as alternating raises and push-ups (front / push-ups / side / push-ups /
+bent-over). Berto corrected it: each round is all three raises (front, side, bent-over) then
+push-ups, three rounds. Updated the stored definition in `workout_bank` (Neon) and the seed
+in `lib/workout-templates.ts` so a fresh bank matches. Checklist parts split on " + ", so
+the warm-up now ticks as six parts: Round 1 raises, push-ups, Round 2 raises, push-ups,
+Round 3 raises, push-ups. The bank loader also migrates the interim alternating
+string to the new one (`INTERIM_UPPER_BODY_WARMUP`).
+
+---
+
+## 2026-10-11 — Career outreach: no Venice, lead with MakersLounge + Cael
+
+Venice and Aucctus metrics (the 0→70 number) are confidential and must never appear in
+outreach. The Career tracker's default next step for a target with a contact said "short
+note citing Venice + 0→70"; it now says "short note citing MakersLounge + Cael". The Vercel
+target's tier label changed from "lead with Venice" to "lead with MakersLounge + Cael".
+Also guarded `add()` against double-clicks (a ref of companies in flight), since Databricks
+had been tracked twice, 1s apart. Files: `app/_components/career-tracker.tsx`,
+`lib/career-research.ts`. The four existing rows that cited Venice (Databricks ×2, Mistral,
+Lovable) were deleted from `career_targets` at Berto's request.
+
+---
+
+## 2026-10-11 — Site: Aucctus case study is present tense, with the real wordmark and a link
+
+bertomill.com/work/aucctus read like a job that had ended. Berto is still there, so:
+
+- `content/work/aucctus.md` rewritten as ongoing work: "What I do", "What's
+  happened so far", "What I'm still learning"; the outcome line says "in the
+  first six months". New frontmatter `url`, `logo`, `logoDark`.
+- Work entries can now carry a wordmark (`lib/content.ts`). `WorkTile` with a
+  `logo` becomes a card that follows the theme — off-white with the dark-type
+  file in light mode, near-black with the white-type file in dark — instead of
+  the typeset name on the brand colour. It's a `<picture>` built from
+  `getImageProps` (next/image docs' theme pattern): the browser fetches only
+  the matching file and swaps with the OS setting, no JS. The public site has
+  no theme toggle (next-themes is "system"), so `prefers-color-scheme` and the
+  site's `dark:` classes always agree; Cael's app toggle doesn't apply there.
+- Case study page: a "Site" fact (`aucctus.com ↗`) and the hero tile both link
+  to the org's site. Files: `public/site-art/logo-aucctus-wordmark-{light,dark}.webp`
+  (2000×411, from Berto's two exports).
+
+Verified on :3000 with Playwright in both colour schemes: correct variant
+visible, one logo download per scheme, headings present tense, phone width ok.
+Built on `site-presence-tweaks` (no commits of its own, 10 behind main, shared
+checkout with other sessions' uncommitted work), so landed on main by
+cherry-pick in a throwaway worktree rather than switching branches.
+
+## 2026-10-11 — Merged the morning's cloud-session work from GitHub into GitLab main
+
+Six commits from a claude.ai/code session (12:20–13:54 UTC today) had landed on **GitHub**
+`main`, which stopped deploying when the repo moved to GitLab (~11:50 ET), so none of it
+was live: its own reorder + a trash button on session cards, the workout log's
+week-over-week comparison, set-next-target by hand, chest flies replacing tricep
+extensions, this-week-vs-the-last-two + coaching cues, and the iPhone keyboard fix.
+Merged `github/main` into `main` (Berto chose: keep the dnd-kit drag). In the training
+panel the drag-to-reorder from the entry below stays; the cloud session's drop-on-card
+reorder (`preferCards`, `dropsBelow`, `reorderDay()`, `POST /api/training/sessions/reorder`)
+was dropped as a duplicate. Its **trash button on every session card** (confirm → DELETE,
+hover-only on desktop, always on phones) is kept. Everything else merged clean.
+Why it happened: the GitLab move pushed the local `main`, which hadn't picked up GitHub's
+newer commits. Cloud sessions still clone from GitHub — until they point at GitLab (or
+GitLab pull-mirrors GitHub), check `github/main` for stranded work before deploying.
+
+---
+
+## 2026-10-11 — Training: drag workouts up and down within a day
+
+Berto wanted to change a day's order by dragging — speed in front of the lift, say —
+not just move cards between days.
+
+- **Today** section: the cards are a sortable list (`@dnd-kit/sortable`, new dep).
+  Press and drag a card up or down; it lifts and follows, the others slide apart.
+- **Week grid**: the same within each day column, and the existing cross-day drag now
+  lands *where you drop*: above the card you drop onto, or at the end of an empty day
+  (or below its last card). Collision detection is custom (`dayThenCard`): the day
+  column under the pointer, then the nearest card in it. A column only lights up when
+  the card is coming from another day; within a day the sliding cards are the cue.
+- One write for both moves: `PUT /api/training/sessions/order { date, ids }` →
+  `reorderSessions()` sets `session_date` + `position` (0…n) for those ids in one
+  `UPDATE … FROM unnest(…) WITH ORDINALITY` and returns the day. This replaces the
+  old `PATCH { session_date }` move. The day a card left keeps its relative order
+  (position gaps don't matter — everything sorts by date, position, id).
+- Home's Today snapshot already sorts by `position`, so the new order shows there.
+- Sensors unchanged: mouse after 6 px, phone press-and-hold 250 ms.
+
+Files: `app/_components/training-plan-panel.tsx`, `lib/training.ts`,
+`app/api/training/sessions/order/route.ts`, `package.json`.
+Verified on :3789 with Playwright mouse drags. Throwaway 2021 week: C onto A →
+[C, A, B]; A onto B → [C, B, A]; B into empty Thu; A onto B in Thu → Thu [A, B];
+reload shows the same. Today: a temp card dragged to the top → [temp, Lift, Speed,
+Run], back to the bottom, deleted — real order unchanged. Not tested: touch drag on
+the phone (same TouchSensor as the cross-day drag). Built in a worktree from `main`
+because the main checkout sat on `site-presence-tweaks` with someone's 5-day-old
+uncommitted meals/site edits (left alone).
+
+---
+
+## 2026-10-11 — Notes: "/" commands — notes use the Notion-style editor
+
+Berto noticed Notes had no slash menu "like we do in other places". The open note now
+uses the same `NotionEditor` (Tiptap) as Writing and Principles: "/" for headings,
+to-do lists, bullets, toggles, quotes, code, divider; select text for bold / italic /
+strike / link / Ask; markdown shortcuts ("# ", "- ", "[] ") work too.
+
+- Always editable, like Apple Notes — no read mode / tap-to-edit. Done shows while the
+  cursor is in the note; Escape (with no menu open) or ⌘/Ctrl+Enter also mean Done.
+  Saving is unchanged: 1 s autosave, plus on blur and when leaving the note.
+- **First line is a live title** (`.note-titled` in globals.css), which the textarea
+  couldn't do. Skipped when the note opened with a first line over 100 chars, so
+  Cael's one-paragraph notes don't become a wall of bold.
+- Old notes use single newlines, which the editor reads as one paragraph with line
+  breaks (all of it then took the title style). `toEditor()` gives each line its own
+  paragraph on load (list items stay together; anything with ``` is left alone).
+  `fromEditor()` turns the editor's `\` hard breaks back into bare newlines. Opening
+  a note never rewrites it — only edits save.
+- A pasted image still becomes the note's photo (`image_url`, the list thumbnail);
+  the editor isn't given `uploadImage`, so there's one kind of picture per note.
+- `NotionEditor` gained an `autoFocus` prop (cursor at the end) for the compose button.
+- List previews strip markdown escapes (`\#` → `#`).
+
+Files: `app/_components/notes-view.tsx`, `app/_components/notion-editor.tsx`,
+`app/globals.css`. Verified on :3791: compose → "/todo" → to-do list → "/h2" heading
+saved as `ZZ Groceries\n\n- [ ] milk\n\n- [ ] eggs\n\n## Later`; editing a seeded
+`a\nb\nc` note kept bare newlines; opening real notes changed none. Test notes deleted.
+
+---
+
+## 2026-10-11 — Notes: compose button instead of the composer box
+
+Berto wanted Notes "pretty darn similar to Apple Notes", which has no "Write a note…"
+box — just a compose (✎) button. The composer card (textarea, Add note, Photo) is gone;
+a `ComposeButton` (lucide `SquarePenIcon`) sits beside the "Notes" title on desktop and
+phone. It opens a blank note (`NoteDetail` with `id: 0`) with the cursor already in it.
+
+- Nothing is stored until there's text or a photo: the first save POSTs via
+  `onCreate` (`handleCreateThought`), later saves PATCH that row. A save that lands
+  while the create is in flight waits for its id instead of creating twice.
+- **Typing autosaves after 1 s of quiet** (all notes, not only new ones), so the list
+  row's title/preview keeps up the way Apple's does. Each PATCH re-embeds — fine at
+  that cadence.
+- The pane keeps a `new-<composeKey>` React key after the first save so it isn't
+  remounted mid-sentence; the new row is highlighted in the list meanwhile.
+- Done on a still-blank new note discards it. Composing clears any search/tag filter
+  so the new note is visible at the top of Today.
+- Removed dashboard composer state and the now-unused `NotePhotoPreview` /
+  `NotePhotoButton`; photos are added from the open note's toolbar.
+
+Files: `app/_components/notes-view.tsx`, `app/_components/dashboard.tsx`.
+Verified on :3791 (desktop 1400px + phone 390px): compose → focused → typed two lines →
+row appeared under Today and later edits saved server-side. Test notes deleted.
+Not done: Apple bolds the first line as a title *while* typing; ours shows the title
+once you leave the editor (a textarea can't style one line).
+
+---
+
+## 2026-10-11 — Removed "Sign in" from bertomill.com
+
+Berto is the only person who signs in, so a public Sign in link made no sense; he goes
+straight to cael.bertomill.com. Removed both links (desktop nav and the mobile menu
+sheet) from `app/site/_components/site-nav.tsx`, and the now-unused `CAEL_SIGN_IN_URL`
+from `lib/public-site.ts`. The sign-in flow itself on cael.bertomill.com is unchanged.
+
+---
+
+## 2026-10-11 — Code moved to GitLab; Vercel deploys from there
+
+Berto wants Cael's code somewhere personal that outlasts any job. The repo is now at
+**gitlab.com/bertmill191/cael** (private; all branches pushed). It was first pushed to the
+`berto-group1` group, but Vercel Hobby refuses private repos owned by a GitLab *group*
+(needs Pro), so it was transferred to the personal namespace. The Vercel project
+`cael-agent` (team "Berto's projects") was reconnected from GitHub to that GitLab repo, so
+**pushes to GitLab `main` deploy production**. Locally `origin` is GitLab and the old
+GitHub repo stays as the `github` remote (backup only, no longer deploys). This entry is
+also the first commit pushed to verify the GitLab → Vercel deploy. No code changes.
+
+---
+
+## 2026-10-10 — Home: add-your-own sections (5-year review, 5-year plan)
+
+Berto wanted to put his 5-year review and 5-year plan on the dashboard. Picked (quiz):
+add-your-own text blocks rather than two hardcoded pages, placed at the **top of Home,
+above the scorecard**. "+ Add section" creates an "Untitled" section with its title
+selected; the title renames in place (Enter/blur saves, Escape reverts); the ⋯ menu moves
+it up/down or deletes it (with a confirm). Each body is the same Notion-style MarkdownDoc
+as Principles, autosaving. Anchors come from the title, e.g. `/#5-year-review`. Sections
+sit outside the day swipe since they don't change with the day. New `home_sections` table
+(also created lazily in lib/home-sections.ts); new `home_sections` agent tool, also on MCP,
+lists, adds, renames and rewrites sections (no delete — that's his). Created his two
+sections, empty, while testing. Files: `lib/home-sections.ts`, `app/api/home-sections/`,
+`app/_components/home-sections.tsx`, `app/_components/home-screen.tsx`,
+`agent/tools/home_sections.ts`, `lib/agent-tool-registry.ts`, `agent/instructions.md`,
+`lib/db.ts`. Next: other block types (checklist, image, links) if he wants them.
+
+---
+
+## 2026-10-05 — Site name and meta: Robert (Berto) Mill, operator-first
+
+Career prep: LinkedIn says "Robert Mill", the site said "Berto Mill", GitHub "robert Mill", so
+a recruiter searching one name missed the rest. Picked (quiz): "Robert (Berto) Mill" on every
+channel, and a meta description that leads with GTM + building. Home title, OG site name and
+alt are now "Robert (Berto) Mill" (inner-page tabs stay "· Berto Mill"); description is "GTM
+lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on
+AI-native go-to-market." Added a schema.org Person JSON-LD (name Robert Mill, alternateName
+Berto Mill, sameAs every channel + GitHub) so search and AI assistants join the two names.
+Files: `app/site/layout.tsx`. Next: LinkedIn and GitHub display names (Berto does these).
+
+---
+
+## 2026-10-05 — /building shows scores only; visions private
+
+Berto is preparing for his next role (GTM S&O / RevOps at an AI lab; last day at Aucctus could
+be as early as Nov 1). The public /building page rendered each wealth form's written vision,
+including "starting my own thing", "I have built a company" and "net value over 10 million",
+which reads as founder plans to a hiring manager. Picked (quiz): keep the 8 progress cards,
+drop the vision text. The public "Ask Cael" chat context no longer includes the visions
+either, so it can't repeat them to a visitor. Visions stay in Cael, unchanged.
+Files: `app/site/building/page.tsx`, `app/api/site/chat/route.ts`.
+
+---
+
+## 2026-10-11 — `/` to jump anywhere: a command palette on the app and on bertomill.com
+
+Berto wanted a GitHub/Slack-style `/`: press it anywhere and search, with nothing on
+screen advertising it. Quiz: the app palette should reach "basically any part of the
+site"; the public one covers pages plus posts, episodes and work; opens on `/` and
+⌘K/Ctrl+K, no visible button (so desktop-only — a phone has no `/` outside a field).
+
+- **Shared pieces** (`app/_components/`): `use-palette-hotkey.ts` (`/` when not typing in
+  an input/textarea/contenteditable, ⌘K toggles from anywhere, Shift+/ allowed for
+  layouts where that's how `/` is typed); `command-palette.tsx`, a presentational
+  palette on the existing shadcn/cmdk `Command` primitives — grouped items, top-anchored
+  dialog, idle vs. typing groups, and **its own scorer**: cmdk's fuzzy default matched
+  letters in any order, so with 500 notes a long paragraph outranked the section typed
+  exactly. Now every query word must appear; label-start > label-word > label > keywords.
+- **App** (`app-command-palette.tsx`, mounted in `app/(app)/layout.tsx` beside the T/N/C
+  shortcuts): idle shows all 24 sections (incl. the ones the rail no longer lists —
+  Tasks, Vision, Measures, Calendar, Lists, Journal, Schedule, Media, Family, Manual,
+  Newsletter, Nutrition plan, Workouts, Tweets, Agent traces), four actions (new chat,
+  new task, light/dark, open bertomill.com) and the five latest chats. Typing also
+  searches notes (first line as title, first 80 chars of the body as keywords), open
+  tasks, posts, sketches, workouts and every chat title. Index is five existing routes
+  fetched on open; `/api/sketches?meta=1` is new and skips the PNGs.
+- **Deep links that didn't exist yet**, all through one `UrlParamWatcher` (a
+  `useSearchParams` reader inside its own tiny `Suspense`, so the shell doesn't need
+  one): `/notes?note=<id>` (dashboard; a note outside the latest 30 is fetched via the
+  new `GET /api/thoughts/<id>` and held in `urlNote` so the list refetch can't drop it),
+  `/sketches?sketch=<id>` (waits for the Excalidraw API), and `/writing?post=<slug>` /
+  `?tab=tweets` now followed when the panel is *already* mounted (router pushes fire no
+  popstate). Workouts use `/training/workouts/<slug>`; chats use `switchTo` + `/chat`.
+- **Site** (`app/site/_components/site-command-palette.tsx`, mounted in `app/site/layout.tsx`):
+  the ten pages, every published post (own + Substack, external ones open in a new
+  tab), episodes, work (org as a keyword, so "aucctus" finds the case study), Book a
+  meeting / email / GitHub / channels, theme. Index from new `GET /api/site/search`
+  (posts + content, `s-maxage=300`), reachable on bertomill.com via the existing
+  `/api/site` passthrough.
+- Verified with Playwright on a worktree dev server (cookie auth): section jump, ⌘K
+  toggle, note/post/sketch/workout/chat deep links (post from an already-open Writing
+  panel), `/` ignored while typing in the composer; and in the browser pane on
+  `site.localhost` light + dark (the newsletter popup's focused email field correctly
+  swallows `/` until dismissed). No console errors. `npm run build` passes.
+- Built in `.claude/worktrees/slash-search` off `main` because the main checkout is
+  parked on `site-presence-tweaks` with another session's uncommitted edits.
+
+---
+
+## 2026-10-04 — Chat text at 16px
+
+Berto worries about font size: "not too big but definitely reasonable". Chat messages and
+the composer went from 17px to **16px** (Claude-app size) with line height 1.55; tool
+lines stay 14px. The composer can't go under 16px or iPhone Safari zooms on focus. Also
+fixed "Thought for 1 seconds". Files: `components/chat/eve-thread.tsx`,
+`components/chat/eve-composer.tsx`, `components/ai-elements/reasoning.tsx`.
+
+---
+
+## 2026-10-04 — Chat that feels like the Claude app
+
+Berto wants the chat to feel as good as Claude/Muse on his phone so he reaches for it more.
+Picked (quiz): Claude-style composer card, plus compact tool calls, tab bar hidden in chat,
+voice dictation and starter prompts.
+
+- **Composer** (`components/chat/eve-composer.tsx`): soft 28px-radius card, lifted by a
+  shadow instead of the green focus ring; text on top; a round + (attach/screenshot) and
+  the model chip underneath. One round button on the right: **mic** when the box is
+  empty, a **filled ↑ send** once there's text, a **stop ■** while Cael answers. Wrapped in
+  `PromptInputProvider` so the button can see the text. Dictation uses the browser's own
+  SpeechRecognition (Chrome/Edge/Safari), and the mic is hidden where it's missing.
+  It appends to typed text and pulses red while listening.
+- **Compact tool calls** (`components/chat/eve-thread.tsx`): a run of tool calls is one quiet
+  line, "Checked training plan, meal notes ›", which taps open to the old per-call cards.
+  It shimmers ("Checking…") while running, says "Used …" when anything wrote, and opens
+  itself on an error. `load_toolset`/`load_skill` stay out of the label. Step boundaries,
+  empty text and reasoning don't split a run. The calendar keeps its own card.
+- **Full-screen chat on the phone** (`app/(app)/layout.tsx`, `agent-chat.tsx`): the tab bar
+  hides on `/chat`. The header gains ‹ (back to Home) and a new-chat button, both phone only.
+- **Starter prompts** are now his real questions (workout, dinner, plate, 2030) and wrap
+  instead of side-scrolling.
+- Verified in the browser at 375px, light and dark: typing flips mic → send, sending
+  shows stop then returns to mic, and groups expand. Tool calling re-tested end to end
+  (training plan, vision, Luma via on-demand toolset, meals, notes).
+- Note: opening the same thread on two dev servers makes eve 409 the old session; the
+  existing recover-and-resend path then puts the resent message out of order. That's a
+  dev-only quirk, not this change.
+
+---
+
+## 2026-10-04 — Removed the Dream and scheduled tasks
+
+Berto asked why the nightly Dream had stopped (the last one was 2026-09-10).
+
+**What had happened.** On 2026-09-12 a session deleted `agent/schedules/dispatcher.ts`
+(commit `684531e`) to cut Fluid CPU, without a worklog entry. That daily tick was the
+only clock for *every* row in `scheduled_tasks` (Dream Analysis, Daily Tweet, Daily
+Note, Weekly Katy Idea, Perfect Day Reminder) and for the daily Luma, meal, GitHub PR
+and Google Health syncs, so all of them went quiet after 2026-09-13. The Dream had
+already been failing for its last three runs: the agent-run task called `list_todos`,
+which hit the Date-serialization bug fixed earlier today.
+
+**Berto's call:** he doesn't want the Dream or the scheduled tasks; they spend tokens
+for little return. So both are removed:
+
+- Dream: `/api/dream`, `/api/dreams`, the `/dreams` page and tab, `save_dream` /
+  `get_dream_summary`, the Dreaming section and dream rows in `instructions.md`, and
+  the dream section of the Daily snapshot. The Home "Adventure" card now opens Vision.
+- Scheduled tasks: the four `*_scheduled_task` tools, `/api/scheduled-tasks`,
+  `scheduled-tasks-panel.tsx`, the "Run now" → chat wiring in `app/(app)/layout.tsx`,
+  and the instruction lines. **`/schedule` stays**: it also lists recurring todos, which
+  is now all it shows.
+- Data kept: the `dreams` and `scheduled_tasks` tables and their rows are untouched,
+  except that every `scheduled_tasks` row is set `enabled = false`.
+- Nothing refreshes the Luma mirror, GitHub PRs or Google Health on a schedule any
+  more; `sync_luma`'s description and the instructions now say to sync when stale.
+- Routing evals: 17/17 still pass.
+
+---
+
+## 2026-10-04 — Right context at the right time: daily snapshot, context map, on-demand toolsets, routing evals
+
+Berto wanted to be sure Cael finds the right context (meals, principles, training, …)
+at the right time. Built on a research pass (Anthropic context engineering + tool
+search, Manus on KV-cache, LangChain write/select/compress/isolate, Letta, Breunig's
+"how contexts fail"): pre-load a small, high-value brief; fetch the rest just in time;
+keep the prompt prefix stable; trim the always-on tool list; verify with evals.
+
+- **Daily snapshot** (`agent/instructions/daily-snapshot.ts`, `agent/lib/daily-snapshot.ts`):
+  on the first turn of each day of a conversation, a user-role message opening
+  `[[Daily snapshot — <date>]]` carries his principles, today's training + next race,
+  today's food + protein, today's calendar, top 5 todos, and the latest dream (flagged
+  when old). About 950 tokens, built in ~150 ms, and each section fails quietly on its
+  own. User-role, so it joins the append-only history instead of the system prompt.
+  It's re-added after midnight or after compaction drops the marker.
+- **Clock line moved out of the system prompt.** `current-date.ts` used to put a
+  per-minute timestamp in *system* context every turn, which invalidates the provider's
+  cached prefix every turn. It's now a short user-role `[[Now: …]]` line per turn.
+- **Context map** in `agent/instructions.md` ("Where context lives"): one topic →
+  read-this-first table, which replaces the scattered "check memory first" lines.
+  `get_dream_summary` is no longer a must-call at session start (the dream is in the
+  snapshot).
+- **On-demand toolsets** (`agent/lib/toolsets/`, moved there the same day because eve ignores unknown agent-root dirs): `publishing` (posts, images, X, LinkedIn,
+  portfolio/capabilities) and `events_and_news` (Luma ×3, AI news, reading list) no
+  longer ride on every call. `load_toolset` loads one for the rest of the session.
+  `agent/tools/toolsets.ts` (a `step.started` dynamic resolver) also auto-loads a set
+  when a message has a trigger word (Writing-editor prefix, "tweet", "Luma", …). It
+  ignores the injected snapshot/clock messages, because his principles mention
+  "portfolio". MCP still exposes every tool (`lib/agent-tool-registry.ts` paths
+  updated).
+- **Routing evals** (`evals/routing/`, `npx eve eval routing`): 17 cases from his real
+  messages, covering money decisions → vision, dinner → meal notes/history, today's
+  workout/next race checked against the DB, past thoughts → search_memory, toolset
+  loading with and without trigger words, tweets never posted without his OK, and
+  negative cases (no tools for arithmetic, no personal context leaking into a poem).
+  **17/17 pass**, twice.
+- **Bug the evals caught: `list_vision` had failed on every call (12/12 in 45 days).**
+  It returned raw rows with Date objects, which eve rejects as non-JSON. So Cael had
+  never actually read his visions, methods, goals, milestones or routines. `add_todo`,
+  `list_todos` and `add_family_memory` had the same intermittent failure. New
+  `lib/json-safe.ts` `jsonSafe()` now wraps every tool that returns raw rows (17 tools).
+- Tokens: a fresh turn is ~17.9k input (was ~18.5k) even with the snapshot added, and
+  ~94% of it was a cache hit in the evals.
+- Next: the model still calls `load_toolset` even when a trigger already loaded the
+  set (harmless, one extra step). **The nightly Dream job looks dead**: the latest
+  dream is 2026-09-10. Worth checking the scheduled task, and then having it curate
+  memory blocks (the "sleep-time" idea from the research).
+
+---
+
+## 2026-10-04 — Context management: real context windows, peak context in traces
+
+Berto asked how Cael's context management holds up.
+
+- **Compaction now uses the picked model's real window.** `agent/agent.ts` replaces the
+  `agent/model.ts` proxy with an eve `defineDynamic` model resolver on `turn.started`
+  that returns the gateway id from the picker. Because it returns an id, eve looks up the
+  model's context window in the AI Gateway catalog itself. Before this the window was
+  hard-coded to 200k; DeepSeek V4 Flash is 1M, so Cael was compacting about 5× too early.
+  A picker change now takes effect on the next *turn*, not the next model step.
+- **The picker shows each model's context window.** `getContextWindows()` in
+  `lib/gateway-catalog.ts` reads `ai-gateway.vercel.sh/v1/models/catalog`, the same
+  catalog eve reads, using eve's rule (first provider that publishes a window). Models
+  under 64k (`MIN_CONTEXT_WINDOW`) are hidden, and the settings PUT refuses them,
+  because a fresh turn already carries about 20k tokens of instructions and tool schemas.
+- **Traces** now read the model from `step.started`, since a dynamic agent has no model
+  at session start. They also show **Peak context**: the largest single call's input
+  against the model's window, which is the number compaction cares about (totals add up
+  every step). There is also a **Compactions** count.
+  `/api/models/context-windows` feeds the window sizes.
+- **What the traces said (last 3 weeks):** fresh turns are about 18.5k tokens; the
+  biggest session peaked at 54k. Window size isn't a live problem. The "no tool called"
+  misses on "what's my workout today" were turns that failed during the Oct 2–3 credit
+  outage. Real context misses: principles and Money lessons weren't read during money
+  questions, and `get_dream_summary` loads in only about half of sessions.
+- Files: `agent/agent.ts`, `agent/model.ts` (deleted), `lib/chat-model.ts`,
+  `lib/gateway-catalog.ts`, `lib/trace-utils.ts`, `app/_components/model-picker.tsx`,
+  `app/_components/traces-view.tsx`, `app/api/models/context-windows/route.ts`,
+  `app/api/settings/chat-model/route.ts`.
+- Next: trimming the tool surface (the writer-subagent idea is on hold; research says
+  deferred tool loading beats subagents) and making context retrieval deliberate
+  (a preloaded daily snapshot + routing evals). Waiting on Berto's call.
+
+---
+
+## 2026-10-04 — Notes: attach a photo
+
+- One photo per note, on the existing `thoughts.image_url` column (Berto picked one over
+  several, so no schema change). A **Photo** button sits next to "Add note" and next to
+  Save/Cancel when editing; pasting an image into either box attaches it too. A small
+  thumbnail with an × shows what's attached. "Change photo" replaces it.
+- `lib/upload-photo.ts` re-encodes anything the browser can decode to a ≤2000px JPEG
+  before `/api/upload`, because iPhone shots routinely exceed the 5 MB cap. GIFs skip
+  this so they keep animating. HEIC outside Safari falls through to the server, which rejects it.
+- A photo-only note is allowed (empty `content`, no embedding, so it won't show in
+  semantic search). `POST /api/thoughts` takes `image_url`. `PATCH /api/thoughts/[id]` takes
+  an optional `image_url` (left out = keep, `null` = remove) and now returns `image_url`.
+- Files: `app/_components/dashboard.tsx`, `app/api/thoughts/route.ts`,
+  `app/api/thoughts/[id]/route.ts`, `lib/upload-photo.ts`.
+- Next: removing a photo leaves its blob in storage (harmless, small). Not yet tried on a phone.
+
+---
+
+## 2026-10-03 — Mobile pass: tab bar, notes, chat that survives app switching, web push
+
+Berto uses Cael mostly on his phone, from a home-screen icon.
+
+- **Tab bar**: Training replaced Writing on the phone bar; Writing moved to the top of
+  More (desktop rail unchanged). The active pill now wraps icon *and* label (72×56).
+  Konsta's 28px icon box and `truncate` were squeezing it to a sliver, so the links set
+  `overflow-visible!`. `app/(app)/layout.tsx`.
+- **Notes on mobile**: composer and edit box are 17px on phones (`lg:text-sm` on
+  desktop), capped at `45dvh` and scroll inside. The page "running off the screen" was
+  iOS auto-zooming on a <16px field; `maximumScale: 1` in the root viewport stops that
+  app-wide (iOS still allows pinch-zoom). `app/_components/dashboard.tsx`, `app/layout.tsx`.
+- **Chat survives app switching**: the turn always finished on the server; the phone
+  lost it. WebKit reports a dropped stream as `TypeError: Load failed`, which eve's
+  `isStreamDisconnectError` doesn't recognise, so no reconnect ran and the chat sat on
+  "Request failed". `useThreadAgent` now calls `agent.resume()` on `visibilitychange` →
+  visible, `pageshow`, `online`, and 1.5s after a non-stale-session error, when the last
+  event isn't a turn boundary. And `eveChannel({ turnPolicy: "queue" })` (Berto's pick):
+  a message sent mid-answer waits instead of cancelling it — a "hello?" after switching
+  back used to kill the running turn. Stop still interrupts. Not yet confirmed on a device.
+- **Web push "answer ready"** (Berto chose web push over the native app; his Apple
+  Developer membership runs to Dec 13 2026 with auto-renew off). `app/manifest.ts`
+  (standalone — iOS needs it for push), `public/sw.js` (shows the notification, tap opens
+  /chat), `lib/push.ts` (subscriptions as a JSON list in `app_settings`, dead endpoints
+  pruned on 404/410), `app/api/push` (POST/DELETE), the bell in the chat header
+  (`app/_components/push-bell.tsx`), and the eve channel's `message.completed` handler
+  (only `finishReason === "stop"`, so tool-call narration doesn't notify). Middleware lets
+  `/sw.js` and `/manifest.webmanifest` through unauthenticated.
+
+**Next steps:** VAPID keys aren't set yet — the bell stays hidden and `sendPush` no-ops
+until `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are in
+`.env.local` and Vercel production, followed by a redeploy (the public key is inlined at
+build time). Then on the phone: delete the old home-screen icon, re-add from Safari (so
+iOS reads the manifest), sign in once inside it, tap the bell. Possible follow-ups:
+deep-link the notification to the exact thread; disable the composer while resuming.
+
+## 2026-10-01 — bertomill.com/fitness: HYROX results
+
+New public page at `/fitness` (Berto picked the name "Fitness" over "/hyrox"), linked in
+the site nav after Podcast and added to the sitemap. It shows:
+
+- **Up next**: HYROX Toronto 2026, Pro division solo, 25–29, Friday Oct 2 2026, with a
+  countdown ("Tomorrow", "Race day"). Once the date passes and no result exists it reads
+  "Result coming", so it never silently disappears.
+- **Results**: race count, wins and best time, then one card per race with total, rank
+  against the field, partner, age group, all 8 runs and stations with the per-station
+  place, run total, Roxzone, and a link to the official result. Anchors are descriptive
+  (`#up-next`, `#hyrox-ottawa-2026`, `#hyrox-toronto-2025`).
+
+Races found on results.hyrox.com: Toronto 2025 mixed doubles with Katy Rozanova (57:09,
+1st of 360 mixed teams) and Ottawa 2026 mixed doubles with Katy (55:20, 1st of 601).
+Berto races as "Robert Mill" in older entries and "Berto Mill" in the Toronto 2026 entry.
+
+Data lives in `lib/hyrox.ts`, hand-kept on purpose (Berto chose this over a DB+tool or a
+cron). results.hyrox.com (mika:timing) is behind Cloudflare and 403s server-side fetches,
+and the hyranking.com mirror starts challenging after a few requests, so a scraper would
+break silently. **After a race:** open the upcoming race's `resultUrl` in a real browser
+(it's Berto's own entry and fills in with splits), copy the workout summary into
+`HYROX_RESULTS`, and remove it from `HYROX_UPCOMING`. Searching is per event only; there's
+no cross-event athlete search. The race-day lookup is a single page because the entry's
+`idp` is already stored.
+
+Nav: Fitness made the homepage link row wrap at ~1440px. Berto chose to show the header's
+social icons only from 1500px up (`min-[1500px]:flex`); they're still in the footer and
+menu sheet. That also fixes the wrap the row already had at 1280px.
+
+Files: `lib/hyrox.ts`, `app/site/fitness/page.tsx`, `app/site/_components/site-nav.tsx`,
+`app/sitemap.ts`.
+
+Next: add Toronto 2026 PRO splits after Oct 2. The training plan has race day on Oct 3
+(`training_sessions` id 6), but the entry is Friday Oct 2.
+
+## 2026-10-01 — bertomill.com: weather dial under the hero clock
+
+Under "TORONTO · 12:18 PM · CLOUDY" there is now a slider every visitor can drag to
+see the concrete wall in other weather. It has four stops: Sunny (shown as "Clear"
+after dark), Cloudy, Overcast and Rain. Clicking a stop's label jumps to it. It starts
+wherever the visitor's real weather puts it (their IP city, via `/api/site/weather`).
+While it's held somewhere else, the clock label shows the previewed condition and a
+"↺ Live" button returns it to the real weather. Berto picked placement under the label
+(not a floating pill) and visible to everyone (not just signed-in).
+
+How it works: one number from 0 to 1 in a small store in `sky.ts`
+(`setWeatherDial` / `useWeatherDial`, via useSyncExternalStore). Cloud cover goes from
+0 to 1 over the first two thirds and rain comes in over the last third.
+`useSiteWeather()` now returns the live weather with the dial applied, so the wall and
+the label move together. The old hook is `useLiveWeather()`. The dial lives in memory
+for the visit, so it carries across client navigation to the inner pages' walls and
+resets on reload. `?weather=` still works and sets where the dial starts.
+
+Overcast used to look almost the same as sun (ambient only dropped 2%). In
+`wall.wgsl` a `gloom` term (smoothstep of cloud, plus a bit for rain) now dims the
+ambient light 16% in light mode and 10% in dark, cools the tint, and cuts window light
+to 45% under full cloud. That's enough for a dark grey day, and the headline stays
+readable. The CSS fallback's cool wash is stronger too. This also changes how real
+overcast days look to visitors. The label says "Overcast" once cloud cover is 90% or
+more.
+
+Files: `app/site/_components/concrete-wall/{sky.ts,wall-clock.tsx,wall.wgsl,concrete-wall.tsx}`.
+
+## 2026-10-01 — bertomill.com: clean display type
+
+The hero headline, the "Work" heading and the pillar names drop Manrope 800 in pure
+black. They now use Geist (already loaded in the root layout) at semibold, with tight
+negative tracking (-0.045em on the big headings, -0.035em on pillar names) and 90%
+foreground ink. Berto asked for type that looks current but not effects-driven, and
+chose the "clean modern sans" direction over an editorial serif or a mixed style.
+No new font is loaded. Files: `app/site/page.tsx`.
+
+## 2026-10-01 — bertomill.com homepage: big headshot, three-pillar About with logos
+
+The hero now shows a large round headshot (112/144/176px) above the clock line and
+headline, in addition to the small nav avatar. Below the hero, the small grey intro
+paragraph and the "What I do" grid are replaced by an About section
+(`#about-me`): a big "Work" heading in the headline font, then three
+pillars, Go-to-market / Aucctus, Community / MakersLounge and Building / Cael. Each has
+its logo, a link, its role and the old description. A KPMG/CIBC line and the
+LinkedIn / Ask Cael buttons sit underneath. The writing and podcast item from the old
+grid was dropped, since "Latest" already covers it.
+
+Logos: `public/site-art/logo-aucctus.png` (512px icon from aucctus.com),
+`public/site-art/logo-makerslounge.svg` (favicon.svg from makerslounge.ca; their PNG
+is upscaled and blurry), and Cael reuses `/icon.svg`. They sit flat in `site-art/`
+because `PUBLIC_ASSET_RE` in `lib/public-site.ts` only allows files directly inside
+the listed folders. A subfolder would 307 to sign-in and break next/image.
+
+Files: `app/site/page.tsx`, `public/site-art/logo-*`.
+
+## 2026-10-01 — Native iOS app shell (`mobile/`)
+
+Cael now has an iPhone app: a Capacitor 8 shell in `mobile/` that loads
+`https://cael.bertomill.com` in a WKWebView, the iOS sibling of the Tauri shell in
+`desktop/`. Web deploys reach the app on next launch, so it only needs a rebuild
+when the shell changes. It's for Berto's phone only, installed straight from Xcode
+with his Apple Developer account (no App Store).
+
+Decisions: Capacitor over Tauri-iOS, since it has the more mature iOS plugin
+ecosystem for later push, share-sheet and Face ID work. The bundle id is
+`com.bertomill.cael`. `allowNavigation` keeps cael, clerk.bertomill.com and Google
+sign-in inside the app. The user agent gets a Safari suffix so Google OAuth isn't
+refused in the web view. The bundled `www/offline.html` is the error page. The icon
+is flattened from `desktop/app-icon.png`, and the splash is a plain dark screen.
+Camera, photos and mic usage strings are in Info.plist, because image `<input type=file>`
+offers Take Photo.
+
+Next: install full Xcode, sign with the team, and run on the phone. Check that Google
+sign-in works in the web view. Later options: push notifications, a share-sheet
+"send to Cael" extension.
+
+## 2026-09-30 — Training weeks drafted live by a coach subagent
+
+"Draft this week" on /training no longer makes one `generateObject` call that
+wipes the week and inserts a blob. It hands the week to a new eve subagent,
+`agent/subagents/training_coach`, which reads a brief (`get_week_brief` →
+`weekDraftContext()` in `lib/training.ts`: goal, written plan, weekly routine,
+races, Strava load, notes, and the week's existing sessions with ids), posts the
+week's shape as a `task_update`, then walks Monday→Sunday one
+`set_training_session` call per step: keeping, refining, moving, deleting or
+adding sessions. Done (✓) sessions are never touched. Nothing is wiped, so the
+replace-confirm dialog is gone.
+
+The button (`app/_components/training-coach-stream.ts`) opens an eve session with
+a `[draft-training-week]` message; root instructions route that straight to
+`training_coach`. Declared subagents run as background tasks, so the first turn
+only returns a task receipt. `subagent.called` (with `childSessionId`) arrives
+after that turn settles, so the client keeps following the root stream, then
+attaches to the child stream. Each `set_training_session` request highlights the
+day and updates a status line, and each result re-reads the grid. The coach's
+final sentence shows as the toast. Chat can reach the same coach ("redraft
+Thursday, I'm travelling").
+
+Removed: `app/api/training/draft` and `draftWeek()`. Verified against dev eve on
+the Oct 5 week: ~5s per day, 45s total, edits in place with no duplicates.
+
+---
+
+## 2026-09-29 — Wall on Writing; AI Coaching case study
+
+/writing's header now sits on the lit concrete wall (`sketches={false}`), like
+About and Work. New work entry `content/work/ai-coaching.md` (/work/ai-coaching):
+Berto's passion for helping people get more effective at work with AI tools, the
+Leland profile (https://www.joinleland.com/robert-mill), and its public facts
+(5.0 across 9 reviews; coaching areas). Work entries had no dates so ordering was
+filename order, which would have made the new one the featured tile; added
+`date` to all three (Aucctus, MakersLounge, AI Coaching) purely for ordering.
+
+---
+
+## 2026-09-29 — Concrete wall follows the visitor's sky; wall on About and Work
+
+The homepage wall now lights itself from the visitor's own day. `app/api/site/weather`
+reads Vercel's IP geo headers (no permission prompt; city-level) and asks Open-Meteo
+for current weather plus sunrise/sunset, falling back to Toronto locally.
+`concrete-wall/sky.ts` turns that plus the browser clock into sun height, day
+progress, golden-hour warmth, night, cloud and rain, shared by the wall and a new
+`WallClock` label ("TORONTO · 4:12 PM · RAIN", mono, above the headline). In
+`wall.wgsl` the window panes slide and stretch with the sun, turn gold near
+sunrise/sunset, dim under cloud, become a weak sodium street light at night, and
+when it rains, drops bead and slide down the glass so their shadows (with lensed
+bright cores) run through the window light. The CSS fallback gets a cool wash for
+night/overcast. Test any look with `?weather=rain|drizzle|storm|snow|fog|cloudy|clear`
+and `?hour=21.5`. About's linocut banner is gone; its hero and the top of /work now
+sit on the same wall via `<ConcreteWall sketches={false} />` (no chalk drawings).
+Decisions (Berto): IP geolocation over a browser prompt, small mono label, plain
+wall on inner pages. Snow has no visual of its own yet (reads as overcast).
+
+---
+
+## 2026-09-27 — Career pipeline tracker
+
+/career now opens with a Pipeline: a `career_targets` table (added to
+`ensureSchema`), `app/api/career` GET/POST plus `[id]` PATCH/DELETE, and
+`app/_components/career-tracker.tsx`. Each row has status (target → reached out →
+applied → screen → onsite → offer / closed), next step and date. Below it are 19
+suggested targets (`TARGETS` in `lib/career-research.ts`), each with one GTM/RevOps
+leader from an Apollo people search. Surnames are masked by Apollo; clicking a name
+runs a LinkedIn search. Suggestions are added by clicking "Track", not seeded,
+because a direct write to the production DB was blocked; nothing is auto-contacted.
+Plan agreed with Berto: lead with RevOps / GTM-analyst roles and take stretch shots
+at Anthropic and Vercel, at a light pace (1 warm reach + 1 application a week)
+because Aucctus stays the priority. Cael tasks #504–507 were created for the TN
+check, the LinkedIn rewrite, two case studies, and the weekly reach.
+
+---
+
+## 2026-09-27 — Career section (/career)
+
+Berto asked for a Career section that triangulates what AI companies want from
+GTM hires (GTM strategy, RevOps, marketing ops). A research agent read 20 live
+postings (Anthropic x3, OpenAI, Vercel, Perplexity, Cursor, Harvey, ElevenLabs,
+Sierra, Scale AI, Databricks, Cohere). The results are a static snapshot in
+`lib/career-research.ts`: the archetype, recurring themes with counts, the tool
+stack, gaps that get candidates cut, and role cards filterable by track. Panel:
+`app/_components/career-panel.tsx`; route `app/(app)/career`; added to the desktop
+rail and the phone bar (Briefcase, emerald). No DB yet. Next step could be a
+personal gap-scoring plan, or a scheduled refresh of the postings.
+
+---
+
+## 2026-09-27 — Hero headline back to plain text
+
+Berto: *"the glass stands out too much actually, too bevelled - i would just
+make it plain text"*. Reverted both glass commits: the WebGPU glass in the wall
+shader (7bbee85) and the CSS `.glass-text` before it (14cdbff). The headline is
+plain solid Manrope again, still bottom-left at 2x with the word-by-word reveal,
+and the wall shader is back to the wall alone.
+
+---
+
+## 2026-09-27 — About: "My story" in Berto's words
+
+Berto supplied the about copy verbatim; it is the first SECTIONS entry
+(`#my-story`) in `app/site/about/page.tsx`, split into three paragraphs. Only
+changes: the "informaiton" typo, and capitals on Aucctus and Microsoft.
+
+## 2026-09-27 — Hero headline as real WebGPU glass inside the wall
+
+Berto: *"lets use webgpu and vgpu.sh to make it real glass"*. This morning's
+version drew glass on its own transparent canvas and couldn't bend anything
+behind it. This one lives **inside the concrete wall's own shader**, after vgpu's
+Transmission example, so the letters actually refract the lit plaster.
+
+- `wall.wgsl`: the wall is now `fn wall(uv)`. `fs_main` samples a glass mask
+  (r: sharp letters, g: blurred letters as bevel height), builds a normal from
+  the bevel's slope, and shows the wall at a refracted offset through each
+  letter, darkened slightly. A Fresnel rim darkens the steep edges and brightens
+  the ones facing the moving key light, plus a sharp specular. Colorless. In
+  dark mode the body and rim get a small lift so it doesn't sink.
+- `renderer.ts`: a sampler and a mask texture bound from the start (a 1×1 black
+  canvas until the page sends one; it needs a 2D context or
+  `copyExternalImageToTexture` rejects it), `setGlassMask()` to upload, a
+  `glass` uniform with the fade-in and texel size, and an `onResize` hook.
+- `concrete-wall.tsx`: `glassHeadingId` prop. `paintGlassMask()` paints the
+  heading's `[data-line]` boxes at the drawing buffer's size; the blur is
+  downscale-then-upscale (no `ctx.filter`). The first bake waits for fonts and
+  for the hero's entrance animations to finish, or three seconds at most,
+  because a raster taken mid-entrance landed about 13px off. Rebakes on
+  wall resize and heading reflow.
+- The real `h1` stays for layout and screen readers; `.glass-live` fades it to
+  opacity 0 as the glass fades in. No WebGPU means the CSS glass stays.
+- Known: the chalk blueprint, etchings and window-light overlays are DOM layers
+  above the canvas, so they are not refracted by the glass.
+
+---
+
+## 2026-09-27 — Menu channels: Instagram, LinkedIn, X, YouTube
+
+Berto asked for Koto-style channels in the menu. `site-nav.tsx`: CHANNELS now
+lists Instagram (@bertomill), LinkedIn, X (@bertomill1) and YouTube
+(@BertoVMill; the @Bertomill1 handle in my-portfolio 404s). They open in a new
+tab. Sign in moved out of Channels to sit beside "Book a meeting", since the
+mobile menu is its only entry point.
+
+## 2026-09-27 — Hero headline as clear CSS glass
+
+Berto: *"for the text at the bottom, can we make it liquid glass simple?"* The
+WebGPU vgpu liquid-glass heading was tried this morning and removed, so this
+time he chose plain **"glass no color"**. `globals.css` adds `.glass-text`: each
+word is a transparent fill with a white-to-grey sheen clipped to the text and a
+faint dark rim, and the heading carries a light top edge plus soft drop
+shadows. It's CSS only, so no shader and every browser gets it. The
+shadows sit on the heading rather than the words because the word-by-word
+reveal writes its own `filter` onto each word. White-only glass vanished
+on the light wall; the grey rim and firmer shadow are what make it read.
+
+---
+
+## 2026-09-27 — Inner pages get Koto's compact nav box
+
+Berto, with a crop of koto.com/about's nav (logo, "ABOUT", a dot): *"on each
+specific page - can we please have the specific about it?"* He chose: the
+homepage keeps the full link row; every other page shows a compact box in the
+top-left with "Berto Mill", the current page name (from `NAV`, else the last
+path segment), and a dot that opens the full-screen menu. `site-nav.tsx`: the
+menu sheet is now a shared `menuSheet` const and no longer `sm:hidden`, so the
+dot opens it on desktop too.
+
+---
+
+## 2026-09-27 — About band: full-bleed linocut collage
+
+Berto asked for the about page image to span the whole page like koto.com/about,
+with AI art in the same style. The band in `app/site/about/page.tsx` now breaks
+out of the `px-6` gutter (`-mx-6`) and fills the viewport width with
+`public/site-art/about-band.webp`. The art is a linocut and woodblock print
+collage in a limited yellow, vermilion, black, cream and clay palette. It comes
+from a new `about-band` entry in `scripts/generate-site-art.mjs`, which now takes
+a per-entry size, width and quality. Regenerate with
+`node --env-file=.env.local scripts/generate-site-art.mjs about-band`.
+
+## 2026-09-27 — Nav flush left, no header bar
+
+Berto: *"put the menu items to the left as well - and remove the header banner
+behind them"*. `site-nav.tsx`: the header drops its `bg-background/80` blur bar
+and the `max-w-5xl` centring, so the name, links and actions span the full width
+with the links flush left on the `px-6` gutter, like koto.com. Because it has no
+background it is no longer sticky (it would sit over scrolled text). On the
+homepage the wall wrapper takes `-mt-16` and the hero is a full `min-h-svh`, so
+the wall runs up behind the nav.
+
+---
+
+## 2026-09-27 — Hero headline to the page corner, 2x size
+
+Berto: *"lets move our title all the way to the left - and lets make the font
+2x"*, pointing at koto.com where the headline sits right in the corner. He chose
+headline-only for the size bump. `app/site/page.tsx`: the hero section is no
+longer capped at `max-w-3xl`, so the headline sits on the page's `px-6` gutter at
+bottom-left; the headshot row keeps its centred column. Headline goes from
+`text-4xl sm:text-5xl` to `text-5xl sm:text-7xl lg:text-8xl` (48px → 96px on desktop).
+
+---
+
+## 2026-09-27 — Homepage hero: headline pinned bottom-left, names the Aucctus role
+
+Berto, with a screenshot of koto.com's homepage: *"lets change the title to I
+lead go-to-market for Aucctus - a fast-scaling AI startup - and put it in the
+bottom left corner like koto"*.
+
+`app/site/page.tsx`: the hero over the concrete wall is now full-viewport
+(`min-h-[calc(100svh-4rem)]`, the 4rem being the sticky nav), a flex column with
+the headshot/name at the top and the two-line headline pushed to the bottom via
+`mt-auto`. Headline copy: "I lead go-to-market for Aucctus," / "a fast-scaling
+AI startup." The intro paragraph and the LinkedIn / Ask Cael buttons moved out
+of the hero into the section directly beneath it so the corner holds only the
+headline, as on Koto.
+
+Landed on `main` twice over: cherry-picked straight there from a scratch
+worktree (the main checkout was on `feat/about-page` at the time), and again via
+that branch's merge. Deployed to production by hand when no git-triggered deploy
+appeared after the push.
+
+---
+
+## 2026-09-27 — About page at /about, subscribe forms hand off to Substack
+
+Berto: *"lets add an about section - similar to this one but for berto"* with a
+screenshot of koto.com/about. Confirmed with him: a new page (not a homepage
+block), a neutral placeholder band where Koto runs its collage, and **all copy
+handwritten by him** — nothing generated. He gave the tagline: **"Community
+builder, system implementer, innovation driver."** Then: *"we dont need the top
+bar"* — the tall empty hero block, not the nav — so the hero is just the text.
+
+**About page** (`app/site/about/page.tsx`): "About" left, tagline right (word-
+by-word reveal via `AnimatedHeading`, which now takes `as` so it can render a
+`p` beside a real `h1`), a jump-to row and anchored sections driven by a
+`SECTIONS` array. The array is **empty on purpose** — the row and sections stay
+hidden until Berto sends section names and copy. Placeholder band under the
+hero. Added to the header nav, footer and sitemap.
+
+**Subscribe → Substack.** Berto: *"for the subscribe section - could we make
+that towards my substack?"* `SubscribeForm` is now a plain GET form to
+`robertmillwriting.substack.com/subscribe` (opens in a new tab with the email
+carried along), so Substack owns the list, confirmation and unsubscribes.
+Nothing is stored here any more. The Resend gating on the footer form and the
+popup is gone; both always show. The `/api/site/subscribe` and `unsubscribe`
+routes are now unused but left in place.
+
+Verified in the browser: page renders with no console errors; form action,
+method and target checked via JS. Also on this branch from a concurrent
+session: the Aucctus case study, the Substack-backed Writing page, and the
+glass-sculpture removal from the homepage hero.
+
+**Next:** Berto to send section names and copy for the About page; swap the
+placeholder band for real photos (three usable ones exist in `~/my-portfolio/public`).
+
+---
+
+## 2026-09-27 — New hero headline, set in Manrope
+
+Berto: *"i think my title is not right - can you read my linkedin and suggest a
+better more encompassing title?"* Read the LinkedIn profile (About, Experience,
+recent posts). The old line, "I help enterprises put AI to work", covered the
+Aucctus sales motion but dropped the corporate-innovation domain, the building,
+and the teaching/community side. Offered four options; he picked
+**"I help enterprises innovate with AI."**
+
+Then: *"can you also show me some font options? i want to hand-pick."* Built a
+comparison artifact (thirteen faces, same copy at hero size, Geist subtitle under
+each). He picked **Manrope**.
+
+**Change** (`app/site/page.tsx` only): Manrope 800 loaded via `next/font/google`
+in the page and applied to the headline's `className`; `font-black` → 
+`font-extrabold` to match the loaded weight. Body and labels stay on Geist /
+Geist Mono from the root layout. Copy swapped to the new two lines.
+
+**Not changed, flagged to Berto:** the subtitle still says "three years in AI
+strategy at KPMG and CIBC" (LinkedIn adds up to ~2y4m) and "run MakersLounge"
+(LinkedIn marks the founder role ended Jul 2026). He hasn't answered on those.
+
+**Note:** a concurrent session was mid-build on a WebGPU liquid-glass heading in
+this checkout (`_components/liquid-glass-heading/`, uncommitted). This commit
+was staged as a patch against HEAD so it carries only the headline/font hunks.
+
+## 2026-09-26 (chat, later) — Training in the nav, and the written plan
+
+Two follow-ups: *"can we make it its own sidebar? and also lets add a markdown
+training plan thats editable."* Confirmed: a nav entry for Training only (not the
+meal plan), and the document as a section on /training rather than its own route.
+
+**Nav.** `training` joins Home / Chat / Sketches in both `NAV_ITEMS` (the rail)
+and `MOBILE_TABS` (the phone bar, rose, `DumbbellIcon`). First addition since the
+nav was cut to three on 2026-09-14.
+
+**The plan document** (`training-plan-doc.tsx`): one markdown document under the
+week grid, the daily journal's Tiptap setup (StarterKit + task lists +
+tiptap-markdown, `journal-prose`), a seven-button toolbar, 900 ms autosave,
+`sendBeacon` flush on unload *and* on unmount (switching sections mid-debounce
+must not lose the edit). Stored in `app_settings` under `training.plan_markdown`
+(`getPlanDoc` / `setPlanDoc` in `lib/training.ts`, `/api/training/doc` GET/PUT,
+POST as the beacon alias). One document, not one per race — that was offered and
+declined.
+
+**It steers the drafts.** `draftWeek` puts the document at the top of the prompt,
+marked as outranking the default six-session shape, capped at 6000 chars. So the
+February build written in his words is what each "Draft week with Cael" follows.
+Cael reads and rewrites it with the new `training_plan_doc` tool (read with no
+args; writing replaces the whole document, and the description says to read
+first — same failure mode as `log_workout_note`).
+
+Verified on :3001: nav entry active state on desktop and the phone bar; typing
+into the editor saved server-side (`GET /api/training/doc` returned it); real
+keystrokes turn `# ` into a heading and `- ` into a bullet (the browser tool's
+paste-style `type` action doesn't fire input rules, which is the automation, not
+the editor — the daily journal has the same behaviour). Test content cleared.
+Typecheck clean.
+
+## 2026-09-26 (chat) — Training plan at /training, with Strava marking sessions done
+
+Asked for right after the meal plan: *"lets make a ui page for the training plan
+… close to a 20k run or ill do a full hyrox, almost 6 days a week."* Decided with
+him: plan the week + log what happened; sync Strava; session types long run /
+Hyrox-hybrid / strength (plus intervals, easy, rest); a Hyrox in a week and the
+real build toward a February Hyrox; six sessions a week by default.
+
+**Three tables.** `training_events` (races, with days-to-go on the screen),
+`training_sessions` (one row per planned session: type, title, target km/min,
+intensity, notes, done, actuals, `strava_activity_id`), `strava_activities` (a
+cache of what Strava returned). Separate from `workout_logs` (the six lift
+numbers) and `workout_notes` (the day's text) — those record what happened in the
+gym; this is what was planned and whether it happened. Seeded two races with
+**placeholder dates** (2026-10-03 and 2027-02-13) — Berto said "one in a week,
+then February" without dates; both are editable by clicking the chip.
+`scripts/training-migrate.mjs` (run on live Neon; mirrored in `ensureSchema`).
+
+**Strava** (`lib/strava.ts`) copies the Google Health shape exactly: tokens in
+`app_settings` under `strava_tokens`, `/api/strava/{connect,callback,status,sync}`,
+refresh with a 60s margin, a dead refresh token drops the grant so the button
+says Connect again. Needs `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` from
+strava.com/settings/api (callback domain `cael.bertomill.com`); until they exist
+the screen says so instead of showing a button that would 503. **Not yet
+connected** — Berto is creating the API app; the OAuth round-trip itself hasn't
+been exercised. Scope `read,activity:read_all`.
+
+**Matching** (`matchActivities` in `lib/training.ts`): each unlinked activity on a
+day is paired with the first undone session that day whose type accepts that
+sport — a Run takes a long run before an easy run, a WeightTraining takes strength
+before Hyrox (most specific accepted-sport list wins) — and copies km, minutes and
+relative effort onto it. Walks and anything under 15 min / 2 km never match; they
+show under the day in grey. Manual ticks are never overwritten. Sync runs from the
+button, quietly on open when the cache is over 30 min old, from the callback
+(28-day backfill), and from Cael via `sync_strava`.
+
+**Draft week with Cael** (`draftWeek`): one `generateObject` call with the races
+and days-to-go, the last four weeks from Strava (sessions / km / summed relative
+effort), recently planned sessions, done-this-week sessions (kept, and the plan
+is written around them) and the last ten training notes. Replaces undone
+sessions only. Told to taper when a race is within the week or the next; the
+first real draft for the placeholder race week came back as a sensible taper
+(easy 8k, last lift Tue, 4×1k Wed, rest Thu, activation Fri, race Sat, rest Sun).
+
+**Screen** (`training-plan-panel.tsx`): race chips with countdown (red inside a
+week), week summary (done/planned, km planned, km done, minutes, effort), Draft /
+Sync / Connect, seven day columns (stacked on phones) with session cards — tick,
+click to edit in `session-editor.tsx`, + per day — and unmatched Strava activity
+chips. Rendered from the layout shell like Newsletter and the meal plan (new
+`training` tab → `/training`). Reads the Strava return params from
+`window.location` rather than `useSearchParams`, which would force a Suspense
+boundary on the whole shell.
+
+Agent: `list_training_plan`, `set_training_session` (add / edit / complete /
+delete), `sync_strava`; registered in `lib/agent-tool-registry.ts` for MCP;
+instructions updated.
+
+Verified on :3001 against the live DB: the screen, Draft week (the taper above),
+tick / untick, add a session from the + and delete it from the editor; matching
+through a throwaway route on a 2021 date (run → long run 18.2 km / 83 min / RE
+113, WeightTraining → strength, Walk ignored; rows deleted, route removed).
+Typecheck clean. The drafted race week is left in place — redraft once the real
+race date is set.
+
+Next: Berto adds the Strava keys (both `.env.local` and Vercel production), clicks
+Connect on /training, and the real sync gets its first run. Then the February
+build proper: a multi-week view and volume ramp toward that date.
+
+## 2026-09-26 (chat) — Meal plan: a week grid, a recipe library, and one number
+
+Berto asked for "a simple but effective meal plan UI" to optimise nutrition.
+Decided with him up front: plan the week + track against a target + a recipe
+library + a grocery list; **protein and calories only** (the existing section
+deliberately avoids macros, and this keeps it to the one number he cares about);
+keep the three sittings (lunch/snack/dinner — the fasted rule stands); manual
+picks *and* "Fill week with Cael"; a dedicated **`/nutrition/plan`** route.
+
+**Target.** 160 g protein a day by default — ~0.9 g/lb at 180 lb, set that high
+because he trains close to a 20k run or a full Hyrox nearly six days a week.
+Stored in `app_settings` (`nutrition.protein_target_g`), editable by clicking the
+number on the screen. The ring counts protein *eaten* (from `nutrition_meals`),
+not planned, so ticking "Ate it" on the Nutrition screen or the Tasks strip is
+what moves it. The Tasks strip header now shows `Xg / Yg` beside `done/7`.
+
+**One table for the plan.** `meal_recommendations` was already one row per
+(date, slot) and `suggestMeal` already took a date, so the week grid stores its
+cells there rather than in a parallel table — Today's cards, the Tasks strip and
+the grid are three windows onto the same rows. New columns: `protein_g`, `kcal`,
+`ingredients[]`, `recipe_id`. `nutrition_meals` gained `protein_g`/`kcal`, copied
+from the cell when a sitting is ticked. New `nutrition_recipes` is the library.
+`scripts/meal-plan-migrate.mjs` (run against live Neon; mirrored in `ensureSchema`).
+
+**The suggester now returns numbers and a shopping list.** `MealIdea` gained
+`protein_g`, `kcal`, `ingredients`; the prompt carries the target, what's already
+planned that day, and the saved recipes. `suggestMeal(slot, date, {withImage})` —
+photos default on for today and **off for any other day**, so filling a week is
+~12 fast text calls (three at a time from the client, cells filling as they land)
+instead of 21 image generations. `set_daily_meal` takes a `date` now and the
+numbers; `log_meal` takes `protein_g`/`kcal`; `list_nutrition` returns the target,
+today's total and the week's plan. Instructions updated so Cael estimates protein
+when Berto tells him what he ate.
+
+**Groceries.** "Week → Groceries" gathers every cell's ingredients, de-dupes
+case-insensitively, skips anything already open on the Lists → Groceries list,
+and creates the list if it's missing. Same one-way bridge the staples shelf uses.
+
+Files: `lib/{nutrition,nutrition-plan,meal-suggest,db}.ts`,
+`app/api/nutrition/{plan,recipes,recipes/[id],target,groceries,meals}/route.ts`,
+`app/_components/{week-plan-panel,recipe-picker,protein-ring,use-nutrition-today,nutrition-today,meal-plan}.tsx`,
+`app/(app)/nutrition/plan/page.tsx`, `app/(app)/layout.tsx` (new `nutrition-plan`
+tab, rendered like Newsletter outside `Dashboard`), agent tools
+`set_daily_meal`/`log_meal`/`list_nutrition`, `agent/instructions.md`,
+`scripts/meal-plan-migrate.mjs`.
+
+Caught in testing: `sql.query()` (the parameterised form, used for the range
+select) hands DATE columns back as JS `Date` objects, unlike the tagged template,
+so `String(d).slice(0,10)` gave "Fri Sep 25" and the grid's cell keys never
+matched. Fixed by `to_char(meal_date, 'YYYY-MM-DD')` in the SQL itself, in both
+the plan helpers and the suggester's RETURNING.
+
+Verified on a dev server (:3001) against the live DB: recipe saved from the form,
+picked into Friday dinner, a typed-in meal saved to the library and set on Saturday,
+the protein footer and "Planned today" line, "Week → Groceries" (6 items added,
+1 already there — checked server-side), an Ask-Cael suggestion for Sunday dinner
+(13 s, no photo, 48 g / 680 kcal with an ingredient list), logging a meal with
+protein moved `eaten_g` on `/api/nutrition/target`, and PUT target. Every test row
+deleted afterwards (recipes 0, this week's plan rows 0, Groceries back to 9 open,
+target setting removed). Typecheck clean.
+
+Next: a training plan screen (Berto asked mid-session — near-daily 20k runs / full
+Hyrox, six days a week; the protein default above already assumes that load).
+
+## 2026-09-07 (chat) — Cael's sketch reading gets spatial awareness
+
+Berto asked Cael mid-chat whether it just sees text from a sketch or gets
+positional info too. Cael's honest answer: text only — labels and arrow
+connections, no sense of where anything sits, so e.g. three diamonds with no
+label and no arrow binding were invisible beyond a raw count. Berto asked for
+a way to make that easier: read shape *position*, not just text.
+
+**What changed** — `lib/sketch-text.ts` (`readScene` / `formatReading`,
+used by `agent/tools/list_sketches.ts` and `agent/tools/read_sketch.ts`):
+
+- Added `SketchReading.layout`: every shape (labelled or not) and standalone
+  text element, bucketed into a 3x3 region grid over the sketch's bounding
+  box (`top-left` … `bottom-right`, `regionOf()`). Raw x/y floats aren't
+  useful to a model, so this coarsens position into something readable.
+- Added `SketchReading.clusters`: proximity-based grouping (union-find over
+  center-to-center distance, threshold scaled to the sketch's average
+  element size) independent of arrow connections. This is what surfaces
+  unlabelled/unconnected shapes that sit together — e.g. three diamonds in a
+  corner now read as "(unlabelled diamond), (unlabelled diamond),
+  (unlabelled diamond)" in one cluster, at `bottom-center`.
+- `formatReading()` prints two new sections when present: `Layout (by
+  region)` and `Nearby groups (physically close, not necessarily
+  arrow-connected)`.
+- `shapes`/`text`/`connections` outputs are unchanged, so nothing downstream
+  broke — verified with `npm run typecheck` and `npm run build`, plus a
+  synthetic scene (rectangle + 3 clustered diamonds + a distant text note)
+  run through `readScene`/`formatReading` directly to confirm the output
+  reads correctly.
+
+**Next steps.** None open — this was a self-contained tool improvement.
+
+---
+
+## 2026-09-03 (chat) — scorecard cut back to three: Steps, Sleep, Keystrokes
+
+Berto, right after the reading-time/notes feature shipped: *"oh thats way too
+much effort"* → *"lets remove the reading measure, lets remove the fasting
+measure, lets instead just make it the 3 - keystrokes, steps, and sleep time.
+those are the three, make them left to right boxes."* Asked whether that meant
+trimming just those two or cutting the card down to only the three — he
+confirmed the aggressive read: drop fasting, reading, meditation, journal,
+portfolio, and notes-written entirely, and their widgets on the home screen.
+
+**What changed.**
+
+- `lib/scorecard.ts`: `MetricKey` is now `"steps" | "sleep_minutes" |
+  "keystrokes"` — full stop. Every metric gates the day (no more
+  tracked-but-not-scored tier), so `METRIC_WEIGHT` is 100/3 ≈ 33.3 each.
+  Dropped `toggle`/`money` metric kinds, `setFastingHeld`,
+  `incrementNotesWritten`, and the fasting/meditation/reading/journal/
+  readwise/portfolio joins out of `getScorecardSummary`.
+- `scorecard-card.tsx`: replaced the vertical divided-row list with a
+  `<MetricBox>` — three boxes, left to right, each with icon/label, the big
+  editable value, a progress bar, and its points share. Steps and sleep are
+  still click-to-correct; keystrokes stays read-only (Mac agent owns it).
+- **Deleted, not just unwired** — genuinely dead now that their only reason
+  to exist was feeding a metric that's gone:
+  - `app/_components/meditation-timer.tsx` + `app/api/meditation/` +
+    `lib/meditation.ts` + `lib/bells.ts` (bells were meditation-only)
+  - `app/_components/reading-timer.tsx` + `app/api/reading-time/` +
+    `lib/reading-time.ts` (last session's build — the reading-minutes timer)
+  - `lib/portfolio-sync.ts` + `app/api/portfolio/sync/` + `lib/snaptrade.ts`
+    (SnapTrade existed solely to fill the portfolio scorecard row)
+  - `lib/readwise.ts` + `lib/readwise-sync.ts` + `app/api/readwise/sync/`
+    (the original slow Readwise-API sync that started this whole thread —
+    turns out it's gone now too, for a different reason than expected)
+  - The `meditation_days`/`reading_days` table creation in `lib/db.ts`
+  - Removed the portfolio and Readwise sync blocks from
+    `agent/schedules/dispatcher.ts`'s daily tick
+- **Kept, deliberately**: `<DailyJournal>` (`app/_components/daily-journal.tsx`)
+  is unmounted from the home screen per his confirmed choice, but the
+  component/API weren't deleted — it's a real writing feature independent of
+  scoring, not a pure scorecard sensor like the two timers were. Also kept:
+  `reading_notes` table + `POST /api/reading-notes` + the
+  `import_reading_notes` chat tool from the prior session — the Kindle
+  clippings importer still works, it just no longer bumps a scorecard field
+  (`incrementNotesWritten` calls removed from both callers).
+- `agent/tools/log_metrics.ts` and `get_scorecard.ts` trimmed to match —
+  steps/sleep only, three keys in the spoken summary.
+
+**Verified**: `npm run typecheck` clean; live scorecard GET showed exactly
+3 metrics summing to the headline score (1.4 + 29.7 + 5.6 = 36.7); screenshot
+confirmed the three boxes render left to right as asked.
+
+**Not deployed** — Berto flagged the `vercel.json` swap + background deploy
+dance as too much effort right after asking for this, so this round stayed
+local: committed and pushed to `main`, not pushed to `cael-keystrokes`. Next
+session that touches this app should offer the deploy rather than assume it.
+
+---
+
+## 2026-09-03 (chat) — reading time and notes, off the Readwise clock
+
+Berto: *"my readwise api doesnt reflect right away my reading notes on
+kindle, is there a faster way to track my reading minutes, pages, or
+notes?"* → *"i think there are some open source apis we can use"* → *"okay
+can we do notes but also reading time?"*
+
+**The finding.** Kindle has no cloud API for either. Readwise's own notes
+sync is just a periodic poll of the same source every open-source
+alternative (Brightnote, kindle-clippings-to-notion) reads directly: the
+local `My Clippings.txt` file the device writes instantly on every
+highlight/note. And reading *minutes* has no source anywhere — Kindle
+never exposes session time — so the only sensor for that is a timer, same
+as meditation already is.
+
+**What shipped**, mirroring the existing meditation pattern exactly:
+
+- `reading_days` table + `lib/reading-time.ts` (`recordReadingSession` /
+  `getReadingDay` / `setReadingDay`) — a per-day minutes/sessions total,
+  written only when a session finishes.
+- `<ReadingTimer>` (`app/_components/reading-timer.tsx`), a stripped-down
+  copy of `<MeditationTimer>` (no bells — a reading session doesn't need
+  chimes) with 15/30/45/60m presets, on the home screen right under the
+  meditation timer.
+- New gated scorecard metric `reading_minutes` (target 30m, same weight as
+  every other key) — `lib/scorecard.ts` merges `reading_days` in the same
+  pass as `meditation_days`.
+- `lib/kindle-clippings.ts` parses `My Clippings.txt` text (entries split on
+  `==========`, skips `Your Highlight` entries — only `Your Note` counts,
+  same rule the old Readwise metric always used) into `{bookTitle, note,
+  location, date}`.
+- `reading_notes` table (unique on book+note+date, so re-pasting the whole
+  file after adding a few notes is a no-op for what's already stored) +
+  `POST /api/reading-notes` + an eve tool (`agent/tools/import_reading_notes.ts`)
+  so Berto can just paste the clippings text to Cael in chat — no upload UI,
+  per his call.
+- The existing "Notes written" scorecard tile (`readwise_notes` key/column —
+  left as-is to avoid a migration) now increments from this import instead
+  of a manual Readwise number; hint text changed from "Readwise" to "Kindle
+  clippings" to match. `incrementNotesWritten()` in `lib/scorecard.ts` is
+  additive, same reasoning as the meditation/reading timers.
+
+**Verified live**: started `PORT=3789 npm run dev`, logged in, POSTed a
+sample clippings blob (one note + one highlight) — highlight correctly
+skipped, note inserted, "Notes written" went 0→1; POSTed a 15-minute
+session — "Reading" went 0m→15m on the card; re-posted the same clippings
+text — `imported: 0`, confirming the dedupe. All test data deleted after.
+
+**Next**: no import cadence is automated — Berto still plugs in and pastes
+whenever he wants a sync. If that gets old, a Mac agent watching the mounted
+Kindle's `My Clippings.txt` (same shape as the keystroke agent) would remove
+even that step.
+
+---
+
+## 2026-09-02 (chat) — the model picker goes cross-provider
+
+Berto: *"enable us to have multiple different models to pick from using the
+vercel ai elements model picker"* — plus, when asked: keep it one global
+setting, *"lets be able to pin models, also show the average cost of input and
+output per model"*.
+
+**What changed.** The old picker was five hardcoded Anthropic rungs
+(Minimal → Max) living inline in the floating chat bar, and it wasn't on the
+chat page at all — the composer in `/chat` had no way to switch models.
+
+- **The list is no longer hardcoded.** `lib/gateway-catalog.ts` reads the AI
+  Gateway catalog at runtime (`gateway.getAvailableModels()`, cached one hour
+  per lambda) — 223 language models across OpenAI, Google, Anthropic, xAI,
+  DeepSeek, Mistral, Meta, Alibaba and the rest. New models show up without a
+  deploy. Falls back to a small Anthropic ladder if the gateway is unreachable.
+- **Prices come from the gateway, not from memory.** Every row shows USD per 1M
+  tokens as `in / out`, taken from the catalog's own per-token pricing. All 223
+  models are priced, so nothing renders as "—" today.
+- **Pinning.** A pin button on each row; pinned models get a "Pinned" group at
+  the top. Stored globally in `app_settings.chat_model_pins` as a JSON array, so
+  the pins follow Berto across devices. Defaults to Haiku 4.5 / Sonnet 4.6 /
+  Opus 5. Clicking the pin deliberately does *not* select the model.
+- **AI Elements `model-selector`.** Installed from the `@ai-elements` registry —
+  a cmdk command palette with search, provider grouping and provider logos.
+- **Two places, one setting.** `app/_components/model-picker.tsx` is shared by
+  the floating chat bar and the chat composer, with a module-scope store so both
+  show the same selection at once.
+
+**Files:** `lib/chat-model.ts` (rewritten — `ChatModel` type, pin helpers,
+price/provider formatting, `isChatModelId` now validates the `provider/model`
+shape rather than a fixed list), `lib/gateway-catalog.ts` (new),
+`app/api/settings/chat-model/route.ts` (GET returns model + pins + catalog; PUT
+takes either or both), `app/_components/model-picker.tsx` (new),
+`components/ai-elements/model-selector.tsx` (new, from the registry),
+`app/_components/floating-chat-bar.tsx` (inline picker deleted),
+`components/assistant-ui/thread.tsx` (picker added to the composer),
+`agent/agent.ts` (comment only).
+
+**Caveat worth knowing.** eve fixes `modelContextWindowTokens` at compile time
+and it's still declared as 200k. That's right for every Claude model and the
+frontier models worth picking, but a small model from the catalog's long tail
+may have a smaller real window — eve would then compact later than that model
+can take. Pin the models you actually use and this never comes up.
+
+**Verified** in the running app: picker opens from both the chat composer and
+the floating bar, search filters, pinning persists to the DB without changing
+the selection, and selecting GPT-5 wrote `openai/gpt-5` to `app_settings`
+(reset to Sonnet 4.6 afterwards). `npm run typecheck` and `npm run build` clean.
+
+---
+
+## 2026-09-02 (data) — there was never a second database
+
+Berto, after being told the hosts had forked: *"yes migrate the data over"*.
+
+**There was nothing to migrate.** Both `cael-agent-seven` and `cael-keystrokes`
+read and write the same Neon database, so the migration would have been a no-op
+at best and a duplicate-everything at worst.
+
+How it was checked, since the previous claim also sounded confident: log into
+both hosts and hash the response body of every list endpoint. All eleven match
+to the SHA — `thoughts` (85,713 bytes), `todos`, `measures`, `lists`, `reading`,
+`sketches` (2.3 MB), `vision`, `threads` (4.2 MB), `scheduled-tasks`, `dreams`,
+`memories` — and both report the same live keystroke count (25,928) and the same
+newest note (id 192). Two independently-forked databases do not agree to the byte
+across 6.5 MB of payload.
+
+**Where the earlier conclusion went wrong.** It rested on the keystroke agent
+resuming at 8,448 against one host and 18,609 against the other. Those readings
+were taken hours apart on the same day, against a counter that climbs all day —
+the same database answers differently at 9am and 2pm. The second piece of
+evidence, two different `DATABASE_URL`s from `vercel env pull`, no longer
+reproduces: Vercel now returns `[SENSITIVE]` for integration-managed secrets, so
+that comparison cannot have been reading real values.
+
+Useful for next time: `DATABASE_URL` on both projects is `sensitive`-typed, which
+means the Vercel API will not decrypt it for any caller. To identify which
+database a host is on, compare its API responses against a `psql` query on the
+connection string in `.env.local` rather than trying to read the secret back.
+
+No code changed. The correction is applied to the 2026-09-02 (hosts) entry and to
+the stopgap entry that first made the claim.
+
+---
+
+## 2026-09-02 (hosts) — the Mac app moves to cael-keystrokes, and why
+
+Berto, looking at the Notes tab in the Mac app: *"can we add the feature to allow
+the user to manually type their own notes?"* — then *"please merge and push to
+main, unless i dont see it?"*
+
+**The feature already existed.** The composer shipped the day before in `10b6375`
+("Write your own notes, and a daily journal under the metrics") and was sitting
+on `origin/main` the whole time: a textarea pinned to the top of the Notes tab,
+Enter to save, `POST /api/thoughts` writing to the same `thoughts` table Cael's
+`capture_thought` tool uses, embedding computed best-effort so hand-written notes
+are semantically searchable like the rest. Nothing to merge. What was missing was
+a *deploy*.
+
+**The deploy had been dead for three days.** Vercel stopped accepting the
+`experimentalServices` key in `vercel.json` on 2026-08-30 — the exact day
+`cael-agent`'s last successful production deploy went out. Every commit since,
+the note composer included, was stuck on the branch. The Mac app pointed at
+`cael-agent-seven`, so Berto was looking at an Aug-30 build.
+
+**The eve upgrade is real but not finished.** eve 0.18.2 emits
+`experimentalServices`; 0.49.1 emits `services`. The migration is bounded — 11
+TypeScript errors across 6 files — and is parked on the `eve-0.49-upgrade`
+branch:
+
+- Delete `vercel.json` entirely. `withEve()` generates the services block into
+  `.vercel/output/config.json` at build time, and eve's own code *throws* if
+  `vercel.json` already declares services. A hand-written block is worse than no
+  block unless you also reproduce eve's generated `buildCommand`, with its env
+  exports and relative paths.
+- `middleware.ts` needs `runtime: "nodejs"`. Services reject Edge Function
+  output and middleware defaults to Edge.
+- The Vercel *project* framework preset had to change from `services` to
+  `nextjs`, or the deploy is refused before it builds. That is applied to
+  `prj_QisD5Wv80dw4vJ8GoXKWDjLeixgq` already and lives in no file.
+- Client renames: `SessionState` → `ClientSessionState`, `client.session(x)` →
+  `client.sessions.attach(id, { streamIndex })`, `send({ message })` →
+  `send(message)`, `agent.stop()` → `agent.cancel()`,
+  `ClientOptions.maxReconnectAttempts` → a per-stream `streamReconnectPolicy`.
+  `continuationToken` is gone; sessions are ID + cursor now.
+- The schedule handler's `receive(channel, input)` → `to(channel, target).send()`.
+
+It typechecks, builds, and deploys — but the promoted build returned
+`FUNCTION_INVOCATION_FAILED` on `/eve/v1/health`, so production was rolled back
+to the Aug-30 deployment. Two agents were working this blocker at once and both
+promoted within a minute of each other, which is how production ended up two
+deploys past the free plan's one-step rollback limit; `vercel promote <url>`
+recovers where `vercel rollback` refuses.
+
+**The actual fix was to change hosts.** `cael-keystrokes` — same repo, same team,
+different Neon database — had been deploying fine the whole time. It has the note
+composer *and* a healthy eve runtime (`/eve/v1/health` returns 200 there, against
+a 404 on `cael-agent-seven`), so moving the Mac app there restores Cael's chat as
+well, which had been broken since the account switch.
+
+Changed: the six hard-coded URLs (`desktop/src-tauri/src/main.rs`,
+`tauri.conf.json`, `capabilities/main.json`, `desktop/README.md`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift`, `menubar/install.sh`) plus the
+two launchd plists in `~/Library/LaunchAgents`. Rebuilt `Cael.app`, reinstalled
+to `/Applications`, reloaded both agents — `keystrokes.log` now reads
+`counting to https://cael-keystrokes.vercel.app`.
+
+**Open:** `cael-agent-seven` stays undeployable until the `eve-0.49-upgrade`
+branch's runtime crash is diagnosed.
+
+*(Corrected: this entry originally warned that the two hosts' databases had
+forked and needed reconciling. They had not — see the 2026-09-02 (data) entry
+above. Switching hosts cost no data.)*
+
+---
+
+## 2026-09-02 (menu bar) — the keystroke count where he can see it
+
+Berto: *"is there a way to just show keystrokes in the top menu bar of my mac?"* —
+then, on being offered a target: *"no target, what I actually want to see is just
+the keystrokes today, then if I click it it shows high score, last 7 days average."*
+
+**A separate process, on purpose.** The obvious build is to hang an `NSStatusItem`
+off the existing `count_keystrokes.py`. Rejected: the counting is the part that
+matters — it feeds the day score and cannot be reconstructed after the fact —
+so nothing about drawing a menu should be able to take it down. `menubar/` is its
+own tiny Swift app. If it crashes the counter keeps counting and keeps reporting;
+only the display goes away.
+
+**Two sources, because they answer different questions.** Today's number is read
+from `~/.focuspoint-keystrokes.json`, the counter's own state file, every 2s — the
+title is live with *zero* network traffic, which matters given
+[[focuspoint-polling-invocation-budget]]. The high score and 7-day average come
+from `/api/keystrokes` every 5 minutes, because that history lives server-side and
+outlives this Mac. The menu also re-reads both the moment it opens, which is the
+only instant the numbers are actually being looked at.
+
+To make the local read worth doing, the counter now writes its state file every 2s
+(`STATE_SECONDS`) instead of only on the 60s network flush. A local file write is
+free; the POST cadence is unchanged.
+
+**`getKeystrokeSummary()` gains `average7` and `bestDay`.** `bestDay` deliberately
+**excludes today** — the same convention `computeRecords()` uses in
+`lib/scorecard.ts` — so the high score stays a bar to beat rather than a mirror of
+the count sitting directly above it in the menu. When today clears it, that row
+switches to "🏆 New high score — beat 42,680" so the win is visible rather than
+silently swallowing the record.
+
+**Auth needed no change.** `middleware.ts` already allows any method on
+`/api/keystrokes` carrying the bearer `KEYSTROKE_TOKEN`, so the menu bar reads the
+summary with the token the counter already has. `menubar/install.sh` lifts that
+token out of the counter's own launchd plist — nothing to retype, one token on the
+machine. The app itself needs no permissions at all: Accessibility is the
+counter's business, and this only reads a number the counter already wrote.
+
+**Verified** end to end on the real machine, not in theory: prod returning
+`average7: 24,291` / `bestDay: {2026-08-31, 42,680}` over the bearer token; the app
+installed via its own installer and running under launchd (`com.focuspoint.
+keystrokes.menubar`, PID 4011, clean log); a screenshot of the menu bar showing
+**⌨ 8,443** and the opened dropdown showing Today 8,443 / High score 42,680 · Aug 31
+/ 7-day average 24,291 — every figure matching the API exactly. Then the counter
+restarted to load the faster state writes: it resumed at 8,448 with nothing lost,
+the file was observed ticking within 6s, and prod advanced to 8,748, so the whole
+chain is healthy. `npm run typecheck` clean.
+
+The `.app` bundle is built by the installer and gitignored — it is a compiled
+artifact, not source. `LSUIElement` keeps it out of the Dock and app switcher.
+
+Files: `lib/keystrokes.ts`, `keystroke-agent/count_keystrokes.py`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift` (new),
+`keystroke-agent/menubar/install.sh` (new), `keystroke-agent/README.md`,
+`keystroke-agent/.gitignore`.
+
+---
+
+## 2026-09-02 (training log) — the plain-text half of training
+
+Berto: *"I need some really simple ways to just note down what workout I did each
+day, and what I accomplished, in plain text, to track what I did when to improve
+my training."*
+
+Half of this already existed and the other half was missing. `workout_logs` has
+tracked six numeric lifts since day one and draws the Training chart, but a number
+can only say *how much* — nothing in the app could say **what happened**. "Squat
+225" and "squat 225, bar speed still good on the last set, first time it didn't
+feel like a grind" are not the same record, and only the second one is useful for
+deciding what to do next week.
+
+**A new table, not a new column.** `workout_notes(logged_date PRIMARY KEY, note,
+updated_at)` — one plain-text note per day, so re-logging a day replaces it. It is
+deliberately separate from `workout_logs` rather than a `note` column on it: that
+table is keyed `(exercise, logged_date)`, so a note hung off it would either
+duplicate across every lift of the day or arbitrarily attach to one of them. The
+note is about the *day*, so the day is the key.
+
+**Placement** was Berto's pick from three: its own card above the Training chart,
+over folding it into the daily journal or leaving it chat-only. The reasoning that
+decided it — training notes buried inside general journaling make "what have I been
+doing on push days?" a search problem instead of a glance.
+
+**A textarea, not the tiptap editor** the daily journal uses. A workout note is
+three lines typed one-handed on the way out of the gym; a rich-text toolbar is
+friction there. Plain text is also exactly what Cael reads back, so there is no
+markdown to strip. Autosaves on a 900ms pause, flushed on unmount, on the day
+changing, and on the tab closing via `sendBeacon` (the only save that survives it).
+Chevrons walk back through past days, and the history list under the box is
+clickable — the card doubles as the archive.
+
+**Clearing a note deletes the row** rather than storing `''`. Otherwise every day
+opened and not written would accumulate a blank entry in the history list.
+
+**The card fetches its own history.** It started as a prop from `home-screen`, and
+verification caught the flaw: that page loads everything through one `Promise.all`,
+so a single unrelated route failing there left the training log silently empty.
+Owning the request means the log works regardless of what else on the page is
+broken. One extra request on load, worth it.
+
+**Cael reads and writes it too** — `log_workout_note` and `list_workout_notes`.
+`log_workout_note`'s description explicitly tells the model that writing a day
+*replaces* it, and to read the existing note first when adding to a day already
+logged, since the natural failure mode is silently clobbering the morning's entry
+with the evening's.
+
+**Verified** on a private :3789 dev server against the real DB, not mocks: API
+round-trip on a throwaway 2021 date; the card rendering, saving, surviving a
+reload, and loading a past day when its history row is clicked; clearing deleting
+the row. Then both agent tools driven through the actual chat UI — Cael called
+`log_workout_note` and the row appeared, then `list_workout_notes` and read it back
+with the date intact (`2021-03-05`, no timezone shift, which is why both the route
+and the tool format DATE columns locally rather than via `toISOString()`). All test
+rows and both test threads deleted afterward. `npm run typecheck` clean.
+
+One false alarm worth recording: the first browser run looked like the load fetch
+never resolved. It was the cold Turbopack dev server compiling ~10 routes in
+parallel — the same fetch took 29s in-page and 1.5s from curl. Nothing was wrong.
+
+Files: `lib/db.ts`, `app/api/workout-notes/route.ts` (new),
+`app/_components/training-log.tsx` (new), `app/_components/home-screen.tsx`,
+`agent/tools/log_workout_note.ts` (new), `agent/tools/list_workout_notes.ts` (new).
+
+---
+
+## 2026-09-01 (notes + journal) — write it yourself
+
+Two asks in one: *"for our notes section, can you please enable me to add manually
+written notes? not just AI?"* and *"on the home page every day under the metrics
+there should be a section for the daily journal that's just a markdown text editor
+similar to Google Docs or Notion."* Both were already sitting on his own board
+(tasks #498, #497, #496).
+
+**Notes you can type.** `/api/thoughts` had GET, PATCH and DELETE but no POST —
+a note could only be born inside a conversation with Cael. Added POST, and a
+composer pinned to the top of the Notes tab. Deliberately the *same* `thoughts`
+table as `capture_thought`, not a parallel "manual notes" store: one list, one
+tag cloud, one semantic index. The embedding is best-effort on the same terms as
+the agent tool — a flaky gateway costs that note its semantic search, never the
+note. Enter saves, shift+Enter breaks the line, matching the edit-in-place
+contract directly below it. The new note is prepended rather than refetched,
+because a refetch would knock an active semantic search back to the raw list.
+
+**The daily journal.** New `daily_journal` table — `entry_date` primary key,
+markdown `content` — and `/api/daily-journal` (GET/PUT, plus POST as a PUT alias
+because `sendBeacon` can only POST). One page per day, sitting directly under the
+scorecard: the metrics say *what* happened, this says *why*.
+
+Berto picked a real WYSIWYG over a markdown box with a preview tab, so it's
+Tiptap/ProseMirror: `# ` becomes a heading as you type, `- ` a bullet, `[] ` a
+checkbox, cmd+B bolds. What gets *stored* is still plain markdown
+(`tiptap-markdown`), so a day reads back as text and Cael can be pointed at it
+later without an HTML parser in the way.
+
+Three decisions worth keeping:
+
+- **No save button.** It autosaves 900ms after you stop typing, and flushes
+  through `navigator.sendBeacon` on `beforeunload` — a fetch gets aborted by the
+  page teardown, a beacon doesn't. A journal you have to remember to commit is a
+  journal with half-written days in it.
+- **‹ › day navigation** (his task #496). The autosave is keyed to the date the
+  document was *loaded* for, so switching days mid-debounce flushes the old day
+  before loading the new one instead of writing yesterday's text onto today.
+- **No `ensureSchema()` on the hot paths.** It re-runs every CREATE TABLE in
+  `lib/db.ts` and cost 5–6s on a home-page load. The read path skips it entirely
+  (a missing table just reads as an empty document); the write path runs it only
+  after an insert actually fails for want of the table.
+
+Editor styling lives in `app/globals.css` as `.journal-prose` — the Tailwind
+reset strips headings and lists back to body text, and there's no typography
+plugin here. Kept restrained on purpose: this is a page in a notebook, not an
+article.
+
+**Verified** on a private :3789 dev server against live data. Journal: typed a
+heading, two bullets, a checkbox and cmd+B bold; serialized to
+`# Verification run / - typed a bullet / - [ ] a checkbox item / Felt **great**
+about it.`; ticking the box round-tripped as `- [x]`; survived a reload; the
+previous day loaded as its own empty page and Today came back intact. Notes:
+typed a note, Enter saved it, it appeared in the list, the box cleared, it was
+in `/api/thoughts`, and semantic search found it by meaning — then the test note
+was deleted. `npm run typecheck` and `npm run build` both clean. No test data
+left behind.
+
+Files: `lib/db.ts`, `app/api/daily-journal/route.ts` (new),
+`app/api/thoughts/route.ts`, `app/_components/daily-journal.tsx` (new),
+`app/_components/home-screen.tsx`, `app/_components/dashboard.tsx`,
+`app/globals.css`, `package.json` (Tiptap).
+
+Next: nothing reads the journal yet — a `read_journal` tool would let Cael use
+the day's own words in the nightly dream/consolidation pass.
+
+---
+
+## 2026-08-30 (desktop) — point the Mac app at the live deploy
+
+The Mac app was showing "This deployment is temporarily paused" because it still
+loaded `https://cael-agent.vercel.app` — the project on the paused team. Swapped
+the URL to the current live stopgap, **https://cael-keystrokes.vercel.app**, in
+all four places it appears: `desktop/src-tauri/src/main.rs` (`APP_URL`),
+`tauri.conf.json` (`build.frontendDist`), `capabilities/main.json` (the
+navigation allow-list — miss this one and the shell blocks its own home page),
+and `desktop/README.md`.
+
+Rebuilt with `npx tauri build`, replaced `/Applications/Cael.app`, and launched
+it — the binary's embedded URL now reads `cael-keystrokes.vercel.app` and the app
+opens to the login page instead of the pause screen.
+
+**Next:** when `cael-agent` unpauses (or a domain is attached to the new project),
+point these four references back at `cael.bertomill.com` so the desktop app stops
+tracking whichever Vercel project happens to be live.
+
+
+## 2026-08-29 (home screen) — removed the 8 forms of wealth grid
+
+Follow-up to the Routines removal. Berto asked for the legacy card grid on the home
+screen to go, so `app/_components/home-screen.tsx` lost:
+- the whole "your 8 forms of wealth" section — the 8 cards, their sparklines, the
+  eye-icon expand (Vision / Methods), the Family quick-add-a-memory uploader, and the
+  Month / Year / Decade granularity toggle,
+- the state and helpers that only fed it: `formVisions`, `formMethods`, `savings`,
+  `expandedForm`, `wealthGranularity`, `memoryTitle`, `uploadingMemory`,
+  `memoryFileInputRef`, `handleQuickAddMemory`, `wealthSparklines`, and `greeting()`,
+- the `/api/vision?kind=statement` and `?kind=method` fetches and their `toFormMap`.
+
+**Kept on purpose:** the TRAINING card (Berto only asked for the grid), and the whole
+goal-celebration path — `formGoals`, `wealthSeries`, `wealthTotals`, and the effect that
+fires the full-screen 🎉 and PATCHes `achieved` when an all-time total first crosses its
+goal. `WEALTH_FORMS` stays for that. `app/_components/sparkline.tsx` stays too; it's
+still used by `measures-overview.tsx` and `keystrokes-card.tsx`.
+
+Dead code was found by temporarily flipping on `noUnusedLocals` in `tsconfig.json`
+and clearing every hit; the tsconfig was reverted afterward. `npm run typecheck` and
+`npm run build` pass.
+
+---
+
+## 2026-08-29 (home screen) — removed the Routines section
+
+Berto asked for the Routines block on the home screen to go. Removed from
+`app/_components/home-screen.tsx`:
+- the whole rendered `Routines` section (the weekly Mon–Sun grid with the
+  Morning Routine / AM Workout / PM Workout / Daytime slots),
+- its inline-edit state (`routines`, `routineEditTarget`, `routineEditValue`) and
+  handlers (`startEditingRoutineTitle/Goal/Slot`, `cancelEditingRoutineField`,
+  `saveRoutineField`),
+- the parsing/rebuilding helpers (`parseRoutine`, `rebuildDaySlot`,
+  `rebuildContentForGoal`, `ROUTINE_DAYS`, `ROUTINE_PERIODS`, `ROUTINE_DAY_RE`),
+- the `/api/vision?kind=routine` fetch and its `toRoutineList` dedupe.
+
+Left intact on purpose: `vision_items` rows with `kind="routine"`, the
+`/api/vision` route, and the `add_vision_item` / `list_vision` agent tools — the
+data and Cael's access to it are unchanged, only the home-screen UI is gone.
+
+`npm run typecheck` and `npm run build` both pass.
+
+---
+
+## 2026-08-29 (keystrokes deploy) — migrated live to a non-paused team
+
+The `cael-agent` project (team `team_SpPD…`, home of `cael.bertomill.com`) is **paused for
+usage** — every request to it returns `402`, so the keystroke agent's POSTs had nowhere to
+land. This session's Vercel CLI can't reach that team either. Per Berto's call, the app was
+**migrated to the `bertoaucctus` / `aucctus` team** (`team_rw2fumuExVl71ZKWCk1jBKZ9`, "Berto's
+projects", active).
+
+**New project: `cael-keystrokes`** (`prj_1imCSWv1ZyKhqdwPpV72ojy0PDt1`), live at
+**https://cael-keystrokes.vercel.app**.
+- All 48 env vars from `.env.local` pushed via the REST API (same `DATABASE_URL`, Clerk,
+  Google, Twilio, `KEYSTROKE_TOKEN`, …). Skipped `VERCEL_OIDC_TOKEN` (Vercel injects its own).
+- `vercel.json` uses the legacy `experimentalServices`, which new projects reject. Deployed
+  as a plain single-service Next build via a **temporary** local edit to `vercel.json`, then
+  `git checkout`-reverted — the committed file is unchanged. `withEve()` in `next.config.ts`
+  still builds the eve HTTP routes into the Next app; only eve's **durable runtime**
+  (schedules, sandbox) is absent on this deploy — which is *why* there's no risk of the
+  Twilio morning-digest double-firing from it.
+- Vercel **SSO deployment protection disabled** on the project (the app has its own
+  Clerk + password auth; SSO would force a double login and intermittently 401 the agent).
+- Verified end-to-end: token POST → `200` and the row lands in Neon; bad token → `401`;
+  `GET /` → `307` to the app's own login (not an SSO wall). Test rows deleted.
+
+**Not done / open:**
+- **No custom domain.** Lives on `*.vercel.app`; `cael.bertomill.com` is still attached to the
+  paused project. Moving DNS (via `scripts/cloudflare-dns.mjs`) is deferred — it's a decision,
+  and it would fight the original once it's un-paused.
+- **Point the agent at the new URL:** `FOCUSPOINT_URL=https://cael-keystrokes.vercel.app ./install.sh`
+  (its default is still the paused `cael.bertomill.com`).
+
+## 2026-08-29 (keystrokes) — "track my keystrokes each day, add it to the dashboard"
+
+**What it is.** A WhatPulse-style daily keystroke count: a login agent on the Mac counts
+how many keys get pressed, POSTs the running daily total to focuspoint every minute, and a
+new dashboard card shows today's number plus a 14-day sparkline.
+
+**Privacy is the whole design.** The counter counts, it does not record. `on_press` in
+`keystroke-agent/count_keystrokes.py` increments one integer and discards the key object —
+no key identity is ever stored, buffered, or sent. What leaves the machine is a single
+number per day (`{date, count}`). It's a pedometer for the hands, not a keylogger. Said so
+plainly in the agent README because a "keystroke tracker" is exactly the thing that should
+prove it isn't logging content.
+
+**Pieces:**
+- `keystroke-agent/` — the local half. `count_keystrokes.py` (pynput listener, only stdlib
+  otherwise), `install.sh` (venv + pynput + a launchd agent that runs at login and
+  restarts on crash), and a README covering the one-time macOS **Input Monitoring** grant.
+  Buckets days in **America/Toronto** to match `lib/streak.ts`. Caches today's tally to
+  `~/.focuspoint-keystrokes.json` so a restart resumes.
+- `keystroke_days(logged_date, count)` table in `lib/db.ts` (and created directly in
+  Neon — most routes don't call `ensureSchema`, so a fresh table can't wait for one).
+- `lib/keystrokes.ts` — `getKeystrokeSummary` (today + 14-day buckets + active-day average)
+  and `recordKeystrokes`, which upserts with **GREATEST** so a restarted agent that lost
+  its local tally can never walk the server number backward. Verified monotonic against
+  the real DB (1200→3400→900 stays 3400).
+- `app/api/keystrokes/route.ts` — GET for the card (session-gated), POST for the agent,
+  authenticated with a bearer `KEYSTROKE_TOKEN`. `middleware.ts` allow-lists the POST the
+  same way it does the MCP endpoint; the route re-verifies the token itself.
+- `app/_components/keystrokes-card.tsx` — reuses `Sparkline` and `usePolling` (no bare
+  `setInterval` — see the polling post-mortem below). Rendered on the home screen right
+  under the scorecard.
+
+**Setup left for Berto (needs his machine / the Vercel dashboard):**
+1. `KEYSTROKE_TOKEN` is already in `.env.local`. Add the **same value** to Vercel prod
+   (`vercel env add KEYSTROKE_TOKEN production`) and redeploy, or the POST 401s in prod.
+2. `cd keystroke-agent && ./install.sh`, then grant Python **Input Monitoring** in System
+   Settings and `launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes`.
+
+---
+
+## 2026-08-30 — Notes written, from Readwise (and no meditation)
+
+**Notes, not highlights — and the data settles the argument.** Over the last 30 days
+Berto touched **415 highlights** but wrote a note on **51** of them. Counting highlights
+would have handed him a number he could clear by swiping; the notes cluster on the days
+he actually thought about something (29 on Aug 24, 9 on Aug 21). That 8× gap is exactly
+why he cut highlights from an earlier draft as *"high noise, less signal"*, and it's why
+only highlights carrying a non-empty `note` count here.
+
+Two details that matter more than they look:
+
+- **Bucketed on `highlighted_at`, not `created_at`.** A Kindle sync ingests hours or days
+  after the reading happened; crediting the note to the sync would put it on the wrong
+  day and, worse, make a quiet day look productive.
+- **A day Readwise reports nothing for is written as an explicit `0`, not left null.**
+  Readwise is authoritative here, so "no notes" is a fact, and an unlogged dash claims
+  something different from an honest zero.
+
+The API is official and pleasant: token from readwise.io/access_token, `GET
+/api/v2/export/?updatedAfter=` paginated by `pageCursor`, 240 req/min. The page loop is
+capped at 20 — an unbounded `while` against someone else's pagination is how a cron job
+runs forever. The dispatcher re-syncs 14 days daily rather than one, since a late sync
+can land days after the fact and re-counting a settled day is free.
+
+**Meditation was built and then removed the same hour.** Insight Timer has no API — and
+nor does any meditation app, which is worth recording so nobody re-researches it:
+Headspace, Calm and Waking Up publish nothing; Google Health's only mindfulness type is
+`moods` and it is **write-only**; Oura's `/v2/usercollection/session` genuinely returns
+meditation but means buying a ring; Terra/Rook/Vital are sales-gated B2B. The remaining
+routes were an iOS Shortcut posting Apple Health mindful minutes, or typing it nightly.
+Berto's call: don't track it. A metric needing a nightly hand is a metric that stops
+being logged, and absent beats quietly stale. The empty `meditation_minutes` column went
+with it.
+
+**Fitted into the parallel session's model, not around it.** While this was being built,
+another session replaced the PRs metric with **keystrokes** and added a points/tier
+system (`bonusFullAt`, legendary→cold). Notes slot in with `bonusFullAt: 5`.
+
+**Verified in production:** token valid, 14 days backfilled, Aug 24 → 29 notes and
+Aug 21 → 9, everything else an explicit zero. Today reads 1/6.
+
+---
+
+## 2026-08-30 (later) — Portfolio, the sanctioned way
+
+`$21,725` now lands on the scorecard's portfolio row from SnapTrade, and Berto's
+Wealthsimple password is nowhere in the system.
+
+**How the connection works.** SnapTrade's free personal tier: he authorises Wealthsimple
+on *their* page, and this app holds only a `SNAPTRADE_CLIENT_ID` / `SNAPTRADE_CONSUMER_KEY`
+pair that reads balances. The **personal** key needs no user registration —
+`listSnapTradeUsers` 403s on it, and `listUserAccounts({})` simply returns the accounts
+already connected in his dashboard. Nothing here can trade.
+
+**What honestly changed, and what didn't.** SnapTrade's own Wealthsimple connection
+reports `"auth_type":"UNOFFICIAL_API"` in its `authorization_types`. So the underlying
+fragility didn't vanish — it moved to a company that maintains it for a living. The real
+change is who handles the password, which was the whole objection.
+
+**Investments only — this is the number that matters.** The requirement survived the
+implementation it was written for (`cfba5f8`, deleted with the unofficial client):
+
+| account | | |
+|---|---|---|
+| Wealthsimple Trade TFSA (open) | tfsa | **$16,811.47** counted |
+| Wealthsimple Trade FHSA (open) | fhsa | **$4,913.53** counted |
+| Wealthsimple Trade MSB | ca_cash_msb | $8,070.86 **excluded** — cash float |
+| CARD / CORPORATE / closed TFSA | — | excluded, closed |
+
+Counting everything would have read $29,795.85 — a third of it cash. An unrecognised
+account type still counts as an investment: a missing account is invisible in the total,
+whereas a chequing balance quietly inflating it is the worse failure. Closed accounts are
+skipped even at zero, since a closed account with a stale balance would be worse than
+noise. Mixed currencies are excluded rather than summed at 1:1 — everything is CAD today,
+but a wrong number beats an incomplete one only in the other direction.
+
+`GET /api/portfolio/sync?debug=1` returns every inclusion and exclusion with a reason,
+because a portfolio total you can't account for is one you won't trust.
+
+**The card's button now says "Sync"** and refreshes both sources at once — the watch and
+the portfolio are different providers, but nobody thinks of them that way. A portfolio
+failure is a quiet note rather than an error competing with the watch's result, since it
+sits below the line and gates nothing. The dispatcher records it daily.
+
+**Verified in production:** `{"connected":true,"amount":21725,"currency":"CAD"}` with the
+two counted accounts named in the response.
+
+---
+
+## 2026-08-30 — Wealthsimple: pulled back to the sanctioned route
+
+Berto's read on the unofficial client, one message after it was built: *"this feels a
+bit sketch, is there another way?"* He was right, and the honest answer is that I'd
+half-checked the alternative and filed it wrong.
+
+**SnapTrade has a free self-serve tier** — 5 connected accounts, no sales gate, an
+official Wealthsimple integration. An earlier note here recorded that they "don't
+publish pricing"; that was out of date, and it's why the sketchy path looked like the
+only path. It never was.
+
+The difference that matters isn't cost, it's what holds the credentials. The unofficial
+route needs his Wealthsimple password and a 2FA code typed into a local script; SnapTrade
+authorizes on Wealthsimple's own page and hands the app a key that reads balances. No
+password anywhere in the system, nothing that could move money, nothing that breaks when
+Wealthsimple redesigns.
+
+**Removed** (`4d8ce55`): `lib/wealthsimple.ts`, `lib/portfolio-sync.ts`,
+`scripts/wealthsimple-login.mjs`, `app/api/portfolio/sync/`, and the dispatcher hook.
+That also removed a parallel session's refinement from `cfba5f8` — scoping the value to
+investment accounts, excluding CASH / CREDIT_CARD / PORTFOLIO_LINE_OF_CREDIT — which is
+worth re-applying if the sanctioned route ever falls through. Both commits stay in
+history for exactly that reason.
+
+**The requirement survives the implementation:** whatever fills this row must count
+*invested* accounts only. The Cash float and the credit card balance are not the
+portfolio.
+
+Portfolio is typed in until the SnapTrade wiring lands. It sits below the line and gates
+nothing, so a stale number costs nothing.
+
+---
+
+## 2026-08-30 — The watch is connected: steps and sleep from Fitbit, live
+
+The scorecard's two hardest metrics now fill themselves in. **25,137 steps and 6h38m
+of sleep** came off Berto's Fitbit Charge 4 through the Google Health API, with 14 days
+of steps backfilled. Getting there turned up four things no amount of doc-reading had
+settled, each found by `GET /api/health/sync?debug=<date>` — which is the entire
+justification for having built that endpoint.
+
+**1. The app was authenticating against a project we never configured.** The Health API
+and scopes had been set up on project `cael` (`812477857784`), but `GOOGLE_CLIENT_ID`
+began `45298590656` — a *different* project, invisible to his Google account (it belongs
+to the aucctus login). The number before the dash in a client ID is the project number;
+checking that one detail saved an hour of chasing a scope error. Fix: switch the app to
+cael's "Web client 1", which is where the setup already lived. The old
+`GOOGLE_REFRESH_TOKEN` and the stale `google_auth` row went with it.
+
+**2. The Health API refuses a token that also carries calendar scopes.**
+`403 PERMISSION_DENIED`, `DISALLOWED_OAUTH_SCOPES`, `disallowed_scopes: "cl_events,cl_readonly"`.
+This inverted an earlier decision: `include_granted_scopes=true` had been added an hour
+before, specifically to *avoid narrowing* the existing grant — exactly the wrong move
+here. The watch now has its **own health-only grant** (`app_settings` key
+`google_health_tokens`, its own connect/callback/refresh), `lib/google.ts` is
+calendar-only again, and neither grant can contaminate the other. Never add a
+non-googlehealth scope to `HEALTH_SCOPES`.
+
+**3. `CivilDateTime` nests the date.** A flat `{year, month, day}` gets
+`400 Unknown name "year" at 'range.start'`. It is `{ date: { year, month, day } }`, with
+an optional `time` defaulting to midnight — which is what a day boundary wants.
+
+**4. Sleep cannot use dailyRollUp at all.** The API says so outright: *"DailyRollup is
+not supported for data type sleep… supported: list, get, reconcile, create, update,
+batchDelete"*. Sleep uses `list` with a `sleep.interval.civil_end_time` filter — **end**
+time, so last night lands on the day he woke up, not the day he went to bed — and
+multiple sessions a night are summed.
+
+**Time asleep, not time in bed.** The real payload has `sleep.interval` (in bed) plus
+`sleep.stages[]` of AWAKE / LIGHT / DEEP / REM. The card says "time asleep", so awake
+segments are subtracted: a 6h48m interval with 30m waking is 6h18m. Counting the
+interval would have flattered the number every night. Unknown stage types count as
+sleep rather than vanishing, and a point with no stages falls back to the interval.
+
+**Verified end to end** against production: 3-day sync returned 25,137/6h38m,
+19,897/6h42m, 18,565/7h39m; 14 days of steps backfilled. Sleep only reaches back 3 days
+— Google appears to hold less sleep history than step history, worth watching but not a
+bug. Today reads 1/4 (steps hit).
+
+**Answered along the way:** the app's session cookie lasts **30 days**, and the watch
+grant is a refresh token, so there is no repeated logging in — roughly once a month.
+
+---
+
+## 2026-08-29 (later still) — Vercel paused the account; the cause was polling
+
+**What happened.** Mid-walkthrough, cael.bertomill.com *and* bertomill.com both started
+returning **HTTP 402 `DEPLOYMENT_DISABLED`**, and a push to main came back from Vercel as
+"Account is blocked." The email said it plainly: the free team had used **480% of the
+1,000,000 monthly function invocations** — about 4.8M — and everything was paused.
+
+**Why 4.8M for a single-user app.** Five components each ran a bare `setInterval` with no
+visibility check. `dashboard.tsx` was the worst: four API routes every **15 seconds**,
+forever, whether or not anyone was looking.
+
+| | |
+|---|---|
+| 4 routes x 4 polls/min | 16 requests/min |
+| every request also runs `middleware.ts` (matcher catches everything) | ~32 invocations/min |
+| **one tab left open 24h** | **~46,000/day** |
+| over a month | **~1.4M — past the cap on the dashboard alone** |
+
+Plus `vision-panel`, `family-panel` and `scheduled-tasks-panel` at 15s each and `pin-view`
+at 60s. This app is *designed* to sit open on a second monitor, so that's the whole budget
+several times over.
+
+**The fix is not a longer interval.** A hidden tab polling every two minutes is still
+polling all night for nobody. `app/_components/use-polling.ts` stops entirely when
+`document.visibilityState !== "visible"` and fires immediately on the way back, so the
+data you see when you return is *fresher* than the old always-on poll gave you. `fn` lives
+in a ref so an inline arrow doesn't rebuild the interval every render. All five sites
+converted; intervals relaxed 15s → 60s.
+
+**Then Berto said "we can get rid of all of those" — so the timer is gone entirely.**
+`intervalMs` now defaults to `0`: no interval at any point, on any of the five. An idle
+tab costs *exactly nothing* however long it sits there, which is the honest end state for
+an app that lives open on a second monitor. Fetches happen on mount, on
+`visibilitychange` → visible, and on window `focus`.
+
+**Both listeners are load-bearing — this is the subtle bit.** `pin-view`'s original
+window `focus` listener was dropped in the first pass as redundant; that was wrong, and
+it's back. Switching between two windows that are *both* on screen — the pinned task
+window beside the main app, which is exactly how this app is used — fires `focus`/`blur`
+but **not** `visibilitychange`, because neither document was ever hidden. Visibility alone
+would let the two views drift apart silently. Triggers landing within 1s collapse into
+one, since a tab switch commonly fires both.
+
+The two `setInterval`s left in the codebase are 1-second clock ticks that touch no network
+(and the dashboard's only runs while a task timer is actually running).
+
+**Verified with Playwright** against the real app, which is the only way to prove a
+negative here. First pass (60s, visibility-gated): hidden 70s → 0 calls (was ~20), refocus
+→ 4 calls within 3s, visible 130s → 8 calls (two ticks x four routes, so a focused tab
+still refreshed). After removing the timer: **idle visible 150s → 0 calls**, **window
+focus → 4 calls**, **focus + visibilitychange together → 4 calls** (collapsed, not
+doubled). An idle tab is now **100%** off, down from ~46,000 invocations a day.
+
+**Not fixed here:** the account pause itself is billing, not code. Berto has to resume the
+project or upgrade; the pending commits deploy on their own once he does.
+
+---
+
+## 2026-08-29 (later) — The daily scorecard: "is today a winning day?"
+
+**Ask:** *"i actually wrote a note recently on the different metrics i want to track
+each day to ensure a winning day each day"* — the note turned out to be thought #181
+(Aug 28), and its list got revised live in the conversation.
+
+**The list he actually landed on.** The note said steps, sleep, fasting window,
+Readwise highlights, intro calls. He cut two of those on sight: highlights are *"high
+noise, less signal"*, and Venice (venice.aucctus.com) already owns the intro-calls
+number so it's not focuspoint's to duplicate — parked until that API is reachable. In
+came **GitHub PRs** and **portfolio value**. The governing rule he gave: *"everything
+needs to be highly trackable"* and *"I really want to go for high signal"*. So the
+four gating metrics are **steps · sleep · eating window · PRs merged**, and portfolio
+rides below the line.
+
+**Portfolio is tracked but not gated**, deliberately. A balance is a level, not
+something you win by trying harder today; letting it decide "did I win" would make the
+card lie on a red market day. It shows a number, nothing more.
+
+**Two things are not stored twice.**
+- **PRs** are derived live from `github_prs` — bucketed in `America/Toronto`, same as
+  lib/streak.ts, so a PR merged at 9pm counts for that day and not tomorrow.
+- **The eating window** is the existing `fasted` rule on `nutrition_days`, not a new
+  column. The Nutrition screen already owns that checkbox; two records of "did I hold
+  the window" would have drifted apart inside a week. The card is a second door onto
+  the same row, and `setFastingHeld` preserves the other three protocol rules.
+
+So `daily_metrics` holds only what has nowhere better to live: `steps`,
+`sleep_minutes`, `portfolio`. NULL means "never logged", which is deliberately not the
+same as a logged zero — an unanswered day and a bad day should not look alike.
+
+**Fitbit** was the original automation (superseded an hour later — see the addendum
+below). He wears one, and it has a real OAuth
+API for both numbers we need. One gotcha drove the design: **Fitbit refresh tokens are
+single-use** — every refresh returns a new one and kills the old — so the write-back
+is not bookkeeping, it's the difference between staying connected and re-authing by
+hand. A 400/401 on refresh drops the token deliberately, so the UI says "connect"
+instead of failing silently forever. The sync pulls **three** days, not one: the watch
+often uploads last night's sleep long after the 9am cron tick, so yesterday gets a
+second chance tomorrow. It rides on the dispatcher's single daily slot, alongside
+Luma/meals/GitHub (Hobby allows one cron a day, project-wide).
+
+**Still needs Berto:** register a *Personal* app at dev.fitbit.com/apps and set
+`FITBIT_CLIENT_ID` / `FITBIT_CLIENT_SECRET`. Until then the card works fine — steps and
+sleep are typed, or told to Cael.
+
+**Portfolio has no free automated path.** Checked both: Wealthica's investment API is
+sales-gated (only the Power-Up SDK is free) and SnapTrade doesn't publish pricing.
+Wealthsimple has no first-party API at all. Left as a typed number rather than pretending.
+
+**UI.** `scorecard-card.tsx` sits first on the home screen — it's the one block that's
+actionable at 7am. Headline `3 / 4`, a perfect-day streak (same "today is still in play
+until midnight" rule as lib/streak.ts), a row per metric, and fourteen days of history.
+Every number is click-to-edit, including the Fitbit ones: a metric you can't correct is
+a metric you stop trusting. PRs are the exception — GitHub is the record. The duration
+parser takes "7h30", "7:30", "7.5" or "450m"; amounts take "$142k" and "18,240". The
+history bars have an 8% floor so "1 of 4" is a visible sliver rather than a hairline.
+
+**Targets** live in `app_settings` under `scorecard_targets` (20k steps, 7h30m sleep,
+1 PR), tunable via `PUT /api/scorecard/targets` so raising the bar isn't a deploy.
+`clampTargets` refuses a zero — a zero target would auto-win the day.
+
+**Cael can do it by voice:** `log_metrics` (only the fields he mentions move) and
+`get_scorecard` ("how's today going?").
+
+**Files:** `lib/scorecard.ts`, `lib/fitbit.ts`, `lib/fitbit-sync.ts`,
+`app/api/scorecard/{route,targets/route}.ts`, `app/api/fitbit/{connect,callback,sync}/route.ts`,
+`app/_components/scorecard-card.tsx`, `agent/tools/{log_metrics,get_scorecard}.ts`,
+`agent/schedules/dispatcher.ts`, `lib/db.ts`, `app/_components/home-screen.tsx`, `CLAUDE.md`.
+
+**Verified** on :3789 against the real DB: PRs auto-populated from live GitHub data (20
+on Aug 16, 103 in the trailing fortnight); a partial patch writing only `steps` left
+`sleep_minutes` and `portfolio` intact; toggling the eating window off left
+`whole_food`/`snack_light`/`pff` untouched. Screenshotted empty and at 3/4. Every
+scratch row deleted afterwards — `daily_metrics` is empty and `nutrition_days` is back
+to exactly its three pre-test August rows.
+
+### Same day, an hour later — Fitbit was the wrong API; rebuilt on Google Health
+
+Walking Berto through registering a Fitbit app, I checked the developer portal and
+found the notice on Fitbit's own authorization docs: **the legacy Fitbit Web API is
+turned down in September 2026** — next month. Tokens don't transfer and every user
+must re-consent. The Fitbit client written an hour earlier was deleted before he did
+any of the setup.
+
+The successor, the **Google Health API** (`health.googleapis.com/v4`), returns the same
+watch data and authenticates with **Google OAuth** — which this app already holds for
+Calendar. So the integration got *smaller*: no second provider, no second client
+secret, no second token store. Two scopes added to `lib/google.ts` SCOPES and
+`lib/google-health.ts` just spends the token `lib/google.ts` already manages.
+
+- **"Restricted scopes need a security review" doesn't bite here.** Unverified OAuth
+  clients get 100 users for testing *and* production. One person, own project, own data.
+- **Connected ≠ connected for health.** The grant already in `google_auth` predates
+  these scopes: it still works for Calendar and 403s on the watch. A card showing a Sync
+  button that fails every press is worse than one saying "Connect". So `google_auth`
+  gained a `scope` column, `hasHealthScope()` checks it, and a NULL scope counts as *not*
+  granted — one extra re-consent beats a confident lie. Verified: the API honestly
+  reports `connected: false` against his real, currently-Calendar-only token.
+- **The response shape is the unverified part.** The docs pin down the endpoint
+  (`dataPoints:dailyRollUp`, closed-open civil-date range) but not the per-type field
+  names beyond `steps.count_sum`. `extractNumber` therefore tries the documented name
+  then any `*_sum`/`*_total` sibling, and `GET /api/health/sync?debug=<date>` dumps the
+  raw rollup — because a hard-coded path that silently misses looks exactly like "no
+  data yet", which is the worst failure mode for a metric you're meant to trust. Sleep
+  totals over 1440 are treated as seconds.
+
+**Still needs Berto** (replaces the Fitbit item above): enable the Google Health API in
+the same Cloud project, add `googlehealth.activity_and_fitness.readonly` and
+`googlehealth.sleep.readonly` on the consent screen, confirm he's a test user, then hit
+Connect once. His Fitbit account must be linked to that Google account. Until then the
+card works and the two numbers are typed.
+
+**Files:** added `lib/google-health.ts`, `lib/health-sync.ts`, `app/api/health/sync/route.ts`;
+deleted `lib/fitbit.ts`, `lib/fitbit-sync.ts`, `app/api/fitbit/**`; edited `lib/google.ts`,
+`lib/scorecard.ts`, `app/_components/scorecard-card.tsx`, `agent/schedules/dispatcher.ts`.
+
+---
+
+## 2026-08-29 — Mobile polish: kit drawers for More menu and chat history
+
+**Ask:** *"look through my app, and check and see how to make the mobile experience
+better? usually kits work pretty well, popular ones online"*
+
+Toured every tab at iPhone-14 size first (Playwright, `devices["iPhone 14"]`).
+Baseline was already solid — zero horizontal overflow on any screen, sane tap
+targets. (The dark "N" circle over the Home tab in dev screenshots is the Next.js
+dev-tools button; it doesn't exist in production.) The rough spots were both
+"desktop furniture on a phone" problems, and both had the same kit answer: **vaul**,
+the drawer primitive behind shadcn's `drawer` component (`npx shadcn add drawer`).
+
+**What changed.**
+
+- `components/ui/drawer.tsx` (new, from the shadcn registry) — upgraded the stock
+  bottom-only `DrawerContent` to the registry's current direction-aware version
+  (`data-[vaul-drawer-direction=…]` variants), since the chat history needs
+  `direction="left"`. The drag handle only renders on bottom sheets.
+- `app/(app)/layout.tsx` — the mobile "More" menu (13 destinations in a
+  `DropdownMenu` floating mid-screen) is now a bottom sheet: 4-column icon grid,
+  thumb-reachable, swipe-down to dismiss, active tab highlighted, safe-area padded.
+- `app/_components/agent-chat.tsx` — the hand-rolled mobile chat-history overlay
+  (manual scrim + fixed panel) became `<Drawer direction="left">`; swipe-left to
+  dismiss verified in Playwright.
+- `app/_components/chat-sidebar.tsx` — two touch fixes the drawer exposed: thread
+  titles now reserve space for the always-visible-on-touch edit/delete icons
+  (`touch:pe-16`, using the existing `@custom-variant touch`), and the "New chat"
+  pill's `pb-20` (which cleared the old overlay's bottom nav) became safe-area
+  padding, since the vaul drawer covers the nav.
+- Bottom-nav buttons got `active:scale-95` press feedback (transition only on
+  `active`, so the release snap is instant — feels native, not laggy).
+
+**Data cleanup.** The history drawer surfaced 14 blank threads (empty title, zero
+events) accumulated since June — leftovers of the pre-checkpointing era. Deleted
+them all; nothing to lose at zero events. 128 real threads remain.
+
+**Next steps.** If more side-drawers appear (filters, settings), they should reuse
+the same `Drawer` component rather than hand-rolling overlays.
+
+---
+
+## 2026-08-29 — Chats stop dropping off: checkpointing + resume
+
+**Ask:** *"now sometimes the app chat just drops off, can we prevent that?"*
+
+**Root cause.** A thread was only persisted when a turn *finished* — `onFinish` in
+`hooks/use-thread-agent.ts`. Anything that ended a turn abnormally threw away
+everything since the last completed turn: closing the tab, reloading, switching
+threads mid-answer, laptop sleep, or the stream dropping more than three times
+(eve's default `maxReconnectAttempts`). The run itself is durable and finishes on
+the server; the browser just never wrote it down.
+
+**Evidence.** Of 128 real threads, 7 had lost content. 3 had a title but zero
+events — the title is written optimistically on send, so those are messages Berto
+sent where the whole exchange vanished. 4 were truncated mid-turn. Every one of
+the truncated rows had **no** `session.sessionId`, because eve's `advanceSession`
+resets the cursor when a turn ends without a boundary event. That turned out to be
+the exact guard the resume needs (below).
+
+**Three changes.**
+
+1. `lib/eve-client.ts` (new) — one browser-side eve `Client` with
+   `maxReconnectAttempts: 30` instead of the default 3. A sleeping laptop burns
+   through three attempts instantly.
+
+2. `hooks/use-thread-agent.ts` — checkpoints every 2.5s while a turn is in flight,
+   once more when it stops being in flight (which covers unmount, so switching
+   threads mid-answer keeps what arrived), and on `visibilitychange` → hidden.
+   Skips the write when no new events arrived, so an idle stream doesn't re-upload
+   the transcript.
+
+   This is why the hook now owns the `ClientSession` rather than letting
+   `useEveAgent` build one. eve advances a session's cursor only when a turn
+   *ends*, so mid-stream `agent.session` still describes the previous turn; and
+   for a brand-new session the live session ID doesn't exist anywhere on the
+   client until the turn is over. Wrapping `session.send` captures the session ID
+   off the POST response and tracks the cursor as
+   `baseIndex + (events - baseEvents)`, mirroring eve's own `advanceSession` math.
+
+3. `hooks/use-resume-turn.ts` (new) + `app/_components/agent-chat.tsx` — on load,
+   a thread whose saved events stop mid-turn reattaches to the run via
+   `session.stream({ startIndex })` and collects the rest. `AgentChat` is now a
+   thin wrapper around `ChatSession`, keyed on a `generation` that ticks once when
+   a resume lands, so the agent remounts on the recovered transcript. A
+   "Picking up where this chat left off…" banner shows while it reconnects.
+
+**Two things worth remembering.**
+
+- *Why the session-ID guard matters:* legacy interrupted rows carry
+  `streamIndex: 0` with no session ID, so replaying them from the saved cursor
+  would duplicate the entire transcript. Requiring `session.sessionId` excludes
+  every one of them precisely, with no migration and no time window.
+- *Why the remount is guarded:* the resume writes to the DB but does **not** tick
+  `generation` if a turn is already in flight (`busyRef`), because remounting
+  would abort a live answer to recover an old one. The recovered events show up
+  next time the thread is opened.
+
+**Verified** against the real agent on a dedicated throwaway thread: a mid-stream
+partial save appeared in the DB with a valid session ID and cursor (old code saved
+nothing); forging an interruption at event 1 of 10 and reloading recovered all 10
+and rendered the complete answer. Test thread deleted afterwards.
+
+**Next steps.** Checkpointing PATCHes the whole events array each time; if threads
+get much longer than ~200 events, make the route append instead.
+
+---
+
+## 2026-08-29 — Chat opens as a full page, not a floating widget
+
+**Ask:** *"when we open a chat can we make it a full page and not just a widget?"*
+
+Starting a chat used to spawn a draggable, resizable window over the app. Now every
+"new chat" entry point — the `C` shortcut, the sidebar button, `requestNewChat()` —
+navigates to `/chat` on a fresh thread.
+
+**What changed.**
+
+- `app/(app)/layout.tsx`: `openChatModal` became `openNewChat` — it calls
+  `newThread()` and routes to `/chat`. The `modalThreadId` state and the
+  close/expand handlers are gone; there is no second chat surface to reconcile.
+- `app/_components/chat-modal.tsx` deleted (431 lines of drag/resize/collapse
+  geometry). Its two still-used exports moved to
+  `app/_components/new-chat-event.ts` (`NEW_CHAT_EVENT`, `requestNewChat`), so the
+  sidebar and agent-chat imports just point at the smaller module. The
+  `.chat-modal-panel` / `.chat-modal-backdrop` CSS stays in `globals.css` — the
+  celebration overlays use it.
+- The dashboard panel on `/chat` now starts collapsed (`sidebarOpen` defaults to
+  `false`), so the conversation fills the page. The header toggle still opens it.
+
+**Blank threads.** The modal used to delete a thread you dismissed without sending
+anything; a page can't hook "dismissed". Instead `openNewChat` reuses the active
+thread when it is still untitled — a thread only gets a title once it has been
+talked to — so hammering `C` no longer stacks up empty "New chat" rows. Verified in
+Playwright: four new-chat presses (including one from `/tasks`) created exactly one
+thread.
+
+**Next steps.** None outstanding for this one.
+
+---
+
+## 2026-08-25 — Marquee-select cards on the task board
+
+**Ask:** *"on my task board, when i click and drag over multiple cards, can we have
+them all selected please?"*
+
+Dragging a box across empty canvas now selects every task card it touches, and the
+selection is something you act on as one thing.
+
+**How the marquee works.** We don't draw our own rubber band. Excalidraw is already
+drawing one for its own shapes and publishes the in-progress box as
+`appState.selectionElement`, so `task-canvas.tsx` reads that on each pointermove
+(throttled to a rAF) and hit-tests the cards against it. Two things fall out for free:
+one drag selects drawings *and* cards together, and a null `selectionElement` tells us
+the drag isn't a box-select at all (dragging a shape, panning) so we stay out of it.
+Card rectangles come straight from the DOM (`offsetLeft/Top/Width/Height` on
+`[data-task-card]`) — the layer lays cards out at raw scene coordinates and only the
+*layer* is scaled, so those numbers are already in Excalidraw's frame, and the height
+is the real wrapped height rather than the placement estimate. Touched, not enclosed —
+the same rule Excalidraw uses. Shift keeps the existing selection; a plain click on
+empty canvas, or Escape, drops it.
+
+**Group drag.** `dragRef` grew a `group`: the grabbed card normally, the whole
+selection when the grabbed card belongs to it. Every card in the group gets the same
+`translate3d` per pointermove and its own position POST on drop (one error toast for
+the drop, however many cards it carried). Grabbing a card from *outside* the selection
+clears it.
+
+**Action bar.** With more than one card selected, a pill appears bottom-centre (clear
+of Excalidraw's zoom controls): *N selected* · the four card colours + "no colour" ·
+the four priority dots · Complete · Delete · ✕. Colour and priority apply and leave the
+selection standing; Complete and Delete consume it. Delete asks first — it's the one
+thing here that can't be undone. Anything more particular stays on the single-card
+right-click menu.
+
+**Files:** `app/_components/task-canvas.tsx`.
+
+**Verified** in the running app with Playwright: a marquee over three seeded cards rang
+all three and showed "3 selected"; dragging one moved all three by the same delta and
+all three positions persisted server-side, with no other card touched; the bar's colour
+swatch and priority dot wrote to all selected cards, and Complete took them off the
+board. Seeded tasks deleted afterwards.
+
+---
+
+## 2026-08-25 — A new app icon: Cael's orb, on palette
+
+**Ask:** *"can we change the icon of this app and favicon to something better than
+the thing we have now? lets align to the color coating we have now"*
+
+The old `public/icon.svg` was an abstract "focus point" mark — four corner brackets,
+a crosshair and a centre dot, all `#f2f2f5` on a near-black tile. Two problems: it
+said nothing about Cael, and it used no colour from the app at all.
+
+The new mark is Cael as a character — a terracotta orb with two eyes and a smile on a
+near-black rounded tile:
+
+- **Orb** — a radial gradient `#e8926f → #db7a58 → #a94e31`, i.e. the `--primary`
+  terracotta lit from the top left. `--primary` is `oklch(0.68 0.13 40)` in dark mode
+  and `oklch(0.55 0.13 38)` in light; the gradient spans roughly that range.
+- **Tile** — `#14100f → #080807`, a hair warm rather than pure black, with `rx=108`
+  (the standard iOS squircle ratio at 512).
+- **Halo** — one feathered radial at 16%→0% opacity. The first pass stacked two flat
+  discs at 7% and 9%; even that faint, the step between them was visible on a 512px
+  render. A single gradient is the fix.
+- **Face** — eyes and smile in `#fff5f0`, proportions taken from the orb character in
+  `public/cael-avatar.json`.
+
+Checked at 180 / 64 / 32 / 16 px on grey, black and near-white grounds. At 16px the
+brackets-and-crosshair mark used to dissolve into grey mush; the orb still reads as a
+warm dot with a face.
+
+**Apple touch icon.** `metadata.icons.apple` pointed at `/icon.svg`, which Safari
+ignores — apple-touch-icon has never supported SVG, so the home-screen icon was
+falling back to a screenshot of the page. Added `public/apple-icon.png`, a 180×180
+render of the same SVG, and pointed `apple` at it. No passthrough change was needed:
+`isPublicAsset()` in `lib/public-site.ts` already matches top-level `.png`.
+
+**Left alone:** `public/cael-avatar.json` is dead. `app/_components/cael-avatar.tsx`
+was rewritten at some point into a pixel-art purple wizard and no longer loads the
+Lottie file, so the orb character now lives only in the icon. Worth knowing that the
+in-app avatar (purple `#7C3AED`) and the icon (terracotta) don't match each other —
+that's a pre-existing split, not something this change introduced.
+
+**Files changed:** `public/icon.svg`, `public/apple-icon.png` (new), `app/layout.tsx`
+
+**Next steps:** if the purple wizard should come onto the palette too, that's a
+separate pass over `cael-avatar.tsx`.
+
+---
+
+## 2026-08-25 — Making the card drag pixel-exact
+
+**Ask:** *"the dragging of the cards on my todo board is not pixel perfect or smooth.
+can we make it so?"*
+
+The drag was already imperative (transform written straight to the card's style, no
+React state per move), but four things were still costing frames and precision:
+
+1. **A frame of lag from the rAF batch.** Each `pointermove` scheduled a
+   `requestAnimationFrame` to write the transform, which put the card one frame behind
+   the cursor. Browsers already coalesce `pointermove` to roughly one per frame, and a
+   `transform`-only write doesn't invalidate layout, so the write now happens straight
+   through in the handler. The card sits exactly under the grab point.
+2. **Excalidraw doing hover hit-testing under the card.** `pointermove` bubbled from the
+   card into the canvas host, so every move ran Excalidraw's own pointer work as well.
+   The move is now `stopPropagation()`-ed while a drag is live.
+3. **`backdrop-blur` re-blurring the backdrop every frame.** The card is `bg-card/95`,
+   so the blur is barely visible — but at each new position the compositor re-read and
+   re-blurred what was behind it. `backdropFilter: none` for the duration of the drag,
+   restored on drop.
+4. **The dashboard's 1s clock re-rendering every card mid-drag.** The countdown tick
+   fired a full dashboard re-render once a second, landing as a dropped frame right
+   under the cursor. The drag now sets `document.body.dataset.draggingCard` and the
+   interval skips its `setNowTick` while that's set; the countdown resumes a second
+   later, which costs nothing.
+
+Also added `touchAction: "none"` to the card — without it a touch drag gets claimed by
+the browser as a pan gesture and fires `pointercancel` a few pixels in, so cards felt
+like they slipped out of your finger.
+
+**Files:** `app/_components/task-canvas.tsx` (drag handlers + card style),
+`app/_components/dashboard.tsx` (clock tick).
+
+**Verified** in Playwright against a local dev server: over a 40-step drag the card's
+box tracked the pointer with **zero pixel offset** at every sample, the inline
+`transform`/`transition`/`willChange`/`zIndex`/`backdropFilter` were all cleared on
+drop, `left`/`top` landed on the exact drop point, and the position persisted to the
+API. Click-to-edit on the title (a press that never moved) still opens the editor.
+Test cards were deleted afterwards.
+
+---
+
+## 2026-08-25 — Adding a task without unpinning
+
+**Ask:** *"from this pinned view, can we also add tasks, they dont need to be
+prioritized tasks, but i dont like unpinning the app in order to add a new task"*
+
+The pinned window exists so you don't have to break focus — and unpinning to jot
+something down does exactly that. It now has its own composer: a slim always-visible
+`+ Add a task…` row under the list. Type, Enter, keep working; the input clears and
+holds focus for the next one.
+
+**Title only.** No priority, no due date, no estimate picker — the point is that it
+costs nothing to capture. Priority stays `normal` and the estimate defaults to 30
+minutes (`QUICK_ADD_ESTIMATE`), which the API requires and the countdown needs; it can
+be re-estimated on the canvas later. The task has no `canvas_x`/`canvas_y`, so the
+board drops it into its inbox column next time it's opened.
+
+**When it doesn't appear.** The window only ever shows five tasks, so a fresh normal
+task can land behind today's urgent ones. Rather than look broken, the window says so
+for four seconds: *"Added — it's waiting behind today's five."*
+
+**Files:**
+- `app/_components/pin-view.tsx` — the composer form, `handleAdd`, and the
+  behind-today's-five notice. Everything else in the window is untouched.
+
+**Verified** in the real app (dev server on :3789, Playwright): typed into the pinned
+composer, pressed Enter, and confirmed server-side that the task landed with a 30m
+estimate and normal priority, appeared in the window, and cleared the input. Test row
+deleted afterwards.
+
+---
+
+## 2026-08-25 — Complete now, follow up later
+
+**Ask:** *"lots of times i complete a task but there needs to be a follow up in a day
+or two, can we right click tasks and say something like 'complete now' create task for
+later (and we can select 1 day from now, 3 days from now, 7 days from now, 2 weeks)"*
+
+"Done & repeat tomorrow" already did exactly this for the one-day case. So rather than
+a new mechanism, this generalises it: the same clone-the-task-forward machinery now
+takes a number of days. Right-click a task → **Complete & follow up** → Tomorrow / In
+3 days / In a week / In 2 weeks. The original is crossed off now (keeping its
+`completed_at`, banked timer and Google Calendar block) and an identical task —
+**same title**, priority, estimate, category, lane, card colour — lands on the day you
+picked.
+
+**The pinned window now hides future-dated tasks.** Nothing filtered by due date
+before, so a follow-up three days out would have popped straight back into the pinned
+list the moment you queued it — defeating the whole point. `isOpen()` in the pinned
+view now also requires the task not be dated for a later day. Overdue and undated
+tasks are unaffected; this applies to *any* future-dated task, not just follow-ups.
+Only the pinned window filters — the dashboard, canvas and mobile list still show
+everything open.
+
+**Right-click moved from the circle to the whole row** in the pinned window. Berto
+asked to "right click tasks", and with three endings the target shouldn't be a 24px
+circle. Left-click on the circle still completes, unchanged.
+
+**Files:**
+- `lib/tasks.ts` — `completeTask(id, { repeat, followUpDays })`. `repeat: true` is now
+  just `followUpDays: 1`; `tomorrow()` became `daysFromNow(n)`. A recurring task still
+  skips the copy and has its next occurrence moved to that day instead.
+- `app/api/todos/[id]/complete/route.ts` — accepts `follow_up_days` alongside `repeat`.
+- `app/api/mcp/route.ts` — `complete_task` gained a `follow_up_days` argument, so Cael
+  can queue a follow-up when it finishes something over MCP.
+- `lib/todo.ts` — `FOLLOW_UP_OPTIONS` (the four presets) and `isFutureDated()`.
+- `components/ui/context-menu.tsx` — added the missing `ContextMenuSub`/`SubTrigger`/
+  `SubContent` (shadcn's own implementation; the file was installed without them).
+- `app/_components/pin-view.tsx` — row-wide context menu + the follow-up submenu, and
+  future-dated tasks filtered out.
+- `app/_components/task-list-mobile.tsx`, `app/_components/task-canvas.tsx` — same
+  submenu in their existing right-click menus.
+- `app/_components/dashboard.tsx` — `handleComplete(id, opts)` carries the days through
+  and toasts "back on the list in 3 days".
+
+**Verified** end-to-end in the real app (dev server on :3789, Playwright): seeded a
+task, right-clicked the pinned row, picked a follow-up — the original completed, the
+copy landed with the right future due date, and it stayed out of the pinned window.
+Test rows and the calendar block it wrote were deleted afterwards.
+
+---
+
+## 2026-08-24 — Done, and again tomorrow
+
+**Ask:** *"there one option that is called complete, its the check-off, but lets add
+another one called done and repeat and it recreates the same task but for tomorrow"*
+
+The check-off had one ending: gone. Some work isn't like that — you finish today's
+pass and the same task stands back up tomorrow. That's now the second ending.
+
+**A menu, not a second button.** The pinned window's row is one line — circle, title,
+clock, play — and a third control would eat the title. So the check circle carries
+both endings: left-click still completes (nothing changed), right-click (long-press
+on touch) opens a two-item menu. Berto picked this over an always-visible ↻ button.
+
+**Repeat ≠ recurrence.** A recurring task reuses its own row and just moves its due
+date, which means today's completion leaves no record. "Done & repeat" instead
+*completes* the original — so it keeps its `completed_at`, its banked timer, and its
+Google Calendar block — and inserts a **fresh copy** dated tomorrow: same title,
+priority, estimate, category, lane and card colour, but a clean timer and no queue
+slot. A task that already recurs skips the copy and simply has its next occurrence
+pulled forward to tomorrow, so nothing gets duplicated.
+
+**Files:**
+- `app/api/todos/[id]/complete/route.ts` — optional `{ repeat: true }` body. A plain
+  check-off still sends no body at all (unparseable body = no repeat), and the route
+  returns the new row as `repeated` so the UI can slot it in without a refetch.
+- `app/_components/pin-view.tsx` — ContextMenu on the check circle.
+- `app/_components/task-canvas.tsx` — "Done & repeat tomorrow" at the top of the
+  card's existing right-click menu, above the colour swatches.
+- `app/_components/task-list-mobile.tsx` — long-press the checkbox for the same pair.
+- `app/_components/dashboard.tsx` — `handleComplete(id, repeat)` threads it through
+  and drops the returned copy into state.
+
+**Verified** against the real DB on a local server: repeat created a copy due
+Aug 25 with a zeroed timer, a bodyless complete still logged to Calendar and created
+nothing, and a Playwright run drove the pin window's right-click menu end to end.
+Test rows deleted.
+
+---
+
+## 2026-08-24 — Craft is measured in merged pull requests
+
+**Ask:** *"id like to be able to track how many pr's i'm making on github as a sign
+of success for focuspoint - can we do that?"*
+
+Craft was the one form of wealth without real tracking. Its line chart counted
+*thoughts tagged `craft`* — a placeholder the code itself admitted to
+("until it gets dedicated tracking", `home-screen.tsx:508`). Merged PRs are the
+thing it was waiting for, so this replaced the proxy rather than adding a ninth card.
+
+**Merged, not opened.** 1,152 PRs merged vs 1,168 opened — nearly the same number,
+which is exactly why merged is the better metric: it costs almost nothing in volume
+and it means *shipped*. Each PR is dated by `merged_at`, never `created_at` — one
+opened in March and merged in May belongs to May.
+
+**Both accounts count** (`rmillaucctus` 1,092, `bertovmill` 60). Work split across
+two GitHub identities is still one person's craft.
+
+**The Search API's 1000-result cap forces month-sized queries.** The obvious shape
+is one query per year — and it silently loses data here: 2026 alone is 1,090 merged
+PRs, so a year window would have returned 1000 and dropped ninety without an error.
+`fetchMergedPrs()` takes a `YYYY-MM` and the sync walks months.
+
+**Two rate limits, not one.** The first backfill 403'd on the *secondary* limit even
+though the primary 30/min budget was untouched — bursting is itself the offence.
+`lib/github.ts` now paces every search 2.5s apart via a module-level `nextAllowedAt`
+and honours `Retry-After` on 403/429, retrying five times before it gives up. Full
+backfill: 20 months × 2 accounts in 2.6 min.
+
+Inserts went from one round trip per PR to one `UNNEST` insert per month — at ~1,200
+rows the serial version spent longer talking to Postgres than to GitHub.
+
+**Sync rides the daily dispatcher tick**, next to the Luma and meal syncs, for the
+same reason they do: Hobby allows exactly one cron a day across the project, so
+that tick is the only scheduled slot there is. It refreshes the trailing **two**
+months, not one — a PR opened in the old month and merged on the 1st lands in a
+window the previous run had already finished with. Wrapped in try/catch above the
+phone-number guard: GitHub being down must not stop tasks from dispatching.
+
+Dropping the `craft` tag count also made the home screen's 1,000-row
+`/api/thoughts` fetch dead — nothing else read it, so it's gone.
+
+**Files:** `lib/github.ts` (new), `lib/github-sync.ts` (new),
+`app/api/github/route.ts` + `app/api/github/sync/route.ts` (new),
+`agent/tools/list_github_prs.ts` (new — lets Cael answer "how much have I shipped?"
+with per-month and per-repo breakdowns), `lib/db.ts` (`github_prs` table),
+`agent/schedules/dispatcher.ts`, `app/_components/home-screen.tsx`.
+
+**Shipped and verified in production:** commit `d3cd781` auto-deployed via
+`git push origin main` (~90s), and `GET /api/github` on https://cael.bertomill.com
+returns all 1,152 rows. Verified in the running app on :3877 first — Craft renders a real curve reading
+**1,152 PRs** at Year/Decade granularity and 1,149 on the trailing-12-month Month
+view. `npm run typecheck` and `npm run build` clean.
+
+**Next steps / open:**
+- **Craft goal set to 2,500 merged PRs** (`vision_items` id 38), written to the DB
+  *after* the code deployed, per the ordering rule from the reading-goal episode —
+  writing it first would have measured 2,500 against the old "notes" metric. Card
+  now reads `1,152 PRs / 2,500 PRs` with the dashed target line, matching the other
+  seven. At the recent 400–700/month pace that lands around Q1 2027. Money is now
+  the only form still without a goal row.
+- **The code and the token are both proven correct; only the production env var is
+  wrong.** Running the same sync from a *local* dev server — same code, same live
+  Neon DB — fetched **1,108** across `Aucctus/venice` (1,007), `rmillaucctus/helios`
+  (80) and the rest, reporting `login: rmillaucctus, scopes: repo`. Production, on
+  the identical build, reports `login: bertovmill, scopes: null` and fetches 3.
+  Same code, same database, different credential.
+  The sync now also reports the deployment that answered, which ruled out the two
+  remaining explanations: `env: production`, `commit: 56a36ea` (newest), and
+  `url: cael-agent-…-bertmill19s-projects.vercel.app` — right project, right
+  environment, freshest build. So the edits are landing somewhere else, most likely
+  the decoy `aucctus/focuspoint` project. Correct page:
+  `https://vercel.com/bertmill19s-projects/cael-agent/settings/environment-variables`.
+- **Useful escape hatch, exercised here:** `.env.local`'s `DATABASE_URL` *is* the
+  live Neon branch, so a sync run from a local dev server writes straight to
+  production data without touching production's env at all — the live DB is at
+  **1,156 rows** as of 2026-08-24 16:57 because of exactly that. It keeps the chart
+  honest while the token is unresolved, but it is manual; the nightly dispatcher
+  still needs the prod var to be right.
+- **The original diagnosis of the production token, still accurate:** Berto
+  added it as `github_personal_access_token` (Vercel env names are case-sensitive
+  and `process.env` does no folding, so `lib/github.ts` now checks three spellings).
+  It authenticates fine — a prod sync of the trailing two months returned
+  `ok: true` — but fetched **3 of 1,104** PRs, from `bertovmill/content-pipeline`
+  and `bertovmill/focuspoint`. Both are *public*, i.e. repos any authenticated token
+  can see: the token has effectively **zero private-repo access**. That is a silent
+  failure mode by nature — a wrongly-scoped token returns a successful, nearly-empty
+  search — which is why `syncGithubPrs()` now returns a per-repo breakdown of what
+  it could see rather than just a count.
+  **The env var in production is named `GITHUB_TOKEN`, not
+  `github_personal_access_token`** — the sync now reports `alsoSet: []`, so the
+  hand-named var is not present in the Production environment at all (likely added
+  to Preview/Development instead). Its value is still a `bertovmill` fine-grained
+  token (`login: bertovmill`, `scopes: null` — classic tokens report scopes,
+  fine-grained ones send nothing), so neither token swap ever landed on the var
+  being read. Worth keeping: **an env var edited in the wrong environment is
+  indistinguishable from a badly-scoped token** from the outside, which is why the
+  sync reports the winning var name, the other names that are set, and the
+  authenticated login on every run.
+  **The fix is a classic PAT generated while signed in as `rmillaucctus`, scope
+  `repo`, pasted into `GITHUB_TOKEN` / Production** — not a fine-grained one from
+  `bertovmill`. Empirically that account's
+  token sees all 1,152 (it covers the `Aucctus` org's `venice`, its own `helios`,
+  *and* `bertovmill`'s private repos). A fine-grained token can't get there: it
+  would need `Aucctus` as resource owner plus org approval, and still couldn't
+  cross to a second account's repos.
+- **Nothing was lost when the blind sync ran**, because the mirror is an upsert and
+  never a wipe-and-reload — the 1,152 rows and the Craft chart are untouched. Worth
+  noting as the moment that design choice earned itself.
+- Local `.env.local` uses `gh auth token`, a `gho_` OAuth token gh can rotate. The
+  classic PAT above should replace it in both places.
+- No CLI path to production: the local Vercel login only sees the `aucctus` /
+  `aucctus-9e16163a` teams, not the one owning `cael-agent`. `git push origin main`
+  auto-deploys (~2 min), which is how all four commits here shipped.
+
+---
+
+## 2026-08-24 — Pinned view tracks five parallel tasks
+
+**Ask:** *"for the pinned version of the app, can we enable up to 5 parallel tasks?"*
+
+The pinned window showed the top 3 open tasks, and starting a timer was gated by
+`WORKING_LIMIT = 3` — so even if the list showed more rows, the 4th and 5th
+Start buttons would 409. Berto chose (when asked) to **raise the cap to 5
+everywhere** rather than split it between pin mode and the dashboard.
+
+- `app/_components/pin-view.tsx` — new `MAX_PINNED = 5` constant replaces the
+  hardcoded `.slice(0, 3)`; `top3` renamed to `topTasks`. "Start all"/"Stop all"
+  already operated over the whole list, so they cover five now.
+- `lib/working-now.ts` — `WORKING_LIMIT` 3 → 5. This is the server-side gate
+  shared by the timer route, the todos PATCH/POST routes and the agent's
+  `update_todo` tool, so all of them allow five in-progress tasks now. The
+  dashboard's "Working on now" section follows the same constant.
+- `desktop/src-tauri/src/main.rs` — pin-mode window height 172 → 268pt so five
+  one-line rows fit without scrolling (width and min-size unchanged).
+- Comments referring to "three things at once" updated in `dashboard.tsx` and
+  `update_todo.ts`.
+
+**Verified** on a local dev server (port 3789, Playwright at 340x268): five rows
+render in the pinned window and five timers run concurrently — three seeded test
+tasks started alongside two tasks that were already running. Seeds deleted after.
+
+**Note:** the window-height change lives in the Tauri shell, so the installed
+desktop app needs a rebuild (`cd desktop && npm run build`) to pick it
+up. The web-side 5-task behaviour ships with the normal deploy.
+
+---
+
+## 2026-08-23 — Pinned rows collapse to one line, bigger type
+
+**Ask:** *"really happy with it, now if we could go even more compact, better —
+bigger font"*
+
+Each task took two rows (title, then a Start/Stop button + clock underneath), so
+three tasks needed a 480pt-tall window while the type stayed at 11–13px. Now a
+task is **one line**: done-circle, title (`text-sm`, truncating), countdown
+(`font-mono text-sm`), and an icon-only run/stop square. Everything the second row
+carried is still there, just inline — and the font went *up* while the window went
+*down*.
+
+- `app/_components/pin-view.tsx` — single-line rows; the elapsed/countdown/tracked
+  branches collapse into one `clock` string chosen before render, so there's one
+  span instead of three. Tighter padding (`px-1.5 py-1.5`, rows `py-1.5`), header
+  `px-2 py-1`, date and Start-all at `text-xs`. Run/stop is icon-only with an
+  `aria-label`/`title` — the countdown's colour already says whether it's running.
+- `desktop/src-tauri/src/main.rs` — pinned window is now **340×172** (min
+  280×120), down from 360×480. Measured, not guessed: the pin view's
+  `document.body.scrollHeight` is exactly 172 with three tasks.
+
+**Verified** with Playwright at 340×172 (2× DPI): all three rows and the header
+fit with no scroll. (The dark "N" bubble in dev screenshots is Next's dev-tools
+indicator, not app UI — it isn't in production.)
+
+**Files:** `app/_components/pin-view.tsx`, `desktop/src-tauri/src/main.rs`.
+
+---
+
+## 2026-08-23 — Pinned timers count down, not up
+
+**Ask:** *"love it and can we show the count down not the count up?"*
+
+The pinned rows showed elapsed time climbing from zero. Now each row shows the
+time *left* against the task's estimate, the same reference the Tasks canvas
+badge uses — `remainingSeconds()` + `formatCountdown()` from `lib/todo.ts`, no new
+formatting code. Past zero it keeps going as a negative (`-02:14`) in the urgent
+colour instead of clamping, so an overrun is visible. Paused-with-progress reads
+`12:30 left` in muted grey; a task with no estimate keeps the old count-up.
+
+Also dropped `pin-view.tsx`'s private `Todo` interface (and its local
+`formatElapsed`) in favour of the shared `Todo` type — the local copy didn't have
+`estimated_minutes`, which is what the countdown needs.
+
+**Verified** with Playwright in pin mode: three running tasks showed 27:36 /
+46:31 / 27:27 and ticked *down* to 27:33 / 46:28 / 27:24 three seconds later.
+
+**Also this session:** the rebuilt desktop shell is installed at
+`/Applications/Cael.app` (previous build kept as `Cael.app.bak`, from Jul 16 —
+it predated several shell commands). Confirmed pinned geometry via System Events:
+position 12,40 size 360×480.
+
+**Files:** `app/_components/pin-view.tsx`.
+
+---
+
+## 2026-08-23 — The pinned window can hop between top corners
+
+**Ask:** *"simple, small, top left corner pin, and we need the ability to move it
+to another top corner if we have multiple monitors"*
+
+Pin mode parked the window at a hardcoded logical (12, 40) — always the primary
+monitor's top-left, with no way to move it. Now the shell knows every top corner
+it can sit in, and a small button in the pin header hops to the next one.
+
+**Shell (`desktop/src-tauri/src/main.rs`):** `top_corners()` builds the candidate
+list from `available_monitors()` — top-left and top-right of each monitor, in
+physical pixels, offset by the window's own width and each monitor's scale factor
+(`CORNER_MARGIN` 12, `CORNER_TOP_INSET` 40 so the title bar clears the macOS menu
+bar). `set_pin_mode` parks at the first corner (sizing first, since the corner
+math needs the pinned width); the new `cycle_pin_corner` command finds the corner
+*nearest the window's current position* and moves to the next one, wrapping at the
+end. Using nearest-not-remembered means dragging the window by hand doesn't
+desync the cycle.
+
+**Web (`lib/desktop.ts`, `app/_components/pin-view.tsx`):** `cyclePinCorner()`
+invokes the command; the header shows a corner-arrow button for it, only when
+`isDesktopApp()` (checked in an effect — the Tauri global isn't there during SSR).
+
+**Verified:** `cargo check` clean, and with a stubbed `window.__TAURI__` in
+Playwright the button appears in pin mode and invokes `cycle_pin_corner`. The
+native window movement itself needs the rebuilt shell — `npm run tauri build` in
+`desktop/`, then replace `/Applications/Cael.app`.
+
+**Files:** `desktop/src-tauri/src/main.rs`, `lib/desktop.ts`,
+`app/_components/pin-view.tsx`.
+
+---
+
+## 2026-08-23 — All three timers run at once
+
+**Ask:** *"is it possible we start all three tasks at once? i want to be able to
+run all in the pinned, they should be all the ones in progress. and more compact
+and simple top left"*
+
+**Timers are no longer exclusive.** `app/api/todos/[id]/timer/route.ts` used to
+stop and bank every other running timer before starting a new one. That block is
+gone, so the three things you're working on can all be tracked simultaneously.
+The three-in-progress cap (`hasWorkingSlot`) is still the real limit — starting a
+timer still marks the task in progress, so you can never have more than three
+running. The optimistic client updates that mirrored the old rule are gone too
+(`dashboard.tsx`, `pin-view.tsx`) — a toggle now only touches the task toggled.
+
+**Pinned window:** a **Start all / Stop all** control in the header starts (or
+stops) every task in the list in one click, in parallel. The list itself already
+sorted running → in-progress → priority, so it's the in-progress tasks first with
+next-up filling any spare slot.
+
+**Header is simpler:** the native window title bar already says "Cael", so the
+duplicate `<h1>` is gone. Top-left is just the date; padding tightened to
+`px-2.5 py-1.5`.
+
+**Verified** with Playwright against a local dev server on 3789: Start all put
+all three tasks into a running state, and `/api/todos` confirmed three rows with
+a non-null `timer_started_at` at once (previously impossible). The two test
+timers were stopped afterward — both banked under a minute, below the
+calendar-logging threshold, so no junk events.
+
+**Files:** `app/api/todos/[id]/timer/route.ts`, `app/_components/pin-view.tsx`,
+`app/_components/dashboard.tsx`.
+
+---
+
+## 2026-08-18 — Task cards drag without lag
+
+**Ask:** *"our cards on our tasks canvas are not dragging very responsively, there is a lag"*
+
+Two things were making a dragged card trail the cursor:
+
+1. **Every pointermove went through React state.** `handleCardPointerMove` called
+   `onLocalPatch`, which is `setTodos` on the dashboard — so each mouse frame
+   re-rendered the whole dashboard tree: every card, the pipeline lanes, the
+   whole canvas subtree. At 100+ pointer events/sec that's a lot of reconciliation
+   between the pointer and the pixel.
+2. **The card class was `transition-all duration-500`**, which includes `left`/`top`.
+   Every position change was animated over half a second, so the card literally
+   eased toward the cursor by design.
+
+**Fix (`app/_components/task-canvas.tsx`):** the live drag is now written straight
+to the dragged card's own `transform`, once per animation frame, with no React
+state involved. `dragRef` carries the element plus the pending delta and a rAF
+handle; the first move past the slop threshold takes the card off the shared
+transition (`transition: none`, `willChange: transform`, `zIndex: 2`). On
+pointerup the inline styles are cleared and `onLocalPatch` runs exactly once, in
+the same tick, so `left`/`top` take over the offset before paint — the card stays
+exactly where it was let go. The class list also drops `transition-all` for an
+explicit property list (opacity, transform, colours, shadow) so `left`/`top`
+can never animate.
+
+**Verified** with Playwright against a local dev server: the card tracks the
+cursor mid-drag (200/100px moved = 200/100px of card travel), settles with no
+snap-back or slide, and the new position persists (`canvas_x/y` = 700/500).
+
+**Files:** `app/_components/task-canvas.tsx`.
+
+---
+
+## 2026-08-17 — Cael can read the sketches
+
+**Ask:** *"can we give our agent cael the tool to read our /sketches as data?"*
+
+Sketches were write-only to Cael: 27 drawings on the canvas, and the agent had no
+idea any of them existed. Now it has `list_sketches` (browse by title/date, with a
+text preview) and `read_sketch` (one sketch in full, by id or title).
+
+**How a sketch becomes readable.** A sketch is stored as `scene` JSONB — a flat
+array of Excalidraw elements with absolute coordinates. eve's `toModelOutput` only
+carries text or JSON, so there's no handing Cael the PNG to look at; the meaning has
+to be reconstructed from the element array. `lib/sketch-text.ts` does that, and the
+whole trick is that a diagram's meaning lives in two places the flat array hides:
+
+- **which text belongs to which shape** — `containerId`, when the text was typed
+  *into* a box.
+- **which shapes an arrow joins** — `startBinding` / `endBinding`.
+
+Resolve both and a flowchart reads as `A → B` instead of a pile of loose strings.
+
+**Two gaps the naive version left, both fixed geometrically.** First pass on
+"Vision 2027" (77 elements) produced `100 sales Aucctus → ?` — because Berto mostly
+*doesn't* type into boxes, he types text and drags it on top of one, so
+`containerId` is null and 20 rectangles read as unlabeled. Fix: a shape adopts a
+text element as its label when exactly one sits inside its bounds. Exactly one —
+two or more means the shape is a grouping region, not a labelled node, and
+collapsing all of it into one caption would be a lie.
+
+Second, hand-drawn arrows that never snapped to a shape were dropped entirely. Fix:
+resolve a loose endpoint to the nearest named element within **24px**. Tight on
+purpose — a wrong connection misleads worse than a missing one — and a connection
+is only reported when *both* ends resolve.
+
+Together those turned "Vision 2027" from 4 broken connections into 9 real ones, and
+recovered the whole "Flywheel" cycle from what is, structurally, just loose text and
+three arrows:
+
+```
+Better Content → Better at AI → Better Events → Better Content
+```
+
+**Known limits, and Cael is told about them in `instructions.md`:** sketches drawn
+before the Excalidraw switch (ids ≤ 14) have a NULL scene — they're a flat PNG and
+have no text to give, so both tools say "image-only" rather than showing empty.
+Arrows drawn far from anything still don't resolve. The instruction is explicit that
+Cael reads the structure, not the picture, and should say when the drawing doesn't
+say.
+
+**Files:** `lib/sketch-text.ts` (new), `agent/tools/list_sketches.ts` (new),
+`agent/tools/read_sketch.ts` (new), `agent/instructions.md`.
+
+---
+
+## 2026-08-16 — Luma, mirrored into Cael
+
+**Ask:** *"connect cael to luma so we can pull all luma details into cael, and use
+that as context for things like newsletters"* → *"check what the luma api has to
+offer, and pull it all in, saving it to a db each time."*
+
+**What the key can actually reach** (surveyed live, not from docs):
+
+| endpoint | gives |
+| --- | --- |
+| `/calendar/list-events` | every event — but **no description** |
+| `/event/get?api_id=` | the full event: `description`, `description_md`, tags, hosts |
+| `/event/get-guests?event_id=` | guests: name, email, phone, approval, check-in, answers |
+| `/calendar/list-people` | people: email, attendance counts, revenue, membership |
+| `/calendars/contacts/list` | contacts — what the Community chart already used |
+| coupons / hosts / ticket-types | 404 on this key |
+
+Note the parameter names: `/event/get` wants **`api_id`**, `/event/get-guests`
+wants **`event_id`**. Neither is interchangeable, and the error message for the
+wrong one just says "Missing event identifier".
+
+**Scale:** 20 events, **7,614 guest registrations**, 1,185 people.
+
+**The mirror** (`lib/luma-sync.ts` → `luma_events`, `luma_guests`, `luma_people`,
+`luma_sync_runs`). Every table keeps the whole API object in a `raw` JSONB column,
+so a field Luma adds later isn't lost just because the schema didn't name it. The
+sync is an **upsert, never a wipe-and-reload**: a row Luma stops returning stays
+put rather than vanishing from Cael's memory. Each event costs a second call —
+the list shape has no description, and the description is the most useful thing
+here for writing a newsletter.
+
+**Two performance facts worth keeping.** The first version inserted each guest
+individually: 7,614 round trips to Neon, a **4m57s** sync — exactly the function
+timeout. Batched into multi-row `VALUES` (chunks of 200, via `sql.query` since the
+Neon driver takes values not SQL fragments) it dropped to **~24s** — and promptly
+tripped Luma's **rate limit**, because it was now fast enough to. So `lumaGet`
+retries 429s and 5xx with backoff, honouring `Retry-After`; a full sync now takes
+~1m45s including waits.
+
+**Scheduling is constrained:** Vercel Hobby allows one cron per day across the
+whole project, and `agent/schedules/dispatcher.ts` already owns it. The Luma pull
+piggybacks on that daily tick — placed *above* the `MY_PHONE_NUMBER` guard so a
+missing phone number doesn't also stop the calendar updating, and wrapped so a
+Luma outage can't stop scheduled tasks from dispatching. Between ticks there's
+`sync_luma` (agent) and `POST /api/luma/sync`.
+
+**Tools:** `list_luma_events` (upcoming/past with turnout), `get_luma_event`
+(one event in full, matched by name — a person says "MakersLounge #8", not
+`evt-XFOBcAemtEsl5tT` — plus signup sources), `sync_luma` (refresh / check).
+`agent/instructions.md` now tells Cael to read these *before* drafting anything
+audience-facing, and never to invent a date, headcount or venue.
+
+**Reading the numbers:** `guest_count` is everyone who registered including
+waitlist and never-approved; `approved_count` and `checked_in_count` are who was
+actually in the room. The gap is enormous — Meetup #12: 1,187 registered, 48
+approved, 17 checked in — so a newsletter quoting `guest_count` as attendance
+would be wildly wrong. This is written into the instructions.
+
+**Verified:** full sync run end-to-end (20 / 7,614 / 1,185), all 20 events have
+descriptions (avg 2,239 chars), the exact tool queries return real rows, eve's
+build registers all three tools, `npm run typecheck` clean. Note there are
+currently **no upcoming events** — the last was Aug 10 — so `list_luma_events`
+defaults to an empty list until something new is published on Luma.
+
+---
+
+## 2026-08-16 — Clerk live in production, and a privilege-escalation hole closed
+
+Berto created the Clerk app and ran the CLI skill; `clerk init` detected the
+hand-built wiring from the previous entry and **skipped all of it** (middleware,
+provider, both auth pages), writing only env vars. Nothing was overwritten.
+
+**Production is live.** `pk_live` is in the bundle, unauthenticated `/` now goes
+to `/sign-in`, and the password fallback still opens the app. The Clerk
+production instance is `bertomill.com`, so its Frontend API is
+`clerk.bertomill.com` — which didn't resolve. `clerk deploy status` emits the
+pending records as JSON, so they went into the zone through the existing
+idempotent path rather than by hand: `scripts/cloudflare-dns.mjs` now takes a
+`CLERK_DNS_JSON` env var exactly like `RESEND_DNS_JSON`. All five CNAMEs are
+**unproxied** — Clerk terminates its own TLS and the cert challenge can't pass
+through Cloudflare's orange cloud. DNS, SSL and mail all report complete.
+
+**The bug worth remembering.** The first cut resolved the owner as
+`primaryEmailAddress ?? emailAddresses[0]` with *no verification check*. A Clerk
+account can carry an address that was added but never confirmed — so anyone who
+typed `bertmill19@gmail.com` into their own profile would have been handed the
+full app and every tool the agent has. Now `isOwnerUser()` counts **only
+verified** addresses, and **any** verified address rather than just the primary:
+verification already proves control of the inbox, so demanding it also be primary
+buys no safety and would lock the owner out for having signed up with a different
+address first.
+
+`isOwnerUser` lives in `lib/owner.ts`, the dependency-free module, because its two
+callers run in different worlds: middleware and the pages go through
+`@clerk/nextjs`, while the eve channel runs in a plain Node process that **cannot
+import that package at all** — its ESM build fails to resolve `routeMatcher` and
+the agent server exits on startup. That's why the rule can't live next to the
+Clerk plumbing.
+
+Also fixed while running the real flow: middleware was swallowing Clerk's own
+`/__clerk/*` handshake path (a sign-in loop with no exit), and `<SignedIn>` was
+removed in Core 3 and 500'd the app for a password-cookie session.
+
+**Verified** against the live dev instance, driving a browser with backend-API
+users and sign-in tickets (Cloudflare Turnstile blocks headless sign-up):
+
+| account | result |
+| --- | --- |
+| plain non-owner | bounced to "Cael is private", `/api/*` 403, eve 401 |
+| owner address present but **unverified** | bounced, 403 — the hole, closed |
+| owner address **verified** | full app, `/api/todos` 200 |
+
+Every test user and ledger row was deleted afterwards; the Clerk dev instance and
+the `users` table are both back to empty.
+
+**Google OAuth is attached** — the production instance uses Berto's own Google
+Cloud OAuth client (redirect URI `https://clerk.bertomill.com/v1/oauth_callback`;
+Authorized JavaScript origins stays **empty**, since Clerk does the exchange
+server-side). `clerk deploy status` now reports `complete: true` with
+`oauth.configured: ["google"]`.
+
+**One last-mile trap, worth knowing for any future DNS change:** after the Clerk
+CNAMEs went in, the sign-in page rendered the shell with no Clerk card. Nothing was
+wrong with the app — the ISP resolver was still serving a cached **NXDOMAIN** from
+before the records existed (Cloudflare's SOA negative TTL is 1800s), and after that
+expired macOS's own cache kept returning `ENOTFOUND` to `getaddrinfo` while `dig`
+answered fine. `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`
+cleared it. Diagnosis shortcut: if `dig` resolves but `curl`/Chrome don't, it's the
+local cache, not the zone.
+
+---
+
+## 2026-08-16 — Accent: orange → terracotta
+
+**Ask:** *"this orange can be something a bit more tasteful"*.
+
+Rendered four candidates against the current orange as real screenshots (not
+hex swatches) and measured white-on-button contrast from actual pixels, so the
+choice was made on evidence. Berto picked terracotta, applied everywhere.
+
+- `--primary` light: `oklch(0.68 0.22 37)` → **`oklch(0.55 0.13 38)`**
+- `--primary` dark: `oklch(0.72 0.22 37)` → **`oklch(0.68 0.13 40)`**
+- `--ring` follows `--primary` in both modes.
+
+Chroma drops from 0.22 to 0.13 and lightness comes down — the warmth stays, the
+neon goes. **This also fixed an accessibility bug nobody had asked about:** white
+text on the old orange measured 3.22:1, which fails WCAG AA. Terracotta measures
+5.15:1 in light and 6.94:1 in dark.
+
+`--primary` is a single shared token, so the private Cael app changed with the
+public site — deliberate, and it fixes the same failing button contrast there.
+
+Two dependants were tuned to the old orange and had to follow, or they'd have
+been left brighter than the accent:
+
+- `AmbientBloom`'s colours in `app/site/_components/grain.tsx`.
+- The Cael story card's gradient hairline (`#7c2d12`/`#c2410c` → `#5c2f1f`/
+  `#a85c3e`). The other three panels are blue/gold/violet by design and were
+  left alone.
+
+Left alone deliberately: the `#f97316` fallbacks in the two confetti components
+are chart-palette variety, not the brand accent.
+
+Verified in both modes on both hosts, no console errors, typecheck and build
+clean.
+
+---
+
+## 2026-08-16 — bertomill.com: grain and ambient light
+
+**Ask:** *"this site feels a bit too robotic, can we add a little modern day
+noise grit to the site... a bit more like an Apple designer did it"*. Berto
+chose grain + ambient light (over grain alone or a full palette rebuild), and
+static over animated.
+
+Added `@paper-design/shaders-react` (~488k weekly downloads, and the same
+library the v0 template used for its dot grid). Every shader runs at `speed: 0`
+— one frame, then it holds. No animation loop.
+
+**`app/site/_components/grain.tsx`** (new), three layers:
+
+- `PageGrain` — fine film grain fixed over the whole public site, `overlay` in
+  light and `soft-light` in dark so it modulates the colour underneath instead
+  of dusting grey on top. Wired into `app/site/layout.tsx`, so every public page
+  gets it.
+- `SurfaceTexture` — pressed-paper grain on the hero card. **This replaced the
+  `DotPattern` dot grid**, which was the single strongest "generated by a tool"
+  tell on the page.
+- `AmbientBloom` — a warm corner wash so the card reads as lit rather than
+  filled. A shader rather than a CSS radial-gradient specifically because a
+  gradient this large and this faint bands on 8-bit displays; `grainMixer` /
+  `grainOverlay` dither it away.
+
+**Three rounds of tuning, all caught by screenshotting rather than assuming:**
+
+1. First pass was far too heavy — the card read as grey concrete with a visible
+   diagonal mask edge, and in dark mode a `screen` blend washed out the eyebrow
+   text to near-illegible. A contrast regression, not just an ugly one.
+2. The bloom rendered as a hard bright disc sitting on the headline — a lens
+   flare, not light. Fixed by inverting the approach: a *broad* gradient
+   (radius 1.6, slow falloff) masked to one corner, rather than a small bright
+   one. A tight radius on a dark surface always reads as a flare.
+3. **The real bug:** `opacity-[0.09]` does not generate in Tailwind — computed
+   opacity was `1`, so every layer had been rendering at full strength the whole
+   time. And even after switching to the numeric scale it stayed at 1, because
+   `RevealOnView` with `staggerChildren` writes an inline `opacity` onto each
+   direct child, and inline style beats a class. Fixed by nesting both texture
+   layers one level down. Card interior went from rgb(197,197,197) — concrete —
+   to rgb(252,252,252).
+
+Verified: 107 fps while scrolling under software GL (worst case, real hardware
+is better), light + dark + 390×844 mobile, no console errors, typecheck and
+build clean.
+
+---
+
+## 2026-08-16 — Clerk accounts, with Cael still owner-only
+
+**Ask:** *"can we get to the backend via a login with clerk, obviously only for
+bertmill19@gmail.com to be able to access the backend"* — then: *"others can be
+subscribers and users on the app, but only bertmill19@gmail.com will have the
+ability to access cael in its full effect."*
+
+**Decisions (asked Berto):** sign-up is **open to anyone**, but a non-owner gets
+an account and nothing else — Cael bounces them to a "this is private" page. The
+**password login stays** as a fallback (moved to `/login-password`), because
+being locked out of your own life-agent by a misconfigured auth provider is a bad
+day. Keys come from Berto by hand; the CLI can no longer reach the prod scope.
+
+**The gate is an email, checked in one place.** `lib/owner.ts` holds
+`OWNER_EMAIL` and `isOwnerEmail()`; every other layer asks it. There is a `users`
+table, but it is a **ledger, not an authority** — `is_owner` there is a mirror of
+the email check, recorded for visibility, never read to decide access. A row is
+easy to write; an email is the actual claim.
+
+**Three doors, all gated the same way:**
+- `middleware.ts` — Clerk session → owner? in : "not authorized". No Clerk
+  session → the password cookie. Neither → `/sign-in`. API/eve paths get 401/403
+  instead of a redirect.
+- `agent/channels/eve.ts` — the agent transport can drive every tool Cael has, so
+  it authenticates independently: an owner Clerk session *or* the password cookie.
+  A signed-in non-owner is rejected here exactly as everywhere else.
+- `app/layout.tsx` — mounts `ClerkProvider` on the private host only, and records
+  the account in `users` on the way past.
+
+**Clerk lives on one origin.** All auth is on `cael.bertomill.com`; bertomill.com
+gets a plain "Sign in" link pointing at it (`CAEL_SIGN_IN_URL`). That sidesteps
+Clerk satellite-domain configuration entirely and keeps Clerk's JS off the
+marketing site — the root layout checks the host before mounting the provider.
+
+**Everything is inert until the keys land.** `CLERK_ENABLED` /
+`CLERK_SERVER_ENABLED` key off the env vars, and `clerkMiddleware()` is only
+*called* when configured — calling it without keys throws, which would take down
+the very password login that is meant to be the fallback. Same pattern as
+`newsletterEnabled`. Note `NEXT_PUBLIC_*` is inlined at build time, so adding the
+keys needs a redeploy, not just a restart.
+
+**Owner resolution avoids a per-request round trip.** A session token doesn't
+reliably carry an email (Clerk's default claims have varied, and a custom token
+template can drop it), so `lib/clerk-owner.ts` reads the claim when present and
+falls back to a Clerk API lookup, caching the verdict per user id for 5 minutes
+in module scope. Clerk unreachable → fails closed; the password login is the way
+back in, which is the whole reason it was kept.
+
+**Files:** `lib/owner.ts`, `lib/clerk-owner.ts`, `lib/users.ts` (new);
+`app/sign-in`, `app/sign-up`, `app/not-authorized`, `app/_components/auth-shell.tsx`,
+`app/_components/account-button.tsx` (new); `app/login` → `app/login-password`;
+`middleware.ts`, `app/layout.tsx`, `agent/channels/eve.ts`, `lib/db.ts`,
+`lib/public-site.ts`, `app/site/_components/site-nav.tsx`, `app/(app)/layout.tsx`.
+
+Verified un-keyed (the state this ships in): `/` redirects to `/login-password`,
+`/login` redirects there too, the password cookie still opens the app and the API,
+an unauthenticated API call still 401s, and the public site renders "Sign in".
+`npm run typecheck` and a full `npm run build` both clean. The Clerk flow itself
+can't be verified until the keys exist.
+
+---
+
+## 2026-08-16 — The strategy banner is now its own Excalidraw board
+
+**Ask:** *"i want this top level strategy to also be editable - maybe like the
+excalidraw board, but a separate board from the one under."* Plus, mid-build:
+*"love it and style keep that nice color gradient background for it."*
+
+**Decision (asked Berto, three options offered):** a **second Excalidraw board**,
+seeded once with the flywheel drawn as real Excalidraw shapes. The alternatives —
+keeping the animated hero but making its text DB-editable, or toggling between the
+two — were declined. So `GoalFlowHero` is **deleted**: no more AnimatedBeam arcs or
+BorderBeam glow, the connectors are hand-drawn arrows now.
+
+**How it fits together.** Same idiom as the Tasks notebook, one row over:
+
+- `app/_components/strategy-board.tsx` — the board. Loads from
+  `/api/strategy-canvas`, autosaves 1.5s after the last edit, flushes on unmount.
+- `app/api/strategy-canvas/route.ts` — `task_canvas` **row 2** (row 1 is the task
+  notebook). Two independent scenes, one table.
+- `lib/strategy-seed.ts` — the flywheel as an `ExcalidrawElementSkeleton[]`: three
+  transparent rounded boxes with bound labels, two bound forward arrows ("More
+  attendees", "More clients"), three dashed feedback arcs, and the creed. It's a
+  *seed, not a source of truth* — stamped once, then never consulted again.
+- The gradient wash, dot grid and colour blooms stayed; the Excalidraw canvas sits
+  on top with `viewBackgroundColor: "transparent"` so they read through it. Both
+  the container and its canvas need clearing in CSS (`.strategy-board .excalidraw`
+  in globals.css) — the scene's background colour alone isn't enough.
+- The drag-to-collapse handle came over from the old hero, but now resizes between
+  0 and 900px around a 400px default (no ResizeObserver: a canvas has no natural
+  height). Key: `focuspoint:strategy-board-height`.
+
+**Three traps, all of which cost a round of debugging:**
+
+1. **Seeding must happen *after* Excalidraw mounts.** `convertToExcalidrawElements`
+   measures each bound label once and bakes the width into the element. Excalidraw
+   registers its hand-drawn font (Excalifont) on *component mount*, so converting
+   for `initialData` measures in a fallback font — and every label saves clipped
+   mid-word ("Attention to d"). The board now mounts empty and gets stamped via
+   `updateScene` once the font is up.
+2. **`document.fonts.check()` is useless as a readiness test.** It answers "are all
+   *matching* faces loaded?", which is vacuously `true` while no face matches at
+   all. It returned true 500ms in, with Excalifont nowhere in `document.fonts`.
+   `waitForHandDrawnFont()` polls the registry for the face itself instead.
+3. **`scrollToContent` against an unmeasured canvas silently does nothing.**
+   Excalidraw reports `appState.width/height` as 0 until it has measured its
+   container, so the fit was a no-op and the board opened at 100% with the flywheel
+   cropped. It now polls for a non-zero viewport, then fits at
+   `viewportZoomFactor: 0.8` and pushes the view down `TOOLBAR_CLEARANCE` px — a
+   centred fit parks the top of the flywheel behind Excalidraw's floating toolbar.
+
+**Seeding rule:** a board whose row has never been written (`updated_at` null) gets
+the flywheel. An existing but empty row stays empty — clearing the board is
+deliberate and shouldn't undo itself on the next visit.
+
+Verified with Playwright at 1440×950: fresh seed renders unclipped and fitted (70%),
+reload path fits the same way, and dragging the "More content" pillar moved it
+(x 40 → 125.7) and persisted, label bound and intact. `npm run typecheck` clean.
+Row 2 was reset afterwards, so the first real visit stamps a clean flywheel.
+
+---
+
+## 2026-08-16 — bertomill.com: split-hero homepage
+
+**Ask:** *"can we work on making the design of the front facing version of our
+app — take some inspo from this template? `~/Documents/portfolio-template-v0`"*
+plus, mid-build, *"we also are going to need to generate some images similar to
+that"*.
+
+The template is a v0 portfolio: dark, a **sticky left card** holding the pitch,
+and a right column of full-viewport project panels that scroll past it. Berto
+picked the full structural adopt (over motion-only / dark-only) and chose four
+story cards for the right column over live-data or screenshot cards.
+
+**What changed**
+
+- `app/site/page.tsx` — rewritten from a centred editorial column into the
+  split hero. Left: headshot + wordmark, animated headline, the pitch, both
+  CTAs, and the four live stats. The stats deliberately take the slot the
+  template gives to client logos — it's the same "here's the proof" beat.
+  Right: four full-height `StoryCard`s (Cael → `/chat`, Building in public →
+  `/building`, Writing → `/writing`, Podcast → `/podcast`), each pulling its
+  pills from real data (counts, latest post title, episode duration).
+- `app/site/_components/reveal-on-view.tsx`, `animated-heading.tsx` — ported
+  from the template's `motion` primitives (already a dep). Both bail out under
+  `prefers-reduced-motion`; the heading keeps the real sentence on `aria-label`
+  so assistive tech reads one sentence, not a pile of spans.
+- `app/site/_components/story-card.tsx` — new. Gradient hairline, full-bleed
+  art under a black wash, whole card is one link.
+- Hero card texture uses the existing `components/ui/dot-pattern.tsx` (Magic UI,
+  already installed). The template used a WebGL shader package for this; the
+  SVG one is a wash rather than a dep.
+
+**Card art** — `scripts/generate-site-art.mjs` (new) generates the four renders
+through the AI Gateway (`gpt-image-1`, 1024×1536) and compresses with sharp on
+the way out: ~1.5 MB → 35–77 KB each, no visible loss, since they're near-black
+images behind a dark overlay. Committed to `public/site-art/`, not generated at
+build time — the front page must not have an AI call in its request path.
+Re-run: `node --env-file=.env.local scripts/generate-site-art.mjs [key ...]`.
+
+**Two bugs found while verifying, both fixed**
+
+1. The art 400'd through `next/image`. `isPublicAsset` in `lib/public-site.ts`
+   only matched *top-level* files in `public/`, so `/site-art/*.webp` got
+   gated — and the optimizer refetches its source over HTTP with no session
+   cookie, so it got a redirect and reported "not a valid image". Added an
+   explicit `PUBLIC_ASSET_DIRS` allowlist; the list stays explicit because
+   anything on it answers without a session.
+2. At 1280×700 the pinned hero clipped its own stats mid-number (content 736px
+   in a 610px box). **First attempt was wrong** — I stopped pinning below
+   840px tall, which fixed the clipping but cost the layout its whole point on
+   any laptop. Berto caught it immediately: the card scrolled away on his own
+   screen. The card now stays pinned on every desktop screen and its *content*
+   gives instead: a `short` variant in `globals.css`
+   (`min-width: 1024px and max-height: 880px`) tightens the headline, copy and
+   stat spacing, with `overflow-y-auto` on the card as the last-resort backstop.
+   Measured 0px overflow at 720/760/800/900/1000px tall and at 1280×700.
+
+   The lesson worth keeping: when a fixed-height box overflows, shrink what's
+   in it — don't surrender the property that makes the design work.
+
+**Type** — Berto asked for "the same font as the example". The typeface already
+matched: the template loads Geist + Geist Mono, and so do we (`app/layout.tsx`,
+variable 100–900). The real difference was **weight** — the template sets its
+headline in `font-black` (900) and its wordmark in `font-extrabold` (800) where
+ours were `semibold`. Matched both. The headline also had to drop from 2.75rem
+to 2.5rem: at 900 weight "I build AI agents," measures 354px against 350px of
+card, so it broke and stranded a word. Measured, didn't guess.
+
+Verified with Playwright at 1440×950 (pinned), 1280×700 (unpinned), 390×844
+mobile, and dark mode. No console errors. `npm run typecheck` and
+`npm run build` both clean.
+
+---
+
+## 2026-08-15 — Goal hero: drag-to-collapse handle
+
+**Ask:** *"can we make the top banner collapsible? so have a little handle on
+the bottom to drag up?"*
+
+**What changed** (`app/_components/goal-flow-hero.tsx`):
+
+- The old `GoalFlowHero` body was renamed `HeroBody`; the exported
+  `GoalFlowHero` is now a wrapper that clips it to a `height` state and renders
+  a 16px handle strip **below** the banner.
+- Handle behaviour: **drag** (pointer capture, `cursor-ns-resize`) resizes
+  between 0 and the banner's natural height; **click / Enter / Space** toggles
+  fully open ↔ fully shut. A drag ending within 40px of either end snaps there,
+  so you can't leave a sliver. A pointer that moved <4px counts as a click.
+- Natural height is tracked with a `ResizeObserver` on the content, so the
+  clamp stays right when the banner reflows (e.g. window resize).
+- State persists in `localStorage` under `focuspoint:goal-hero-height`
+  (`"full"` or a pixel count), restored after mount so SSR stays deterministic.
+- The handle lives outside the clipped region, so it's still grabbable when the
+  banner is fully collapsed. `border-b` moved from the banner to the handle.
+
+Verified with Playwright at 1440×900: expanded → mid-drag → dragged → collapsed
+→ reload (still collapsed) → click to re-expand. `npm run typecheck` clean.
+
+---
+
+## 2026-08-15 — Goal hero: taller feedback band + "Share learnings" edges
+
+**Ask:** *"can we make it a bit taller, and add a line from events to content -
+and add a label to it called - share learnings. same thing for building agents to
+content - share learnigns."*
+
+**What changed** (`app/_components/goal-flow-hero.tsx`):
+
+- New feedback beam **events → content** (bottom anchors, `curvature={-90}`),
+  mirroring the existing agents → events arc on the left half.
+- The feedback gutter grew `h-20` → `h-36`, and the arcs deepened to use it:
+  agents→events and events→content at `-90`, agents→content at `-190`. (Note:
+  `AnimatedBeam`'s quadratic path dips roughly **half** the curvature value, so
+  -190 ≈ 95px of sag.)
+- The single centred caption was replaced by three per-edge labels positioned at
+  each arc's midpoint: **"Share learnings"** (events→content, left 1/3),
+  **"Better agents improve the events"** (agents→events, left 2/3), and
+  **"Share learnings"** (agents→content, centre, on the floor of the band).
+- Mobile caption reworded to "Events and agents both feed content — share the
+  learnings."
+
+Verified in the running app with Playwright at 1440×1000 — labels sit clear of
+the curves they annotate. `npm run typecheck` clean.
+
+---
+
+## 2026-08-15 — Tasks is now an Excalidraw notebook
+
+**Ask:** *"for my task list page - i have a bit of a radical idea - lets make it
+excalidraw - but with a little bit of support, like the daily tasks are added each
+day, the checked off boxes get stored, but I can add anything ... more of a free
+flowing notebook rather than a rigid list."*
+
+**Decisions (asked Berto):** the canvas **replaces** the Tasks tab (not a new tab
+alongside it), and tasks render as **React cards floating over the canvas** rather
+than as native Excalidraw shapes — so a checkbox is a real checkbox writing to the
+`todos` table, while the ink around it is a real Excalidraw scene.
+
+**How it fits together.** Two independent layers over one viewport:
+
+- *Ink* — a single, never-ending Excalidraw scene, row `id = 1` of the new
+  `task_canvas` table, autosaved 1.5s after the last edit (same debounce idiom as
+  the Sketches tab). Task cards are deliberately **not** in this scene.
+- *Cards* — `todos` rows positioned by two new columns, `canvas_x` / `canvas_y`, in
+  Excalidraw **scene** coordinates so they survive pan and zoom. Written by
+  `POST /api/todos/[id]/position`, its own sub-route (like `/timer`, `/complete`) so
+  a drag doesn't round-trip the big COALESCE update in `PATCH /api/todos/[id]`.
+
+The card layer is **portaled into the `.excalidraw` container**, not mounted as a
+sibling. That one decision buys two things: Excalidraw's own z-index scale puts its
+canvases at 1–2 and its toolbar UI at 4, so the layer at **3** sits above the drawing
+and below the controls; and because the layer lives inside Excalidraw's DOM, wheel
+events over a card still bubble to Excalidraw, so scrolling and zooming work over a
+card instead of dead-zoning on it. The layer's transform is written imperatively from
+`onChange` (`translate(scrollX*zoom, scrollY*zoom) scale(zoom)`) rather than through
+React state, so panning doesn't re-render 37 cards a frame.
+
+**Gotchas worth knowing:**
+- The card layer spans the whole canvas, so it **must** stay `pointer-events: none`;
+  only the cards opt back in. Giving the layer `auto` (the first cut) silently ate
+  every click on empty canvas — Excalidraw never saw a pointerdown and nothing could
+  be drawn at all. Caught only because the persistence test found 0 elements.
+- Cards also go inert while a drawing tool is active (`activeTool.type !== "selection"`),
+  so you can drag an arrow straight across a card.
+- Auto-placement runs *before* cards render, so card height is estimated from title
+  length (`estimateCardHeight`) rather than measured. A fixed height guess overlapped
+  every card with a wrapped title.
+- The inbox column wraps every 8 cards (`INBOX_COL_MAX`) and starts at scene
+  (24, 120) — a fresh canvas opens at scene (0,0), which is exactly where our toolbar
+  and Excalidraw's both sit, so cards placed on the origin open underneath them.
+
+**Nothing was dropped in the swap.** The old list's features moved onto the cards:
+checkbox, inline title edit, timer play/pause with live countdown, working-on-now
+(still capped at `WORKING_LIMIT`), waiting, and a priority dot that cycles on click.
+Recurrence, category and estimate moved to a **right-click context menu** on the card.
+The one genuine casualty is `task_number` — the manual "do this next" queue — which
+has no meaning on a canvas where position *is* the ordering.
+
+**Files:**
+- `app/_components/task-canvas.tsx` — new, the whole surface.
+- `lib/todo.ts` — new; the `Todo` interface plus the few helpers both the dashboard
+  and the canvas need, so the type isn't declared twice.
+- `app/api/task-canvas/route.ts`, `app/api/todos/[id]/position/route.ts` — new.
+- `lib/db.ts` — `todos.canvas_x` / `canvas_y`, `task_canvas` table (applied to Neon).
+- `app/_components/dashboard.tsx` — **-852 lines**: the whole old Tasks UI is gone
+  (`renderTodoSection`, the create form, every edit/numbering state field). What's left
+  is the shared handlers the canvas calls, plus new `handleUpdateTodo` /
+  `handleTodoCreated` / `handleLocalTodoPatch`.
+- `app/_components/goal-flow-hero.tsx` — dropped `-mx-5 -mt-4 mb-5`; it's naturally
+  full-bleed now that the Tasks tab is an unpadded flex column.
+- `components/ui/checkbox.tsx` — added from the shadcn registry (not hand-rolled).
+
+**Verified:** `npm run typecheck` and `npm run build` clean; a `--noUnusedLocals` pass
+confirms no dead code left behind. Playwright against the dev server: 37 cards portaled
+inside `.excalidraw` at z-index 3 with no console errors, a card dragged 260×40px
+persisted to the DB at exactly the expected scene coords, a freehand stroke survived a
+full page reload (and renders *under* the cards), and a checkbox click came back
+`completed: true` from `/api/todos`. Mobile at 390px renders too. Test task and test
+stroke were cleaned up afterwards.
+
+**Follow-up 1 (same day):** *"i'd also like to be able to scroll pan, and be able to
+drag the boxes around."* Both were genuinely broken; both reproduced before fixing.
+
+- **Scroll/pan over a card did nothing.** Excalidraw binds its wheel handler to
+  `canvas.excalidraw__canvas.interactive`, which is a **sibling** of the card layer,
+  not an ancestor — so a wheel event over a card bubbles up to the shared `.excalidraw`
+  container (confirmed with a capture-phase listener) and dies there, never crossing the
+  canvas. Wheel over *empty* canvas was always fine, which is what made it confusing.
+  Fix: a non-passive `wheel` listener on the card layer re-dispatches an equivalent
+  `WheelEvent` on the canvas, forwarding deltas and modifier keys — so ctrl/⌘+wheel
+  pinch-zoom keeps working too. Guarded on `e.isTrusted` so the synthetic event can't
+  re-enter.
+- **Cards couldn't be dragged by their title**, which is the obvious place to grab one.
+  The title was a click-to-edit `<button data-no-drag>`, so it was a dead zone covering
+  most of the card; only the thin padding around it dragged. Fix: the title is no longer
+  no-drag. A press anywhere that isn't a real control starts a drag, and the two gestures
+  are told apart by movement — past `DRAG_SLOP` (3px) it's a drag, under it (on the
+  title) it opens the editor on pointer-up. Keyboard users get Enter/Space on the title.
+
+**Verified:** 7-point Playwright regression on a scratch card, all passing — wheel over a
+card pans, ctrl+wheel zooms, drag by title moves *and* persists to the DB, the drag does
+not open the editor, a plain click does, the checkbox still persists, and freehand drawing
+still works. `typecheck` + `build` clean. Scratch card, test stroke and a card nudged
+during testing were all restored/removed.
+
+**Caveat:** two-finger pinch-zoom *over a card* on touch devices still won't zoom — the
+forwarding covers wheel, not touch. One-finger card dragging and pinch over empty canvas
+are unaffected.
+
+**Next:** the goal hero eats ~500px on a 390px phone, which squeezes the canvas hard —
+worth making it collapsible on mobile if it annoys him. Cards are also placed but never
+auto-grouped; a "tidy up" action that re-flows everything back into inbox columns would
+be a cheap escape hatch once the canvas gets messy.
+
+---
+
+## 2026-08-15 — Tasks: recurring and one-off in separate columns
+
+**Ask:** "For the daily recurring tasks and the more one-off tasks, should have different columns."
+
+**Decisions (asked Berto):** left column = everything recurring (dailies first under a "Recurring" header, then Weekly and Monthly sections); right column = one-off tasks. Columns stay side-by-side at every width — no stacking on mobile. "Working on now" is unchanged and still spans full width above both columns.
+
+**Built:** the section-rendering closure was inline in the Tasks JSX as a `.map` callback, so it could only produce one vertical stack. Extracted it to `renderTodoSection({ key, label, working })` in the component body (~410 lines moved verbatim, no behaviour change) and composed the two columns around it. Each section now owns exactly one recurrence value — dailies used to be merged into the "none" section and floated to its top with an `isDaily` sort tiebreak; both that special case and the tiebreak are gone.
+
+**Files:** `app/_components/dashboard.tsx` — `TODO_SECTIONS` → `RECURRING_TODO_SECTIONS` (daily/weekly/monthly), new `renderTodoSection`, two-column `grid grid-cols-2` wrapper.
+
+**Verified:** `npm run typecheck` clean; Playwright screenshot against the running dev server shows Recurring (Daily → Weekly) on the left and One-off on the right.
+
+**Next:** the one-off column is much taller than the recurring one, so there's dead space at the bottom left. If that bugs him, a masonry/`columns-2` flow or per-column scrolling would fill it.
+
+---
+
+## 2026-08-13 — Added "Content" task category
+
+**Ask:** Add a fourth tag chip, Content, alongside Events / Calls / AI Agents.
+
+**Built:** `content` appended to `TASK_CATEGORIES` with label "Content" and an amber outline badge (violet/sky/emerald were taken). Category column is plain `TEXT`, so no migration. Agent tool descriptions (`add_todo`, `update_todo`) and `agent/instructions.md` updated so Cael knows to label writing/recording/editing/publishing work as `content`.
+
+**Files:** `lib/task-categories.ts`, `app/_components/dashboard.tsx`, `agent/tools/add_todo.ts`, `agent/tools/update_todo.ts`, `agent/instructions.md`.
+
+---
+
+## 2026-08-13 — Task categories: Events / Calls / AI Agents
+
+**Ask:** Berto wanted tasks taggable with Events, Calls, or AI Agents — "because nothing else I do should be those things."
+
+**Decisions (asked Berto):** one category per task, optional (NULL is the normal case) rather than multi-tag or required; surfaced in all four places he picked — the create form, a chip on each task row, filter buttons above the list, and the agent tools so Cael can set it in chat.
+
+**Files changed:**
+- `lib/task-categories.ts` (new) — shared `TASK_CATEGORIES` / `TASK_CATEGORY_LABELS` / `normalizeCategory()`. No db import, so both the client dashboard and the agent tools import it (same pattern as `lib/working-now.ts`). `normalizeCategory` accepts loose input ("AI Agents", "calls") and returns null for anything unknown — a mislabelled category shouldn't block saving a task.
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS category TEXT` (also run directly against the dev DB, since `ensureSchema()` isn't called per request).
+- `app/api/todos/route.ts` — `category` in every SELECT list; POST normalizes and stores it.
+- `app/api/todos/[id]/route.ts` — PATCH treats `category` as explicitly nullable (`hasOwnProperty` + `CASE WHEN`), same idiom as `task_number`/`estimated_minutes`, so `{category: null}` clears it.
+- `agent/tools/add_todo.ts`, `agent/tools/update_todo.ts` — optional `category` enum; `update_todo` accepts `null` to clear. `list_todos` is `SELECT *` so it picked it up for free.
+- `agent/instructions.md` — tells Cael what the three categories mean and to leave it off when unsure.
+- `app/_components/dashboard.tsx` — `Todo.category`, a per-category badge colour map (violet/sky/emerald, matching the amber "Waiting" idiom), category chips in the create form and the edit form, a chip on each task row (click clears it), a Category radio group in the right-click menu, and a filter row above the list that only offers categories actually in use. The filter hides rows only — the working-now slot count stays honest about what's really in progress, and the "Nothing active" prompt is suppressed while a filter is on (it would otherwise claim nothing is active when the active task is simply a different category).
+
+**Verified:** Playwright against a dev server on :3789 — seeded one task per category plus an uncategorized one (confirmed `"Calls"` normalizes to `calls`, and no category stores as `null`), filtered to Calls (only that task shown), cleared a chip by clicking it (server confirmed `category: null`), reassigned via the right-click menu (server confirmed `calls`), and screenshotted the create-form picker. All test rows deleted afterward; Berto's real tasks untouched.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-08-11 — Replace focus mode with "Working on now" (max 3)
+
+**Ask:** Berto wanted the focus feature gone — the dark overlay that spotlit a single timing task — and replaced with a "Working on now" section holding at most 3 tasks, with the rest of the list greyed out. Three is his stated human limit.
+
+**Decisions (asked Berto):** reuse the existing `in_progress` flag rather than adding a `working_now` column (no schema change, and the existing "In progress" concept was already this idea without a cap); working-now tasks get their own pinned section at the top rather than staying inline; the rest of the list is always dimmed (~50%, brightening on hover), not only when the limit is hit.
+
+**Changes:**
+- `lib/working-now.ts` (new) — `WORKING_LIMIT = 3`, a shared `WORKING_LIMIT_MESSAGE`, and `hasWorkingSlot(sql, excludeId?)`. Takes the sql client as an argument so the file has no db import and the client dashboard can import the constants.
+- `app/_components/dashboard.tsx` — deleted focus mode entirely (`spotlightRect` state, the measure-on-scroll/resize effect, and the `box-shadow: 0 0 0 9999px` overlay). Tasks list now renders a synthetic "Working on now · N/3" section ahead of `TODO_SECTIONS`, holding the in-progress tasks (excluded from the sections below); it renders even when empty, as a dashed prompt. Working rows sit in a bordered primary-tinted card; every other section's `<ul>` is `opacity-50 hover:opacity-100`. Each row gained a hover play/pause button ("Work on this now" / "Stop working on this") next to edit/delete; the now-redundant "In progress" badge was dropped and the context-menu item reworded. New-task pill renamed "Working on now" and blocked when full. `handleToggleInProgress` and `handleToggleTimer` (which marks in progress) both toast and bail when there's no slot.
+- `app/api/todos/[id]/route.ts` — `PATCH in_progress: true` returns 409 when three are already active.
+- `app/api/todos/[id]/timer/route.ts` — starting a timer 409s when full (it sets `in_progress = TRUE`).
+- `app/api/todos/route.ts` — `POST` clamps `in_progress` to false when there's no free slot.
+- `agent/tools/update_todo.ts` — same 3-task check, so Cael gets `success: false` with the reason instead of silently creating a 4th.
+
+**Verified:** Playwright against a local dev server on :3789 with Berto's real data (3 tasks already in progress). Screenshotted the new layout — "WORKING ON NOW · 3/3" card at top, dimmed list below, no dark overlay. Seeded a test task: `POST` with `in_progress: true` came back `false` (no slot), `PATCH in_progress` → 409, timer start → 409, and clicking the row's play button showed the "You can only work on 3 things at once" toast. Then freed a slot by pausing one task, confirmed the test task moved into the section, restored the original three, and deleted the test task. Typecheck clean.
+
+---
+
+## 2026-08-10 — Set task "in progress" at creation time
+
+**Ask:** Berto wanted to mark a new task as "in progress" right when creating it, instead of having to create it and then toggle it separately.
+
+**Changes:**
+- `app/_components/dashboard.tsx`: added `newTodoInProgress` state and an "In progress" pill (using the existing `PlayIcon`) below the Priority/Duration/Repeat rows in the new-task form; included in the `handleAddTodo` POST body and reset on submit/error.
+- `app/api/todos/route.ts`: `POST` now accepts an optional `in_progress` field (defaults `false`) and inserts it into the `todos` row.
+
+Verified end-to-end with Playwright against a local dev server (port 3789): created a task with the toggle on, confirmed `in_progress: true` came back from `/api/todos`, then deleted the test task.
+
+---
+
+## 2026-08-09 — Circular timer progress ring + completed tasks sink to bottom
+
+**Ask:** Berto liked the timer celebration/dimming work and asked for two more things: (1) a "pretty sizable" circular/oval progress indicator for the running timer, for gamification — he specifically asked to use a UI kit rather than build from scratch; (2) completed tasks currently sort into the middle of the list (grouped by "Done today" but still above other active tasks) — he wants them to sink to the very bottom once checked off, since he doesn't need to see them again.
+
+**Decisions:** installed Magic UI's `animated-circular-progress-bar` via the shadcn registry (`npx shadcn add @magicui/animated-circular-progress-bar`) rather than hand-rolling an SVG ring — `components.json` already had the `@magicui` registry configured (from an earlier partial attempt), and the component file was already present untracked in the working tree, so this just completed that setup. Added a `children` override prop to the generated component (it only shipped a hardcoded percent label) so the ring can show the mm:ss countdown instead of a bare percentage — a small, expected local customization per the magic-ui skill's guidance ("prefer prop-level customization" once you own the generated file).
+
+**Changes:**
+- `components/ui/animated-circular-progress-bar.tsx` (new, via shadcn add) — added optional `children` prop to override the centered percent label.
+- `app/_components/dashboard.tsx`:
+  - Replaced the small pill badge for a running timer with a `size-16` `AnimatedCircularProgressBar` showing elapsed-time fill (primary color, or destructive red once over the estimate) with the mm:ss countdown centered inside. Falls back to the old "Timing" badge when a task has no time estimate (no percentage to show). That fallback path is unreachable in practice today (every timer requires an estimate to start), kept for type-safety/future-proofing.
+  - Added `isDoneTodayForSort()` and made it the first tiebreaker in each section's sort comparator, so a task marked done — including the optimistic "just checked off" state via `completingIds`, not just the server-confirmed `completed_at` — immediately drops to the bottom of its section instead of sitting above still-active tasks.
+
+**Verified:** `npm run typecheck` clean. Ran the app on an isolated port (3789) and drove it with Playwright against Berto's real (read-only) task data — confirmed the ring renders in place of the badge with the correct countdown and fill, and confirmed scrolling to the bottom of the Tasks section shows all "Done today" items now sit right above the next section ("Weekly"), below every active task. No test data created/needed this round since verification was read-only against existing tasks.
+
+---
+
+## 2026-08-09 — Task timer: celebration on completion + focus-mode dimming while running
+
+**Ask:** Berto wanted two things for the task timer: (1) when a timer hits zero, play a sound, show a celebration animation, and bring the app window to the front; (2) while actively doing a timed task, dim the rest of the app so it's easier to lock in.
+
+**Decisions (confirmed with Berto first):** sound is a synthesized "ta-da" arpeggio via Web Audio API (no audio asset — he asked for "more fun than a beep"), not a plain tone. Dimming triggers specifically on a *running timer* (not just "in progress") and dims the whole app, not just other rows in the task list.
+
+**Changes:**
+- `lib/celebration-sound.ts` (new) — `playCelebrationSound()`: a short ascending arpeggio + landing chord via oscillators, shared `AudioContext`.
+- `app/_components/timer-complete-celebration.tsx` (new) — confetti + modal, same visual pattern as `goal-celebration.tsx` (reused the `confetti-piece`/`chat-modal-*` CSS already in `globals.css`), shows the completed task's title.
+- `lib/desktop.ts` — added `focusAppWindow()`: calls the new Tauri `focus_window` command (desktop shell) and falls back to `window.focus()` (browser tab, best-effort — browsers often block this outside a user gesture).
+- `desktop/src-tauri/src/main.rs` — added `focus_window` Tauri command (`unminimize` + `show` + `set_focus`), registered in the invoke handler.
+- `app/_components/dashboard.tsx`:
+  - New effect watches `nowTick`/`todos`, tracks each running timer's previous "seconds remaining" in a ref, and fires the celebration (sound + `focusAppWindow()` + modal) exactly on the tick a countdown crosses from positive to zero/negative — not on every render, and not for a timer that was already over when the page loaded.
+  - New effect tracks the actively-timed task row's `getBoundingClientRect()` (via a `data-todo-id` attribute) and renders a fixed, full-viewport dark overlay with a "spotlight hole" (box-shadow trick: `0 0 0 9999px rgba(0,0,0,0.72)` on a div sized/positioned to the row) so everything else — other tasks, sidebar, chat — visually dims while a timer runs. Position-fixed, so it covers the whole app regardless of which panel Dashboard is nested in.
+
+**Verified:** `npm run typecheck` clean. Ran the app locally on a separate port (3789, since Berto's own dev session owns 3000) and drove it with Playwright: confirmed the spotlight overlay dims everything except the running task's row (screenshotted), and confirmed that seeding a test task with a timer a few seconds from completion produces the confetti modal with the correct task title within the same session. Cleaned up all test todos afterward and confirmed Berto's real running timer (task 246) was untouched throughout. Did not verify `focus_window` inside an actual built desktop app (no Tauri runtime in this loop) — logic mirrors the existing `set_pin_mode` command pattern.
+
+**Next steps:** none outstanding; desktop build not rebuilt/tested end-to-end (would need `npm run tauri build` or a dev run of the shell to confirm `focus_window` actually raises the window on macOS).
+
+---
+
+## 2026-08-09 — Community wealth-form: live MakersLounge subscriber count via Luma API
+
+**Ask:** Berto wanted the Community card (one of the 8 forms of wealth) to track real MakersLounge Luma subscriber growth instead of the placeholder "count of thoughts tagged #community" signal.
+
+**Decision:** Luma has no dedicated "subscribers" endpoint — used `/v1/calendars/contacts/list` (sorted by `created_at` asc, paginated via `next_cursor`/`has_more`) as the subscriber-join signal, since calendar contacts are effectively MakersLounge's Luma audience. Server-side only: `lib/luma.ts` does the paginated fetch (reads `LUMA_API_KEY`, a calendar-scoped Luma Plus key, from env; `next: { revalidate: 300 }` on the fetch), `app/api/community/route.ts` exposes just `created_at` timestamps to the client so the API key never reaches the browser. Community's sparkline now uses `mode: "sum"` over those per-contact timestamps — cumulative growth curve, same pattern as Growth's pages-read chart.
+
+**Files changed:**
+- `lib/luma.ts` (new) — `fetchLumaContacts()`, paginated Luma contacts fetch.
+- `app/api/community/route.ts` (new) — GET route, returns `[{created_at}]`, empty array on any failure.
+- `app/_components/home-screen.tsx` — added `communityContacts` state + fetch, swapped `community`'s `wealthSeries` entry from `taggedCount("community")` to real Luma points (unit `subscribers`).
+- `.env.local` — added `LUMA_API_KEY`.
+
+**Verified:** Confirmed the key directly against Luma's API via curl (real MakersLounge contacts returned). Tested `/api/community` against the already-running dev server on :3000 (1,174 contacts, correctly paginated). Playwright screenshot of the live dashboard confirms the Community card renders "1,174 subscribers" with a rising line chart. Typecheck clean for the changed files (an unrelated pre-existing syntax error in a concurrent session's in-progress `family-panel.tsx` was left as-is — not part of this change).
+
+---
+
+## 2026-08-09 — Family memories: optional photo, editable, date stamp
+
+**Ask:** Berto wanted the Family memory form to not require a photo, wanted memories to be editable after creation, and wanted a date stamp shown on each memory.
+
+**Changes:**
+- `lib/db.ts`: `memories.image_url` is now nullable; added `memory_date DATE NOT NULL DEFAULT CURRENT_DATE` (the date the memory happened, distinct from `created_at` which is upload time). Migration is additive (`ALTER TABLE ... DROP NOT NULL` / `ADD COLUMN IF NOT EXISTS`), safe against the already-deployed table.
+- `app/api/memories/route.ts`: `POST` now accepts memories with no `image_url` as long as a title or description is present; accepts `memory_date` (defaults to today).
+- `app/api/memories/[id]/route.ts`: added `PATCH` to update title/description/image_url/memory_date.
+- `agent/tools/add_family_memory.ts`: `image_url` is now optional on the tool schema too, and it takes an optional `memory_date`.
+- `app/_components/family-panel.tsx`: photo dropzone is now labeled optional with a separate "Save memory without a photo" button; added a date picker to the add form (defaults to today); each memory card now shows its date stamp and has an edit (pencil) button alongside delete that switches the card into an inline edit form (title/description/date, save/cancel). Cards without a photo render as a plain card (icon placeholder + normal-contrast text) instead of the photo-gradient-overlay style.
+
+**Bug caught during verification:** the neon driver serializes `DATE` columns as full ISO timestamps (e.g. `2026-07-15T04:00:00.000Z`), not bare `YYYY-MM-DD` — `formatMemoryDate` originally assumed the latter and produced "Invalid Date". Fixed by slicing to the first 10 chars before parsing (both for display and for seeding the edit form's date input).
+
+**Verified:** `npm run typecheck` passes. Playwright against the live dev server (Berto's own `next dev` on :3000 — did not restart it): created a photo-less memory via the UI flow's API calls, confirmed it rendered as a placeholder card with correct date stamp, edited it via `PATCH` and confirmed the change persisted and re-rendered, opened the inline edit UI on the existing real "Call with David" memory to confirm it populates correctly (did not save, so it was left untouched), then deleted all test rows. Ran `scripts/migrate.ts` once against the dev DB to apply the new `memory_date` column ahead of testing.
+
+---
+
+## 2026-08-09 — Routines: fixed 4-slot daily template (Morning Routine / AM Workout / PM Workout / Daytime)
+
+**Ask:** Berto wants the Routines section to be his literal "operating system for the week" — every day broken into the same 4 fixed slots (Morning Routine, AM Workout, PM Workout, Daytime), each independently editable, rather than the previous freeform per-entry periods.
+
+**Decisions (asked Berto):** Confirmed a fixed 4-slot template shown for every day, even when empty (clickable "+ Add" placeholder), rather than only showing slots that already have content. For the existing "Weekly Workout Routine" data (one AM-run entry + one evening-lift entry per weekday, plus Sat/Sun's AM/PM entries), mapped AM → AM Workout and the evening/PM entries → PM Workout; Morning Routine and Daytime start empty for Berto to fill in.
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - New `ROUTINE_PERIODS` constant (`["Morning Routine", "AM Workout", "PM Workout", "Daytime"]`) — the canonical, ordered slot vocabulary.
+  - Replaced the whole-day textarea editor with `rebuildDaySlot`, which edits exactly one day+slot at a time: reflows that day's lines into canonical slot order on save, preserving any legacy/unrecognized period text by appending it after the 4 canonical slots (defensive — shouldn't occur post-migration, but avoids silent data loss if it does).
+  - `routineEditTarget`'s day-editing variant became `{ field: "slot", day, period }`; `startEditingRoutineSlot` seeds the textarea with just that slot's text (no period prefix needed — the slot itself is the period).
+  - Each day column now always renders all 4 `ROUTINE_PERIODS` in order, each its own click-to-edit unit (auto-growing textarea, save-on-blur, Escape-to-cancel) — empty slots show a muted "+ Add".
+- Data migration (one-off, not a code change): re-mapped the live "Weekly Workout Routine" row's existing periods — `AM` → `AM Workout`, `8pm`/`PM` → `PM Workout` — via a direct `PATCH /api/vision/[id]` call against the shared dev/prod DB, so the dashboard renders correctly under the new slot vocabulary without Berto having to retype anything that already existed.
+
+**Verified:** `npm run typecheck` passes. Playwright against the live dashboard: confirmed all 7 days now show all 4 slots with the migrated content in the right places and empty slots showing "+ Add"; filled in Monday's previously-empty "Morning Routine" slot, confirmed it persisted via `GET /api/vision?kind=routine`, then restored the original content so no real data was left changed.
+
+**Next steps:** Berto can now fill in Morning Routine and Daytime for each day as he defines them — no further code work needed for that.
+
+## 2026-08-09 — Desktop nav: persistent left rail (ElevenLabs-style), Weekly Routine centered
+
+**Ask:** Berto wanted the Weekly Workout Routine section centered like the rest of the home dashboard (it was full-bleed via `px-6 lg:px-12` while everything else uses `mx-auto max-w-6xl px-6`). Then, referencing ElevenLabs' left sidebar, he wanted all section nav (Chat/Tasks/Notes/Lists/Journal/Dreams/Schedule/Media/Measures/Vision/Sketches/Calendar) moved out of the "Go To" grid on the home screen and into a persistent left sidebar, since on desktop there previously was no always-visible nav — navigation only happened via that grid (home screen only) or keyboard shortcuts.
+
+**Decisions (asked Berto):**
+- Nav rail: leftmost, always visible on desktop, collapsible to icons-only (a toggle button, state persisted to `localStorage`) — not folded into the existing Dashboard sidebar.
+- Mobile: unchanged — keeps its existing bottom tab bar + "More" dropdown.
+- Home screen's "Go To" grid: removed (redundant now that the rail is always visible).
+- Dashboard's own inner "ElevenLabs style" vertical nav (a pre-existing feature, only shown on desktop when viewing a non-home/non-chat section) was now a duplicate of the new global rail — removed it too, since Dashboard's `activeTab` is always externally controlled via the `activeTab` prop from the layout.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — Weekly Routine section's wrapper changed from `w-full px-6 lg:px-12` to `mx-auto max-w-6xl px-6` (matches the rest of the page). Removed the "Go To" grid section, the now-unused `openTasks` state, and the `/api/todos` fetch that only fed it (`SECTIONS` array kept — still drives the home screen's number/letter keyboard shortcuts).
+- `app/(app)/layout.tsx` — new `NAV_ITEMS` (13 sections incl. Home) rendered as a `hidden lg:flex` leftmost `<aside>`, width `lg:w-52` open / `lg:w-14` collapsed with a `PanelLeftIcon` toggle; `navRailOpen` state persisted to `localStorage` (`focuspoint:nav-rail-open`) and hydrated on mount.
+- `app/_components/dashboard.tsx` — removed the internal `NAV_ITEMS` array and the `<nav>` block that rendered it (both the "expanded" desktop-sidebar variant and the "chat-sidebar" horizontal variant); cleaned up now-unused icon imports (`HomeIcon`, `ListTodoIcon`, `FileTextIcon`, `ListChecksIcon`, `BookOpenIcon`, `MoonIcon`, `CalendarClockIcon`, `ImageIcon`, `BrushIcon`, `TelescopeIcon`).
+
+**Verified:** `npm run typecheck` passes. Playwright against the already-running dev server (:3000, owned by another session — didn't kill it) at 1440×1000: rail renders open and collapsed, active-tab highlighting works, clicking "Tasks" and "Chat" navigates correctly with no duplicate nav visible. Mobile (390×844) bottom nav confirmed unchanged.
+
+**Next steps (not done):** none flagged.
+
+---
+
+## 2026-08-09 — Routines: fixed day-box editor clipping long content
+
+**Ask:** After the per-field inline editing landed, the Monday box's edit textarea (fixed `rows={6}`) clipped a routine with more lines than fit — the top of the text scrolled out of view within the small box.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — both the goal textarea and each day-box textarea now auto-grow to fit their content (a ref sets `height = scrollHeight` on mount, `onChange` recalculates it as the user types), instead of a fixed `rows` with internal scroll. Removed manual `resize-y` on the day box since height is now content-driven.
+
+**Verified:** `npm run typecheck` passes. Screenshotted Monday's box (the longest entry, 2 periods) mid-edit on the live dashboard — box now grows to show all text with nothing clipped or scrolled.
+
+## 2026-08-09 — Wealth-form sparklines: added an x-axis (day/month/year labels)
+
+**Ask:** The 8 tile sparklines had no axis at all — just a bare line — making it unclear what each point along it represented. Add the x-axis.
+
+**Files changed:**
+- `app/_components/sparkline.tsx` — added a Recharts `XAxis` (`dataKey="label"`, using the labels `bucketAggregate` already produces — day-of-month, month abbreviation, or year depending on the active granularity). No axis line/tick marks (`axisLine={false}` `tickLine={false}`), `interval="preserveStartEnd"` + `minTickGap={20}` so Month view's 28-31 day labels thin out to a readable handful instead of overlapping, 9px muted-foreground text. Bumped the tile chart height from `h-7` to `h-11` to fit the label row.
+
+**Verified:** `npm run typecheck` passes. Screenshotted Month, Year, and Decade views on the live dashboard — labels render evenly spaced and legible in all three (Jan/Mar/May/.../Dec, 1/5/9/.../31, 2017/2019/.../2026).
+
+## 2026-08-09 — Wealth-form sparklines: switched to Recharts, removed the now-redundant Reading card
+
+**Ask:** Two follow-ups on the 8 wealth-form tile sparklines: (1) drop the standalone Reading chart card, since Growth's tile sparkline already covers pages read; (2) the hand-rolled SVG sparklines had visibly misshapen peaks (asymmetric/kinked triangles instead of clean curves) — Berto asked to use a proper Next.js charting kit instead.
+
+**Root cause of the misshapen lines:** The old `Sparkline` built raw SVG paths in a `100×28` `viewBox` with `preserveAspectRatio="none"`, stretched to fill each tile's actual box (~280×28px, a very different aspect ratio). That non-uniform x/y stretch distorted stroke width and turned symmetric peaks into lopsided shapes — not a data problem, a rendering-math one.
+
+**Decision (asked Berto):** Added shadcn's `Chart` component (a themed wrapper around Recharts — `npx shadcn add chart`), since the project already standardizes on shadcn/ui. Scoped to just the 8 tile sparklines; left the Training (workout) chart as its hand-rolled SVG for now since it's a different shape of chart (multi-line, % indexed) and isn't broken.
+
+**Files changed:**
+- `components/ui/chart.tsx` — added via shadcn CLI (`ChartContainer`/`ChartTooltip`/`ChartTooltipContent`, wraps Recharts). Added `recharts` as a dependency.
+- `app/_components/sparkline.tsx` — rebuilt on `recharts`' `LineChart` inside `ChartContainer` (`ResponsiveContainer` under the hood handles proper aspect scaling) instead of a hand-rolled SVG path; kept the same props (`data`, `unit`, `mode`) and the same sum/last caption logic from the previous fix, so `home-screen.tsx` didn't need to change its call sites.
+- `app/_components/home-screen.tsx` — removed the "Reading" full-width chart card and its `readingLogs.length > 0` block; `readingLogs` state is still fetched and still feeds the Growth tile's sparkline in `wealthSparklines`, just no longer has its own card.
+- `app/_components/reading-chart.tsx` — deleted (only consumer was the removed card); its `ReadingLog` interface moved inline into `home-screen.tsx` since it's still needed for the `readingLogs` state type.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own :3000 dev server) in Year and Decade views and in dark mode — Reading card gone, all 8 tile sparklines now render smooth, correctly-proportioned peaks with no visible distortion.
+
+**Next steps:** None outstanding. If Training gets visibly awkward at some point too, it's a candidate for the same Recharts treatment.
+
+## 2026-08-09 — Routines: per-field inline editing (title/goal/each day separately) + larger type
+
+**Ask:** Follow-up on the earlier full-bleed Routines redesign — Berto didn't want the whole routine editable as one big textarea blob; each piece (the title, the goal line, and each individual day) should be its own click-to-edit target. Also bump the font size across the section, which read too small at the new full-bleed width.
+
+**Decisions:** Save-on-blur + Escape-to-cancel per field, no visible Save/Cancel buttons — clicking any other field (or elsewhere) commits the edit, matching the Notion/Apple-Notes inline-edit feel rather than the previous button-driven flow. Day boxes are edited as short, day-prefix-free lines (`(AM): text`) so the box only ever shows that one day's content; saving re-splices those lines back into the routine's single raw `content` string at the position where that day's lines used to live (backend still just has one `content` blob per routine — no schema change).
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - Replaced the single `editingRoutineId`/`editRoutineTitle`/`editRoutineContent` state with `routineEditTarget` (`{ routineId, field: "title" | "goal" }` or `{ routineId, field: "day", day }`) + one `routineEditValue` string, so exactly one field of one routine is ever mid-edit.
+  - New helpers: `dayEntriesToLines` (entries → editable `(period): text` lines), `rebuildContentForDay` (splices edited lines for one day back into the routine's raw content, preserving every other line's position), `rebuildContentForGoal` (replaces/inserts the `Goal:` line).
+  - `saveRoutineField` — single save path for all three field kinds; optimistic local update, `PATCH /api/vision/[id]` with just `{ title }` or `{ content }`, rolls back and toasts on failure.
+  - Title, goal, and each day cell independently render as a button (click → inline `input`/`textarea`, `autoFocus`, `onBlur` saves, `Escape` cancels) or their read-only view.
+  - Font sizes bumped: routine title `text-sm` → `text-lg`, goal/day-entry text `text-xs`/`text-[11px]` → `text-sm`, day-of-week label `text-[10px]` → `text-xs`.
+
+**Verified:** `npm run typecheck` passes. Playwright round-trip against the live dashboard (Berto's own :3000 dev server) for all three field kinds — edited Tuesday's box in isolation (confirmed the rest of the week didn't re-render/reset), edited the title, and edited the goal line — confirmed each persisted via `GET /api/vision?kind=routine`, then restored the original title/content each time so no real data was left changed.
+
+**Next steps:** None outstanding.
+
+## 2026-08-09 — Home dashboard: sparkline on all 8 forms-of-wealth tiles, shared Month/Year/Decade toggle
+
+**Ask:** Berto wants every one of the 8 forms-of-wealth tiles to show a small left-to-right line chart, all controlled by one shared Month/Year/Decade toggle (switching one switches all 8 at once).
+
+**Decisions (asked Berto):** Month = one point per day (current month), Year = one point per month (current year), Decade = one point per year (last 10 years) — reusing the granularity levels from the timeline that was removed earlier this session. Layout: kept the compact 2×4 tile grid and embedded a small sparkline in each tile (not full-width chart cards like Training/Reading). For the metric: Growth reuses reading pages, Wellness reuses the existing workout log count, Money reuses the existing savings balance — Berto had me propose defaults for the other 5 (Family, Craft, Community, Adventure, Service) since they had no tracked data yet. I used a count of `thoughts` tagged with that form's lowercase name (`family`, `craft`, `community`, `adventure`, `service`) as the signal — cheap to wire up since `capture_thought` already supports arbitrary tags, and it turned out Berto already had real historical tags matching several of these (19 `community`, 10 `craft`, 2 each for `family`/`adventure`/`service`), so the charts aren't starting from zero.
+
+**Files changed:**
+- `lib/chart-buckets.ts` — new shared bucketing utility: `bucketAggregate(points, granularity, mode)` buckets `{t, value}` points into Month/Year/Decade buckets; `mode: "sum"` adds values per bucket (counts, pages), `mode: "last"` forward-fills the most recent value per bucket (running balances like savings).
+- `app/_components/sparkline.tsx` — new minimal SVG line component for the tile-sized chart: no axes (too small for them), a hover-titled end-point marker, and a caption below — period total for `sum` metrics, current value for `last` metrics (the literal final bucket is misleading for a `sum` metric once that bucket is a not-yet-populated future one, e.g. December in Year view — caught this after a first screenshot showed "0 pages" as the Growth caption even though 4,800 pages were logged; fixed by summing all buckets for `sum` mode instead of reading only the last one).
+- `app/_components/home-screen.tsx` — added the `wealthGranularity` state and the shared Month/Year/Decade segmented toggle above the 8-forms grid; a `wealthSparklines` memo builds each form's bucketed series (reusing already-fetched `readingLogs`/`workoutLogs`/`savingsHistory`, plus a new `thoughts` fetch); replaced the Money-only progress-bar block with a generic per-tile `<Sparkline>` (Money keeps its goal progress bar above the sparkline).
+- `app/api/thoughts/route.ts` — raised the `limit` query param's cap from 100 to 1000 so the dashboard can pull enough history to bucket a full decade.
+- `agent/instructions.md` — new bullet telling Cael to tag `capture_thought` calls with `family`/`craft`/`community`/`adventure`/`service` when a captured thought is clearly about that form, since those tags are what feed the 5 new sparklines.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own dev server on :3000) in Month, Year, and Decade views, and in dark mode — toggle switches all 8 tiles at once, sparklines render correctly including the "No data yet" empty state (Wellness — its seed workout rows were deleted after an earlier session's verification), and the caption fix confirmed correct (Money shows the current $19,600 balance in every view; count-based tiles show the period's total, not a stray zero from an unpopulated future bucket).
+
+**Note:** This work was mid-flight in this shared checkout when another concurrent session picked it up and committed it alongside an unrelated dashboard-width/Routines-editing change (see the entry directly below). This entry documents the sparkline feature specifically; the caption-mode fix above landed in a follow-up commit.
+
+**Next steps:** No dedicated tracking exists yet for Family/Craft/Community/Adventure/Service beyond the thought-tag proxy — if Berto wants a more precise metric for any of them later (e.g. an explicit `log_*` tool), swap that form's entry in `wealthSparklines` in `home-screen.tsx`.
+
+## 2026-08-09 — Home dashboard: wider main content, full-bleed Apple-style Routines, inline routine editing
+
+**Ask:** Three follow-on requests against the home dashboard in one session: (1) the main content column read as too narrow/boxed-in on desktop; (2) the Routines card specifically should go full-bleed with no card border, referencing Apple's edge-to-edge product-page sections; (3) routines should be editable inline from the dashboard instead of only through chat.
+
+**Decisions (asked Berto):** Widened content from `max-w-2xl` (672px) to `max-w-6xl` (1152px) — tried `max-w-4xl` first and Berto asked to go wider still. For the Routines section specifically, Berto wanted it to break out of that container entirely (own full-width wrapper, no `Card`/border) — Apple's "help is here" carousel on apple.com/store was the reference. For editing, chose whole-routine raw-text editing (title + the full `Goal: ...\nMonday (AM): ...` content block in one textarea) over per-day-cell or fully structured per-entry fields — simplest to build, matches exactly how it's stored and how Cael already writes it via `update_vision_item`.
+
+**Files changed:**
+- `app/_components/home-screen.tsx`:
+  - All four `max-w-2xl` page-width wrappers → `max-w-6xl`.
+  - Routines section pulled out of the shared `max-w-6xl` container into its own full-width wrapper (`w-full px-6 lg:px-12`); removed the `Card` wrapper and the `border border-border/60` boxes around each day — now plain columns separated by `divide-x divide-border/60`, no shadow/border chrome.
+  - Routine list now carries `id` (added to `toRoutineList`) so individual routines can be targeted for a `PATCH`.
+  - Click a routine (title or grid) → replaces the read view with an editable title `input` + a `textarea` holding the raw content, Save/Cancel buttons (Cmd/Ctrl+Enter to save, Escape to cancel). Save calls `PATCH /api/vision/[id]` (existing route, no backend changes needed) and replaces the routine in local state with the server's response on success; toasts on failure and leaves edit mode open.
+
+**Verified:** `npm run typecheck` passes. Drove the live dashboard with Playwright (Berto's own :3000 dev server): confirmed the width change and full-bleed Routines rendering, then round-tripped a real edit — appended a marker line, saved, confirmed it persisted via `GET /api/vision?kind=routine`, then restored the original content via the same `PATCH` endpoint so no real data was left changed.
+
+**Next steps:** None outstanding for this thread. If Berto later wants more granular editing (per-day or per-entry), the raw-textarea approach can be swapped without changing the `PATCH` contract.
+
+## 2026-08-09 — Home dashboard: Reading chart (Growth) — cumulative pages this year + year-end projection
+
+**Ask:** Berto wants to track pages read (X axis = months, Y axis = pages), for the Growth form of wealth. He's read ~15 books so far this year but hasn't been logging them — wants a projection for the year based on that pace. Going forward, he'll log by telling Cael in chat when he finishes a book, and Cael should use web search to find the page count rather than being asked for it.
+
+**Decisions (asked Berto):** For the 15 already-read books, just estimate rather than looking up real titles — seeded as 15 generic "estimated" rows at a 320-page average (4,800 pages), spread evenly Jan 1–Aug 9 so the pace/projection isn't starting from zero. Chart lives as its own "Reading" card on the Home dashboard (same pattern as the Training/workout chart), not nested inside the Growth tile. Logging happens via chat ("finished reading X") — Cael looks up the page count with `web_search` and logs it automatically, no confirmation needed (matches the workout-logging pattern). Berto also said the long-term direction is for all 8 forms-of-wealth cards to become line charts — scoped down to just Growth/reading for this session; the other 7 need their own metrics defined first, one at a time in later sessions.
+
+**Files changed:**
+- `lib/db.ts` — new `reading_logs` table: `id, book_title TEXT, pages INTEGER, logged_date DATE, is_estimate BOOLEAN, created_at`. Append-only (like `thoughts`) rather than one-row-per-day, since finishing a book is a discrete event, not a mutable daily value. `is_estimate` flags the 15 seeded rows so they can be told apart from real logs later if needed.
+- `agent/tools/log_reading.ts` — new tool: `book_title`, `pages`, optional `date`; inserts a row. Description tells the model to look up the page count with `web_search` first rather than asking the user.
+- `agent/tools/list_reading.ts` — new tool: recent reading history, so Cael can answer pace questions.
+- `agent/instructions.md` — new "Reading" bullet (mirrors the existing Workouts one); also updated the stale "you have no general web-search tool" line — `web_search` is a built-in eve tool and was actually available, just undocumented/unused. Narrowed its sanctioned use to concrete lookups (book page counts) rather than open-ended browsing.
+- `app/api/reading/route.ts` — `GET`, full history oldest-first.
+- `app/_components/reading-chart.tsx` — new component (loaded the `dataviz` skill first): single-series cumulative line, solid from Jan 1 through today, dashed continuation from today to Dec 31 at the current daily pace (`total pages / days elapsed * days in year`). Month labels on X, page counts on Y, direct-labeled legend instead of a hover-only tooltip (no legend box needed for a single series, but the actual-vs-projected distinction needed a label). Reused `--chart-series-1` (already validated) rather than adding a new color.
+- `app/_components/home-screen.tsx` — fetches `/api/reading` alongside the existing calls; new "Reading" card directly under the Training card.
+- DB (production): ran `scripts/migrate.ts` to create the table, then a one-off script seeded the 15 estimated rows.
+
+**Verified:** `npm run typecheck` passes. Screenshotted the live dashboard (Berto's own dev server on :3000 — didn't start a second one) with the seeded data: solid line Jan→Aug reaching 4,800 pages, dashed projection Aug→Dec reaching ~7,941 pages, legend showing both numbers, month ticks Jan–Dec.
+
+**Next steps:** No real book has been logged yet — next time Berto tells Cael he finished one, it should search for the page count and log it, starting to replace the estimated segment with real data. The other 7 forms-of-wealth cards (Wellness, Family, Craft, Money, Community, Adventure, Service) still need their own chart metrics defined — one at a time in future sessions, per Berto's steer.
+
+## 2026-08-09 — Home dashboard: remove 2030 vision card and road-to-2030 timeline
+
+**Ask:** Berto wanted the "2030" north-star vision statement card and the "The road to 2030" yearly-milestone timeline removed from the home dashboard.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — removed the `VISION_2030` card and the timeline section (year buttons, granularity toggle, milestone text). Cleaned up now-dead code that only existed to support the timeline: `TIMELINE_YEARS`, `TIMELINE_GRANULARITIES`/`TimelineGranularity`, `milestones` state, `timelineGranularity`/`focusedYear` state, and the `/api/vision?kind=milestone` fetch.
+
+**Verified:** `npm run typecheck` passes.
+
+**Next steps:** None — the "Growth"/"Family"/"Craft"/etc. per-form vision cards (unrelated to the removed overall 2030 statement) are untouched.
+
+## 2026-08-07 — Home dashboard: workout progress chart (squat/deadlift/bench/chinups/10K), indexed to % from baseline
+
+**Ask:** Berto wanted his 5 standard workouts (squat 5×5, deadlift 5×5, bench 5×5, chin-ups 5×5, 10K run) plotted on one line chart on the daily dashboard. Weight for the four lifts, time for the run — different units, so they can't share a y-axis as raw numbers. Clicking a legend entry should reveal that series' absolute number; unclicked, everything reads as % change from the first logged value (the baseline).
+
+**Decisions (asked Berto):** Chin-ups tracks added weight in lbs (same unit family as the other lifts), not reps — Berto confirmed. Logging happens by telling Cael in chat (e.g. "squat was 235 today"), not a dashboard form — consistent with how todos/thoughts/vision items already work, and it's the option Berto picked over a manual-entry form.
+
+**Design approach:** Per the dataviz skill's core rule — "one axis; two measures of different scale → index to a common base, never dual-axis" — the chart plots `% change from each series' own first logged value`, which is exactly the technique the skill prescribes for mixing lbs and minutes on one chart. Built as a small hand-rolled inline-SVG component rather than pulling in a chart library (no chart lib was in the project yet), specifically because the "click legend → show absolute value for that series only" interaction isn't something off-the-shelf chart libs expose — it needed direct control over legend click state. Colors are the first 5 slots of the app's own CVD-validated categorical palette (already in use for the Measures chart's `--chart-essential`/`--chart-discretionary` tokens) — extended as `--chart-series-1..5` in `globals.css` rather than picking new hex values.
+
+**Files changed:**
+- `lib/db.ts` — new `workout_logs` table: `id, exercise TEXT, value NUMERIC, logged_date DATE, created_at`, `UNIQUE(exercise, logged_date)` (re-logging the same day overwrites, like the meal table).
+- `app/api/workouts/route.ts` — `GET`, full history ordered oldest-first (the chart needs the whole series, not a page).
+- `agent/tools/log_workout.ts` — new tool: `exercise` (squat/deadlift/bench/chinups/10k_run), `value`, optional `date`; upserts.
+- `agent/tools/list_workouts.ts` — new tool: recent history, optionally filtered to one exercise, so Cael can answer progress questions.
+- `agent/instructions.md` — tells Cael to log immediately when Berto reports a number, no confirmation needed (unlike calendar events, which do ask first).
+- `app/globals.css` — `--chart-series-1..5` (light + dark), the categorical palette's first 5 slots.
+- `app/_components/workout-chart.tsx` — new component: computes per-exercise baseline (first point) and % change per point; renders 2px lines with round joins/caps, 3px hover-titled dots, and a larger end-marker with a card-color ring on the latest point per series (per the dataviz skill's mark spec); legend below the chart with click-to-toggle — clicked series bold + show `latest value + unit`, unclicked series dim to 25% opacity.
+- `app/_components/home-screen.tsx` — fetches `/api/workouts` alongside the existing calls; new "Training" card (only rendered once there's at least one log) directly under the meal card.
+- DB (production, via a one-off script): created the `workout_logs` table so the feature works immediately without waiting for the app to touch it.
+
+**Verified:** Playwright on a dedicated dev server (:3789) against the same production DB, with 15 seeded rows spanning 3 dates across all 5 exercises — screenshotted the chart in light and dark mode (colors correct, gridlines/axis legible, legend readable in both), clicked the Squat legend entry and confirmed it bolds, shows "265 lbs," and dims the other 4 lines to 25% opacity. Typecheck passes. Seeded rows deleted afterward; dev server killed by PID. Noted a pre-existing React key warning in `Workspace` (`app/(app)/layout.tsx`, a file untouched by this change) surfaced in the dev overlay — not introduced by this work, left alone.
+
+**Next steps (not done):** No real numbers logged yet — next time Berto reports a lift or run time to Cael in chat, it should log automatically and start populating the real chart.
+
+## 2026-08-07 — Home dashboard: daily Mediterranean/Italian meal recommendation with photo + feedback loop
+
+**Ask:** Berto wanted a photo of a meal recommendation for the day added to the daily dashboard — aiming for Mediterranean or Italian to start — with the ability to give thumbs up/down feedback that informs the next day's pick.
+
+**Decisions (asked Berto):**
+- Photo source: AI-generated (via the AI Gateway's `generateImage`, model `google/imagen-4.0-generate-001`), not a stock-photo API or emoji — keeps it self-contained, no new marketplace integration.
+- Generation timing: a scheduled daily job (not an on-demand button), following the app's existing pattern — recurring jobs are rows in the `scheduled_tasks` table, fired once daily by the existing `agent/schedules/dispatcher.ts` (Vercel Hobby's cron-frequency cap means that dispatcher is the only real clock in this app; a native `defineSchedule` would need its own Vercel Cron slot).
+- Feedback: thumbs up/down only (no free-text note) — stored on the day's row and read back by Cael the next morning via `list_meal_history`.
+
+**Where it actually lives:** Initially built this into `Dashboard`'s internal "home" tab, then discovered that tab is dead code — `app/(app)/layout.tsx` hides the whole `Dashboard` panel and shows a completely separate `HomeScreen` component (`app/_components/home-screen.tsx`) whenever the app-level "Home" nav is active. That `HomeScreen` — daily hero photo, 2030 vision, 8 forms of wealth, timeline, routines — is the real daily dashboard, so the meal card was moved there (reverted the dead `Dashboard` changes) and placed right under the 2030 vision card.
+
+**Files changed:**
+- `lib/db.ts` — new `meal_recommendations` table: `id, meal_date DATE UNIQUE DEFAULT CURRENT_DATE, name, description, cuisine, image_url, feedback, feedback_at, created_at`. `meal_date UNIQUE` makes the day's row upsertable (re-running the job the same day overwrites it and clears feedback).
+- `app/api/meals/route.ts` — `GET`, most recent N days.
+- `app/api/meals/[id]/route.ts` — `PATCH { feedback: "up" | "down" | null }`; `null` clears it (toggle-off).
+- `agent/tools/list_meal_history.ts` — new tool: recent meals + feedback, for Cael to review before picking today's.
+- `agent/tools/set_daily_meal.ts` — new tool: takes name/description/cuisine/image_prompt, generates the photo, uploads it to Vercel Blob (`meals/<ts>.png`), and upserts today's row.
+- `agent/instructions.md` — documents the new scheduled job and tools.
+- `app/_components/home-screen.tsx` — `Meal` interface + `todayMeal` state, fetched alongside the existing vision/todos/measures calls; only shown if the latest row's `meal_date` is actually today (an older leftover row from a day the job didn't fire isn't shown as "today's"); thumbs up/down card with optimistic update + rollback toast on failure.
+- DB (production, via a one-off script — not a code change): seeded a `scheduled_tasks` row, "Daily Meal Recommendation," cron `0 12 * * *`, `notify = false` (silent — no text), telling Cael to call `list_meal_history` then `set_daily_meal`.
+
+**Verified:** Playwright on a dedicated dev server (:3789) against the same production DB — confirmed the card renders on the Home screen with a seeded test row, thumbs up/down persists via `PATCH /api/meals/:id` (checked server-side, not just optimistic UI state), and toggling the same button off clears feedback. Typecheck passes. Test row deleted afterward; dev server killed by PID.
+
+**Next steps (not done):** Haven't watched a real end-to-end run of the scheduled job (dispatcher fires once daily at 13:00 UTC and only checks day/month/weekday, not the task's own hour/minute, so the `0 12 * * *` cron just needs `*` fields to match — the actual time-of-day is whatever the dispatcher's tick is). Worth Berto checking the Home screen tomorrow morning to confirm a real AI-generated meal shows up, and using the Scheduled Tasks tab's "Run now" on "Daily Meal Recommendation" to test sooner without waiting for the next tick.
+
+## 2026-08-02 — Tasks: oldest-first ordering + a "Created" date on every row
+
+**Ask:** Berto: "can we please sort our todo list by oldest to newest unless they are marked more urgent or in progress? and also show date created" (with a screenshot of the Tasks list).
+
+**Sort.** The per-section comparator in `app/_components/dashboard.tsx` previously only floated daily → in-progress → waiting to the top and otherwise inherited the API's `created_at DESC` (newest first). It now falls through to **priority rank, then `created_at` ascending**:
+
+```
+daily → in progress → waiting → priority (urgent > high > normal > low) → oldest created first
+```
+
+So the default is oldest-first — nothing quietly rots at the bottom of the list — but anything actively being worked on or flagged more urgent jumps that queue. Two new helpers: `priorityRank()` (a `PRIORITY_RANK` map, because the DB column is text and `ORDER BY priority DESC` sorts alphabetically — `urgent > normal > low > high` — which is wrong; the client re-sorts anyway) and `createdAtMs()` (missing/unparseable dates return `Infinity` so they sink to the bottom rather than jumping to the top).
+
+**Created date.** The row's metadata line was a single `<p>` showing *one* of "Done today" / "Daily" / due date. It's now a wrapping flex row holding that same status chip **plus** a `CalendarDaysIcon` + "Created Jul 12" chip. New `formatCreated()` helper omits the year for the current year and includes it for anything older.
+
+**Not changed:** `app/api/todos/route.ts` still orders `created_at DESC` with a limit. Harmless today (dashboard requests `limit=200`, there are ~59 todos), but worth knowing that if the list ever exceeds the limit the truncation drops the *oldest* rows — exactly the ones now sorted to the top.
+
+**Verified:** Playwright screenshot of `/tasks` against the dev server on :3789 — every row carries a "Created" date, and the non-daily run reads Jul 13 → Jul 14 → Jul 15 ascending with the urgent item floated above it. **Typecheck:** PASS ✓
+
+**Note:** these edits landed in commit `dbfa155` ("pin daily recurring tasks to the top") rather than their own — a concurrent session sharing this checkout committed the whole working tree while this change was in flight.
+
+---
+
+## 2026-08-02 — Real URLs for every section + a Select tool on the sketch canvas
+
+**Ask:** Berto: "can we have a selector option for the sketches section of the app? and can we add to the url /sketches?" Quizzed on both: he picked a **canvas select tool** (arrow/marquee — drag a box, then move/delete what's inside) over a saved-sketch picker dropdown, and **real routes for every section** over query-param URL sync.
+
+**Routing — every section is now a real URL.** The whole app used to be one client component (`app/page.tsx`) holding a `mobileTab` state, so there was only ever `/`.
+- `app/page.tsx` → `app/(app)/layout.tsx`. The shell (dashboard sidebar, chat panel, chat modal, mobile bottom nav) lives in the **layout**, not a page, so it persists across navigation — no remount, no lost chat/thread state when switching sections.
+- `mobileTab` state is replaced by `PATH_TABS[usePathname()]`, and `setMobileTab` is now `router.push(TAB_PATHS[tab])`. Every existing caller (sidebar nav, home-screen entries + hotkeys, mobile bottom nav + More menu, chat-modal expand, "run job with chat") went through that one function, so they all became real navigations for free.
+- Added stub `page.tsx` files (each returns `null`) for `/chat /tasks /notes /lists /calendar /journal /dreams /schedule /media /sketches /measures /vision` plus `/` — they exist to make the routes real; the layout shell renders the UI.
+- The layout prefetches all section routes on mount so tab switching stays instant.
+- Route names map to the tab ids, with one rename: the `journal-templates` tab lives at `/journal`. `/explore`, `/traces`, `/login` are outside the `(app)` group and unaffected.
+
+**Select tool** (`app/_components/sketches-panel.tsx`) — first tool in the toolbar (`MousePointer2` icon):
+- Drag a marquee → dashed outline + a floating duplicate/delete toolbar (flips below the box when there's no room above). Drags under ~6 logical px count as a click and just clear the selection.
+- Drag from *inside* the selection to move it: the pixels are lifted onto a detached canvas, the source rect is filled white, and each pointermove repaints `base` + the bitmap at the new spot. One undo step per move, taken at lift time.
+- Duplicate stamps a copy at +24/+24 and makes the copy the selection (so it can be dragged straight off the original). Delete fills the region white. Both are one undo step. **Delete/Backspace** deletes, **Escape** clears the selection.
+- Selection clears on undo, tool switch, new sketch, and loading a sketch for edit. Because the canvas is a raster, the tool moves *pixels* in the region, not vector objects — text elements are still handled by the existing click-to-edit overlay.
+- Zoom/pan needed no special handling: the marquee overlay maps logical→CSS through the canvas's `getBoundingClientRect()`, which already reflects the CSS transform.
+
+**Verified:** 22/22 Playwright checks against the dev server on :3000 — home entry and sidebar both land on `/sketches`, `/tasks` navigation, browser **back** returns to `/sketches` with the panel intact, deep links to `/notes /calendar /measures /vision /journal` all 200. For the select tool, pixel-level assertions: stroke drawn → marquee → move (source reads `[255,255,255]`, destination `[26,26,26]`), duplicate lands at +24/+24, undo removes it, delete wipes the region, undo restores it, switching to Pen clears the selection, and a plain click leaves no mark. `GET /api/sketches` confirmed no stray rows left behind.
+
+**Typecheck:** PASS ✓ · **Build:** PASS ✓ (all 13 section routes prerendered)
+
+---
+
+## 2026-08-02 — Sketches: replaced the custom canvas with Excalidraw
+
+**Ask:** Berto: "is there a kit online to make this robust? look for whiteboard kits for next js, i want it to be on par with miro."
+
+**Research + decision.** Two real contenders:
+- **tldraw** (v5.2.5) — closest to Miro (infinite canvas, frames, sticky notes, bound arrows, multiplayer sync built in; used by ClickUp/Google/Autodesk). **Not open source.** A license key is mandatory in production ("the tldraw SDK will not work in production without a valid license key"); the free hobby tier is discretionary, non-commercial only, and **requires a "made with tldraw" watermark on the canvas**; commercial is ~$6k/yr. Since Berto records this app for podcast/YouTube content, that watermark would appear in every video and monetized content is arguably not "non-commercial."
+- **Excalidraw** (v0.18.1, **MIT**) — no key, no watermark, no cost. peerDeps allow React 19 (we're on 19.2.6 / Next 16.2.6).
+
+Quizzed him with both plus a "keep what we built" option; he chose **Excalidraw**.
+
+**Schema change — the big one.** Sketches were stored as a flattened PNG, which is why text baked in permanently and nothing was editable on reopen. Added `sketches.scene JSONB` (idempotent `ADD COLUMN IF NOT EXISTS`, also applied to the live Neon DB) holding `{elements, appState, files}`. `image_data` is demoted to a gallery thumbnail (exported at `maxWidthOrHeight: 640`). `GET /api/sketches` now returns `has_scene` instead of the scene body (scenes are large); a new `GET /api/sketches/[id]` returns the full record for opening.
+
+**Panel rewrite** (`app/_components/sketches-panel.tsx`): the hand-rolled canvas — custom toolbar, raster drawing, undo stack, pinch/pan math, the Figma-style shortcut layer, the text overlay — is **gone**, replaced by the `<Excalidraw>` component, which brings its own toolbar, shortcuts (V/R/O/A/L/P/T — near-identical muscle memory), infinite canvas, zoom/pan, undo, shape editing, images and libraries. Kept: the title field, the ~1.5s debounced autosave, the saved-sketch gallery with thumbnail/download/delete, and the full-bleed layout. Excalidraw is loaded via `next/dynamic` with `ssr: false` (it touches `window` at module scope) and themed off `next-themes`' `resolvedTheme`.
+
+**Two traps worth remembering:**
+1. `onChange` fires for *viewport* changes too (pan, zoom, selection), so a naive handler marks the sketch dirty constantly. It now diffs element identity against the previous array and ignores no-op changes — without this, merely *opening* a sketch would re-save it.
+2. `appState` is persisted as a small whitelist (`viewBackgroundColor`, `gridSize`). The full appState carries transient junk and a `collaborators` Map that doesn't survive a JSON round-trip.
+
+**Legacy sketches** (Berto's 10 existing ones, all `scene = NULL`) open by importing their PNG as an Excalidraw image element — visible, movable, drawable-over, just not un-flattened. Verified they are *not* rewritten on open.
+
+**Verified:** typecheck clean, `npm run build` compiles successfully (`/sketches` builds). Against a dev server on :3789 — Excalidraw mounts with its toolbar; drew rectangle + ellipse + freedraw, autosave produced `has_scene=true` with `scene.elements` = `[rectangle, ellipse, freedraw]` (real objects, not pixels) plus a PNG thumbnail; reloaded the page, reopened from the gallery, shapes returned as editable objects. Synthetic legacy row (image_data, no scene): opening it imports the PNG onto the canvas and leaves `updated_at` and `scene = NULL` untouched. All `zzz-*` test rows deleted; Berto's 10 sketches confirmed intact and untouched.
+
+**Note:** `@excalidraw/excalidraw` is a heavy dependency (it bundles its own fonts/assets). It's client-only and lazily imported, so it doesn't affect other routes.
+
+---
+
+## 2026-08-02 — Sketches: full-bleed canvas sized to the viewport
+
+**Ask:** Berto: "can we make it a bigger canvas? so there are no boarders?" — screenshot showed the page inset inside a rounded/bordered 4:3 frame with grey margin. Quizzed him on which "bigger" he meant (full-bleed drawing area / bigger fixed page / infinite Miro canvas); he chose **full-bleed drawing area**.
+
+**The core change — the page is no longer a fixed 1200×900.** A fixed-aspect page can't fill a variable-aspect viewport without letterboxing, so `CANVAS_W`/`CANVAS_H` constants were replaced by `canvasSize` state measured from the container (1 canvas px per CSS px at 100% zoom, capped at 2400×1600 because undo snapshots are full-canvas `ImageData`). `DEFAULT_CANVAS_W/H` remain as the pre-measurement fallback.
+
+**Sizing rules:**
+- While the canvas is *pristine* (`!dirty && editingId === null`) a `ResizeObserver` keeps the raster matched to the viewport, so the page always starts edge-to-edge and follows window resizes.
+- Once there's artwork, the size **locks** — assigning `width`/`height` to a `<canvas>` wipes its bitmap, and the undo snapshots are size-specific. Resizing the window mid-sketch must not destroy the drawing.
+- Opening a saved sketch resizes the raster to that image's *own* natural dimensions and draws it 1:1, so old sketches are never rescaled or re-encoded at a new aspect. Since a 4:3 page is taller than a wide viewport, a new `zoomToFit()` runs after every raster resize so it opens fully visible rather than cropped. `⇧1` is now "zoom to fit" (was a duplicate of `⇧0` = 100%).
+
+**Layout:** viewport div lost `aspect-[4/3] rounded-xl border border-border`, gained `-mx-4 w-[calc(100%+2rem)]` to cancel the panel's padding and `h-[calc(100%-6.5rem)] min-h-[22rem]` to claim the height the title+toolbar rows leave. Panel is `h-full`, and dashboard.tsx's sketches wrapper gained `h-full`. Gallery sits below the fold.
+
+**Also fixed:** `clampPan` assumed content size == `viewport × zoom`, which is only true when the page exactly fills the viewport. It now measures the canvas element, so a differently-shaped page can still be panned to its hidden edge.
+
+**Files:** `app/_components/sketches-panel.tsx`, `app/_components/dashboard.tsx`.
+
+**Verified:** typecheck clean. Playwright at 1440×900 — canvas box is pixel-identical to its viewport box (L/T/R/B gaps all 0) and reaches the window edge; raster 1219×699. Drawing maps 1:1 (a stroke dragged from x=300 lands at canvas x=296). Undo works at the new size. Opening legacy "2026 goals" resizes the raster to its own 1200×900, renders (23240 ink px) and auto-fits at 76% with nothing cropped. Full create→autosave→reopen cycle on a throwaway sketch: saved PNG is 1219×699, round-trips with content intact — test row deleted afterwards. 390×844 and 820×1180 viewports are full-bleed with no page errors.
+
+**Housekeeping:** my tests left one blank "Untitled" sketch (id 13, 1219×699 = the headless viewport) which I deleted. A second blank "Untitled" (id 14, 1293×403) came from Berto's own live browser session during the work and was left alone — it's empty and safe to delete if he wants.
+
+---
+
+## 2026-08-02 — Sketches: Figma/Miro keyboard shortcuts
+
+**Ask:** Berto wanted keyboard shortcuts on /sketches "similar to figma or miro". Quizzed him on scope; he picked the full set (tools + edit + view + space-to-pan + cheat sheet) over the smaller options.
+
+**Shortcuts:** `V` select, `P` pen, `E` eraser, `R` rectangle, `O` ellipse, `L` line, `A` arrow, `T` text; `⌘Z` undo, `⌘D` duplicate selection, `Delete`/`Backspace` delete selection, `Esc` deselect; `⌘+`/`⌘−` zoom, `⌘0`/`⇧0`/`⇧1` reset to 100%, hold `Space` + drag to pan; `?` opens a cheat-sheet dialog (also reachable from a keyboard icon in the toolbar). Tool buttons now show their key in the tooltip/aria-label ("Pen (P)").
+
+**Key decision — the canvas owns the keyboard.** `layout.tsx` binds app-wide letter hotkeys on window (`t` = Tasks, `n` = new task, `c` = chat), and Figma's `T` is the text tool, so they collided. The sketch handler is registered in the **capture** phase and calls `stopPropagation()` for keys it owns, which beats the layout's bubble-phase listener without touching `layout.tsx`. Since `T` is now a tool, `n` and `c` are swallowed too (`SUPPRESSED_GLOBAL_KEYS`) — otherwise a stray keystroke navigates away from a half-finished sketch. Leave the canvas via the sidebar.
+
+**Two traps worth remembering:** (1) capture-phase `stopPropagation` would also swallow `Escape` before Radix sees it, so the handler bails out entirely when `[role="dialog"]`/`[role="alertdialog"]` is in the DOM — without that, the cheat sheet and the delete-confirm dialog can't be dismissed with Escape. (2) Space is grabbed for panning, which would break Space-to-activate on a focused button, so the space branch returns early when the event target is inside a `button`.
+
+**Also:** the shortcuts `useEffect` had to be placed *after* `handleUndo`/`resetCanvas` in the component body — referencing them in the dependency array from an earlier position is a TDZ ReferenceError at render time, not a lint nit.
+
+**Files:** `app/_components/sketches-panel.tsx` only (hotkeys on `TOOLS`, `TOOL_BY_HOTKEY`, `SHORTCUT_GROUPS`, `SUPPRESSED_GLOBAL_KEYS`, the capture-phase key effect, space-pan wiring in the three pointer handlers, `?` toolbar button + `Dialog` cheat sheet).
+
+**Verified:** typecheck clean. Playwright against the dev server on :3000 — all 8 tool keys switch the active tool and `t` stays on /sketches instead of navigating to Tasks; `n`/`c` likewise no longer navigate; `⌘=`/`⌘−`/`⇧0` step zoom 100→125→156→125→100%; space+drag moves the pan transform while leaving the canvas pixels untouched (nothing drawn) and applies `cursor-grab`; a stroke draws 3888 ink px and `⌘Z` returns it to 0; `⌘D` offsets the selection box by the expected +24 logical px; `Delete` clears the selection's pixels; `Esc` removes the marquee; `?` opens the cheat sheet and `Escape` closes it. No page errors, and `GET /api/sketches` confirmed the tests left no stray rows.
+
+---
+
+## 2026-08-02 — Sketches: usable pinch zoom (damped + zoom out past 100%)
+
+**Ask:** Berto: "i need to pinch scroll to zoom in and out of the /sketches page."
+
+**Diagnosis:** pinch-to-zoom already existed (ctrl/cmd+wheel handler on the canvas viewport), but it was effectively unusable for two reasons. (1) The zoom factor was `Math.exp(-deltaY * 0.01)` — Chrome sends `deltaY ≈ ±120` per trackpad pinch tick, so a *single* tick jumped 100% → 332% and a second hit 547%, i.e. the tiniest pinch slammed to `MAX_ZOOM`. (2) `MIN_ZOOM` was `1`, so there was no zooming *out* at all — only back to fit.
+
+**What changed** (`app/_components/sketches-panel.tsx`):
+- Damped the wheel zoom: `WHEEL_ZOOM_SENSITIVITY = 0.0025` plus a per-event cap of `MAX_WHEEL_STEP = 1.25`, so no single wheel/pinch event can change zoom by more than 1.25× either direction regardless of how big the device's delta is.
+- `MIN_ZOOM: 1 → 0.25`, so you can zoom out to 25% and see the whole page small.
+- `clampPan` now centres the canvas on each axis when the scaled content is smaller than the viewport (previously it pinned to top-left, which would have parked the zoomed-out canvas in the corner).
+- Canvas viewport background `bg-white → bg-muted`, because at <100% the white "paper" was invisible against a white viewport.
+
+**Verified:** `npm run typecheck` clean. Live in Playwright against the running dev server on :3000 — one pinch tick 100% → 125% (was 332%), climbs to 800% max over repeated ticks, pinch-out reaches 25% min, canvas measured centred at 25% (left gap 385.4px == right gap 385.4px), Reset zoom returns to 100%. Also drew a stroke at 51% zoom and read back the pixel at logical canvas centre (600,450) → ink, confirming pointer→canvas coord mapping still holds below 100%. Confirmed via `GET /api/sketches` that the tests created no stray rows.
+
+**Note:** committed as a single-file change while two other sessions had unrelated in-flight work in the same checkout (an `app/(app)/` routing refactor and a new select/marquee tool in this same file); only the four zoom hunks were staged, the other sessions' working-tree changes were left untouched.
+
+---
+
+## 2026-07-31 — Sketches: autosave + title moved to top
+
+**Ask:** Berto wanted the canvas to autosave instead of a manual Save button, and the title field moved near the top of the panel.
+
+**Decisions (owner chose via quiz):** debounce ~1.5s after the last edit (stroke, shape, text change, or undo) rather than gating on title-first or save-on-blur-only; title defaults to "Untitled" if left blank when a save fires. The manual Save button was removed in favor of a small status indicator next to the title (`Saving…` / `Unsaved` / `Saved`).
+
+**What was built:** `app/_components/sketches-panel.tsx` — title `Input` moved above the toolbar with the autosave status label beside it. `handleSave` became `autoSave`: no longer resets the canvas or requires an explicit click — on first save it POSTs and adopts the returned id (so subsequent edits PATCH the same row); it reads `editingId`/`title`/`texts` via refs so the debounce timer isn't re-armed by unrelated re-renders. Added a `markDirty()` helper (bumps an `editVersion` counter alongside `dirty`) so the debounce effect — keyed on `editVersion`, not `dirty`/`texts` — resets on every discrete edit even when `dirty` was already `true` (e.g. consecutive pen strokes). `handleUndo` now also calls `markDirty()` so undo triggers a save. Renaming the title while an existing sketch is loaded (`editingId` set) also triggers autosave; typing a title on a still-blank canvas does not create a sketch. `resetCanvas`/`handleEdit` cancel any pending autosave timer first, so clicking "New sketch" or switching to edit a different sketch can't let a stale debounced save leak a stray/blank row.
+
+**Verified:** typecheck clean. Live in Playwright against `PORT=3789`: drew a stroke with a title set → confirmed "Unsaved" status → waited past the debounce → confirmed "Saved" status and the row existed via `GET /api/sketches` → cleaned up. Second run: drew + immediately clicked "New sketch" before the debounce fired → confirmed no stray/blank sketch was created after waiting out the debounce window.
+
+---
+
+## 2026-07-31 — Sketches: click-to-edit/duplicate/delete text elements
+
+**Ask:** Berto wanted to click a piece of placed text on the Sketches canvas to edit, delete, or duplicate it — previously text was rasterized straight into the canvas pixels on commit, so it was permanent and unselectable.
+
+**What was built:** `app/_components/sketches-panel.tsx` — text placed with the Text tool is now kept as an editable object (`{id, x, y, value, color, size}` in a `texts` array) instead of being drawn onto the raster canvas immediately. Each text element renders as a DOM overlay positioned over the canvas (converted via a `canvasToCss` helper that accounts for the current zoom/pan). Clicking a text string selects it and shows a small floating toolbar (Edit / Duplicate / Delete icons). Edit reopens the same floating input used for placing new text; Duplicate offsets a copy by 24 canvas px; Delete removes it. On Save, all text elements are composited onto an offscreen copy of the canvas (drawImage + fillText per element) before `toDataURL`, so the saved PNG looks identical to before — only the in-progress editing experience changed.
+
+**Trade-off:** text add/edit/delete/duplicate are not tracked in the pen/shape undo stack — Escape or the toolbar buttons are the way to reverse a text action. Sketches loaded for editing start with an empty `texts` array (their prior text is already baked into the loaded PNG pixels), so this only helps for text placed in the current editing session going forward.
+
+**Verified:** typecheck clean. Live in Playwright against `PORT=3789` dev server: placed text → selected it → toolbar appeared → duplicated → edited the duplicate's value → deleted the original → confirmed via page text; saved a sketch with placed text and confirmed via `GET /api/sketches` that the returned image_data was non-trivial (composited), then deleted the test sketch to clean up.
+
+---
+
+## 2026-07-30 — Calendar page: Google Calendar view/edit via FullCalendar
+
+**Ask:** Berto wanted a calendar page in the app, backed by his Google Calendar, with add/edit from the app.
+
+**Decisions (owner chose via quiz):** FullCalendar as the calendar kit (over Schedule-X / react-big-calendar); auth via our **own Google OAuth app** with a one-time consent flow + stored refresh token (over eve/Vercel connections or pasted raw tokens). Pinned FullCalendar to **v6** (`^6.1.21` for core/react/daygrid/timegrid/interaction) — v7 shipped mid-build with a totally different plugin/theming API; v6 is the stable, documented line.
+
+**What was built:**
+- `lib/google.ts` — OAuth helpers: consent URL, code→token exchange, `getAccessToken()` (auto-refreshes with 60s slack, deletes the row on `invalid_grant` to force reconnect), `gcalFetch()` against the Calendar v3 REST API (no googleapis SDK). Tokens live in a new single-row `google_auth` table (id=1) in Neon — env vars can't be written at runtime on Vercel. **Bonus:** `.env.local` already had `GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN` from a prior setup, and that refresh token already carries full `calendar` scope — so `getAccessToken()`/`getGoogleConnection()` fall back to `GOOGLE_REFRESH_TOKEN` when no DB row exists (validated + cached into the DB on first use). The calendar worked with zero consent clicks; the `/api/google/connect` flow remains for re-auth or a future account switch.
+- `app/api/google/{connect,callback,status}/route.ts` — consent redirect (CSRF state cookie, 10 min), callback (exchange + store + fetch account email, redirects to `/?google=connected|error`), status (GET: configured/connected/email; DELETE: revoke + disconnect). No middleware change needed — Berto is logged in when clicking Connect, so the session cookie rides along on Google's redirect.
+- `app/api/calendar/events/route.ts` + `[id]/route.ts` — proxy the **primary** calendar: GET (timeMin/timeMax, `singleEvents=true`), POST, PATCH (clears the unused date/dateTime variant so all-day↔timed flips stick), DELETE (410 = already gone = ok). Google↔FullCalendar mapping is direct: both use exclusive end dates for all-day events. Not-connected surfaces as HTTP 409 `not_connected`, which the panel turns into the Connect screen.
+- `app/_components/calendar-panel.tsx` — FullCalendar month/week/day with drag-to-move, drag-to-resize, select-to-create, click-to-edit; shadcn Dialog for create/edit/delete (title, all-day toggle, start/end, description — the form shows the *inclusive* all-day end date, ±1 day converted at the API boundary); connected-account row with Disconnect; states for unconfigured (env vars missing) / disconnected (Connect button) / connected; OAuth redirect result toasted once then stripped from the URL.
+- Wiring: new "Calendar" tab in `dashboard.tsx` NAV_ITEMS + `page.tsx` MobileTab/MORE_TABS + `home-screen.tsx` HomeTarget/SECTIONS (hotkey `g`). `lib/db.ts` — `google_auth` in `ensureSchema()`. `globals.css` — `--fc-*` vars mapped to the app theme (orange primary, muted borders, today tint).
+
+**Verified:** typecheck clean. Live against dev server on :3789 with Berto's real Google account: full CRUD round-trip via the API (create → rename+move → confirm → delete → confirm gone, nothing left behind); Playwright screenshots — month view desktop (real events, themed), week view, event-click edit dialog, mobile month via More→Calendar (246 events rendered; first mobile shot was blank from screenshot timing only). Dev server killed by PID after.
+
+**Next steps (open):** prod needs `GOOGLE_CLIENT_ID/SECRET` (and optionally `GOOGLE_REFRESH_TOKEN`) in Vercel env — likely already there since `.env.local` was pulled from Vercel; if prod shows "not configured", add them in the dashboard and add `https://cael-agent.vercel.app/api/google/callback` as an authorized redirect URI on the Google OAuth client. Possible follow-ups: agent tools so Cael can read/create events, multi-calendar support (currently primary only), event colors per calendar.
+
+---
+
+## 2026-07-18 — Home screen: 8 forms of wealth replace hero title + pillars
+
+**Ask:** Berto reframed his philosophy — instead of "Freedom, Happiness, Health" + 3 pillars, the home screen should show his **8 forms of wealth**: Growth, Wellness, Family, Craft, Money, Community, Adventure, Service — with icons from a nice shadcn-adjacent library.
+
+**Decisions (owner chose via quiz):** Phosphor icons (`@phosphor-icons/react`, duotone weight) over Tabler/Lucide; the 8 forms are **hardcoded in the UI** (like `SECTIONS`), not stored in vision_items; the grid **replaces** the big hero headline + pillars (greeting kicker stays, big type goes).
+
+**What was built:**
+- `app/_components/home-screen.tsx` — new `WEALTH_FORMS` constant (label + Phosphor duotone icon + nav target). Renders as a 4×2 grid (2-col mobile) of cards under the "{greeting}, Berto — your 8 forms of wealth" kicker. The Money card keeps the savings meter (from `measures` savings_snapshot) and opens Measures; Wellness → Measures; Adventure → Dreams; the rest → Vision. Removed: hero title block, pillars section, `pillarMeta()`, the `/api/vision?kind=statement` fetch, `VisionStatement` interface, and now-unused lucide icons/Skeleton. Vision tab and DB untouched.
+- `package.json` — added `@phosphor-icons/react` ^2.1.10.
+
+**Verified:** typecheck clean; Playwright screenshots (1440×900, 390×844) confirm grid, duotone icons, Money meter, and intact hero/mantra/Go-To sections. Gotcha hit: `.env.local` was re-pulled by a concurrent session and `BASIC_AUTH_PASSWORD` is now double-quoted — cookie scripts must strip quotes.
+
+**Follow-up (same day): all 8 visions seeded + Cael wired to the philosophy.**
+- Seeded the remaining 7 vision statements via the API in Berto's words (ids 8–14): Wellness (calm/energized state of being, vegetarian, 8h sleep, daily workouts), Family (loved ones weekly, belonging, family dinners), Craft (agents millions rave over; passion not money), Money (specific knowledge + accountability + leverage → $10M+ net across businesses), Community (MakersLounge self-owned at 100k+, 1M members total), Adventure (travel every quarter, awe and wonder), Service (everything in service of the world). The 4 pre-2026-07-18 statements still exist alongside.
+- **Agent wiring (owner chose via quiz: instructions + Daily Note, no weekly review):** `agent/instructions.md` gained a "The 8 forms of wealth" section — forms are the values, vision per form = newest statement titled with the form name, read via `list_vision`, frame guidance/tasks by form, name drift warmly, keep statements in sync via `update_vision_item`. The Vision purpose bullet cross-references it. **Daily Note (scheduled_tasks id 6) prompt rewritten** via PATCH: calls `list_vision` live each morning (edits flow through with no further prompt changes), spotlights 1–2 rotating forms, ties TODAY items to the forms they serve, keeps the daily-behaviors close and SMS formatting; cron (0 12 * * * UTC) and notify untouched. Old prompt preserved in git history of this file only — it was: goal hierarchy freedom/happiness/health → investments/fitness/relationships → daily behaviors.
+- **Verification note:** a live chat test confirmed the new instructions load (Cael reached for `list_vision` unprompted) but the tool failed with a serialization error in the **dev** eve runtime — the DB query + rows verified clean/serializable directly, and a concurrent session had just restarted the dev server (stale eve snapshot suspected, see memory `manual-trigger-morning-digest` gotchas) and was mid-refactor on the chat UI, so live re-test was abandoned rather than `rm -rf .eve` under their server. Re-verify in chat once that session settles; prod compiles fresh on deploy.
+
+**Follow-up (same day): Methods section (daily practices per form).** After values (grid) and Vision, home gains a **Methods** section — the concrete daily/weekly practices per form. Stored as a new `vision_items` kind **`method`** (title = form name, content = practices; newest per title wins). Changes: `app/api/vision/route.ts` accepts kind `method` (requires title + content); agent tools `list_vision` + `add_vision_item` enums extended (update/delete already kind-agnostic); `agent/instructions.md` 8-forms section teaches methods as the day-to-day yardstick; home screen fetches `?kind=method` and renders Vision + Methods from one shared section renderer (same 8-form list, placeholders "Add your methods for X…"). All 8 methods seeded (ids 15–22, via direct DB insert because the shared dev server was down mid-task): Growth (sweaty workout/reading/meditation/yoga/fasting daily), Wellness (yoga, sweaty workout, 8h sleep, vegetarian, loved ones, alcohol-free, sunlight daily + farmers market weekly), Family (see/call weekly, serve weekly, all holidays, care/trust/laugh/play — normalized from Berto's question phrasing to declaratives), Craft (learn frontier/build/teach/work for & with others daily; obsessive flywheel until "Anthropic comes calling"), Money (keep improving craft; own with full control; scale via content/code/community/charisma), Community (contribute; surround with high achievers sharing values), Adventure (plan it; try something new daily; feel the awe), Service (wake up every day to serve others). Note: the Vision tab UI doesn't yet show/edit kind `method` items — edit via Cael or ask Claude. Daily Note prompt not yet methods-aware (deliberate; offer later).
+
+**Next steps (open):** per-card destinations are a first guess — adjust `WEALTH_FORMS[].target` as desired; could later swap remaining generic daily-art photos for real destinations with `place` links.
+
+**Follow-up (2026-07-26): eye icon expands the card inline to show Vision + Methods.** Berto wanted a quick way to peek at a form's vision without navigating away from home. Each of the 8 wealth-form cards has a small eye icon (top-right) that toggles that card's Vision and Methods text inline (falls back to an italic "not written yet" placeholder), instead of a separate popup. First pass used a shadcn `Dialog` modal; Berto asked to expand the card itself instead, so it was swapped for an inline expand. Clicking the eye icon stops propagation so it doesn't also trigger the card's normal `onNavigate` click. Implementation: `app/_components/home-screen.tsx` — card markup restructured so the `Card` is the outer element (was previously wrapped in a nav `<button>`); the nav button is now `display:contents` so the existing icon/label/savings-meter layout is unchanged, with the eye button absolutely positioned as a sibling. New `expandedForm` state (single form open at a time) drives a conditional `col-span-2 sm:col-span-4` on the expanded card plus a bordered Vision/Methods block appended below the label — reusing the already-fetched `formVisions`/`formMethods` maps (no new fetch, no Dialog import needed). Verified: typecheck clean; Playwright against the running dev server confirmed the card grows full-width and shows correct per-form content, and other cards (incl. Money's progress bar) reflow correctly around it.
+
+**Follow-up (same day): Vision section per form of wealth.** The 8 forms are now framed as *values*; below the grid a new **Vision** section lists all 8 forms with each one's ideal-state text. Decisions (owner via quiz): vision text lives in the DB as vision **statements whose Area/title = form name** (vision changes every few years; editable in the Vision tab or via Cael — no code change per edit); all 8 forms always render, unfilled ones show a muted italic "Write your vision for X…" placeholder; section sits on home between the values grid and the mantra. Implementation: home screen re-fetches `/api/vision?kind=statement`, builds a lowercased title→content map (rows are newest-first, first match per form wins), rows are buttons → Vision tab. Seeded statement id 7 "Growth" ("I am doing hard things every day — cold showers, waking up early, meditating, reading, working out, teaching myself to do hard things."). The four pre-existing statements (old hero + pillars) were left in the DB untouched. Berto still to fill in the other 7 forms' visions.
+
+**Follow-up (2026-07-26): new "Routines" section — Weekly Workout Routine.** Home gains a **Routines** section (between the timeline and the daily-behaviors mantra) for named, recurring schedules — reference-only, no daily check-off (owner chose via quiz: reference text over a trackable habit tracker, home-screen section over a new tab). Decisions: stored as a new `vision_items` kind **`routine`** (title = routine name, content = one line per day/period, same pattern as `method`/`milestone` — newest per title wins if edited). Implementation: `app/api/vision/route.ts` — `routine` added to `KINDS` + validation (title + content required); `agent/tools/list_vision.ts` / `add_vision_item.ts` — `routine` added to the kind enum, descriptions, `toModelOutput`; `agent/instructions.md` — new "Routines" subsection teaching Cael to check the day's routine when the user reports on training; `app/_components/home-screen.tsx` — fetches `?kind=routine`, dedupes to one card per routine name, renders each schedule line with its day/period bolded (split on first `:`). Seeded id 25, "Weekly Workout Routine" — Berto's own words: goal is optimizing for Hyrox Worlds while staying excellent at work; Sat/Sun mornings are a big Hyrox workout with a long 10K walk in the evenings; weekdays are a no-music, light 5:00/km 10K run in the morning (deliberate flow-state/efficiency play before work) and heavy, easy-paced lifts at 8pm with long rests between sets (push hard, feel good, set up for sleep). Verified: typecheck clean; Playwright screenshot against Berto's own running dev server (port 3001 — port 3000 was a different project, `frontier-walkthroughs`) confirms the card renders with correct goal/schedule text.
+
+**Follow-up (same day): Routines rendered as a horizontal week box.** Owner wanted the Weekly Workout Routine to look like a horizontal week box rather than stacked lines. Reworked the storage format to one line per single day (`"Monday (AM): ..."`, `"Monday (8pm): ..."`, etc. — Mon–Fri now each have their own two lines instead of a shared "Monday–Friday" range) and added `parseRoutine()` in `app/_components/home-screen.tsx`, which splits a routine's content into an optional `Goal:` line plus a day→entries map. The card now renders a horizontal, per-day scroll strip (`ROUTINE_DAYS`, fixed `w-[108px]` columns so long entry text wraps instead of stretching the column) — Mon–Fri (or Mon–Thu on narrower viewports) visible at a glance, Sat/Sun a short scroll away; empty days show a muted "—". Updated `vision_items` id 25's content via `PATCH /api/vision/25` to the new per-day format. Verified: typecheck clean; Playwright screenshots at 1280×900 (desktop, scrolled to confirm Sat/Sun render with their shorter Hyrox/walk entries) and 390×844 (mobile) against Berto's running dev server. Gotcha: a concurrent session was mid-flight on a timeline zoom feature (`TIMELINE_GRANULARITIES`) in the same file — left untouched/uncommitted-by-me but present in the working tree per this project's shared-checkout convention.
+
+**Follow-up (2026-07-26): "The road to 2030" timeline.** After the 8-forms grid, home now shows a vertical roadmap for the years 2026–2030 — one milestone per year, with a dot-and-line timeline (filled orange dot = milestone written, muted dot + italic "Add your {year} milestone…" placeholder otherwise). Decisions (owner via quiz): content is a simple year-by-year milestone (not derived from the 8 forms' vision text); stored as a new `vision_items` kind **`milestone`** (title = year e.g. "2027", content = the milestone text) — same pattern as `statement`/`method`, no new table; vertical timeline with a connecting line was chosen over a horizontal scroll strip (revised same day — see follow-up below). Implementation: `app/api/vision/route.ts` — `milestone` added to `KINDS` + validation (title + content both required); `agent/tools/list_vision.ts` and `add_vision_item.ts` — `milestone` added to the kind enum, descriptions, and `toModelOutput` formatting; `agent/instructions.md` — new "The road to 2030" subsection under the 8-forms section teaching Cael to read/add/update milestones and connect current pacing to the year's milestone, without inventing one if it's blank; `app/_components/home-screen.tsx` — new `TIMELINE_YEARS` constant (`["2026".."2030"]`), fetches `/api/vision?kind=milestone` alongside the existing vision/method fetches (reuses `toFormMap`), renders as a new section between the wealth-forms grid and the daily-behaviors mantra. Verified: typecheck clean; seeded two test milestones (2026, 2028) via the API against a correctly-isolated dev server on port 3789, confirmed filled vs. placeholder dot states and the connecting line via Playwright screenshot, then deleted the test rows. Gotcha hit: port 3000 was NOT focuspoint this session (it was a different local project, `frontier-walkthroughs`, coincidentally also serving 200s) — always verify a dev server's cwd with `lsof` before trusting a port.
+
+**Follow-up (same day): timeline flipped to left-to-right.** Berto looked at the vertical roadmap and asked for it to run left to right instead of top to bottom. `home-screen.tsx` — the timeline is now a horizontal `flex` row (`overflow-x-auto` for narrow screens), each year an equal-width column with the dot + connecting line running horizontally above the year label and milestone/placeholder text; same data (`TIMELINE_YEARS`, `milestones` map) and empty/filled dot styling, no other logic changes. Verified: typecheck clean; Playwright confirmed the horizontal layout at 1280px and that the row scrolls horizontally on a 390px mobile viewport to reveal 2029/2030.
+
+**Follow-up (same day): 2027 milestone content + granularity zoom, full-bleed width.** Berto gave the actual 2027 content (10K LinkedIn followers via daily posts, daily Frontier Walkthroughs content, Aucctus sold for $100M via daily Venice-system/demo/pipeline effort, Hyrox Hong Kong via daily training) — saved as `vision_items` id 26, kind `milestone`, title "2027", combining all four into one entry (owner's choice via quiz, over splitting the daily practices into the relevant forms' Methods too). Then Berto asked for a granularity toggle (3 Years / 1 Year / 1 Quarter) and for the timeline to run full viewport width, side-scrollable. Decisions (owner via quiz): all three zoom levels reuse the same 5 yearly milestones — no new quarter/month data — "1 Year" and "1 Quarter" just make the clicked/focused year's column wide (showing its full text) while the rest compress to thin dot+year markers, with "1 Quarter" zooming further than "1 Year"; the timeline breaks out to full browser width like the hero photo, independent of the centered `max-w-2xl` content column above and below it. Implementation: `app/_components/home-screen.tsx` — new `TIMELINE_GRANULARITIES` constant (`full`/`year`/`quarter` with labels "3 Years"/"1 Year"/"1 Quarter") and `timelineGranularity` + `focusedYear` state (`focusedYear` defaults to the current calendar year if it's in `TIMELINE_YEARS`, else the first year); the single `mx-auto max-w-2xl px-6` content wrapper was split into three siblings — one for the vision card + 8-forms grid, a full-width middle section for the timeline (heading + granularity toggle still centered at `max-w-2xl`, but the scrollable year row spans the full flex container), and one for routines/mantra/Go-To — so only the timeline row is edge-to-edge; each year column is now a `<button>` (disabled when granularity is `full`) that sets `focusedYear` on click, with width driven by `cn()` (`flex-1` when full; a fixed wide px width when focused in year/quarter mode; a fixed narrow px width when unfocused), and unfocused/compact columns hide the milestone text, showing only the year label. Verified: typecheck clean; Playwright confirmed all three granularities at 1440px (full-width row spanning past the centered card column), clicking a compact year re-focuses it in year/quarter mode, and the row scrolls horizontally on a 390px mobile viewport when the focused column pushes others off-screen.
+
+## 2026-07-18 — Home screen: daily artwork is now a full-bleed hero
+
+**Ask:** Berto wanted the daily art on the home screen to be the full hero section instead of a rounded, bounded box.
+
+**Decision (owner chose via quiz):** full-bleed image edge-to-edge at the top with the Cael header overlaid on the image; the greeting + "Freedom, Happiness, Health" vision text stays below on the page background (not overlaid magazine-style).
+
+**What was built:**
+- `app/_components/home-screen.tsx` — the `DAILY_ART` image moved out of the `max-w-2xl` content column to the top of the scroll container: full viewport width, taller (`h-52 sm:h-72 lg:h-80`), no rounded corners. Header (Cael avatar/date, pin button, theme toggle) is absolutely positioned over the image in white with a top dark gradient for legibility; caption sits over a bottom gradient, both aligned to the `max-w-2xl` content column. Header is extracted into a `header(onImage)` helper — if the Unsplash image fails to load (`artFailed`), the header falls back into the normal page flow exactly as before.
+- `app/_components/mode-toggle.tsx` — `ModeToggle` now accepts a `className` prop (merged via `cn`) so the home hero can render it white-on-image.
+
+**Verified:** typecheck clean; Playwright screenshots at 1440×900 and 390×844 against the running dev server (localhost:3000) confirm the full-bleed hero, overlaid header, and content below on both.
+
+**Follow-up (same day):** hero caption can now link to Google Maps. Owner chose (via quiz) "real places only": `DAILY_ART` entries gain an optional `place` field (a maps query); captions with `place` render as an `<a>` (new tab, `https://www.google.com/maps/search/?api=1&query=…`) with an ↗ icon + hover underline; mood captions ("Confetti night", …) stay plain text. Only the Lago di Braies entry has a verifiable location today — add `place` to future entries as they're identified; don't guess locations for generic stock photos. Verified with Playwright: link click opens the maps URL in a popup tab.
+
+---
+
+## 2026-07-18 — Floating semi-transparent new-chat modal
+
+**Ask:** Starting a chat (C shortcut, "New chat" buttons) navigated to the full chat page. Berto wanted a fleeting, semi-transparent chat modal instead, still built on the assistant-ui components.
+
+**What was built:**
+- `app/_components/chat-modal.tsx` — new. Floating glass dialog (centered, `bg-background/75` + `backdrop-blur-2xl`, rounded, animated in via new keyframes in `globals.css`) containing the full assistant-ui `<Thread>` + `CalendarToolUI` on a fresh eve agent. Header: Cael avatar + status dot, an expand button ("Open full chat"), and close. Esc or backdrop click dismisses. Exports `NEW_CHAT_EVENT`/`requestNewChat()` so any new-chat control can open it (same window-event idiom as pin mode). Thread/composer backgrounds overridden to transparent inside the modal (`[&_.aui-thread-root]:bg-transparent`, `[&_.aui-thread-viewport-footer]:bg-transparent`) so the glass shows through.
+- `hooks/use-thread-agent.ts` — new. Extracted the thread↔agent wiring that lived in `AgentChat` (restore snapshot, save on finish, optimistic title from first user message) so the modal and the full page share it. `AgentChat` refactored to use it; behavior unchanged.
+- `app/_components/threads-provider.tsx` — new `createThread()` (persists a thread WITHOUT switching the main chat view to it; `newThread()` now wraps it). `remove()` now waits for that thread's create POST before firing DELETE, so dismissing a just-opened modal can't race the insert and orphan the row.
+- `app/page.tsx` — `modalThreadId` state; C shortcut and `NEW_CHAT_EVENT` open the modal (C is inert while it's open); closing a modal with no messages deletes the empty thread (no more "New chat" clutter in history); expand promotes the thread to the full chat page (`switchTo` + chat tab). Note: `createThread()` is called *outside* the state updater — inside it, React StrictMode's double-invoke created two threads and leaked one (caught live in verification).
+- `app/_components/chat-sidebar.tsx` + `AgentChat`'s mobile history overlay — their "New chat" buttons now `requestNewChat()` instead of `newThread()`.
+
+**Behavior decisions (assumed, flag if wrong):** all *new chat* entry points open the modal (existing threads from history still open the full chat page); a modal chat lands in thread history like any other; expanding mid-turn shows only what's already snapshotted (per-turn onFinish), so expand right after a reply is lossless.
+
+**Verification (Playwright vs Berto's running dev server on :3000 — my own :3789 instance was refused since Next 16 allows one dev server per dir):** 16/16 checks — C opens modal without navigating, panel computed style is 75% alpha + blur(40px), thread persisted server-side, Esc closes + deletes empty thread, real message send streams in modal, title derived, thread with messages survives close, "New chat" pill opens modal, expand lands on full chat page, typing 'c' in a composer doesn't trigger, all test threads cleaned up, zero page errors. Screenshot-verified the glass look over the home hero. Typecheck PASS ✓.
+
+**Gotcha:** a concurrent session was mid-flight on `home-screen.tsx` (hero maps links) — left uncommitted, excluded from this commit.
+
+---
+
+## 2026-07-16 — Pin mode (always-on-top top-3 focus window) + task timers
+
+**Ask:** Berto wanted a "pin mode" button in the top-right that pins the Cael desktop app to the top-left corner — above every other window, slightly transparent, no bottom nav — as a daily reference, plus a Start button on tasks that times work on them ("I need to always be getting my top 3 things done").
+
+**Decisions (owner chose via quiz):** one timer at a time (starting a task stops the previous one); accumulated time saved to DB (`timer_started_at` + `time_spent_seconds` on todos); pinned window shows only the top 3 tasks; Start also marks the task in-progress (Stop leaves in-progress alone).
+
+**What was built:**
+
+*Data + API*
+- `lib/db.ts` — `todos.timer_started_at TIMESTAMPTZ`, `todos.time_spent_seconds INTEGER NOT NULL DEFAULT 0` (migrated live via `scripts/migrate.ts`).
+- `app/api/todos/[id]/timer/route.ts` — new. `POST {action: "start"|"stop"}`. Start banks + clears every other running timer (`time_spent_seconds += EXTRACT(EPOCH FROM NOW()-timer_started_at)`), then sets `timer_started_at = COALESCE(timer_started_at, NOW())` (idempotent) and `in_progress = TRUE`. Stop banks + clears that task only.
+- `app/api/todos/route.ts`, `[id]/route.ts` — timer fields added to all SELECT/RETURNING lists.
+- `[id]/complete/route.ts` + `agent/tools/complete_todo.ts` — completing a task banks any running timer first (both recurring and normal branches).
+
+*Web UI*
+- `app/_components/pin-button.tsx` — new. Pin icon button; renders **only inside the Tauri shell** (`window.__TAURI__` present), dispatches `cael:pin` on window. Placed in three headers: agent-chat (top-right), dashboard, home screen.
+- `app/_components/pin-view.tsx` — new compact view: header (Cael + date + unpin), top 3 open tasks sorted running → in-progress → priority (urgent>high>normal>low) → due date → newest. Each row: complete-checkbox, title in priority color, Start/Stop pill, live ticking timer (banked + elapsed, mono font) when running, "Xm tracked" when banked. Polls /api/todos every 60s + on window focus. Recurring tasks completed today are filtered out (treated as done for the day).
+- `app/page.tsx` — `pinned` state; listens for `cael:pin`; pinned renders `<PinView>` **only** (no bottom nav, no other panels) and calls `setNativePinMode(true)`; unpin restores. T/N/C global shortcuts disabled while pinned.
+- `lib/desktop.ts` — new. `isDesktopApp()` + `setNativePinMode()` (invokes Tauri `set_pin_mode`, no-op in browser / old shells).
+- `app/_components/dashboard.tsx` — Todo type gains timer fields; right-click context menu gains "Start timer"/"Stop timer" (above the in-progress toggle); a "Timing" badge (TimerIcon) replaces the "In progress" badge while a timer runs.
+
+*Desktop shell (needs one-time rebuild + reinstall — done today)*
+- `desktop/src-tauri/src/main.rs` — `set_pin_mode` command: pinned → always-on-top, 360×480 at (12, 40) top-left, NSWindow `alphaValue 0.92` (via `objc` msg_send on main thread); unpinned → restore 1280×860 centered, opaque. Registered via `invoke_handler`.
+- `desktop/src-tauri/tauri.conf.json` — `withGlobalTauri: true` so the remote web app gets `window.__TAURI__`.
+- `desktop/src-tauri/capabilities/main.json` — new. Grants IPC (`core:default`) to the `main` window for the **remote** prod origin `https://cael-agent.vercel.app` + `http://localhost:*` (Tauri v2 disables IPC for remote URLs unless a capability allows it).
+- `desktop/src-tauri/Cargo.toml` — `objc` dep (macOS only) for the window-alpha call.
+
+**Verification (Playwright, dev on :3789, Tauri stubbed via addInitScript):** 20/20 checks pass — pin button only in shell, `set_pin_mode(true/false)` invoked, nav hidden/restored, running task ranks first in top 3, max 3 rows, timer ticks live, start persists + sets in_progress, stop banks seconds, starting B stops A (one-at-a-time), tracked label, complete banks + leaves pin view, context-menu Start/Stop timer + Timing badge, seeds cleaned up. **Note:** the dev server was killed externally mid-run once (concurrent-session hazard) leaving seeds 71/72 in Neon — cleaned up directly via SQL. Typecheck PASS ✓.
+
+**Gotcha:** Berto's real in-progress tasks legitimately hold the top-3 slots, so test seeds only surface once running — that ranking is by design.
+
+---
+
+## 2026-07-15 — Native macOS desktop app (Tauri shell)
+
+**Update (same day):** renamed the app to **Cael** (`productName`, window title). Bundle identifier kept as `com.bertomill.focuspoint` so the WebView data dir (login cookie) survives. Installed as `/Applications/Cael.app`, old Focuspoint.app removed.
+
+**Ask:** Berto wanted a native desktop app so he doesn't have to run Focuspoint through Chrome.
+
+**What was built:** `desktop/` — a Tauri v2 macOS app that loads the production site (`https://cael-agent.vercel.app`) in the system WKWebView. Because it wraps the deployed URL, every `vercel --prod` deploy updates the desktop app automatically; the shell only needs rebuilding to change window/icon/native behavior.
+
+- `desktop/src-tauri/src/main.rs` — window built in `setup()` so `on_navigation` can keep navigation on the app host (plus localhost) and hand external links to the default browser. An init script rewrites `target="_blank"` clicks and `window.open()` into same-window navigations (WKWebView silently drops them otherwise). 1280×860, centered, 400×500 minimum.
+- `desktop/src-tauri/tauri.conf.json` — `build.frontendDist` set to the prod URL (remote-app pattern); bundles `.app` + `.dmg`; identifier `com.bertomill.focuspoint`.
+- Icon: `public/icon.svg` rasterized to `desktop/app-icon.png` (qlmanage, 1024px, alpha intact) → full icon set via `npx tauri icon`.
+- `desktop/README.md` — rebuild instructions (needs Rust toolchain, installed today via rustup minimal profile).
+
+**Decisions (owner chose):** Tauri over Electron/Safari-Add-to-Dock; target production URL rather than localhost.
+
+**Key discovery:** the old prod alias `focuspoint-sigma.vercel.app` is DEAD (DEPLOYMENT_NOT_FOUND) and `focuspoint-*-bertmill19s-projects.vercel.app` URLs sit behind Vercel SSO. The live public domain — confirmed via Chrome history + curl — is **`cael-agent.vercel.app`** (app's own cookie login, no SSO).
+
+**Gotchas hit:** window ignored `inner_size` when `min_inner_size` was chained after it — reordering (min first) + `.center()` fixed it, opens 1280×860 now. Berto couldn't drag the app out of the DMG window; installed by copying the bundle to `/Applications` directly.
+
+**Installed & verified:** `/Applications/Focuspoint.app` launches, loads Tasks with real data, window sized correctly (screenshot-verified). Build output stays untracked (`desktop/src-tauri/target` gitignored).
+
+**Next steps (if wanted):** code-sign/notarize for distribution beyond this Mac; global shortcut or menu-bar quick-add; a prod/localhost toggle in a native menu.
+
+---
+
+## 2026-07-14 — "In progress" task state (right-click → highlight + pin to top)
+
+**Ask:** Berto usually works ~2 tasks at once and wanted to right-click a task, mark it "in progress", and have it highlighted.
+
+**What was built:**
+- `lib/db.ts` — `todos.in_progress BOOLEAN DEFAULT FALSE` (ALTER … IF NOT EXISTS; migration run against the live DB via `npx tsx --env-file=.env.local scripts/migrate.ts`).
+- `app/api/todos/route.ts` — `in_progress` in all SELECTs/RETURNING; ORDER BY puts `in_progress DESC` first (after `completed ASC`), so in-progress tasks sort to the top server-side too.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `in_progress` (COALESCE pattern, booleans work since only null falls through).
+- `app/api/todos/[id]/complete/route.ts` + `agent/tools/complete_todo.ts` — completing a task (either branch, recurring or not) clears `in_progress`.
+- `app/_components/dashboard.tsx` — `in_progress` on the `Todo` interface; "Mark in progress" / "Clear in progress" toggle in the existing task context menu (Play/Pause icons, sits between the priority radio group and Edit); highlight = left accent bar (`border-l-2 border-l-primary`) + `bg-primary/5` tint + an outline "In progress" badge (all suppressed once the task is done/completing); `isInProgressActive()` helper sorts active in-progress tasks to the top of their recurrence section (stable sort, so priority order is preserved below them).
+- `agent/tools/update_todo.ts` — new optional `in_progress` boolean, so Berto can also tell Cael "I'm working on X now".
+
+**Decisions (owner chose):** highlight style = accent bar + tinted row (with badge, per the mock); in-progress tasks pin to the top of the list.
+
+**Verification (Playwright, dev on :3789):** 11 checks all pass — menu item appears, row gets bar/tint/badge, pinned above a sibling (and above an Urgent task, per screenshot), `in_progress` persisted in DB, API sorts it first, Clear reverts UI + DB, completing clears the flag, seeded `zzz-test-*` rows deleted. Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-14 — Global C keyboard shortcut (new chat)
+
+**Ask:** Berto asked for a `C` shortcut that starts a *new* chat.
+
+**What was built:**
+- `app/page.tsx` — added a `c` case to the existing global shortcut handler in `Workspace`: `newThread()` (from `useThreads`) + `setMobileTab("chat")`. Same guards as T/N: ignores Cmd/Ctrl/Alt combos (so Cmd+C copy is untouched) and does nothing while typing in an input/textarea/contenteditable. `newThread` added to the effect deps (it's a stable useCallback).
+
+**Verification (Playwright, dev on :3789):** 9 checks all pass — C from Home opens chat and creates a new thread (confirmed server-side via `/api/threads` count), C again from chat creates another, typing "cool cat" in the composer just types (no navigation, no thread), Cmd+C ignored, T→C from Tasks opens chat with a new thread. The 3 test threads were deleted via `DELETE /api/threads/[id]`, restoring the original count (68). Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Right-click context menu on tasks (set priority / edit / delete)
+
+**Ask:** Berto asked if a task could be made urgent by right-clicking it on the Tasks page. It couldn't — priority was only reachable through the pencil-icon edit form. He chose (via quiz) a full context menu: priority radio group plus Edit and Delete actions.
+
+**What was built:**
+- `components/ui/context-menu.tsx` — new shadcn-style wrapper around the Radix ContextMenu primitive (already available via the installed `radix-ui` umbrella package — no new dependency). Includes Root/Trigger/Content/Item/RadioGroup/RadioItem/Label/Separator, styled to match the existing `dropdown-menu.tsx`.
+- `app/_components/dashboard.tsx` — each non-editing task row is wrapped in a `<ContextMenu>`. Right-click shows: "Priority" label + Low/Normal/High/Urgent radio group (current priority checked; High/Urgent tinted with their priority colors), then Edit… (opens the existing inline edit form) and Delete (destructive styling). New `handleSetPriority()` PATCHes `/api/todos/[id]` with just `{priority}`, optimistic update with rollback on failure. Existing PATCH route already supported partial updates — no API changes.
+
+**Verification (Playwright, real browser):** seeded a test task via the API, right-clicked the row → menu opened with all items; clicked Urgent → title turned red, Urgent badge appeared, header count incremented, and the server confirmed `priority: "urgent"`; reopened the menu → Urgent radio was checked; set back to Normal → persisted; deleted via the menu → task gone server-side. Screenshots captured. Cleaned up the seed task via the menu's own Delete.
+
+**Gotcha discovered:** port 3000 was another project (`~/venice`), not focuspoint — the first verification pass silently ran against the wrong app and got 401s. Started focuspoint on `PORT=3789` instead. Wrote `.claude/skills/verify/SKILL.md` capturing the launch/auth/Playwright recipe so future sessions skip this cold start.
+
+**Typecheck:** PASS ✓
+
 ## 2026-07-12 — Tasks (and other sidebar) nav items now take over the main view on desktop
 
 **What was built:**
@@ -1635,3 +6448,5514 @@ Tasks crossed off today (any recurrence) can now be un-checked, instead of the c
 
 **Typecheck:** PASS ✓
 **Build:** PASS ✓
+
+---
+
+## 2026-07-13 — Add "Measures" page
+
+**What was built:**
+New nav tab for logging point-in-time personal metrics: monthly savings snapshot, monthly spend report, monthly free-time audit, and a daily check-in (energy, sleep quality, body feel, mood — each 1–10).
+
+- `lib/db.ts` — new `measures` table: `category` (text), `recorded_date` (date), `data` (jsonb, category-specific numeric fields), `notes`, `created_at`. One flexible table rather than one per category, since each category just needs a handful of numeric fields plus a date and optional notes.
+- `app/api/measures/route.ts` — `GET` (optional `?category=` filter), `POST` (create).
+- `app/api/measures/[id]/route.ts` — `PATCH`, `DELETE`.
+- `app/_components/dashboard.tsx` — added "Measures" to `NAV_ITEMS`; `MEASURE_CATEGORIES` (4 category badges) and `MEASURE_FIELDS` (per-category field defs: label, optional `$`/`hrs` suffix or 1–10 `max`) drive a single generic form + entry list, so adding a 5th category later is just a data-table edit, no new JSX. Entries list shows all logged fields per entry with a delete action.
+- `app/page.tsx` — added `"measures"` to the `MobileTab` union and a bottom-nav button (mobile) / it flows through the existing sidebar-takeover-on-desktop pattern automatically.
+- Ran `scripts/migrate.ts` against the real Neon DB to create the `measures` table now (it will also auto-create via `instrumentation.ts` → `ensureSchema()` on next server start, but this got it live immediately for testing).
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Desktop nav-rail-plus-content split + mobile bottom bar overflow
+
+**What was built:**
+Two layout requests from screenshots: on desktop, clicking a left nav item was showing that section's content stacked *below* the nav list in the same narrow column instead of beside it; on mobile, the bottom nav bar had 9 crowded items and the desktop nav-rail change was leaking into narrow viewports as a persistent sidebar.
+
+- `app/_components/dashboard.tsx` — when `isExpanded` (a section other than chat is active), the nav + content wrapper is `flex-col` by default and only becomes `lg:flex-row` at the `lg` breakpoint, with the nav rendering as a fixed `lg:w-[220px]` left rail (`border-r`, own scroll) and the selected section's content filling the remaining width to its right. Below `lg`, the nav is `hidden` entirely when expanded — the mobile bottom bar already covers navigation there, so showing both was redundant. The narrow-sidebar case (`!isExpanded`, chat visible) is untouched — nav still stacks above content since there isn't room for two columns in a 380px rail.
+- `app/page.tsx` — mobile bottom bar cut from 9 buttons down to 5: Chat, Tasks, Notes, Ideas, plus a "More" button (`DropdownMenu`, opens upward via `side="top"`) covering Journal, Dreams, Schedule, Media, Measures. Added `MORE_TABS` array driving the dropdown so adding another overflow tab later is a one-line data change.
+
+**Verification:** resized the browser to a phone-width viewport against the running dev server and confirmed: desktop-width still shows the rail-left/content-right split, mobile-width shows only full-width content with no persistent sidebar, and the 5-button bottom bar's "More" dropdown opens and switches tabs correctly. Owner confirmed both look right visually.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Add "Vision" page (statements, long-term goals, vision board) + Cael tools
+
+**What was built:**
+New "Vision" nav tab holding the user's big picture, in three sub-views (badge-switched, same pattern as Measures): written **vision statements** (optional life-area label + body), **long-term goals** grouped by horizon (This year / 5 years / 10 years / Someday, with achieve/un-achieve toggle), and a **vision board** of images (2-col grid, caption overlay, uploads reuse the existing `/api/upload` Vercel Blob route). Cael is vision-aware via four new agent tools.
+
+- `lib/db.ts` — new `vision_items` table: one flexible table with `kind` ('statement' | 'goal' | 'image'), `title`, `content`, `image_url`, `horizon`, `achieved`/`achieved_at`, timestamps. Ran `scripts/migrate.ts` (needs `--env-file=.env.local` with tsx) against Neon to create it live.
+- `app/api/vision/route.ts` — GET (optional `?kind=`), POST with per-kind validation (statement needs content, goal needs title, image needs image_url).
+- `app/api/vision/[id]/route.ts` — PATCH (COALESCE partial update; `achieved: true/false` sets/clears `achieved_at`), DELETE.
+- `app/_components/vision-panel.tsx` — new self-contained panel component (dashboard.tsx is already ~1600 lines, so this follows the JournalTemplatesPanel/ScheduledTasksPanel extraction pattern). Fetches `/api/vision` on mount + 15s poll so Cael's chat-side edits show up. Optimistic updates with revert-on-error throughout.
+- `app/_components/dashboard.tsx` — "Vision" in `NAV_ITEMS` (TelescopeIcon), `DashboardTab` union, renders `<VisionPanel />`.
+- `app/page.tsx` — `"vision"` in `MobileTab`, added to the mobile "More" dropdown, activeTab mapping.
+- `agent/tools/list_vision.ts`, `add_vision_item.ts`, `update_vision_item.ts`, `delete_vision_item.ts` — CRUD tools mirroring the API validation; compact text `toModelOutput`s.
+- `agent/instructions.md` — new Vision bullet: check `list_vision` when conversations touch the big picture; offer to capture uncaptured ambitions; confirm before deleting.
+
+**Decisions:**
+- Owner picked the scope (asked via question): statements + goals + image board + Cael-aware, all four.
+- Horizon buckets are `1yr`/`5yr`/`10yr`/`someday` — a data-table edit in `HORIZONS` (panel) + enum in tools/API if we ever change them.
+- Focuspoint's dev server currently runs on **:3001** (a different project, ~/venice, holds :3000).
+
+**Verification:** full CRUD exercised against the running dev server on :3001 with a real session cookie — create statement/goal, invalid-image 400, achieve → `achieved_at` set, un-achieve + re-horizon → cleared/changed, `?kind=goal` filter, delete both, GET returns []. Test rows cleaned up.
+
+**Concurrent-session note:** another session was concurrently adding `MeasuresOverview` to dashboard.tsx/globals.css; committed only the vision hunks of dashboard.tsx (via `git apply --cached`) and left their uncommitted work in the working tree untouched.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Measures visual dashboard (overview charts)
+
+**What was built:**
+A `MeasuresOverview` section at the top of the Measures tab that turns logged measures into visuals:
+
+- `app/_components/measures-overview.tsx` (new) — savings hero figure + progress meter toward a goal (reads optional `goal` from the latest `savings_snapshot`'s data jsonb; row id 2 updated with `goal: 20000`); monthly spend as stacked horizontal bars (essential/discretionary/unallocated segments, 2px surface gaps, rounded data-end, legend, exact values in tooltips, compact total at bar end); daily check-in and free-time stat tiles with 12-point sparklines (rendered only once entries exist); a nudge line when there are no check-ins yet.
+- `app/globals.css` — added `--chart-essential/discretionary/neutral/track/spark` tokens for light and dark (categorical pair validated with the dataviz palette validator against the app's actual surfaces: light `#2a78d6`/`#1baf7a`, dark `#3987e5`/`#199e70`).
+- `app/_components/dashboard.tsx` — renders `<MeasuresOverview measures={measures} />` above the category picker.
+
+**Decisions:** hand-rolled SVG/div marks instead of adding a chart lib (narrow panel, tiny datasets); entries list below serves as the accessibility table view; chart colors read via CSS vars so dark mode is a token swap, not a repaint.
+
+**Verification:** screenshotted light + dark at 1440px via Playwright against the running dev server on :3001 (logged in with the session cookie) — hero, meter (77% of $20K), stacked Jun/Jul bars, legend, and empty-state nudge all render in both modes.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Merge `worktree-add-lists-feature` (Lists replaces Content Ideas)
+
+**What was done:**
+Merged the Lists feature branch into main at the owner's request ("merge everything and push to main"). The branch predated the Measures/Vision/nav-rail work on main, so `dashboard.tsx` and `page.tsx` conflicted throughout.
+
+**Conflict resolution (take-both):** kept main's structure — Measures + Vision tabs, `DashboardTab` type, expanded-view props (`onTabChange`/`isExpanded`/`onBackToChat`), mobile "More" dropdown — and adopted the branch's Lists feature in place of Content Ideas: `"lists"` in both tab unions and the activeTab mappings, `ListChecksIcon` imports, ContentIdea interface/state/fetch removed (branch had deleted the handlers; auto-merge took those).
+
+**DB migration:** ran `scripts/migrate.ts` — the branch's one-time migration folded `content_ideas` (2 items) into a seeded "Content Ideas" list, seeded "Groceries", and dropped the old table.
+
+**Cleanup note:** stale `.next` type validators referenced the deleted content-ideas routes and failed typecheck; removed `.next` and did a full `npm run build` to regenerate.
+
+**Typecheck:** PASS ✓
+**Build:** PASS ✓
+
+---
+
+## 2026-07-13 — Daily Note rebuilt around Berto's goal hierarchy (DB-only change)
+
+**What was changed:**
+`scheduled_tasks` id 6 (was "Morning Digest", now **"Daily Note"**) — prompt rewritten around Berto's goal chain: ultimate goal (freedom, happiness, health) ← pillars (investments, fitness, relationships) ← daily behaviors (save, improve his service, go above and beyond for others, don't worry about AI news). The AI-news sections (latest_ai_news TOP STORY + ai_reading_list AI READS) were **removed** — they'd contradict the note's own "don't worry about AI news" line. TODAY section (todos + calendar, 1-3 pillar-serving focus items) and the SMS formatting rules kept. Prompt instructs Cael to vary wording daily so it doesn't go stale. No code changed — this is a DB row update; cron/notify/enabled untouched (fires via the daily dispatcher tick).
+
+---
+
+## 2026-07-13 — Vision-first Home screen (new default landing view)
+
+**What was built:**
+The app now opens on a Home screen that leads with Berto's truest vision and fans out into every section.
+
+- `app/_components/home-screen.tsx` (new) — header (Cael avatar + date, tap → chat; ModeToggle), hero: the truest-vision statement pulled live from `/api/vision?kind=statement` (the one whose title contains "freedom", falls back to newest, then to static text; tap → Vision); pillar cards from the remaining statements with keyword-matched icons/targets (investments card embeds the live savings-goal meter from `/api/measures`); the daily-behaviors mantra line (save · improve the service · go above and beyond · skip the AI noise); a Go-to grid of all 10 sections with a live open-task count on Tasks.
+- `app/page.tsx` — `"home"` added to `MobileTab` and made the **default** view; the dashboard aside hides entirely on home; `<HomeScreen onNavigate={setMobileTab}>` renders full-bleed; Home button added first in the mobile bottom nav (6 items now).
+- `app/_components/dashboard.tsx` — "Home" added at the top of the desktop nav rail (`NAV_ITEMS` + `DashboardTab`), so every expanded section view can navigate home.
+- Seeded vision_items id 6: statement "Freedom, Happiness, Health" (the hero). Berto's three existing statements map to the pillars: $1M investments by 2030 (+ live meter), mood/body 9/10, loved ones weekly.
+
+**Decisions (owner chose via questions):** Home is the default landing view (not chat); vision content is pulled live from the Vision page rather than hardcoded, so editing Vision (or telling Cael) updates Home.
+
+**Verification:** Playwright screenshots against a dev server on :3001 — desktop light (1440px) and mobile dark (390px): hero, pillars with savings meter ($15,345 of $20K), mantra, Go-to grid with task badge, and the new Home nav slot all render. Server killed by PID after.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Home screen keyboard shortcuts (1–9, 0)
+
+**What was built:**
+Digit hotkeys on the Home screen: keys 1–9 and 0 jump to the ten sections in grid order (1 Chat, 2 Tasks, 3 Notes, 4 Lists, 5 Journal, 6 Dreams, 7 Schedule, 8 Media, 9 Measures, 0 Vision). Digits over letter mnemonics because Media/Measures collide on "M" and the numbered grid is self-documenting.
+
+- `app/_components/home-screen.tsx` — `hotkey` on each `SECTIONS` entry; a window keydown listener (active only while Home is mounted; ignores modifier combos and input/textarea/contenteditable targets); a small `<kbd>` badge on each Go-to card, hidden on mobile (`hidden sm:inline-flex`).
+
+**Verification:** Playwright against dev on :3001 — hints render on all ten cards; pressing "9" navigated to Measures (asserted "Monthly spend" visible). Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Daily rotating artwork on the Home screen
+
+**What was built:**
+A full-width art banner at the top of Home (between header and the vision hero) celebrating "what it's all for" — nature, places, restaurants, people laughing, dancing, sports. One image per day, rotating deterministically by day-of-year.
+
+- `app/_components/home-screen.tsx` — `DAILY_ART`: 15 curated Unsplash photos (each downloaded and visually verified before inclusion — mountains above clouds, ocean morning, starry peak, Lago di Braies, rowboat bow, two restaurant scenes, friends seaside + golden-hour hilltop, dancer, confetti concert, cycling peloton, track start, butterfly swimmer, dock at Königssee), each with a short caption; `dayOfYear % 15` picks the day's image; rounded-2xl banner (h-44/sm:h-60, object-cover) with a bottom gradient + caption; `onError` hides the banner gracefully if the image ever 404s offline.
+
+**Decisions:** hotlinked Unsplash CDN URLs (per their guidelines) rather than bundling ~15 images into the repo; plain `<img>` (not next/image) to avoid remote-domain config, matching the Media tab's pattern.
+
+**Verification:** all 16 candidate URLs curl-checked (200s), every image opened and eyeballed (one dropped for vibe), then Playwright screenshots desktop-light + mobile-dark showing the banner, caption, and layout intact.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-13 — Global T / N keyboard shortcuts (Tasks + new task)
+
+**What was built:**
+App-wide keyboard shortcuts: **T** opens the Tasks view from anywhere; **N** opens Tasks *and* focuses the "Add a task…" input so you can type immediately. Unlike the Home digit hotkeys (which only work while Home is mounted), these are global — wired in `Workspace` so they work from chat, Notes, or any other view. Both are suppressed while typing (input/textarea/contenteditable guard, same as the digit hotkeys) and ignore modifier combos (Cmd/Ctrl/Alt), so Cmd+T/browser shortcuts are untouched.
+
+- `app/page.tsx` — window keydown listener in `Workspace`: `t` → `setMobileTab("tasks")`; `n` → same + bump a `focusNewTaskSignal` counter passed into `<Dashboard>`.
+- `app/_components/dashboard.tsx` — new `focusNewTaskSignal` prop; `newTodoRef` on the new-task `Input`; an effect focuses it when the signal changes *and* `activeTab === "todos"` (the activeTab dependency handles the one-render lag when navigating from another view), with a handled-signal ref so it never re-fires on later tab switches.
+
+**Decisions:** global rather than Home-only — Tasks already has "2" on Home, so a Home-only T would be redundant; digit hotkeys left untouched (still Home-only, "2" still works).
+
+**Verification:** Playwright against dev on :3001 (session cookie) — 11 checks all pass: T from Home/Notes opens Tasks (without stealing focus), N opens Tasks with input focused and typed text (incl. t/n chars) lands in the input, N while typing just types "n", Ctrl+T ignored, digit "2" regression ok, typing "thinking now" in the chat composer doesn't navigate. No test rows created. Server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-18 — Key lesson added to Cael's knowledge framework (Money)
+
+**What was changed:**
+`agent/instructions.md` — new **"Key lessons"** subsection under "The 8 forms of wealth": hard-won principles Berto has adopted, treated as canon and woven into guidance proactively. First entry (Money): **difference and retention of total control are core to success in money creation** — be different (don't compete on sameness) and own the outcomes (keep ownership/control of the work, assets, and upside). Cael is told to test ventures/deals/career moves against two questions: is it genuinely different, and does he keep control of the outcome?
+
+**Decisions:** placed in instructions.md rather than the DB Money vision statement — vision statements are Berto's own written visions; principles/lessons belong in Cael's instructions. Section is structured as a list so future lessons slot in per form.
+
+**Typecheck:** not applicable (markdown-only change).
+
+---
+
+## 2026-07-26 — Home screen: dropped the standalone Vision/Methods list section
+
+**What was changed:** `app/_components/home-screen.tsx` — removed the "Vision" and "Methods" list section that used to render below the 8-forms-of-wealth grid (a heading + list of all 8 forms with their vision/method text, each linking to the Vision tab). This was made redundant by an in-progress change (already uncommitted going into this session) that moved vision/method text inline into each wealth-form card via an expand/collapse "eye" button. Also dropped the now-unused `Skeleton` import.
+
+**Decisions:** kept the "Vision" entry in the `Go to` section and `SECTIONS`/hotkey list untouched — the dedicated Vision tab still exists for editing; only the redundant duplicate list on Home was removed.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Home screen: added a "2030" overall vision above the 8 forms
+
+**What was built:** `app/_components/home-screen.tsx` — a `VISION_2030` constant (hardcoded, in Berto's words) rendered as a card directly above the 8-forms-of-wealth grid: "Insane aura, extremely kind, calm and happy. A world championship competitor in Hyrox. On a team building the absolute best AI products in the world. Seeing my family every month — they feel good, they feel secure. My team feels secure."
+
+**Decisions:** hardcoded like `WEALTH_FORMS` rather than stored in `vision_items` — it's a single one-off north-star statement, not per-form content that needs editing through the Vision tab flow.
+
+**Verified:** Playwright screenshots (1440×900 desktop, 390×844 mobile) against a scratch dev server on :3789 — card renders cleanly above the grid on both breakpoints; dev server killed by specific PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Home screen: rewrote the "2030" vision text
+
+**What changed:** `app/_components/home-screen.tsx` — `VISION_2030` rewritten per Berto's updated wording: "Incredible health, fitness, energy, grit. Tight relationships with family and friends and people I do business with. My craft is incredibly good — I'm building AI products so good it's jaw-dropping, one of the best in the world, people tangibly feel it. I'm making a ton of money, millions per year. I'm travelling and enjoying the world." Replaces the prior Hyrox/aura draft.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-26 — Fix: texts to Cael stopped getting replies (silent `input.requested` pause)
+
+**Ask:** Berto asked why his texts weren't working. Investigated via the Twilio REST API (Messages + Alerts) since the Vercel project lives under an SSO-gated scope the CLI can't reach: inbound SMS arrived fine and Twilio logged clean 200s from the webhook, but no outbound reply had gone out since **2026-07-18 ~14:24 UTC** — including a text sent the morning of this session, over a week later.
+
+**Root cause:** `agent/channels/twilio.ts` only wired `message.completed` / `turn.failed` / `session.failed` handlers. eve's twilio channel has no default renderer for the `input.requested` event — the event fired when a tool needs approval (`add_calendar_event` is gated with `approval: once()`) or when the model calls the built-in `ask_question` tool. Some point in the 2026-07-18 SMS conversation triggered one of those, the session parked at `session.waiting`, and — per eve's docs — every subsequent message to that session just gets silently held pending an answer nobody knew to give, since nothing ever texted the prompt. No error, no approval request visible, nothing — matching the symptom exactly.
+
+**Fix:** `agent/channels/twilio.ts` — added an `events["input.requested"]` handler that formats each pending request's `prompt` plus its `options` (or an "reply to answer" hint for freeform questions) and sends it as a plain-text SMS via `channel.twilio.sendMessage(...)`.
+
+**Immediate unstick:** told Berto to text the literal word "approve" (or "deny") to the Cael number — eve resolves a follow-up matching an approval option automatically even without ever having rendered the original prompt, per its resume protocol (a message matching an option ID/label/index answers a pending request regardless of channel).
+
+**Files changed:** `agent/channels/twilio.ts`
+
+**Typecheck:** PASS ✓ · **Build:** PASS ✓
+
+---
+
+## 2026-07-28 — New "Sketches" section: canvas drawing tool with DB-backed gallery
+
+**Ask:** Berto wanted a new app section called "Sketches" — a canvas drawing tool. Chose via quiz: save to DB with a gallery (over ephemeral/localStorage), and the "simple kit" toolset.
+
+**What was built:**
+- `lib/db.ts` — new `sketches` table (id, title, image_data TEXT [PNG data URL], created_at, updated_at). Migrated the live DB via `scripts/migrate.ts`; `instrumentation.ts` also creates it on boot.
+- `app/api/sketches/route.ts` — GET (all, newest-updated first) + POST (title + image_data, validated as a `data:image/` URL).
+- `app/api/sketches/[id]/route.ts` — PATCH (title and/or image_data via COALESCE, bumps updated_at) + DELETE.
+- `app/_components/sketches-panel.tsx` — the drawing surface. Fixed 1200×900 logical canvas scaled by CSS (pointer coords mapped back), white "paper" background so exports read in dark mode. Tools: 6 pen colors, S/M/L stroke sizes, eraser (2.5× wide white pen), undo (ImageData snapshot stack, cap 30), clear, save-with-title. Pointer events + `touch-none` so mouse/touch/stylus all work. Gallery grid below: thumbnail, title, date, download-PNG, delete (AlertDialog confirm). Clicking a thumbnail loads it into the canvas for editing — Save becomes Update (PATCH, no duplicate row).
+- Wiring: `dashboard.tsx` (NAV_ITEMS + DashboardTab + render block), `page.tsx` (MobileTab, MORE_TABS so mobile reaches it via More menu, activeTab mapping), `home-screen.tsx` (HomeTarget + SECTIONS "Go to" entry with hotkey **s** — digits 1–0 were all taken).
+
+**Verified:** Playwright against a scratch dev server on :3789 — 10/10 checks pass: home entry + `s` hotkey, drawing, undo enablement, save persists via API (PNG data URL), gallery render, edit mode + update persists without duplicating, mobile More→Sketches renders, test sketch deleted (no data left behind). A separate pixel test confirmed strokes are gap-free along the drawn row (the dashed look in one screenshot was Playwright's coarse 30px mouse steps, not a code bug). Dev server killed by specific PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-28 — Sketches: shapes (rect/ellipse/line/arrow) + text tool
+
+**Ask:** Berto wanted shapes and text on the Sketches canvas. Chose via quiz: all four shapes (rectangle, ellipse, line, arrow), outline-only (no fill).
+
+**What was built** (`app/_components/sketches-panel.tsx`):
+- Replaced the `erasing` boolean with a `tool` state (`pen | eraser | rect | ellipse | line | arrow | text`) and an icon toolbar row ahead of the color swatches.
+- Shapes rubber-band while dragging: pointerdown snapshots the canvas (same ImageData pushed for undo), each move restores it and redraws start→cursor, so previews don't stack. Arrow = line + two 30° head strokes (head length `max(14, size*3.5)`).
+- Text tool: click places a floating input overlaid at the click point (styled with the current color and an S/M/L-mapped font size: 28/48/80 logical px); Enter or blur commits via `ctx.fillText`, Escape cancels, clicking elsewhere commits then opens a new box. Committed text is one undo step.
+- Picking a color while on eraser hops back to pen.
+
+**Bug found & fixed during verification:** the floating text input would sometimes mount and instantly vanish — the browser's default mousedown action moved focus to the unfocusable canvas right after the effect focused the input, and `onBlur={commitText}` closed the empty box. Fix: `e.preventDefault()` on the text-tool pointerdown (suppresses the compat mousedown focus steal). Timing-dependent, so it looked flaky under Playwright but was a real product bug.
+
+**Verified:** 13/13 Playwright checks against the already-running dev server on :3001 — per-shape pixel assertions (edges inked, interiors empty, arrowhead present, no preview ghosts), text commit/cancel/undo. Side effect cleaned up: two earlier failing runs leaked keystrokes ("t" tab-nav, "c" chat modal) and sent three junk "h" chats to Cael — those threads were deleted via the API. No sketches or todos left behind.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-28 — Sketches: line-weight slider + pinch/scroll zoom
+
+**Ask:** Berto wanted adjustable line weight and pinch-zoom in/out of the canvas. Chose via quiz: slider replacing S/M/L (1–30px), and full zoom support (pinch + trackpad + toolbar buttons).
+
+**What was built** (`app/_components/sketches-panel.tsx`):
+- **Line weight**: native `<input type="range">` (1–30px, live "Npx" label) replaces the S/M/L buttons; eraser stays 2.5× the pen width; text font maps as `clamp(20, size*6, 180)` logical px.
+- **Zoom/pan**: canvas now sits absolutely in an `overflow-hidden` 4:3 viewport div and zooms via CSS `translate+scale` (origin 0 0), 1×–8×, pan clamped to bounds. Pointer→logical-coordinate mapping needed no changes because it reads `getBoundingClientRect()`, which reflects the transform.
+- **Gestures**: two-finger pinch (active-pointer map; zoom anchored at the gesture midpoint, midpoint drift = two-finger pan). A second finger landing mid-stroke pops the undo snapshot to erase the accidental mark before the gesture takes over. Trackpad/ctrl+wheel zooms at the cursor (native non-passive `wheel` listener — React's synthetic one can't `preventDefault`); plain scroll pans when zoomed in. Toolbar +/− buttons and a % button that resets to 100%. Zoom resets on save/clear/load-for-edit.
+- Robustness: `setPointerCapture` wrapped in try/catch (throws for already-released/synthetic pointers, which killed the whole handler).
+
+**Verified:** 12/12 new Playwright checks on :3001 (slider thickness measured at ~21px logical for a 20px setting, zoom button scaling, drawing-while-zoomed coordinate mapping, wheel pan, ctrl+wheel zoom, reset, synthetic two-finger pinch → 4.75×, pinch-cancel of partial strokes) + 13/13 shapes/text regression suite. Toolbar renders in one row on desktop.
+
+**Also:** documented the keystroke-leak hazard in `.claude/skills/verify/SKILL.md` (leaked test keystrokes hit global hotkeys and can send junk chats to Cael / create todos).
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-07-29 — Tasks: "waiting" status (waiting on someone/something)
+
+**Ask:** Berto wanted "waiting" as an option on the todo list. Chose via quiz: amber badge sorted right after in-progress (visible so he chases things up), and Cael's tools learn it too.
+
+**What was built:**
+- `lib/db.ts` — `todos.waiting BOOLEAN NOT NULL DEFAULT FALSE` (migrated live).
+- `app/api/todos/route.ts` — `waiting` in all SELECT/RETURNING lists; ORDER BY slots `waiting DESC` right after `in_progress DESC`.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `waiting`; in_progress and waiting are mutually exclusive (setting either clears the other, in_progress wins if both sent).
+- `app/_components/dashboard.tsx` — context-menu item "Mark waiting"/"Clear waiting" (hourglass icon) under "Mark in progress"; waiting rows get an amber left border + tint + "Waiting" hourglass badge (in-progress styling wins when both somehow set); section sort is in-progress → waiting → rest; optimistic toggles mirror the mutual exclusion.
+- `agent/tools/update_todo.ts` — `waiting` in the schema (described as "blocked waiting on someone or something") with the same exclusivity; `list_todos` already returns it via `SELECT *`, so Cael can see and set it from chat/SMS.
+
+**Verified:** 12/12 Playwright checks on :3001 — seed via API, mark waiting via context menu (badge + API persistence), in-progress clears waiting and vice versa (both directions), clear waiting, seeded todo deleted in a `finally` block even on failure. Close-up screenshot confirms the amber treatment. Test gotcha: seed todos BEFORE `page.goto` — the dashboard fetches on mount, so a post-load seed races the fetch and may not render.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-08-02 — Tasks: dailies pinned to the top instead of their own section
+
+**Ask:** Berto didn't want a separate DAILY section — daily recurring tasks should ride at the top of the regular task list and keep coming back each day until they're actually done. Chose via quiz: drop the section entirely (no duplication), and dailies stay visible until completed rather than being gated on due_date.
+
+**What was built** (`app/_components/dashboard.tsx`):
+- `TODO_SECTIONS` no longer has a `daily` entry; the `none` section is relabelled **"Tasks"** and its filter now takes `none` + `daily`.
+- Section sort gains a leading `isDaily` key (new helper next to `isInProgressActive`/`isWaitingActive`), so dailies pin above one-off tasks; in-progress/waiting ordering is preserved within each group.
+- `visibleTodos` dropped the `isToday(t.due_date)` gate for dailies — an unfinished daily carries over and stays on the list every day. Safe because `/api/todos/[id]/complete` never sets `completed = TRUE` for recurring rows; it just rolls `due_date` forward, so a done-today daily still renders struck-through and disappears at midnight.
+- Daily rows show a repeat-icon "Daily" line instead of a due date (the date is just tomorrow-bookkeeping and read as noise).
+- Weekly/Monthly sections and the Scheduled Tasks tab's "Recurring Tasks" list are unchanged.
+
+**Verified:** 9/9 Playwright checks on a dedicated dev server (:3789) — no DAILY header, WEEKLY header intact, a daily seeded with yesterday's due date still listed, dailies sorting above the one-off seed, "Daily" marker present, completing a daily rolls due_date to tomorrow without setting `completed`, stays struck-through today, and is still listed after a reload. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-08-04 — Tasks: pick a priority when adding a task
+
+**Ask:** Berto wanted the option to set priority at add-time instead of having to add the task first and then set priority from the context menu.
+
+**What was built** (`app/_components/dashboard.tsx`):
+- New `newTodoPriority` state (defaults to `"normal"`), and a Low/Normal/High/Urgent badge row that appears above the existing recurrence row once the input has text — same badge pattern as the inline edit form, with the flag icon as its leading marker and the urgent/high tints on unselected badges.
+- `handleAddTodo` sends `priority` in the POST body and resets the picker to `"normal"` after a successful add; the error path now restores title, recurrence *and* priority (previously recurrence was silently dropped on failure).
+
+No API or schema changes needed — `POST /api/todos` already accepted `priority` (defaulting to `"normal"`) and the column has existed since the original schema. The UI was simply never passing it.
+
+**Verified:** 14/14 Playwright checks on a dedicated dev server (:3789) — all four badges render, recurrence row unaffected, urgent selection persists to the DB, the new row renders its Urgent badge, picker resets to Normal after add, no-click default is `normal`, selection moves between badges, row hides when the input is emptied. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-08-04 — Tasks: manual queue numbers ("do this next" order)
+
+**Ask:** Berto can't do tasks in parallel — he wanted an easy way to put a number on each task so the list itself tells him what to do next, one at a time.
+
+**Decisions (asked Berto):**
+- Input: click a small number badge on the row, type the number, Enter. No drag-and-drop (fiddly at 49 tasks, unreliable on mobile). Numbers can be sparse — assign #5 without numbering 1–4.
+- Sort: numbered tasks float to the very top in ascending order, ahead of dailies/in-progress/urgent. Unnumbered tasks keep the existing sort (daily pin → in progress → waiting → priority → oldest first).
+- Numbers behave as *slots*: giving #3 to a task clears #3 off whoever held it (enforced both optimistically in the client and server-side in the PATCH).
+
+**Files changed:**
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER` (nullable; NULL = unnumbered).
+- `app/api/todos/route.ts`, `app/api/todos/[id]/route.ts`, `app/api/todos/[id]/timer/route.ts` — `task_number` added to every SELECT/RETURNING list.
+- `app/api/todos/[id]/route.ts` — PATCH accepts `task_number`, keyed on property *presence* (so `null`/`""` clears it) via `CASE WHEN ${hasTaskNumber}::boolean …`; clears the same number off other incomplete todos first.
+- `app/api/todos/[id]/complete/route.ts` — completing a task releases its slot (`task_number = NULL`).
+- `app/_components/dashboard.tsx` — `task_number` on the `Todo` interface; `queueRank`/`compareQueue` helpers (the compare guards against `Infinity - Infinity` → NaN); sort now leads with `compareQueue`; new `numberingTodoId` state + `cancelNumberRef` (Escape discards, Enter/blur saves); `handleSetTaskNumber` with optimistic update + rollback toast; a 24px badge left of the checkbox showing the number (primary tint) or a faint `#` on hover when unset, which swaps to a spinner-less number input in place.
+
+**Verified:** Playwright on a dedicated dev server (:3789) — set #1 and #2, both rows jumped to the top of the list in order; reassigning #1 to another task stripped it from the previous holder (server-side check: `gamma=null, beta=1`); clearing via an empty input persisted as `null`. Seeds deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `task_number` yet — Cael can't number tasks by voice/chat.
+
+---
+
+## 2026-08-05 — Tasks: estimated time + live countdown while timing
+
+**Ask:** Berto wanted to set an estimated time on a task when adding it, then have the existing timer count down against that estimate instead of just counting up.
+
+**Decisions (asked Berto):**
+- Input: preset chips (None/15m/30m/1h/2h) on the add form and edit form, same pattern as the priority/recurrence badge rows — no free-text entry.
+- Countdown: replaces the existing orange "Timing" badge in place (rather than adding a second element) — ticks down live as "18:32 left", flips to a red "+2:14 over" once it passes the estimate. Tasks with no estimate keep the old static "Timing" badge.
+
+**Files changed:**
+- `lib/db.ts` — `ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER` (nullable; NULL = no estimate).
+- `app/api/todos/route.ts` — `estimated_minutes` in GET's SELECT lists and POST's INSERT/RETURNING (validated to a positive integer or `null`).
+- `app/api/todos/[id]/route.ts` — PATCH accepts `estimated_minutes`, keyed on property *presence* like `task_number` (so `null`/`""` clears it) via `CASE WHEN ${hasEstimatedMinutes}::boolean …`.
+- `app/api/todos/[id]/timer/route.ts` — `estimated_minutes` added to both RETURNING lists.
+- `app/_components/dashboard.tsx` — `estimated_minutes` on the `Todo` interface; `ESTIMATE_OPTIONS` (0/15/30/60/120) + `formatEstimateLabel`/`formatCountdown` helpers; `newTodoEstimatedMinutes`/`editTodoEstimatedMinutes` state wired into `handleAddTodo`/`saveEditTodo` and their chip rows on the add and edit forms; a `nowTick` state ticking every second via `setInterval` (only while some task's `timer_started_at` is set, so it's not running idle) drives the countdown badge's live remaining/over-time text and red styling.
+
+**Verified:** Playwright + direct API checks on a dedicated dev server (:3789) — estimate chips render once the add-form input has text, "None" is the default, adding with 30m persists `estimated_minutes: 30`; starting the timer shows a live "…left" countdown within ~1s; editing the estimate to 1h persists `estimated_minutes: 60`; stopping the timer banks `time_spent_seconds` and clears `timer_started_at`. Seed task deleted; server killed by PID.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** agent tools (`add_todo`/`update_todo`) don't know about `estimated_minutes` yet.
+
+---
+
+## 2026-08-07 — Tasks: mandatory estimate on create + log worked time to Google Calendar
+
+**Ask:** Berto wanted (1) the estimated-time field to be required when creating a task (no more skipping it), and (2) time spent on a task (from the existing start/stop timer) to retroactively show up as an event on his `rmill@aucctus.com` Google Calendar, so he can see where his time actually goes.
+
+**Decisions:**
+- Enforced "required" at both layers: the add-task UI blocks submit and shows a red "Required" hint + toast if no estimate chip is picked (the "None" option is simply not offered on the create form — `CREATE_ESTIMATE_OPTIONS` excludes it), and `POST /api/todos` independently 400s with `estimated_minutes required` if it's missing/non-positive. The edit form and agent's `update_todo` tool are untouched — estimate stays optional when editing an existing task.
+- `agent/tools/add_todo.ts` now requires `estimated_minutes` too (was previously not wired to the column at all), so Cael can't create a task via chat without one either.
+- Calendar logging hooks into the existing timer start/stop endpoint (`/api/todos/[id]/timer`) rather than a new mechanism — every timer stop (explicit stop, or the implicit stop-and-bank that happens when starting a different task's timer) posts an event to the connected Google account's primary calendar (`gcalFetch("/calendars/primary/events")`, same helper the Calendar tab already uses) spanning `timer_started_at` → now, titled with the task's title. Skips logging anything under 60s (avoids spamming the calendar with accidental start/stop blips) and is best-effort — a Google API failure is caught and logged, never blocks the timer stop response.
+
+**Files changed:**
+- `app/api/todos/route.ts` — POST now rejects (400) when `estimated_minutes` is missing or ≤ 0, instead of silently defaulting to `null`.
+- `agent/tools/add_todo.ts` — added required `estimated_minutes` to the input schema and the INSERT/RETURNING.
+- `app/_components/dashboard.tsx` — new `CREATE_ESTIMATE_OPTIONS` (drops the "None" chip for the create form only); `handleAddTodo` blocks and toasts if no estimate is chosen; estimate chip row on the add form turns red with a "Required" label until one is picked.
+- `app/api/todos/[id]/timer/route.ts` — new `logTimeToCalendar()` helper (best-effort, <60s skipped); both the "stop" branch and the "start" branch's implicit bump-other-timers query now capture the prior `timer_started_at` and title (via `RETURNING`/a preceding `SELECT`) and log the worked interval to the primary Google Calendar.
+
+**Verified:** Playwright + direct API checks on a dedicated dev server (:3789) — create form blocks submit and shows the toast with no estimate selected, succeeds once a chip (30m) is picked and persists `estimated_minutes: 30`; `POST /api/todos` without `estimated_minutes` returns 400 with the expected error body; timer start→stop within a few seconds returns 200 with `time_spent_seconds` banked and no errors in the dev log (calendar call correctly skipped under the 60s threshold — didn't want to write a real test event to Berto's live calendar just to verify wiring). Seeds deleted; server killed by PID. Assumes the already-connected Google account (used by the existing Calendar tab) is `rmill@aucctus.com` — didn't re-verify this since it wasn't queryable without touching the DB directly.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Haven't done a live end-to-end check that a >60s timer run actually creates a real Google Calendar event (only verified the code path is wired and errors are swallowed safely) — worth Berto confirming on his next real timed task.
+
+---
+
+## 2026-08-09 — 8 forms of wealth: per-form goals + full-screen celebration (Growth first)
+
+**Ask:** Berto wants each of the 8 wealth-form cards to have a goal, starting with Growth at 10,000 pages, with a big celebration when he hits it — then move on to the next form's goal one at a time.
+
+**Decisions (asked Berto):**
+- Goal storage: reuse the existing `vision_items` table's `kind="goal"` row type (same table Money's vision/method cards already use) rather than a new column/table — `title` = the form label (e.g. "Growth"), `content` = the numeric target as a string, and the already-existing `achieved`/`achieved_at` columns double as the one-time-celebration flag. This means adding a goal for the next form later is just a DB insert (one `POST /api/vision`), no code change needed.
+- Celebration: one-time full-screen confetti + modal, not a replay-every-visit or quiet-badge version. Confetti is hand-rolled CSS (no new dependency) via a `.confetti-piece` keyframe in `globals.css`.
+
+**Files changed:**
+- `app/_components/goal-celebration.tsx` (new) — `GoalCelebration` component: full-screen modal (styled like the existing chat modal) with ~90 randomly-placed/colored/timed confetti pieces falling via CSS animation, a "🎉 {form} goal reached — You hit {target}!" message, and a dismiss button (click backdrop, Escape, or the button).
+- `app/globals.css` — `confetti-fall` keyframe + `.confetti-piece` base class.
+- `app/_components/home-screen.tsx`:
+  - Fetches `vision_items?kind=goal` alongside the existing statement/method/routine fetches; builds a `formGoals` map (`{ [formLabel]: { id, target, achieved } }`), keeping only the newest goal row per form.
+  - Split the old `wealthSparklines` memo into `wealthSeries` (raw per-form point series, form data only) → `wealthSparklines` (bucketed by the Month/Year/Decade toggle, unchanged behavior) and a new `wealthTotals` memo (all-time total per form, independent of the granularity toggle — this is what a goal progress bar needs, not a bucketed window).
+  - New effect: for any form with an unachieved goal whose `wealthTotals` total has crossed `target`, pushes it onto a `celebrationQueue`, optimistically flips `formGoals[key].achieved` to `true` (so it can't refire), and `PATCH`es `/api/vision/{id}` with `achieved: true` (persists the one-time flag server-side, sets `achieved_at`).
+  - Card grid: added a generic goal progress bar (bar + "`{total} / {target} {unit}`" caption, 🎉 prefix once achieved) for any non-Money form that has a goal row — Money keeps its pre-existing goal bar (sourced from `measures`, untouched).
+  - Renders `<GoalCelebration>` for `celebrationQueue[0]` when present; closing pops the queue (so multiple simultaneous goal-hits, if that ever happens, celebrate one at a time).
+- Seeded Growth's goal directly in the DB (`vision_items`: `kind=goal, title=Growth, content=10000`) via a one-off script — id 28.
+
+**Verified:** Playwright against the already-running dev server on :3000 (didn't kill it — it's a concurrent session's server per usual multi-session convention) — Growth card renders "4,800 / 10,000 pages" with a partial progress bar; temporarily PATCHed the goal target down to 100 to confirm the full-screen confetti celebration fires with the correct "Growth goal reached — You hit 100 pages!" copy and persists `achieved: true` server-side; then restored the real target (10000) and reset `achieved: false` so Growth's actual 10K crossing celebrates for real later. Reloaded after restoring — confirmed no false celebration and the progress bar reads correctly.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Only Growth has a goal row so far — Wellness/Family/Craft/Money(custom)/Community/Adventure/Service still need their targets picked with Berto, one at a time, then a `POST /api/vision` insert each (same mechanism, no code change required). Note: `lib/chart-buckets.ts` and `app/_components/sparkline.tsx` had uncommitted changes from a concurrent session at the time of this work (bucket-window and sparkline-caption changes) — left untouched/uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Wealth-form charts: month/year/decade-over-decade trends; Family memories feature
+
+**Ask (two follow-ups from Berto in one session):**
+1. The Month/Year/Decade toggle on the 8-forms-of-wealth grid was drilling *into* one period (days of the current month, months of the current year, years of the current decade) instead of comparing *across* periods. Berto wanted Month to show month-to-month, Year to show year-over-year, Decade to show decade-over-decade — and each series to read as a cumulative running total, not a per-period bump.
+2. Family's tracking signal (previously a proxy: count of `thoughts` tagged "family") should become real: memories are photos Berto uploads with a title + description, and the Family goal is 100 memories.
+
+**Part 1 — chart bucketing (`lib/chart-buckets.ts`):**
+- `bucketDefs` rewritten so `month` = trailing 12 months (one bucket per month), `year` = trailing 10 years (one bucket per year), `decade` = trailing 6 decades labeled "1980s" etc (one bucket per decade) — each granularity now compares across that unit instead of drilling into it.
+- `bucketAggregate`'s `"sum"` mode now accumulates a running total across buckets (was: each bucket independently summed its own window) so pages/notes/memories read as a rising cumulative line, matching Money's always-rising `"last"` mode. `sparkline.tsx`'s caption simplified to just the final bucket's value for both modes.
+- Note: a concurrent session was mid-flight adding a goal reference-line to `sparkline.tsx` (dashed line + `goal`/`goalAchieved` props) while this work landed — that file's diff was left uncommitted for that session to commit as a whole; the cumulative-caption fix is folded into their version.
+
+**Part 2 — Family memories (photo + title + description, goal 100):**
+- **Decisions (asked Berto):** memories addable from three places — Cael chat, the Family dashboard widget (quick-add), and a new dedicated `/family` page in the sidebar.
+- New `memories` table (`lib/db.ts`): `id, title, description, image_url NOT NULL, created_at`.
+- New `app/api/memories/route.ts` (GET list / POST create) and `app/api/memories/[id]/route.ts` (DELETE), modeled on the existing `vision_items` routes.
+- New `agent/tools/add_family_memory.ts` — Cael can log a memory given an `image_url` (the established convention: user uploads via `/api/upload`, gets a URL, tells Cael about it in chat text; the tool just persists the URL + optional title/description), same pattern as `post_linkedin`/`add_vision_item`.
+- New `app/_components/family-panel.tsx` — full memories grid + drag-drop/click upload with title+description fields, modeled on `vision-panel.tsx`'s board section; wired into `dashboard.tsx` as a new `"family"` tab and a new `/family` route (`app/(app)/family/page.tsx`, empty stub per the existing per-section-route pattern) reachable from both the desktop nav rail and the mobile "More" menu (`app/(app)/layout.tsx`).
+- `home-screen.tsx`: Family's `WEALTH_FORMS` target changed from `"vision"` to `"family"`; `wealthSeries.family` now sources from real `/api/memories` data (cumulative count) instead of tagged-thoughts proxy, unit `"memories"`; added a compact quick-add (title input + photo button) inside the expanded Family card, reusing the same upload → `/api/memories` POST flow.
+- Seeded Family's goal via a one-off DB script (`vision_items`: `kind=goal, title=Family, content=100`) — id 29, using the existing generic goal/progress-bar/celebration mechanism from the prior Growth-goal work (no code change needed for the goal itself).
+
+**Verified:** Playwright + curl against the already-running dev server on :3000 (concurrent session's — not killed). `/api/memories` GET/POST/DELETE round-trip confirmed server-side; `/family` page renders the upload UI and empty state; clicking the Family card from Home navigates to `/family`; expanded Family card shows Vision/Methods text plus the new "Add a memory" quick-add row; seeded a test memory and confirmed the Family sparkline switches from "No data yet" to a cumulative chart with goal reference line and "1 memories / 100 memories" caption (pluralization matches the app's existing static-unit-suffix convention, e.g. "4,800 pages"); deleted all test rows afterward. Typecheck clean.
+
+**Files changed:** `lib/chart-buckets.ts`, `lib/db.ts`, `app/api/memories/route.ts` (new), `app/api/memories/[id]/route.ts` (new), `agent/tools/add_family_memory.ts` (new), `app/_components/family-panel.tsx` (new), `app/(app)/family/page.tsx` (new), `app/(app)/layout.tsx`, `app/_components/dashboard.tsx`, `app/_components/home-screen.tsx`. `app/_components/sparkline.tsx` left uncommitted (concurrent session's goal reference-line work in progress).
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Craft/Money(custom)/Community/Adventure/Service still need goal targets picked with Berto. Family currently only counts memories added after this feature shipped (0 to start) — no historical backfill was requested or done.
+
+---
+
+## 2026-08-09 — Wealth-form goals: reference line on the chart instead of a separate progress bar
+
+**Ask:** Berto wanted the goal shown as a bar/line on the sparkline chart itself, not the standalone filled progress-bar element added earlier today.
+
+**Decisions:** Replaced the two hand-built filled-bar elements (Money's measures-sourced one, and the generic vision-goal one) with a single mechanism inside `Sparkline`: an optional `goal` prop renders as a dashed horizontal Recharts `ReferenceLine` at the target value, and the chart's Y-domain is padded 15% above `max(data, goal)` (via an explicit hidden `YAxis`) so the line/peak is never clipped. The caption line under the chart now reads `"{current} {unit} / {target} {unit}"` (🎉-prefixed once achieved) instead of a separate line of text below a bar.
+
+**Files changed:**
+- `app/_components/sparkline.tsx` — `Sparkline` takes new optional `goal`/`goalAchieved` props; renders `<YAxis hide domain={[0, domainMax]}>` and `<ReferenceLine y={goal} strokeDasharray="3 3">` (color flips to the achieved-green once hit); caption logic folded the goal target into the existing value string.
+- `app/_components/home-screen.tsx` — removed both manual filled-bar blocks from the wealth-form card grid; now computes `goalTarget`/`goalAchieved` per form (Money still reads from `savings.goal`/`savings.total`; every other form reads from the `formGoals` vision-item map built in the previous entry) and passes them straight to `<Sparkline>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — Growth's card now shows a dashed reference line across the chart with "4,800 pages / 10,000 pages" beneath it; temporarily dropped the goal to 100 to re-confirm the full-screen celebration still fires correctly with the new caption format, then restored the real 10,000 target and `achieved: false`.
+
+**Typecheck:** PASS ✓ (a `family`-tab MobileTab typecheck error present earlier from a concurrent session's in-flight Family-memories feature was resolved by that session merging its own work to main before this commit — not something fixed here).
+
+**Note:** `app/api/community/` and `lib/luma.ts` are untracked, in-progress work from a concurrent session (Community/Luma subscriber tracking) present in the working tree at commit time — left uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Vision: "Chapters" section for pasting reference text verbatim
+
+**Ask:** Berto wanted to discuss what measure/proxy fits Craft (the 4th form of wealth) and planned to paste in the "Craft" chapter from Robin's book as context. He flagged that models often don't reproduce exact text faithfully when asked to insert it into a doc — wanted a UI spot to paste it directly instead, so the text lands verbatim without going through the model.
+
+**Decision:** Reused the existing `vision_items` table/API rather than a new table — added a `"chapter"` kind alongside `statement`/`goal`/`image`/`method`/`milestone`/`routine` (`title` = source/label, `content` = full pasted text, no length limit). Added a "Chapters" tab to the Vision page: a title input + large `Textarea` for pasting, and a list of saved chapters that collapse to just the title (click to expand) so long pasted text doesn't dominate the page. This is a general-purpose "paste reference text verbatim" spot, not Craft-specific — reusable for any future book chapter/essay/note the same way.
+
+**Files changed:**
+- `app/api/vision/route.ts` — added `"chapter"` to `KINDS` and its title+content validation.
+- `app/_components/vision-panel.tsx` — new `chapters` derived list, `newChapterTitle`/`newChapterContent`/`expandedChapterId` state, `handleAddChapter`, and a new "Chapters" section (form + expandable list, reusing the existing edit/delete plumbing).
+
+**Not done:** No agent tool for creating chapters — this is meant for direct paste, not going through Cael/chat, per the stated reason for building it. The actual Craft measure/proxy discussion is still open, pending Berto pasting the chapter content in.
+
+**Verified:** Playwright against the already-running dev server on :3000 (Berto's own session) — Chapters tab renders, saved a test chapter, confirmed it round-tripped through `/api/vision?kind=chapter` server-side, expand/collapse works, deleted the test row afterward. Typecheck clean.
+
+**Next steps:** Once Berto pastes the Craft chapter into the new Chapters tab, read it and continue the discussion on what the right measure/proxy for Craft is.
+
+---
+
+## 2026-08-09 — Moved the paste-verbatim spot out of Vision into its own "Manual" section
+
+**Ask:** Berto pushed back on putting the paste-in-chapter feature under Vision — he sees it as a distinct thing: "a manual for how to [live]," not part of the vision-setting flow. Wanted a new top-level nav item called "Manual".
+
+**Decision:** Pulled the "chapter" kind's UI out of `vision-panel.tsx` entirely (reverted that file to its pre-Chapters state) and gave it its own top-level nav section, `Manual`, positioned after Family in both the desktop nav rail and the mobile "More" menu. Backend is unchanged — still `vision_items` with `kind="chapter"` (title = source, content = full pasted text); only the UI moved. New standalone `ManualPanel` component fetches only `kind=chapter` directly (no shared state/tab-switching with Vision's statements/goals/board).
+
+**Files changed:**
+- `app/_components/vision-panel.tsx` — reverted to original (Chapters section/state removed).
+- `app/_components/manual-panel.tsx` (new) — standalone paste-and-save UI: title + large textarea, expandable list of saved entries, edit/delete. Modeled on the removed Vision Chapters section.
+- `app/(app)/manual/page.tsx` (new) — empty route stub, same pattern as every other section.
+- `app/(app)/layout.tsx` — added `"manual"` to `MobileTab`, `TAB_PATHS`, `MORE_TABS`, and `NAV_ITEMS` (using `BookMarkedIcon`).
+- `app/_components/dashboard.tsx` — added `"manual"` to `DashboardTab`, renders `<ManualPanel>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — `/manual` renders as its own sidebar item (between Family and Sketches), save/expand/delete round-trips through `/api/vision?kind=chapter` server-side; test row deleted afterward. Typecheck clean.
+
+**Note:** `agent/tools/add_family_memory.ts`, `app/_components/family-panel.tsx`, `app/api/memories/*`, `lib/db.ts`, `app/api/community/`, `lib/luma.ts` were modified/untracked in the working tree from a concurrent session's in-progress Family/Community work — left untouched and uncommitted here for that session to commit itself.
+
+---
+
+## 2026-08-09 — Manual: render pasted text as Markdown (headings, bold, lists)
+
+**Ask:** Berto wants to be able to add headings and bold text to Manual entries — both for readability and so Cael can parse the structure more easily later.
+
+**Decision:** Content is stored as plain Markdown source (no schema change — same `vision_items.content` text column), rendered with `react-markdown` + `remark-gfm` (already a dependency, used by the chat UI) when a saved entry is expanded. Kept the component list intentionally small — headings (h1-h3), bold/italic, lists, blockquote, hr — since pasted chapters won't need code blocks or tables. Edit mode stays a plain textarea on the raw markdown source. Placeholder/empty-state copy updated to mention markdown support.
+
+**Files changed:** `app/_components/manual-panel.tsx` — added `ReactMarkdown`/`remarkGfm` import, a small `markdownComponents` map, swapped the expanded-entry `<p>` for `<ReactMarkdown>`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — saved an entry with `# Craft`, `**bold**`, and a bullet list; expanded view renders as a real heading/bold/list, not literal `#`/`**` characters. Typecheck clean. Test row deleted afterward.
+
+---
+
+## 2026-08-09 — Family memories: fix edit-view overlap, add remove-photo action
+
+**Ask:** Berto flagged the memory edit view — title/description/date fields were overlapping the photo — and wanted a way to delete just the photo (not the whole memory).
+
+**Root cause:** Editing a memory rendered the form fields in an `absolute inset-0` dark-backdrop layer directly on top of the small (aspect-square) photo thumbnail inside the 2-col grid card — cramped, clipped inputs and a save/cancel row pushed off the bottom edge.
+
+**Fix (`app/_components/family-panel.tsx`):**
+- Editing a memory now breaks that card out of the 2-col grid (`col-span-2`) into a normal top-to-bottom flow: photo (if present) as a plain `h-40` thumbnail up top, then title/description/date/save/cancel below it in document flow — no more overlap.
+- New `editImageUrl` state (seeded from the memory on `startEdit`) decouples the edit-in-progress photo from the saved one; a trash-icon button on the thumbnail clears it locally, swapping to an "Add a photo" dropzone (wired to a new `handleEditPhotoChange` uploader) so a photo can be removed or replaced before saving. `saveEdit` now PATCHes `image_url: editImageUrl` (including explicit `null` for "removed") instead of always re-sending the original `m.image_url`.
+
+**Verified:** Playwright against the already-running dev server on :3000 — seeded a test memory with a photo, opened its edit view (screenshotted: fields no longer overlap the photo), clicked the photo's trash icon (screenshotted: swaps to an "Add a photo" dropzone, fields still clean), never clicked Save so no write happened; separately confirmed Berto's real "Call with David" memory (photo, title, description) was untouched by API check before/after. Typecheck clean. Test memory deleted via the API afterward.
+
+**Note:** the concurrent session's Family/Community work referenced in the note above (2026-08-09, "Manual: render pasted text") landed on `main` between that entry and this one (`memory_date`, optional/nullable photo, edit UI, live MakersLounge count, etc.) — this fix builds on that already-merged version, not the older uncommitted snapshot.
+
+---
+
+## 2026-08-09 — Wealth-form goals: Money + Community targets, taller sparklines
+
+**Ask:** Berto set Money's goal (100K in investments) and Community's goal (10K Luma subscribers), then asked for the wealth-form charts to be taller/roughly square instead of thin horizontal slivers.
+
+**Data (no code change):**
+- Money: `PATCH /api/measures/4` — set `data.goal = 100000` on the latest `savings_snapshot` row (existing `total_savings: 19600` preserved). Money's goal has always read from this field (see the 2026-08-09 goal-line entry), so no new code was needed.
+- Community: `POST /api/vision` — new `kind=goal, title=Community, content=10000` row (id 34), same mechanism as Growth/Family.
+
+**Code change:**
+- `app/_components/sparkline.tsx` — chart height (`ChartContainer` + the "No data yet" placeholder) bumped from `h-11` (44px) to `h-32` (128px) so each form's card reads as a roughly square chart instead of a thin rectangle.
+
+**Verified:** Playwright against the running dev server on :3000 — Money card shows "$19,600 / $100,000" with its dashed goal line; Community shows "1,174 subscribers / 10,000 subscribers"; all 8 cards screenshotted at the new taller height.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Wellness, Craft, Adventure, Service still need goal targets picked with Berto.
+
+---
+
+## 2026-08-09 — Adventure: dedicated trip tracking (was a tagged-thoughts proxy) + goal
+
+**Ask:** Berto wanted Adventure tracked like Family (a real count, not the tagged-thoughts proxy) — trips taken, with 10 trips over the last 12 months and a goal of 100.
+
+**Decisions:** No new table needed — reused the existing generic `measures` table with a new `category: "trips"` (one row per trip, `data: {}`), the same pattern Money's `savings_snapshot` and the goal system already use. This keeps Adventure consistent with the "generic mechanism, DB-only additions" approach from the earlier goal work, rather than building a dedicated trips table/UI (Family's memories feature has photo/title/description — Berto didn't ask for that level of detail here, just a count).
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — new `trips` state fetched from `/api/measures?category=trips&limit=500` alongside the other dashboard fetches; `adventure`'s entry in `wealthSeries` switched from `taggedCount("adventure")` (thoughts tagged "adventure", unit "notes") to one point per trip row (unit "trips").
+- Seeded 10 `trips` rows spread across the last 12 months (Oct 2025 – Aug 2026) via `POST /api/measures`, and a `vision_items(kind=goal, title=Adventure, content=100)` row (id 35) via the same goal mechanism as Growth/Family/Community.
+
+**Verified:** Playwright against the running dev server on :3000 — Adventure card reads "10 trips / 100 trips" with its dashed goal line, matching Family's card format.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** Wellness, Craft, Service still need goal targets/dedicated tracking picked with Berto. No UI exists yet to log a new trip (unlike Family's memories panel) — trips are only addable via the API today; worth asking Berto if he wants a proper log-a-trip flow later.
+
+---
+
+## 2026-08-09 — Service: chat-captured thank-yous (screenshot/photo) + goal
+
+**Ask:** Berto wants Service tracked as the number of thank-yous he receives (DM, email, or written card), captured by sending a screenshot/photo to Cael in chat — goal of 100.
+
+**Decisions (asked Berto):** Capture surface is chat-only for now (not a dedicated Family-style page) — he sends the screenshot/photo to Cael, who logs it. This reuses infrastructure that already exists for every chat image attachment: `hooks/use-eve-runtime.ts` already uploads any pasted/attached image to `/api/upload` and injects the public URL as text in the outgoing message (this is how `add_family_memory` already gets its photos) — no chat/upload-path changes were needed, only a new table + tool.
+
+**Files changed:**
+- `lib/db.ts` — new `thank_yous` table (`title`, `note`, `image_url`, `thanked_date`, `created_at`) — same shape as `memories`.
+- `app/api/thanks/route.ts` + `app/api/thanks/[id]/route.ts` (new) — GET/POST/PATCH/DELETE, mirroring `app/api/memories/`.
+- `agent/tools/log_thank_you.ts` (new) — mirrors `add_family_memory`; takes an optional `image_url`/`title`/`note`/`thanked_date`, requires at least one of the three.
+- `agent/instructions.md` — added a line telling Cael to call `log_thank_you` when the user shares a thank-you screenshot/photo; also corrected the stale line about Family/Craft/Community/Adventure/Service all sharing the `capture_thought`-tag proxy — now only Craft still uses it (Family/Community/Adventure got dedicated tracking in earlier entries today).
+- `app/_components/home-screen.tsx` — new `thankYous` state fetched from `/api/thanks?limit=500`; Service's `wealthSeries` entry switched from `taggedCount("service")` (unit "notes") to one point per thank-you row (unit "thank-yous").
+- Set `vision_items(kind=goal, title=Service, content=100)` (id 36) via the same goal mechanism as the other forms. Zero thank-yous logged so far — this is real going-forward tracking, not backfilled (unlike Adventure's seeded trip history).
+
+**Verified:** Manually created and deleted a test `thank_yous` row via the API to confirm the fetch → `wealthSeries` → `Sparkline` wiring updates the card correctly ("1 thank-yous / 100 thank-yous"), then deleted it — Service correctly shows "No data yet" at rest. Ran `ensureSchema`'s new `CREATE TABLE IF NOT EXISTS thank_yous` directly against the dev DB (the app doesn't call `ensureSchema` on every request, only specific routes do — same as the rest of the schema).
+
+**Typecheck:** PASS ✓
+
+**Note:** committed alongside a concurrent session's in-flight Wellness work (`agent/tools/log_workout.ts`, `list_workouts.ts` — a new `gym_hours` exercise powering a cumulative-hours Wellness goal) present in the working tree at commit time; typecheck was clean so it went in together rather than being separated out.
+
+**Next steps (not done):** Craft still needs a goal/dedicated tracking picked with Berto (last form on the tagged-thoughts proxy).
+
+---
+
+## 2026-08-13 — Tasks: three-pillars goal banner at top of task list
+
+**Ask:** Berto: "add to the top of the task list — your goal is more calls, more events, and better AI agents. Those are your three main pillars and keys to success."
+
+**What was built:** A static banner card pinned above the add-task form on the Tasks tab (`activeTab === "todos"`): "Your goal" eyebrow, the sentence "More calls, more events, and better AI agents.", three secondary badges (More calls / More events / Better AI agents), and a footnote "Three main pillars — the keys to success." Purely presentational — no DB or API changes.
+
+**Decision:** Kept it static/hardcoded rather than sourcing from `vision_items`, since it's a fixed framing statement and the ask was for it to simply sit at the top of the list. Placed above the form (not above only the task groups) so it's the first thing on the tab. Naturally pairs with the just-landed Events / Calls / AI Agents task categories (commit 99936a5).
+
+**Files changed:** `app/_components/dashboard.tsx`.
+
+**Typecheck:** PASS ✓
+
+---
+
+## 2026-08-14 — Completed tasks plot onto Google Calendar
+
+**Ask:** Berto: "when a task gets done, can we plot it onto my calendar? This will help me audit what I did in weeks prior."
+
+**Decisions (asked Berto):**
+- **Destination: real Google Calendar events** on the primary calendar (not an app-only overlay, not a separate "Done" calendar) — so done-blocks show up on his phone and in any Google client.
+- **Shape: a timed block from tracked time** (not an all-day chip) — the block *ends* at the completion moment and starts one duration earlier, so a week view reads as a real picture of where the hours went.
+- Duration precedence: `time_spent_seconds` (tracked timer) → `estimated_minutes` → a flat 15m fallback. Clamped to [5m, 8h] so an estimate-less task still renders visibly and a timer left running overnight can't paint a multi-day bar across the week.
+- Blocks are styled to sit *behind* real meetings: Google colorId 8 ("Graphite"), `transparency: "transparent"` (they're a record, not busy time), and a `✓ ` title prefix. Description carries the provenance ("Completed in focuspoint — 45m tracked." + category when set).
+- Every calendar call is **best-effort** — a Google failure (not connected, revoked token, API blip) is logged and swallowed, never blocking task completion.
+- Uncompleting a task **deletes** its block (`calendar_event_id` on the todo is the handle). Recurring tasks log a fresh block on each completion and the column holds the latest one — past occurrences intentionally stay on the calendar as history.
+
+**Files changed:**
+- `lib/done-block.ts` (new) — builds the Google event body from a completed task; duration precedence + clamping live here. **Deliberately import-free**: the web routes and the agent tool run under different module resolvers (Turbopack vs the eve runtime) which disagree on `.js` extensions in relative imports — Turbopack can't resolve `./task-categories.js`, while eve tools *require* the `.js` suffix. Rather than pick a side, this module takes the category *label* from its caller and imports nothing.
+- `lib/task-calendar.ts` (new) — web-side `logCompletedTaskToCalendar` / `removeCompletedTaskFromCalendar` over `gcalFetch`.
+- `lib/db.ts` — `todos.calendar_event_id TEXT` column (also applied directly to the dev/prod Neon DB, since `ensureSchema()` isn't run per-request).
+- `app/api/todos/[id]/complete/route.ts` — reads the task back *after* banking the running timer (so the block reflects final tracked time), writes the block, stores the event id. Returns `calendar_event_id` in the response.
+- `app/api/todos/[id]/uncomplete/route.ts` — deletes the block and clears the column.
+- `agent/tools/complete_todo.ts` — same behaviour when Cael marks a task done, via the agent's own Google helper.
+- `agent/lib/google-calendar.ts` — new `createRawCalendarEvent(token, body)` that POSTs an already-built event body (the existing `createCalendarEvent` only takes date/time/duration fields, which don't fit a done-block).
+
+**Verified:** end-to-end against the real Google Calendar on a dev server on :3789 — (1) estimate path: a 25m-estimate task completed → `✓ ZZ calendar-plot test`, 17:08–17:33, description "Completed in focuspoint — 25m estimated. / Category: Calls"; (2) tracked path: a task with `time_spent_seconds = 2700` and a 10m estimate → a 45m block, confirming tracked time beats the estimate; (3) uncomplete removed the block from the calendar in both cases. All seed tasks deleted.
+
+**Note:** the first e2e run returned `calendar_event_id: null` with "Google Calendar is not connected" — a stale `google_auth` row whose refresh token had gone invalid. `lib/google.ts` self-healed on the next call by re-seeding from `GOOGLE_REFRESH_TOKEN` in `.env.local`; no code change needed.
+
+**Typecheck:** PASS ✓
+
+**Next steps (not done):** nothing blocking. If the done-blocks turn out to clutter the real calendar, the natural follow-up is moving them to a dedicated secondary "Done" calendar (Berto weighed this option and chose the primary calendar for now) — only `lib/task-calendar.ts` and the agent tool's calendar id would change.
+
+**Follow-up (same day):** deleting a *completed* task left its block orphaned on the calendar (found while cleaning up a production deploy probe). `DELETE /api/todos/[id]` now removes the block first — verified: complete → delete the task without uncompleting → block is gone from the calendar.
+
+**Deploy:** the live app is **cael-agent.vercel.app**, which deploys from GitHub on push to `main` (the CLI-linked `aucctus/focuspoint` project — focuspoint-beta.vercel.app — is a *different*, empty database and is not the live app; its `todos` table doesn't even exist, so the new column was only needed on the DB in `.env.local`, which cael-agent shares). Confirmed live in production by completing a throwaway task there and seeing `calendar_event_id` come back.
+
+---
+
+## 2026-08-15 — Goal banner → three-pillars hero with a process chart
+
+**What was built:** the "Your goal" banner at the top of the task list was a flat
+muted box with three badges. It's now a hero card: a soft amber→violet→emerald
+gradient with two blurred colour blooms, a gradient-text headline, and a small
+process chart underneath that spells out *why* each pillar matters.
+
+**The chart:** three cards, one per pillar, each showing `pillar → what it creates`:
+- More content → creates **awareness**, and **distributes** the service
+- More events → creates **trust**, and **distributes** the service
+- Better AI agents → creates a **higher-value service**
+
+Below them, a dashed convergence row ("The service — known through awareness,
+chosen through trust, worth more through better agents. Content and events build
+it *and* carry it to people."). Wording change: the first pillar is now "More
+content" rather than "More calls", matching how Berto described the model.
+
+**Decisions:**
+- Pillar colours reuse `CATEGORY_BADGE_CLASS` (content=amber, events=violet,
+  ai_agents=emerald) so a task's category chip reads as the same pillar.
+- The distribution relationship is shown *per pillar* (a small share-icon line on
+  content and events) rather than as extra arrows — arrows converging from two
+  cards would need SVG and didn't survive the mobile stack.
+- Chart is a `PILLAR_FLOW` const near `CATEGORY_BADGE_CLASS`, not inline JSX.
+- Grid is `sm:grid-cols-3`, stacking to one column on mobile.
+
+**Files changed:** `app/_components/dashboard.tsx` only (new `PILLAR_FLOW` const,
+new lucide imports: Megaphone/Users/Bot/ArrowRight/Target/Share).
+
+**Verified:** dev server on :3789, Playwright screenshots in both light and dark
+mode — gradient, blooms, and gradient text all read correctly in both themes; no
+seed data created. **Typecheck:** PASS ✓
+
+**Follow-up (same day):** Berto trimmed the hero's prose — removed the "Your goal"
+eyebrow, the "Three pillars — every task should ladder up to one of them" line,
+and the dashed "The service" convergence row. In their place, one principle line
+under the chart: *"Don't chase money — create the conditions where money becomes
+**inevitable**."* The hero is now headline → three pillar cards → principle.
+`TargetIcon` import dropped with the convergence row. Verified on the running dev
+server (:3000, Berto's own — Turbopack picked the edits up) in light and dark.
+
+---
+
+## 2026-08-15 — Growth measured in books, not pages
+
+**Ask:** Berto: "for growth, let's change it from pages read to books."
+
+**Decisions (asked Berto):** goal set to **100 books** (of the options offered — 1,000 / 100 / 31 — he picked 100, a decade-ish target where the 15 books already logged read as a visible 15% rather than hugging the floor the way 4,800/10,000 pages did). Page counts are still recorded on every `reading_logs` row and `log_reading` still looks them up via `web_search` — only the unit the *goal* is measured in changed, so no data was lost or migrated.
+
+**Files changed:**
+- `app/_components/home-screen.tsx` — `wealthSeries.growth` now emits one point of `value: 1` per reading log (was `Number(l.pages)`), unit `"books"` (was `"pages"`).
+- `agent/instructions.md` — the Reading line said the chart shows "cumulative pages this year"; now says the Growth card counts books finished against a goal of 100, and notes page counts are still recorded.
+- DB only: `vision_items` id 28 (`kind=goal, title=Growth`) content `10000` → `100`.
+
+**Verified:** Playwright screenshot of the Growth card against the running dev server — reads "15 books / 100 books" with the dashed goal line well above the curve. (Berto's own dev server was already running on :3000 in the focuspoint dir, so per `.claude/skills/verify` this was checked against that server rather than killing it — Turbopack picked the edit up from disk.)
+
+**Typecheck:** PASS ✓
+
+**Gotcha worth remembering:** the goal row was updated *before* the new code reached production, so for ~40s the still-deployed pages-based card compared 4,800 pages against the new goal of 100 and latched the goal-achieved celebration (`vision_items.achieved = true`, `achieved_at` stamped). Reset to `false`/`NULL` afterwards and confirmed the prod card reads a plain "15 books / 100 books" with no 🎉. **When changing a goal's unit, deploy the code first, then update the goal row** — otherwise the old unit is briefly measured against the new target and can fire a false celebration.
+
+**Follow-up 2 (same day):** hero trimmed further — headline removed, and the
+pillar boxes reduced to just icon + title (the "creates X / and distributes it"
+lines moved into each box's `title` tooltip rather than being deleted outright, so
+the reasoning is still one hover away). Hero is now: three compact pillar chips +
+the "don't chase money" principle line. Unused `ArrowRightIcon` / `ShareIcon` /
+`TargetIcon` imports removed.
+
+**Follow-up 3 (same day):** chevron arrows between the three pillar chips
+(content → events → AI agents). The row is a flex layout rather than a 3-col
+grid so the arrows can sit between boxes; on mobile the chips stack and the
+chevrons rotate 90° to point down.
+
+**Follow-up 4 (same day):** each pillar chip now lists what it actually takes,
+day to day, as a small bulleted list (`traits` on `PILLAR_FLOW`, bullet dot tinted
+per pillar): content → consistency, attention to detail; events → energy, aura,
+appearance; AI agents → reading the docs, time coding, aggressive tinkering. Third
+pillar renamed "Better AI agents" → "More AI agents". Row switched to
+`sm:items-stretch` so the three boxes stay equal height with the arrows centred.
+
+**Follow-up 5 (same day):** connectors between chips are now a line + arrowhead
+flush to both box edges (no gap in the flex row) instead of a floating chevron,
+and the chips are capped at `sm:max-w-[13rem]` with the row centred, so they read
+as a chart rather than three full-width panels. The connector flips to a vertical
+line when the chips stack on mobile.
+
+**Follow-up 6 (same day):** feedback loop added under the chart — a rounded return
+path from "More AI agents" back up into "More content" and "More events", each
+arm labelled *Improves*. Drawn with borders (no SVG): the loop is a second flex
+row that mirrors the chip row's sizing, which is why `CHART_SLOT` / `CHART_GAP`
+now exist as shared constants — change one row's widths without the other and the
+verticals stop landing under the chip centres. The loop is desktop-only; once the
+chips stack, a plain "Better agents improve the content and the events" line
+takes its place.
+
+**Follow-up 7 (same day):** the forward arrows in the goal hero are now labelled
+with what each step actually produces — content → events reads *More attendees*,
+events → AI agents reads *More clients*. Added as an `inbound` field on
+`PILLAR_FLOW` (the label for the arrow coming *into* that chip), rendered above
+the connector line on desktop and under the vertical connector on mobile.
+`CHART_GAP` widened `w-9` → `w-24` so the labels sit over the arrow without
+spilling onto the chips — note this constant is shared with the feedback-loop
+row, which is what keeps the *Improves* verticals aligned under the chip centres.
+Verified with a Playwright screenshot against the local dev server.
+
+**Follow-up 8 (same day):** goal hero now runs the full width of the task panel
+— dropped the `sm:max-w-[13rem]` cap from `CHART_SLOT` so the three chips stretch
+edge to edge — and plays a one-shot intro on first paint: each chip fades up
+left→right (`CHART_BEAT` 0.42s apart), the arrow into the next chip draws from
+its left edge, then the feedback loop and the closing principle line settle in
+(~1.9s total, then completely still). Built with `motion` (Framer Motion v12),
+which was already a direct dependency — no new install. Notes:
+- `chartHasAnimated` is a module-level flag, so the intro plays once per page
+  load rather than every time you flip back to the Tasks tab. Flip that to a
+  per-mount `useState` if it should replay on each visit.
+- `useReducedMotion()` short-circuits the whole thing to a static render.
+- Arrow labels are wrapped in a plain positioned `<span>` with the motion
+  element inside: motion writes an inline `transform`, which would otherwise
+  clobber Tailwind's `-translate-x-1/2` centering.
+Verified with Playwright frames at ~0.4s (first chip + arrow drawing) and ~2.5s
+(fully settled, full width).
+
+**Follow-up 9 (same day):** goal hero is now full bleed and replays on every
+visit. Dropped the `chartHasAnimated` module flag from follow-up 8 — the Tasks
+panel unmounts when you leave the tab, so the motion elements remount and the
+intro replays each time you open Tasks; `useReducedMotion()` is now the only
+thing that switches it off. The hero container went from a rounded bordered card
+to `-mx-5 -mt-4 … border-b` (negative margins cancel the panel's `px-5 py-4`), so
+the gradient runs edge to edge under the header with a single bottom border.
+Verified with Playwright: settled full-bleed frame, plus a leave-Tasks →
+return-to-Tasks frame at 420ms showing only the first chip in.
+
+**Follow-up 10 (same day):** goal hero rebuilt on real registry components
+instead of hand-drawn CSS. Berto's constraint: *"whatever you do, we need to
+leverage packages, and not try to do from scratch."* Installed via the Magic UI
+registry (`npx shadcn@latest add @magicui/animated-beam @magicui/border-beam
+@magicui/dot-pattern`) — all three land in `components/ui/` and use the `motion`
+package already present, so no new npm deps.
+
+The whole hero moved out of `dashboard.tsx` into
+`app/_components/goal-flow-hero.tsx` (it needs its own refs, and dashboard.tsx
+was long enough). Deleted along with it: `PILLAR_FLOW`, `CHART_SLOT`,
+`CHART_GAP`, `CHART_BEAT`, `CHART_EASE`, `CHART_LOOP_DELAY`, `chartRise`,
+`chartDraw` — the hand-rolled connectors, arrowheads and border-drawn feedback
+loop are all gone.
+
+What it is now: three glass chips (`backdrop-blur`, shadow) each wrapped in a
+`<BorderBeam>` tinted to its pillar, wired by four `<AnimatedBeam>`s — content→
+events, events→agents, then two curved returns from agents back to events and
+content — over a masked `<DotPattern>`. Beams travel continuously on a 4.5–5.5s
+cycle; chips still fade up left→right on mount, so the intro still replays on
+every visit to Tasks.
+
+Gotchas worth knowing:
+- `<AnimatedBeam>` draws between two elements in a shared container, so each
+  chip carries three zero-size anchor spans (left/right/bottom edges). Beams
+  attach to those, not to the chips, otherwise a return path cuts straight
+  through the middle of a card.
+- The gap labels sit in an `h-4 self-center` span with the text at `bottom-full`
+  — the beam runs along that span's midline, so anything centred in it gets a
+  line drawn through the text.
+- The feedback band is `h-20 items-end` so the deepest curve (`curvature={-70}`)
+  clears the caption underneath it.
+- Reduced motion: `BorderBeam` is not rendered, and the beams get
+  `duration 0.01 / repeat 0`, which leaves their static path visible.
+Verified with Playwright: desktop hero, 390px mobile stack, and a gradient-
+position sample 700ms apart confirming all four beams are actually travelling.
+
+**Follow-up 11 (same day):** design pass on the app shell — `app/(app)/layout.tsx`.
+The goal hero had become the best-looking thing in the app, which made the chrome
+around it look flat; the fix was to spread the craft into the surface that gets
+touched every session rather than add another effect to the hero.
+
+Three changes, all driven by `motion` (already installed):
+1. **Travelling selected state.** The active nav background is now a single
+   `motion.span` with `layoutId="navRailActive"` that glides between items on a
+   spring (`NAV_SPRING`, shared by both navs) instead of a background that blinks
+   on and off. It visibly stretches mid-flight, which is the whole effect.
+2. **Icon weight follows selection** — the active item's icon scales to 1.08 on
+   the same spring; the mobile bar's also lifts 1px.
+3. **Rail hierarchy.** A hairline rule after the first five items
+   (`PRIMARY_NAV_COUNT`). This isn't new IA — the mobile bar already promotes
+   exactly Home/Chat/Tasks/Notes/Lists and buries the rest under "More". The rail
+   now says the same thing with a rule instead of a menu. Order is unchanged.
+
+Also added: `aria-current="page"` on the active item, visible focus rings on all
+nav buttons, and the hover wash moved to its own layer so it can never stack with
+the indicator.
+
+Rejected on the way: **lucide-animated** (the animated Lucide registry) for the
+nav icons. Only 9 of the 15 icons focuspoint uses exist there — `list-todo`,
+`list-checks`, `book-open`, `calendar-clock`, `image` and `book-marked` all 404,
+and no substitute set covers them. A sidebar where 9 icons animate and 6 sit dead
+is worse than one where none do. Getting the same result from `motion` keeps it
+consistent across all 15.
+
+Reduced motion is honoured throughout (`{ duration: 0 }` on the layout
+transition, no scale animation). Verified with Playwright: rail at rest, the
+indicator caught mid-flight between Tasks and Measures, and the mobile bar.
+
+**Follow-up 12 (same day):** a second dev server can now run alongside the first.
+Next 16 permits one dev server *per build directory*, so a second `next dev` in
+this folder was refused outright ("Another next dev server is already running") —
+falling back to port 3001 didn't help, because the conflict is over `.next` and
+its lock, not the port.
+
+Fix: `next.config.ts` now reads `distDir: process.env.NEXT_DIST_DIR ?? ".next"`,
+and `npm run dev:3001` sets `NEXT_DIST_DIR=.next-3001` alongside `--port 3001`.
+The second instance gets its own build dir and lock, so both run at once.
+`.gitignore` now covers `.next-*`, and `tsconfig.json` includes the `.next-3001`
+generated types (Next adds these itself on first run; the auto-edit also
+reformats the whole file, so it was reverted down to just the two new lines).
+
+Verified both ports served 200 simultaneously, then stopped the 3001 instance so
+the port is free.
+
+Cost worth knowing: two dev servers means two Turbopack compilers on the same
+machine, and both write to the same `DATABASE_URL` — they are not isolated
+environments, just a second window onto the same data.
+
+---
+
+## 2026-08-15 — Dashboard top bar removed; its controls moved into the nav rail
+
+The panel header ("Cael / 37 tasks, 2 urgent" plus pin, traces, collapse and
+theme buttons) was eating a full row above every section for very little. It's
+gone; the content panel now starts at the top edge.
+
+Nothing was lost — the pieces moved into the desktop nav rail
+(`app/(app)/layout.tsx`):
+
+- **Identity**: `CaelAvatar` (24px) + "Cael" now sit in the rail's header row
+  next to the collapse toggle, shown only when the rail is expanded.
+- **Utility footer**: a bordered row at the bottom of the rail holds
+  `PinButton`, the `/traces` link, and `ModeToggle`. It stacks vertically when
+  the rail is collapsed to icons.
+- **Collapse panel**: the old `onCollapse` prop is gone; the rail renders the
+  button itself (`setSidebarOpen(false)`) and only when it's meaningful —
+  `mobileTab === "chat" && sidebarOpen`.
+- **Back to chat** was dropped: the rail's Chat item already does exactly that.
+
+Dropped along the way: the "N tasks, M urgent" count line (`activeTodos` /
+`highPriority` were only used for it), and the `onCollapse` / `isExpanded` /
+`onBackToChat` props on `<Dashboard>`.
+
+Files: `app/_components/dashboard.tsx` (header block + now-unused imports/props
+removed), `app/(app)/layout.tsx` (rail header identity + utility footer).
+
+Note: the rail is `lg:`-only, so on mobile the pin and theme toggle are now
+reachable from the Home screen (which already has both) rather than from every
+section.
+
+Verified with Playwright on a private dev server (port 3789): /tasks renders
+with no header bar and the goal hero flush to the top; /chat shows the tasks
+sidebar header-free with the collapse button present in the rail footer.
+`npm run typecheck` clean.
+
+---
+
+## 2026-08-16 — Content lane: a pinned column with nested tasks
+
+The Tasks canvas now has a **Content** lane pinned to its left edge. It doesn't
+pan or zoom with the notebook — it holds its place while the canvas moves
+underneath.
+
+**Model.** One new column, `todos.parent_id INTEGER REFERENCES todos(id) ON
+DELETE CASCADE`:
+
+- A **content piece** is a `category='content'` row with `parent_id` NULL —
+  a video, a post, an episode. It's a container, so it carries no estimate and
+  no timer.
+- The steps to ship it are ordinary todos with `parent_id` set to the piece.
+  They're real tasks: checkbox, "working on now", timers, the lot.
+- Deleting a piece cascades to its checklist.
+
+Two helpers in `lib/todo.ts` — `isContentPiece()` and `isInContentLane()`.
+Anything in the lane is filtered *out* of the canvas card layer
+(`canvasTodos` in `task-canvas.tsx`), so no task exists in two places at once.
+Existing `content`-category tasks migrate into the lane as pieces on their own.
+
+**UI** (`app/_components/content-lane.tsx`): each piece is a disclosure row with
+a `done/total` count, an "Add task" composer under it, and "Add content piece"
+at the foot of the lane. Titles rename on double-click. Adding a piece opens its
+task composer straight away — a piece with no steps is just a card.
+
+The lane collapses to a vertical "Content" tab; the state lives in
+`task-canvas.tsx` (localStorage `focuspoint.content-lane.collapsed`) because the
+canvas toolbar slides right to clear it. It's positioned `top-12 bottom-14` so
+it covers neither our toolbar nor Excalidraw's zoom controls.
+
+**API.** `parent_id` added to every todo SELECT/RETURNING list in
+`app/api/todos/route.ts` and `app/api/todos/[id]/route.ts`. POST accepts
+`parent_id`, and `estimated_minutes` is now optional *only* for a content piece
+(still required for every real task). Child tasks created from the lane default
+to a 30m estimate, editable from the canvas context menu.
+
+Note: the migration rides on `ensureSchema()`, which no todos route calls —
+hitting any route that does (e.g. `/api/scheduled-tasks`) applies it. That
+happens on any normal page load in prod.
+
+Files: `lib/db.ts`, `lib/todo.ts`, `app/api/todos/route.ts`,
+`app/api/todos/[id]/route.ts`, `app/_components/content-lane.tsx` (new),
+`app/_components/task-canvas.tsx`.
+
+Verified with Playwright on a private dev server (port 3789): seeded a piece
+with children, added a task through the lane's composer, checked one off and
+confirmed it persisted server-side, collapsed and reopened the lane. Test rows
+deleted. `npm run typecheck` and `npm run build` both clean.
+
+Next: dragging an existing canvas card onto a piece to adopt it (needs
+`parent_id` on PATCH), and a per-piece due date once a publishing cadence exists.
+
+---
+
+## 2026-08-16 — bertomill.com: a public front, Cael moves behind it
+
+The app now serves two audiences out of one codebase, split by hostname:
+
+- **bertomill.com** — the public site. No auth, no Cael.
+- **cael.bertomill.com** — the private life-agent, exactly as it was.
+
+**Routing.** `lib/public-site.ts` holds the split; `middleware.ts` applies it.
+On a public host the request is rewritten `/x` → `/site/x`, so the pages live
+under `app/site/` (a real path, not a route group — both trees need to own "/")
+while visitors only ever see clean URLs. `www` 308s to the apex.
+
+Everything that isn't the public site 404s on the public host: `/api/*` (except
+`/api/site`), `/eve*`, `/traces`, `/login`, and `/site` itself. The passthrough
+list is an explicit allowlist, not a denylist. Eve's channel already enforces its
+own auth (`vercelOidc`/`localDev`/`cookieAuth`), so the agent transport is
+covered twice over.
+
+Locally the public build is reachable at `site.localhost:3789` — `isPublicHost()`
+matches any `site.*` host so no DNS or hosts-file edit is needed. On any other
+host the `/site` prefix is real, which is why links go through `SiteLink` /
+`useSiteHref` (`app/site/_components/site-link.tsx`): the server layout resolves
+the prefix once and every link is authored the public way.
+
+**The public/private boundary is one file.** `lib/public-data.ts` is the only
+module the public pages may use to reach the database, and every query in it
+returns an aggregate — a count, a sum, a percentage. No task title, journal
+entry, thought or dollar figure crosses it. Money is `redacted`: the site shows
+`22% of target` and never the balance.
+
+**Pages** (`app/site/`): `/` (portfolio + live counters), `/writing` +
+`/writing/[slug]`, `/podcast` + `/podcast/[slug]`, `/building` (the 8 forms with
+live progress), `/chat` (public Cael). Plus `app/robots.ts` and `app/sitemap.ts`.
+
+**Writing and podcast are markdown on disk** (`content/writing`,
+`content/podcast`), loaded by `lib/content.ts` — published work is versioned with
+the code and reviewable in a diff, and needs no auth path to edit. Seeded with
+three pieces: the Eve build conversation (from `article-draft.md`) as the first
+episode, plus two articles.
+
+**Public Cael** (`app/api/site/chat/route.ts`) is deliberately *not* the agent in
+`agent/`. It's a tool-less `streamText` call whose entire knowledge of Berto is a
+context block built from `lib/public-data.ts` aggregates and published markdown.
+It cannot read or write anything. Guards: 16-message / 1500-char ceilings, the
+transcript is rebuilt from scratch so a caller can't smuggle in a system turn,
+and a 12-req/min per-IP throttle.
+
+Three bugs found and fixed during verification:
+
+- Unquoted `date: 2026-08-16` in frontmatter is parsed by YAML into a `Date`, not
+  a string — a `typeof === "string"` check silently datelined every post
+  1 Jan 1970. `toDateString()` now accepts both.
+- Craft has no goal row, so its card rendered "10 / 0 notes". Forms now carry
+  `hasTarget`; without one they show the count and no bar. Money's target isn't
+  in `vision_items` at all — it rides on the savings snapshots, so it falls back
+  to the newest snapshot carrying a `goal`.
+- The chat route returned 200 with an empty body when the model call failed
+  (the stream closes after headers are sent). `onError` logs it server-side and
+  the client now treats an empty completed turn as an error instead of leaving a
+  blank bubble.
+
+Also: `getPublicVisions()` reads `kind='statement'`, not `'vision'` — those are
+the per-form vision statements, and they're the one non-aggregate thing on the
+public side. Dropping the call in `app/site/building/page.tsx` reverts the cards
+to numbers only.
+
+Verified against a private dev server (3789): public host serves all 5 pages
+with no cookie; `/api/todos`, `/traces`, `/login`, `/site` and `/eve/v1/health`
+all 404 there; the private host still 307s to `/login`. Chat guards return
+400/400/400 and the throttle trips at 12. Screenshots taken light, dark and
+mobile. `npm run typecheck` and `npm run build` clean.
+
+**Not done — needs Berto:** the Vercel CLI session is expired (`vercel whoami`
+→ Not authorized), so `bertomill.com` is not attached to the project yet and
+nothing is deployed. After `vercel login`:
+
+```
+vercel domains add bertomill.com focuspoint
+vercel domains add www.bertomill.com focuspoint
+vercel domains add cael.bertomill.com focuspoint
+vercel --prod
+```
+
+The public chat is the one thing unverified end-to-end: the AI Gateway call
+needs a live `VERCEL_OIDC_TOKEN`, which expired locally and can't be refreshed
+while the CLI is logged out. It resolves automatically in production; worth one
+message through `/chat` after the first deploy.
+
+**Follow-up (same day): bertomill.com is live.** The "needs Berto" block above is
+resolved — DNS, domains and production deploy are all done.
+
+Two things about the environment were wrong in the earlier entry:
+
+- **The Vercel project is `cael-agent` (`prj_RTIFlE60…`), not `focuspoint`.**
+  `.vercel/project.json` pointed at `prj_UNY93…`, a stale link — that, not an
+  expired session, was the real cause of the "Not authorized" / "Could not
+  retrieve Project Settings" errors. Re-linked with
+  `vercel link --yes --project cael-agent`. Note the CLI here (56.3.1) needs an
+  explicit `--scope bertmill19s-projects` on most commands, and its `whoami`
+  reports Not authorized even when auth is fine — don't trust it as a signal.
+- **Vercel asked for `A <name> 76.76.21.21` on all three names**, subdomains
+  included — not a CNAME to `cname.vercel-dns.com`. `scripts/cloudflare-dns.mjs`
+  follows what `vercel domains inspect` actually returned.
+
+**DNS** is managed programmatically via `scripts/cloudflare-dns.mjs` — a plain
+`fetch` against Cloudflare's v4 API, no CLI needed. It's an idempotent upsert
+keyed on (type, name), so re-running converges instead of duplicating; run it
+bare for a dry-run plan, `--apply` to commit. Needs `CLOUDFLARE_API_TOKEN` in
+`.env.local` (Zone:DNS:Edit + Zone:Zone:Read, scoped to bertomill.com).
+
+All three records are **unproxied (grey cloud)** deliberately: Vercel terminates
+TLS itself, and Cloudflare's proxy buffers streaming responses — which
+`/api/site/chat` depends on. Zone `3169224ba645aa26016d370829ee94a1`.
+
+Verified against production:
+
+- `bertomill.com` — all 5 pages, both article routes, robots and sitemap: 200,
+  valid cert.
+- `www.bertomill.com` → 308 to the apex. `cael.bertomill.com` → 307 to `/login`,
+  login 200, unauthenticated `/api/todos` 401. `cael-agent.vercel.app` still 200.
+- On the public host `/api/todos`, `/api/thoughts`, `/traces`, `/login`, `/site`,
+  `/eve/v1/health` and `/_eve_internal/eve` all 404.
+- Public Cael answered a real question correctly (15 books toward 100) and
+  refused a combined prompt-extraction + savings + private-data probe.
+
+Gotcha worth remembering: this sandbox blocks arbitrary outbound domains, so a
+fresh domain returns `000` from curl and looks dead when it isn't. Test with
+`curl --resolve bertomill.com:443:76.76.21.21` instead. Also: zsh does not
+word-split unquoted variables, so `$FLAGS` holding `--resolve x:y:z` reaches
+curl as one argument.
+
+Related: `vercel link` rewrote `.env.local` but **merged** rather than replaced,
+so `CLOUDFLARE_API_TOKEN` survived. It also pulled a fresh `VERCEL_OIDC_TOKEN`,
+which is what finally made the AI Gateway call work locally.
+
+---
+
+## 2026-08-16 — Four pipeline lanes, and titles that wrap
+
+The Content lane became **four** stacked lanes in one pinned panel: **Content,
+Code, Community, Sales**. Each is a collapsible section with its own accent, its
+own pieces, and its own "Add piece" composer. All four are visible at once —
+collapse the ones you're not working in.
+
+`content-lane.tsx` → `pipeline-lanes.tsx` (`<PipelineLanes>`). The generalisation
+lives in `lib/task-categories.ts`:
+
+- `TASK_CATEGORIES` gains `code`, `community`, `sales` — so they're also normal
+  category chips on canvas cards, and the agent's `add_todo` / `update_todo`
+  accept them (both read the enum).
+- `LANE_CATEGORIES` (`content`, `code`, `community`, `sales`) is the ordered
+  subset that gets a lane, plus an `isLaneCategory()` guard.
+- `lib/todo.ts`: `isContentPiece`/`isInContentLane` → `isLanePiece`/`isInLane`.
+- The API's "a piece needs no estimate" rule now keys off `isLaneCategory`
+  rather than a hardcoded `'content'`.
+
+Badge colours for the new categories on canvas cards: code indigo, community
+rose, sales green (`CATEGORY_BADGE_CLASS` in `task-canvas.tsx`). Each lane's
+piece rule takes the same accent, which is the only place the colour shows in
+the panel — four saturated lanes would fight each other.
+
+**Titles now wrap** instead of truncating (`break-words`, no `hyphens-auto` —
+auto-hyphenation broke "community" mid-word and read as a typo). Piece titles
+were the only clipped text; child tasks and canvas cards already wrapped. Every
+row's controls got `shrink-0` + `mt-px` so they stay put against a title that
+now runs to three lines.
+
+Note: this work was swept into commit b07694d ("Point bertomill.com at Vercel
+via the Cloudflare API") by a concurrent session running `git add -A` on the
+shared checkout — the code is all there, just filed under an unrelated message.
+
+Files: `lib/task-categories.ts`, `lib/todo.ts`, `lib/db.ts`,
+`app/api/todos/route.ts`, `app/_components/pipeline-lanes.tsx` (renamed from
+`content-lane.tsx`), `app/_components/task-canvas.tsx`.
+
+Verified with Playwright on a private dev server (port 3789): seeded a piece per
+lane with long wrapping titles, added a Sales piece and a task under it through
+the panel's own composers, collapsed the Community lane, confirmed every row
+persisted server-side with the right `category`/`parent_id`. Test rows deleted.
+`npm run typecheck` and `npm run build` clean.
+
+## 2026-08-16 — Pipeline pieces are checkable too
+
+Child tasks in the Pipelines panel already had checkboxes; the pieces above
+them didn't, so there was no way to mark a whole piece shipped. Added a
+`Checkbox` to the piece row in `app/_components/pipeline-lanes.tsx`, between the
+expand chevron and the title, wired to the same `onComplete`/`onUncomplete`
+handlers the child rows use (they take a bare id, so parents need no special
+casing).
+
+Decision: checking a piece does **not** cascade to its children. The `n/m`
+counter next to the title is the honest record of which steps actually got done,
+and some pieces are one-liners that never get broken down at all — auto-ticking
+their children would invent completions that never happened.
+
+Files: `app/_components/pipeline-lanes.tsx`. `npm run typecheck` clean.
+
+**Follow-up: headshot, booking link, newsletter popup (2026-08-16).**
+
+- **Headshot** from `~/Downloads/berto-headshot.png` (800×800, 793KB) re-encoded
+  to `public/berto-headshot.jpg` — 108KB via sharp/mozjpeg. PNG was the wrong
+  container for a photo and re-encoding as PNG actually made it *larger* (1.3MB).
+  Used in the nav (28px), the home hero (176px, flex not float so it can't bleed
+  into the next section), and as the OpenGraph image. Twitter card is `summary`,
+  not `summary_large_image` — a square portrait letterboxes badly in the latter.
+- **Static assets now bypass auth on both hosts** (`isPublicAsset()` in
+  `lib/public-site.ts`, wired into both middleware branches). Without this
+  `next/image` returned 400 "The requested resource isn't a valid image … received
+  null": the optimizer refetches its source over HTTP with no session cookie, got
+  307'd to `/login`, and parsed the HTML as an image. Scoped to a regex of
+  top-level image/font files, so no page or API route can slip through.
+- **Booking link** (`BOOKING_URL` in `lib/public-site.ts`) in the nav as a primary
+  button (desktop + mobile menu), in the footer, and as `<PostFooterCta />` at the
+  end of every article and episode.
+- **Newsletter popup** (`app/site/_components/newsletter-popup.tsx`) composed from
+  the shadcn dialog/input/button already in the project — so focus trapping,
+  Escape and scroll-lock come for free. Fires on whichever comes first: 30s or 50%
+  scroll. Dismissal and subscription both remembered in localStorage.
+
+  Backend is **Resend** (`app/api/site/subscribe/route.ts`), discovered via
+  `vercel integration discover --category messaging`; the address goes into a
+  Resend Audience. Plain fetch, no SDK. A duplicate returns `ok` rather than
+  "already subscribed", which would leak list membership to anyone guessing.
+  Validation runs *before* the credential check so malformed input gets a 400
+  regardless of config.
+
+  **Resend is not provisioned yet** — `vercel integration add resend` returned
+  `integration_terms_acceptance_required`, a browser step. Until `RESEND_API_KEY`
+  and `RESEND_AUDIENCE_ID` exist the layout passes `enabled={false}` and the popup
+  never renders, so nobody meets a form that can't submit. To finish:
+  accept terms at the `verification_uri`, re-run
+  `vercel integration add resend --no-claim --scope bertmill19s-projects`, create
+  an Audience in Resend, add `RESEND_AUDIENCE_ID`, then `vercel env pull` + deploy.
+
+**Follow-up: Resend newsletter wired up (2026-08-16).**
+
+The Vercel Marketplace resource never provisioned — `vercel integration add resend`
+cleared the terms gate but then needed a second browser step that never completed,
+and `vercel integration list` still shows only Neon. Went direct through Berto's
+own Resend account instead (billing is Resend's rather than unified through Vercel;
+functionally identical).
+
+- **Audience** `bertomill.com newsletter` → `RESEND_AUDIENCE_ID=dbfef196-7db2-4caa-94dc-2bbafb0dc55c`.
+- **Sending domain** `bertomill.com` (`f9756c80-…`). The free plan allows exactly one
+  domain and `yourbibbuddy.com` held the slot; it was `not_started` (added, never
+  verified, so nothing had ever sent from it) and was deleted with Berto's okay.
+- **DNS** written through `scripts/cloudflare-dns.mjs` via `RESEND_DNS_JSON`:
+  DKIM `TXT resend._domainkey`, plus `MX` and SPF `TXT` on **send.bertomill.com**.
+  Resend scopes SPF/MX to that subdomain, so the apex stays clean for real mail
+  (e.g. Google Workspace) later. DKIM resolved immediately; verification requested.
+
+Verified end-to-end against the live Resend API on a dev server: a real POST to
+`/api/site/subscribe` returned `{"ok":true}` and the contact appeared in the
+Audience; a second submit of the same address also returned `ok` **without**
+creating a duplicate; a malformed address still got a 400. Test contact deleted,
+audience back to 0.
+
+Two traps worth remembering:
+
+- **`.env.local` had no trailing newline**, so `echo 'X=y' >> .env.local` merged onto
+  the previous line and corrupted `RESEND_API_KEY`. The file now ends with a
+  newline; still worth checking `grep -c` after any append.
+- **The Vercel CLI has lost the `bertmill19s-projects` scope** — `vercel teams ls`
+  lists only `aucctus`/`aucctus-9e16163a`, so there is no CLI path to production
+  env vars. They have to be set in the dashboard, and deploys go via
+  `git push origin main`.
+
+Still open: `RESEND_API_KEY` and `RESEND_AUDIENCE_ID` must be added to the
+`cael-agent` project in the Vercel dashboard. Until both exist in production the
+layout passes `enabled={false}` and the popup stays hidden — the signup is live
+locally but not yet on bertomill.com.
+
+**Follow-up: newsletter is a real subscription now (2026-08-16).**
+
+The popup was the only way to subscribe, and it fires once per visitor — anyone
+who dismissed it could never sign up again. Added the persistent surfaces:
+
+- **`SubscribeForm`** (`app/site/_components/subscribe-form.tsx`) — every surface
+  renders this one component, so there's a single submit path, one set of error
+  messages and one success state. `variant` only changes layout. The popup was
+  refactored onto it and lost its duplicate handler.
+- **Footer**, on every page (`app/site/layout.tsx`), behind `newsletterEnabled`.
+- **After every article and episode** — `PostNewsletterCta`, placed above the
+  booking CTA so the lower-commitment ask comes first.
+- **`/newsletter`** — a linkable page with the pitch and the archive of what's
+  been published, so "what am I signing up for?" answers itself. Added to
+  `app/sitemap.ts` and the footer nav.
+- **Welcome email** on signup, from `berto@bertomill.com` (override with
+  `NEWSLETTER_FROM`). Plain text on purpose — reads like a note from a person and
+  lands in the primary tab more often than a styled template. Failures are logged
+  and swallowed: the subscriber is already on the list, so a bounced courtesy
+  email shouldn't turn a successful signup into an error. Duplicates don't get a
+  second one.
+
+Verified on a dev server: all four surfaces render, and a real signup returned
+`ok` **and delivered the welcome email** (Resend `last_event: delivered`) — first
+send on the new domain, so deliverability is confirmed end to end.
+
+Trap worth remembering: starting a second dev server without `NEXT_DIST_DIR`
+while another is running gives a server that answers `/` but **404s every other
+route** — it isn't a routing bug. Use `NEXT_DIST_DIR=.next-<port>`, as
+`npm run dev:3001` already does.
+
+**Follow-up: the welcome email now honours its own unsubscribe promise (2026-08-16).**
+
+Berto tested the signup and the email landed in Gmail's **Inbox** — not Promotions,
+not Spam — on the first send from a brand-new domain. DKIM + SPF doing their job.
+
+Reading it back, though, the copy said "just hit unsubscribe" and there was no
+link and no header to hit. A transactional `/emails` send gets no unsubscribe
+machinery for free (only Broadcasts do), so the email made a promise the code
+didn't keep. That's also a compliance problem, not just a tidiness one: CASL
+requires a working unsubscribe in commercial email, and Gmail/Yahoo bulk-sender
+rules expect one-click.
+
+- **`lib/newsletter-token.ts`** — HMAC-signed unsubscribe links. The address has to
+  travel in the URL (an email client has no session), so it's signed to stop anyone
+  unsubscribing a third party by editing the query string. Verified with
+  `timingSafeEqual`. The key derives from `RESEND_API_KEY` to avoid provisioning a
+  second secret — documented trade-off: rotating that key invalidates links already
+  sitting in inboxes. Set `NEWSLETTER_SECRET` to decouple them.
+- **`app/api/site/unsubscribe/route.ts`** — `GET` for a human clicking the link
+  (returns a small self-contained HTML page that doesn't depend on the site's CSS
+  loading), `POST` for Gmail/Apple Mail's native button (RFC 8058). Marks the contact
+  `unsubscribed: true` rather than deleting, so they stay suppressed if the list is
+  ever re-imported. A 404 from Resend is treated as success — someone who isn't on
+  the list already has what they wanted.
+- The welcome email now carries the real link plus `List-Unsubscribe` and
+  `List-Unsubscribe-Post` headers.
+
+Verified locally against the live Resend API: tampered token → 400; the valid token
+replayed against a *different* address → 400; one-click `POST` → 200 and the contact
+actually flipped to `unsubscribed: true`; the `GET` page renders. Test contacts
+deleted — the list is back to Berto's own address only.
+
+Trap: `npm run typecheck` was failing on `.next/dev/types/validator.ts`, which had a
+bare `../app/(app)/lists/page.tsx` line in it — malformed output from two dev servers
+writing that directory at once, nothing to do with the source. Deleting the file
+fixes it; it regenerates. Always build/dev with `NEXT_DIST_DIR` set when another
+session's server is up.
+
+**Follow-up: a Newsletter section inside Cael (2026-08-16).**
+
+Subscribers only existed in Resend's dashboard. Added a read-only section at
+`/newsletter` on the private host — count, the full list with signup dates,
+unsubscribed rows struck through, and a cumulative growth chart.
+
+Deliberately read-only: no send, no delete, no edit. Sending stays in Resend where
+the confirm steps and the audit trail already are, and an app that can't email the
+list can't email it by accident.
+
+- `app/api/newsletter/subscribers/route.ts` — note the path. It's under
+  `/api/newsletter/`, **not** `/api/site/`, so it inherits the private gate rather
+  than the public allowlist. Verified: 401 unauthenticated, 200 for the owner,
+  **404 on bertomill.com** — the public signup form can never read back who else
+  is on the list.
+- `app/_components/newsletter-panel.tsx` — recharts area chart via the project's
+  existing `ChartContainer`. The chart only renders with 2+ distinct signup days;
+  with everything on one day there's no line to draw.
+
+Wiring note: adding a section normally means touching `dashboard.tsx` (1,200 lines,
+and shared with whatever else is in flight). Avoided entirely — the panel renders in
+the same `<aside>` slot via a single conditional in `app/(app)/layout.tsx`, and
+`app/(app)/newsletter/page.tsx` is the usual null stub. Only `layout.tsx` changed.
+
+Trap: a regex insert put `MailIcon` into the wrong import block and broke the build
+with a bare `TS1005: ',' expected`. The lucide import in that file is one long single
+line — worth editing by hand rather than by pattern.
+
+**Spawn a task where you're looking, on the task canvas (2026-08-17).**
+
+Two ways to make a todo without reaching for the toolbar:
+
+- **Press `N`** anywhere on the Tasks screen — the composer opens under the cursor.
+- **Right-click empty canvas** — a one-item "New task here" menu (which advertises
+  the `N` shortcut) opens the same composer at that point.
+
+Either way the new card is created *already positioned*, so it lands exactly where
+you asked instead of being swept into the inbox columns.
+
+- `app/api/todos/route.ts` — POST now accepts optional `canvas_x` / `canvas_y`.
+  When present the row is inserted with them, so the canvas's auto-placement
+  effect (which only touches rows with a null position) leaves it alone.
+- `app/_components/task-canvas.tsx` — one composer with two homes (`{at:"toolbar"}`
+  or `{at:"board", ...point}`); a `Spawn` carries both frames, container-relative
+  px for the popover and scene units for the card. Scene coords are the inverse of
+  Excalidraw's `(scene + scroll) * zoom`.
+
+Gotchas worth remembering:
+
+- `N` was **already** a global shortcut in `app/(app)/layout.tsx` (jump to Tasks +
+  focus the list-view input). The canvas handler is registered on `window` in the
+  **capture** phase and `stopPropagation()`s, so it wins whenever the board is
+  visible, and the layout one still handles `N` from any other screen. The same
+  capture trick is why Excalidraw's own document-level shortcuts never see the key.
+- The contextmenu interceptor only fires when the hit target is a raw `<canvas>`
+  **and** nothing is selected — so per-card menus, Excalidraw's toolbar menus, and
+  its selection menu (copy / layer order) are all untouched.
+- The Tasks screen stacks **two** Excalidraw boards (strategy board above, task
+  canvas below). When testing with Playwright, resolve the task canvas as
+  `document.querySelector("[data-task-card]").closest(".excalidraw")` — grabbing
+  `canvas.interactive` first hits the strategy board and every coordinate is wrong.
+  (With the cursor outside the task canvas, `N` falls back to its centre — worked
+  as designed, and that's what made the first test look broken.)
+
+Verified in the running app: card created via `N` at (863,537) rendered at exactly
+(863,537); right-click card at (565,716) likewise; both persisted server-side with
+their positions; card context menus still open. Test rows deleted.
+
+## 2026-08-17 — Right-click → Duplicate on task cards
+
+Task cards on the canvas can now be duplicated from their existing right-click
+menu (`app/_components/task-canvas.tsx`). The new `duplicateTask` callback POSTs
+to `/api/todos` with the fields that describe the *work* — title, priority,
+recurrence, estimated_minutes, category — and places the copy one card-width +
+gap to the right of the original so it reads as a sibling rather than hiding
+underneath it. Live state (completed, timers, in_progress/waiting) is
+deliberately not copied.
+
+No API changes were needed: `POST /api/todos` already accepts `canvas_x`/
+`canvas_y` (added for the "spawn a task where you're looking" work), so the copy
+skips inbox auto-placement.
+
+Scope note: pipeline-lane cards (`pipeline-lanes.tsx`) have no context menu, so
+duplicate is canvas-only for now.
+
+Verified: `npm run typecheck` clean.
+
+## 2026-08-17 — Checked-off cards leave the canvas
+
+Follow-up to the duplicate work above. Checking off a task card now removes it
+from the board instead of leaving it greyed out: `canvasTodos` in
+`task-canvas.tsx` filters out anything done, and the card fades + shrinks
+(`transition-all duration-500`, `scale-95 opacity-0`) during the ~600ms window
+the parent already keeps it in `completingIds`, so it visibly leaves rather than
+blinking out.
+
+Two subtleties:
+
+- The filter tests `t.completed || isDoneToday(t)`. `completed` alone isn't
+  enough — a **recurring** task never flips it (`handleComplete` in
+  `dashboard.tsx` only rolls its due date), so it would have gone `opacity-0`
+  and stayed on the board as an invisible click-blocker. With `isDoneToday`, a
+  daily card leaves today and comes back tomorrow.
+- The `doneToday` counter in the toolbar reads `todos`, not `canvasTodos`, so
+  "N/M today" is unaffected. Un-checking now happens in list view, not on the
+  canvas.
+
+Verified in the running app (Playwright, dev server on :3789, `/tasks` route):
+right-click → Duplicate created a copy at x=548 for an original at x=300
+(300 + CARD_W 236 + CARD_GAP 12) with estimate/priority carried over and the new
+card rendered on the board; checking off the original removed it from the DOM
+within ~1.5s while the copy stayed. Test rows deleted.
+
+Testing note for next time: seed canvas test tasks with **no category** — a lane
+category (code/content/community/sales) sends the task to the pipeline panel, not
+the canvas. And the Tasks screen is the `/tasks` route; clicking the sidebar
+label doesn't change the URL in a fresh browser context.
+
+## 2026-08-17 — Right-click a task card to colour it
+
+Task cards on the canvas can now be painted from their right-click menu. New
+`Colour` section at the top of the menu: a row of five swatches — yellow, green,
+blue, purple, and an empty one that clears back to a plain card. Clicking the
+colour a card already has also clears it.
+
+Design decision (asked Berto): the colour is a **free, cosmetic** property, not a
+derived view of `in_progress`. He wants to paint a card whatever he likes; the
+working convention is yellow = pending, green = in progress, but nothing in the
+code enforces it. The alternative — a Status radio group that drove the colour
+from the existing flag — was rejected.
+
+- `lib/task-colors.ts` (new) — the palette: `CARD_COLORS`, the Tailwind classes
+  for card / swatch (spelled out per variant, since Tailwind can't see
+  interpolated names), and `normalizeCardColor()` for API input.
+- `lib/db.ts` — `todos.color TEXT` (nullable; NULL = plain card). Applied to the
+  live Neon DB directly as well, since `ensureSchema()` doesn't run per request.
+- `app/api/todos/route.ts`, `app/api/todos/[id]/route.ts` — `color` added to every
+  SELECT/RETURNING list, accepted on POST, and nullable-by-presence on PATCH
+  (`color: null` clears, omitting the key leaves it) — same pattern as `category`.
+- `app/_components/task-canvas.tsx` — swatch row, card tint, and Duplicate now
+  carries the colour over.
+
+Knock-on: **`waiting` moved off amber to slate** (`text-slate-500` /
+`border-slate-400`). Amber now belongs to the yellow card colour, and two amber
+signals on one board would have been unreadable. A coloured card also keeps its
+own border when `in_progress` — the primary *ring* still marks "working on now",
+so the colour isn't overridden by live state.
+
+Verified in the running app (Playwright, dev server on :3789, `/tasks`):
+right-click → green tinted the card `bg-emerald-100/90` and persisted
+`color: "green"` server-side; → yellow flipped it to `bg-amber-100/90` /
+`color: "yellow"`; Duplicate produced a second yellow card; → No colour cleared
+both the classes and the column back to null. `npm run typecheck` clean. Test
+rows deleted (0 leftover).
+
+## 2026-08-18 — Completed pieces/tasks leave the Pipelines panel
+
+The Pipelines panel kept every checked-off piece and task on screen, struck through,
+so finished content piled up above the live work. Now a completed item drops out of
+its lane once its check animation finishes (same rule the canvas uses: it stays while
+it's in `completingIds`, then goes). Each lane grows a small "Show N done" / "Hide
+done" toggle at the bottom when it has hidden items, so the record — and unchecking
+— is still one click away. The piece's `x/y` sub-task counter still counts every task,
+and the lane header count now shows only live pieces.
+
+Files: `app/_components/pipeline-lanes.tsx`.
+
+## 2026-08-22 — Nutrition section
+
+New `/nutrition` section (nav rail + mobile More menu, `AppleIcon`). Four parts,
+all decided with Berto up front:
+
+1. **Days on protocol** — the headline metric and its line chart
+   (`app/_components/protocol-chart.tsx`). The four rules live in
+   `lib/nutrition.ts` and come straight out of his own thoughts: whole food only
+   (no dairy/sugar), fasted until afternoon, snacked light + real dinner,
+   protein + fat + fibre. A day counts only when **all four** held. The line is a
+   **7-day rolling percentage** so one bad day dents it instead of zeroing it,
+   and it only starts at the first logged day — days he was never asked about
+   don't drag the average down. Under three logged days the plot is replaced by
+   the number plus a line of copy; an empty 400px chart is not information.
+2. **Today** — the four rules as checkboxes, optimistic, `PUT`ing the whole rule
+   array (no partial merge).
+3. **Meals that felt good** — a log, quick-add first. The one-tap buttons are
+   *derived*: the eight most-logged meal names, so the shortcuts build themselves
+   out of what actually gets eaten instead of needing a favourites table.
+4. **Energy staples** + **Food principles** — the shelf of foods that work
+   (seeded with his own reasons from thoughts 128/77/136/133/125/147/122), each
+   with a cart button that pushes the name into the existing **Groceries** list
+   in Lists. Principles are read live from `thoughts` by tag
+   (`nutrition/food/grocery/energy/meal-preference/fasting/cooking`) — nothing is
+   copied into a nutrition table, so anything Cael captures later just shows up.
+
+Files: `lib/nutrition.ts`, `lib/db.ts` (3 tables), `app/api/nutrition/{meals,staples,days,principles}`,
+`app/_components/{nutrition-panel,protocol-chart}.tsx`, `app/(app)/nutrition/page.tsx`,
+nav in `app/(app)/layout.tsx` + `dashboard.tsx`, agent tools `log_meal`,
+`log_nutrition_day`, `list_nutrition`, and `scripts/nutrition-migrate.mjs`
+(idempotent; already run against the live Neon DB — 15 staples seeded).
+
+Decisions worth remembering:
+
+- **Separate from `meal_recommendations`.** That table is Cael *suggesting*
+  tomorrow's meal (with a photo, thumbs up/down) and is still empty. The new
+  `nutrition_meals` is Berto *recording* what he actually ate and want to repeat.
+  Different direction, so a different table.
+- **The staples shelf does not replace the Groceries list.** The shelf is the
+  standing record of foods that work; Lists → Groceries stays the real shopping
+  list. The cart button is the one-way bridge between them.
+- Delete buttons are always visible, not `group-hover` — a hover-only control is
+  unreachable on mobile (and the first Playwright pass caught exactly that).
+
+Verified in the running app (Playwright against the dev server on :3789, both
+1280×1000 and 390×844): rules toggled and persisted (`["whole_food","fasted"]`
+server-side), a meal logged from the input then re-logged from its own quick-add
+button, "Ginger" landed in the Groceries list (7 → 8 items), a staple added and
+removed, principles rendered from the real thoughts with "Show all". Every test
+row deleted afterwards — `nutrition_days` and `nutrition_meals` are back to 0,
+staples 15, no TEST rows in `list_items`. `npm run typecheck` clean.
+
+Next steps if it gets used: `felt_good` is stored per meal but nothing in the UI
+sets it to false yet, and the meal-history view caps at 14 days.
+
+## 2026-08-22 — Nutrition, part 2: photos, three meals a day, and a strip on the Tasks board
+
+Follow-up to the section above. Berto asked for (1) an AI-generated image on every
+staple and every protocol rule, and (2) the day's nutrition to show up on the Tasks
+page alongside recommended meals for his three sittings — lunch, snack, dinner.
+
+**Three meals a day.** `meal_recommendations` was one row per day (UNIQUE on
+`meal_date`); it now carries a `slot` and is UNIQUE on `(meal_date, slot)`.
+`lib/meal-suggest.ts` is the single brain: it gathers his staples, his food
+principles, the last ten days of logged meals and any past thumbs up/down, asks
+the model for one dish per sitting (`generateObject`), generates the photo, and
+upserts it. Three callers share it — the morning tick, the buttons on the page,
+and Cael:
+
+- `agent/schedules/dispatcher.ts` calls `ensureTodaysMeals()` on the daily tick,
+  right beside the Luma sync and for the same reason: Vercel Hobby allows exactly
+  one cron a day for the whole project, so everything scheduled has to ride on it.
+  It only fills *missing* slots and never throws, so a model hiccup on lunch can't
+  cost him dinner or stop the scheduled tasks behind it.
+- `POST /api/nutrition/plan` with no body fills the gaps; with `{slot}` it re-rolls
+  that one sitting (the ↻ on each card).
+- `set_daily_meal` now takes a `slot` — kept for "make tonight something else",
+  not for the daily job.
+
+**Disabled scheduled task #8, "Daily Meal Recommendation."** It asked Cael to pick
+one Mediterranean/Italian dish each morning — now duplicated work, and its cuisine
+steer fights the whole-food-vegetarian protocol the new suggester follows. The row
+is disabled, not deleted, so it's one flag to bring back.
+
+**Images.** `lib/nutrition-art.ts` holds all three generators (staple, rule, meal)
+behind one photographic style string, so the section reads as one set of pictures.
+Staples get `image_url` on the row; adding a staple in the UI fires
+`POST /api/nutrition/staples/:id/image` and the card fills in behind a spinner.
+
+The four rule images went to a `nutrition_rule_art` table rather than committed
+files in `public/`, which is the more interesting decision: **image generation
+needs AI Gateway credentials that only exist on the deployed app.** The local
+`VERCEL_OIDC_TOKEN` is expired and this CLI can't reach the `cael-agent` project
+to refresh it (see the prod-domain notes), so a `scripts/`-based generator would
+be dead on arrival here. `scripts/backfill-nutrition-art.mjs` instead drives the
+**live** API routes one at a time, and because the blob URLs land on rows the dev
+app also reads, one run covers both environments. `RuleImage` fetches the map once
+per session (module-level promise, shared by every instance) and renders a plain
+muted square if the art is missing — the rules stay usable with no pictures at all.
+
+**On the Tasks board.** `NutritionToday` is a compact section at the top of the
+pipelines panel: the three sittings (thumbnail, dish, checkbox) and the four rules,
+with a `done/7` counter in its header. Not tasks — no `todos` rows are created;
+it reads and writes the nutrition tables directly, so the Tasks board and the
+Nutrition screen are two windows onto the same rows. Ticking a sitting logs that
+dish into the meal log with its slot; unticking deletes that row again. Both views
+share `use-nutrition-today.ts`. It landed inside `PipelineLanes`, which a parallel
+session had just made reusable with an `inline` prop, so it shows up in the new
+mobile task list too.
+
+Knock-on: the Home screen's "Today's meal" card would have picked an arbitrary one
+of the three, so it now shows whichever sitting is live (`currentSlot()` — lunch
+until 3pm, snack until 6pm, then dinner) and titles itself accordingly.
+
+Files: `lib/{nutrition,nutrition-art,meal-suggest,db}.ts`,
+`app/api/nutrition/{plan,rule-art,staples/[id]/image}`, `app/api/meals/route.ts`,
+`app/_components/{meal-plan,nutrition-today,rule-image,use-nutrition-today,nutrition-panel,home-screen,pipeline-lanes}`,
+`agent/schedules/dispatcher.ts`, `agent/instructions.md`, agent tools
+`set_daily_meal` / `list_meal_history` / `log_meal` / `list_nutrition`,
+`scripts/{nutrition-migrate,backfill-nutrition-art}.mjs`.
+
+Note for whoever is next: a parallel session's `git add -A` swept several of these
+files into commit af0ee9f ("Mobile: task list…") while they were mid-flight. No
+work was lost, but that commit's message under-sells what's in it.
+
+## 2026-08-22 — Mobile: Tasks becomes a list, and one gutter for the bottom nav
+
+The app was laid out for a desktop panel and squeezed onto a phone. Two things
+were actually broken at 390px.
+
+**Tasks was unusable.** Three surfaces stacked in one narrow column: the strategy
+board (an Excalidraw scene, 400px default) ate half the viewport, the task canvas
+below it positions cards at Excalidraw *scene* coordinates on a board several
+times wider than the screen — today's tasks sat at x≈1000, off-screen — and both
+Excalidraw toolbars overlapped the `+ Task / Find tasks` row they share the top
+strip with. The Pipelines panel covered the rest.
+
+Asked Berto between three options (mobile list / segmented Board-List-Pipelines /
+keep the canvas and fix the fit). He picked the list.
+
+- `app/_components/task-list-mobile.tsx` (new) — the same tasks as a plain
+  vertical list: sticky `+ Task` header with the day's count, one row per task
+  (checkbox, tappable title, priority dot, category badge, estimate/countdown)
+  and two controls that survive touch — work-on-now and the timer. The canvas
+  card's right-click menu has no touch equivalent and isn't what a phone is for.
+- `app/_components/pipeline-lanes.tsx` — new `inline` variant: a block in the
+  page flow rather than a panel floating over a canvas. The mobile list renders
+  the lanes underneath it.
+- `hooks/use-is-desktop.ts` (new) — the branch is a **mount**, not `lg:hidden`.
+  Measured it: with the CSS-only version a phone still booted both Excalidraw
+  scenes (4 canvases) behind `display:none`. Now mobile mounts 0 and desktop
+  mounts 2, verified in the browser both ways.
+- `lib/task-categories.ts` — `CATEGORY_BADGE_CLASS` moved out of task-canvas so
+  the list and the canvas draw the same badge.
+
+**The bottom nav reserved no space.** It's `position: fixed`, and only some
+panels remembered their own `pb-16` — sketches, measures, calendar and vision
+ran underneath it. Replaced ~15 per-panel paddings with one `--mobile-nav-h`
+applied once on the shared content panel in `app/(app)/layout.tsx`, so a new
+panel can't forget. Added `viewport-fit=cover` + `env(safe-area-inset-bottom)`
+so the bar clears the iPhone home indicator.
+
+Gotcha worth remembering: **lightningcss silently drops a custom property whose
+value is `calc()` containing a bare `env()`** — `--mobile-nav-h` compiled away
+entirely and the nav collapsed to 40px. Splitting it (`--safe-bottom: env(…)`,
+then `calc(4rem + var(--safe-bottom))`) survives the build.
+
+Verified in the running app (Playwright, dev server on :3789, 390×844): the
+composer focuses and creates a task with its estimate, work-on-now and the timer
+both persist server-side, a checked task fades and leaves the list in ~1.5s (the
+same 600ms window the canvas uses), and nothing overlaps the nav on tasks /
+sketches / measures after scrolling each to the bottom. Desktop `/tasks`
+unchanged — 21 canvas cards, 2 Excalidraw scenes, 0 list rows. Test rows deleted
+(0 leftover). `npm run typecheck` clean.
+
+**Still ugly on mobile, out of scope this pass:** the Calendar month view renders
+a 7-column grid at 390px, so event titles clip to a few characters and the
+Saturday column is cut off — it wants a mobile agenda/day view. The Notes tag
+cloud still renders all ~60 tags as ~19 wrapped rows, pushing every note below
+the fold.
+
+### Same day — two fixes found while shipping the above
+
+**`google/imagen-4.0-generate-001` does not work through this project's AI
+Gateway.** Every call errored, which is also why `meal_recommendations` had been
+empty since the "Daily Meal Recommendation" task was created — `set_daily_meal`
+had been failing silently every morning for weeks. All food images now go through
+one generator on **`openai/gpt-image-1`** (the model `scripts/generate-site-art.mjs`
+has used since 2026-08-16), which takes `size`, not `aspectRatio`. The generation
+routes also return the real error in a `detail` field now; the bare 500 cost a
+deploy cycle to diagnose.
+
+**The generator returns a ~1.5 MB 1024px PNG no matter what `output_format` says.**
+Nineteen of those on one page made Next's image optimizer time out (7s fetch
+limit) and nearly every thumbnail came back blank. Fixed at both ends: `upload()`
+in `lib/nutrition-art.ts` re-encodes to webp on the way in (512px for thumbnails,
+1024px for meal cards), everything renders through `next/image` (with
+`images.remotePatterns` for the blob host in `next.config.ts`, and `sharp`
+promoted from a transitive dep to an explicit one), and
+`scripts/shrink-nutrition-art.mjs` re-encoded the 22 already generated —
+**32.6 MB → ~600 KB**, no model calls. The page now pulls 91 KB of image bytes
+for 22 images.
+
+Verified on production (cael.bertomill.com): 22/22 images load through the
+optimizer with no failures; ticking a rule persists and un-ticks; "Ate it?" on
+lunch logged `lunch: White Bean & Avocado Pita` and the Tasks-board strip showed
+`1/7` from that same row; undo removed it. Left at a clean slate — 0 logged meals,
+no rules ticked, today's three suggestions in place with photos.
+
+## 2026-08-23 — A fill ring on each pinned task
+
+Each row in the pinned window now carries a **progress ring** on its complete
+circle: the stroke fills clockwise as the task burns through its
+`estimated_minutes`, so a glance across the three tells you which one is closest
+to done — the countdown number alone didn't answer that (34:05 left could be
+half of an hour or a quarter of two).
+
+- `lib/todo.ts` — new `estimateProgress(t, nowMs)`: `(banked + live) / estimate`
+  clamped to 0..1, or `null` when the task has no estimate. Same shape as the
+  existing `remainingSeconds`, driven off the parent's one clock.
+- `app/_components/pin-view.tsx` — the complete button (now `size-6`) renders
+  **Magic UI's `AnimatedCircularProgressBar`**, which was already installed in
+  `components/ui/` and unused until now. It eases `stroke-dasharray` over 1s, so
+  the per-second tick reads as motion rather than a jump, and its small end gap
+  is what keeps a 24px ring legible. Ring goes `--priority-urgent` once the
+  estimate is blown (progress pins at 100%). No estimate → the plain bordered
+  circle as before, no ring to fill.
+
+The check icon rides inside the ring as the component's `children` (the local
+copy was already patched to accept them), so the same 24px is both the status
+indicator and the click target — the row didn't get any wider.
+
+Verified in the running app (Playwright, dev server on :3789, pin mode via the
+`cael:pin` event): all three live tasks rendered rings at 43–49%, matching their
+estimates; `data-current-value` confirmed the numbers server-side.
+`npm run typecheck` clean. No test rows created.
+
+## 2026-08-23 — The chat is a floating window now, not a modal
+
+Cael's quick chat was a **modal**: a dimmed backdrop over the whole app, so
+talking to it meant stopping whatever you were doing. On desktop it's now a
+**non-modal floating window** — no backdrop, every click outside it lands on the
+app underneath, so you can ask Cael something while editing a sketch, ticking
+tasks, or reading notes.
+
+- `app/_components/chat-modal.tsx` — split into `ChatModal` (owns the agent,
+  the thread and the Escape/unread bookkeeping) and `FloatingChatWindow` (the
+  desktop shell). One `Geometry` state `{x,y,w,h}`:
+  - **Drag** anywhere on the header. **Resize** from either bottom corner —
+    the bottom-left handle moves `x` as it grows `w`, so the opposite corner
+    stays put. Both run through one pointer-capture loop.
+  - `clampGeometry()` keeps it inside the viewport (min 320×320, at least 120px
+    of it on screen) and re-runs on window resize, so a shrinking window can't
+    strand it off-screen.
+  - Geometry is mirrored to `localStorage` (`focuspoint:chat-window`) on gesture
+    end — it reopens where it was left. Defaults to 460×620, bottom-right.
+  - **Collapse** (new `−` button) shrinks it to a 56px Cael bubble at the
+    window's corner, badged with the number of replies that landed while it was
+    down. Clicking it restores position and size.
+- **Escape** is now scoped to the panel: with the app usable behind the window,
+  an Escape aimed at whatever you're actually working in shouldn't close the
+  chat. Same reasoning in `app/(app)/layout.tsx` — the `t`/`n`/`c` shortcuts no
+  longer switch off while the chat is open, they just ignore keys that came from
+  inside it (`target.closest('[role="dialog"]')`).
+- Phones keep the old centered sheet with its backdrop: there's no app to
+  operate alongside it, and a draggable window on a 390px viewport is all cost
+  and no benefit. `useIsDesktop()` picks the branch; `AgentStatus` is now
+  exported from `agent-chat.tsx` for the shared header.
+
+Verified in the running app (Playwright, dev server on :3789, 1440×900): opened
+at 460×620 bottom-right, clicked the Notes nav *behind* the window and the app
+navigated with the chat still open, dragged to (544, 40), resized to 613×703,
+`localStorage` held the same numbers, collapsed to the bubble and restored, and
+a reload reopened it at 613×703. `npm run typecheck` clean. Both empty test
+threads deleted.
+
+`.claude/skills/verify` was stale and cost two cycles: Clerk is the front door
+now (`/login` → `/sign-in`) and `BASIC_AUTH_PASSWORD` is quoted in `.env.local`,
+so the cookie 401s unless you strip the quotes. Both noted in the skill.
+
+## 2026-08-23 — Mobile: the controls a thumb couldn't reach
+
+Audited all 17 sections at 390×844 (Playwright, real touch emulation) rather than
+guessing. The good news first: **zero horizontal overflow anywhere** — the August 22
+pass fixed that and it stayed fixed. What was left wasn't layout, it was
+*reachability*, and it was systemic rather than per-panel.
+
+**19 row controls were literally unreachable on a phone.** Ten panels build their
+edit / delete / rename affordances as `opacity-0 group-hover:opacity-100`, a pattern
+with no touch equivalent: on a phone they were invisible *and* still tappable if you
+happened to guess where they were. On Lists that meant editing or deleting an item
+was flat-out impossible from a phone. Fixed with one new variant in `app/globals.css`:
+
+```css
+@custom-variant touch (@media (hover: none));
+```
+
+paired onto every one of the 19 sites as `touch:opacity-100`. Keyed on the
+*capability*, not the width, deliberately — a narrow window on the Mac still has a
+pointer and keeps the clean reveal-on-hover, while an iPad in landscape is 1024px
+wide and has no hover at all. Verified both directions: the probe reports
+`hiddenControls=0` on every mobile route and still 3 on desktop `/lists` and
+`/tasks`, which is the behaviour desktop should keep.
+
+**Tap targets were far under any minimum** — a 10×10px priority dot ("tap to
+change"), a 16×16 delete list, 22×22 vision buttons, 31px calendar buttons. New
+`.tap-target` utility: a centred pseudo-element grows the *touch region* without
+moving a pixel of the art, so the dense rows stay as scannable as they are.
+
+The two axes get different budgets, and that asymmetry is the whole trick — I got it
+wrong first. A uniform 44px box looked right until I worked out the geometry of an
+edit/delete pair: they sit ~22px centre to centre, so two 44px boxes each cover the
+*other* icon, and since the later one paints on top, **aiming at Edit would have hit
+Delete**. Destructive, and worse than the bug it replaced. So height goes to the full
+44px (a row's padding is dead space, nothing to collide with) and width only to 24px
+— WCAG 2.5.8's AA minimum, five pixels a side on a 14px icon, less than the gap it
+sits in. Applied at the `icon` / `icon-sm` / `icon-xs` Button variants (which covers
+most of the app in one place) plus the hand-rolled controls and the filter chips.
+Reveal clusters also get `touch:gap-2`, since 2px of gap is fine for a cursor and not
+for two thumbs.
+
+**Notes: ~60 tags wrapped to 19 rows and pushed every note below the fold.** Now one
+sideways-scrolling line on a phone (`scroll-row-x`), the full wrapped cloud from `lg`
+up — one element, responsive, no duplicated markup. Ordering changed from alphabetical
+to **most-used first**: in a scrolling line, order decides what you can reach without
+swiping, and strict alphabetical buried "work" past forty others. Whichever tag is
+filtering leads the strip so it stays on screen as the thing you tap to undo.
+
+**Calendar: the month grid is unreadable at 390px** (55px columns clip titles to a
+few characters, Saturday falls off). Phones now get `listWeek` — installed
+`@fullcalendar/list` — one chronological column of full titles and times. Desktop
+keeps the month grid untouched. Two things worth remembering:
+
+- `initialView` is read once per mount and there is no prop to change it after.
+  Driving it from an effect with `changeView` **looks** right and doesn't hold —
+  FullCalendar re-applies its own view on the prop updates landing in the same
+  commit, and the desktop kept rendering the agenda. The breakpoint now *keys* the
+  component so crossing `lg` remounts it on the right view. Caught this only because
+  I screenshotted the desktop side too.
+- Drag-to-select was the only way to create an event, and it's disabled on touch
+  (there the same drag scrolls the agenda) — so mobile would have had **no** way to
+  add one. Added an explicit "New event" button, pre-filled to the next whole hour.
+
+**Found while fixing the above:** four `<Card>`s that mean to be horizontal rows
+(`lists` ×2, `journal` templates, `media` images) never actually were. shadcn's Card
+is `flex flex-col` at the base, and a className of `flex items-center` re-states the
+display it already has without touching the direction — so they've been stacking and
+centre-aligning all along, **on the Mac too**. Invisible until the row's trash icon
+stopped being invisible. One `flex-row` each; fixes both platforms.
+
+Files: `app/globals.css` (the `touch` variant, `.tap-target`, `.scroll-row-x`,
+FullCalendar list theming + touch button sizing), `components/ui/button.tsx`,
+`app/_components/{calendar-panel,dashboard,lists-panel,vision-panel,journal-templates-panel,manual-panel,family-panel,sketches-panel,chat-sidebar,pipeline-lanes,task-list-mobile,meal-plan,home-screen}.tsx`.
+
+Verified in the running app at 390×844 and 1440×900 (dev server on :3789):
+`hiddenControls` 0 on every mobile route and unchanged on desktop; calendar reports
+`fc-listWeek-view` + 44px toolbar buttons on mobile and `fc-dayGridMonth-view` + 42
+month cells on desktop; no horizontal overflow on any route at either size.
+`npm run typecheck` and `npm run build` clean. No test data created.
+
+**Still ugly on mobile, out of scope this pass:** Excalidraw's own toolbar on
+/sketches draws 13×13 buttons that `.tap-target` can't reach (it's their DOM);
+several wide-but-short text buttons remain 20–28px tall (`+ Add` on home, "Suggest
+one" on nutrition, the measures slider labels).
+
+## 2026-08-24 — The good GitHub token is in `.env.local`; the live PR mirror is now complete
+
+Berto generated the classic PAT the last entry asked for — signed in as
+`rmillaucctus`, scope `repo` — and put it in `.env.local` as `GITHUB_TOKEN`.
+Verified through the real code path, not just `api.github.com/user`: a local
+`POST /api/github/sync` reports `{source: "GITHUB_TOKEN", login: "rmillaucctus",
+scopes: "repo"}` and sees **all seven** repos the blind token couldn't, including
+the private `Aucctus/venice` (1,007) and `rmillaucctus/helios` (80).
+
+**Ran the full backfill against the production database from local.** This works
+because `.env.local`'s `DATABASE_URL` *is* the live Neon branch (`ep-shiny-mouse`)
+— the same one production reads — so the sync did not need the production token to
+fix production data. Result: **1,156 PRs across 16 repos, 20 months**, and
+`https://cael.bertomill.com/api/github` now returns 1,156 (`rmillaucctus` 1,096 +
+`bertovmill` 60) with the newest merged today. The Craft card is current against
+its 2,500 goal.
+
+**Still open, and it needs the Vercel dashboard.** Production's `GITHUB_TOKEN` is
+*unchanged* — a prod sync still reports `login: bertovmill`, `scopes: null`,
+`fetched: 3`. So the nightly tick keeps re-fetching only the two public repos.
+Nothing is lost when it runs (the mirror is an upsert, never a wipe), but new
+private-repo PRs won't appear on their own until the var is replaced.
+
+Confirmed again that there is **no programmatic path** to that env var from this
+machine, so nobody should burn time retrying it: `vercel env ls` fails under every
+scope the CLI can see, and the Vercel REST API answers `forbidden` for
+`prj_RTIFlE60WgJ8xOWV9pq6lZf5ATou` with the CLI's own stored token — the project
+lives in a scope this login isn't a member of. The one manual step is pasting
+`.env.local`'s `GITHUB_TOKEN` value into the **Production** environment of the
+`cael-agent` project, on the var named exactly `GITHUB_TOKEN`, then redeploying.
+The check afterwards is a single `POST /api/github/sync` on the live domain: it
+should say `login: rmillaucctus` and `fetched` in the thousands, not 3.
+
+## 2026-08-25 — The task list is exposed to Claude over MCP
+
+Berto wanted Claude to know which tasks are actually in progress, so it can see
+what's in flight instead of asking. Built it as an **MCP server at `/api/mcp`**
+rather than a local skill: one implementation reachable from Claude Code in any
+repo, from claude.ai, and from the desktop app. Uses `mcp-handler`@2 +
+`@modelcontextprotocol/server`@2 (Streamable HTTP, stateless — no Redis).
+
+**Four tools, read plus status changes only.** Creating and deleting tasks stays
+Berto's call in the app; Claude can only move what's already there.
+
+- `list_tasks` — reads any lane: `working_now`, `waiting`, `up_next`, `open`
+  (the default, everything unfinished), `done` (completed *today*), `all`. Each
+  task comes back as a line a model can read without unpacking JSON, plus
+  `structuredContent` for a caller that wants fields.
+- `start_task` — into "working on now" and starts the timer. Refuses past the
+  five-slot `WORKING_LIMIT`, same as the UI.
+- `stop_task` — banks the timer. `move_to` optionally takes it out to `up_next`
+  or `waiting`; omitting it is just a pause.
+- `complete_task` — crosses it off, with the Google Calendar done-block and the
+  repeat-tomorrow copy intact.
+
+**`lib/tasks.ts` is new.** The status operations moved out of the route handlers
+so the MCP tools and the REST API can't drift on what "complete" means — banking
+the running timer, plotting the done-block, rolling a recurring task's due date,
+cloning a one-off for tomorrow. `/api/todos/[id]/complete` now delegates to it
+and behaves identically (checked both paths against the live DB).
+
+**Auth is a shared secret, and it has to be checked twice.** `MCP_TOKEN`, verified
+in constant time by the route via `withMcpAuth`, *and* allow-listed in
+`middleware.ts` on the same header — the session gate 401s every `/api/*` request
+before the route sees it, exactly like `CRON_SECRET` already had to be. The public
+host still 404s `/api/*`, so this only exists on cael.bertomill.com.
+
+Verified on :3789 against the live database: unauthenticated and wrong-token
+requests 401; `tools/list` returns all four; `list_tasks` read the real lanes
+(4 in working now, real up-next queue); a throwaway task went start → pause →
+waiting → complete with the row and the calendar event correct at every step;
+both complete paths exercised; seeds deleted afterwards (0 left). `npm run
+typecheck` clean.
+
+Registered on this machine at user scope:
+`claude mcp add --transport http --scope user focuspoint https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"`
+
+**One manual step left, and it's the same wall as the GitHub token.** Production
+has no `MCP_TOKEN`, so `https://cael.bertomill.com/api/mcp` answers 401 — confirmed
+after the deploy. `vercel env add` fails the same way it did last time ("Could not
+retrieve Project Settings" under every scope, including `aucctus`): this CLI login
+isn't a member of the scope that owns `prj_RTIFlE60WgJ8xOWV9pq6lZf5ATou`. Nobody
+should retry it. Paste `.env.local`'s `MCP_TOKEN` into the **Production**
+environment of the `cael-agent` project and redeploy. The check afterwards is one
+line — `tools/list` against the live URL with that bearer token should return the
+four tools instead of `{"ok":false,"error":"Unauthorized"}`.
+
+## 2026-08-25 (later) — Production `MCP_TOKEN` is set; the "no programmatic path" wall was a team-membership problem
+
+The last entry said nobody should retry `vercel env add` because the CLI login
+isn't in the scope that owns `cael-agent`. That was true but incomplete, and the
+fix was one click. Berto added **rmill@aucctus.com** to **bertmill19s-projects**
+and the whole thing opened up.
+
+What the CLI errors actually meant, so no future session re-derives this:
+
+- `vercel whoami` → "Not authorized" is a **scope** mismatch, not an expired
+  token. `auth.json`'s `expiresAt` was 8 hours out. `config.json`'s `currentTeam`
+  pointed at a team the API rejects for that call.
+- `--scope` wants the team **slug** (`bertmill19s-projects`). The `team_…` id is
+  refused as "The specified scope does not exist" — which reads like the team
+  doesn't exist rather than like a bad argument format.
+- Membership alone wasn't enough: as **DEVELOPER** the API answered "Additional
+  permissions are required to create production environment variables" — read
+  everything, write preview, refused production. Berto made the account OWNER.
+
+`MCP_TOKEN` is now set on **production only**, type `sensitive`
+(`id=kw307P8Q7hj7yma8`), and production was redeployed to pick it up
+(`dpl_GZoKE3XvGzKdSXTuo4wQoSJvqcQ5`, READY). Confirmed live:
+`tools/list` against `https://cael.bertomill.com/api/mcp` returns all four tools,
+a wrong token 401s, `https://bertomill.com/api/mcp` 404s, and `list_tasks` read
+the real board (3 working now, the real up-next queue). `claude mcp list` shows
+`focuspoint … ✔ Connected`.
+
+**Also settled while in there — `cael-agent` really is the live project.** It owns
+cael.bertomill.com, bertomill.com and www.bertomill.com, and commits `a37eec0` /
+`1d3b4af` had already deployed to production on their own, so the git integration
+is working.
+
+**And a correction to the GITHUB_TOKEN entry above.** Production doesn't hold a
+*badly scoped* `GITHUB_TOKEN` — it holds **none at all**. The var exists only on
+**preview**, and there are no team-level shared env vars supplying it. Same shape
+for `BASIC_AUTH_PASSWORD` and `ELEVEN_LABS_API_KEY`: preview/development only,
+nothing on production. Whatever the nightly sync authenticates as, it isn't coming
+from a production project env var. Not fixed here — Berto hasn't asked for it —
+but it's now a one-command fix rather than a dashboard errand.
+
+## 2026-08-25 (later still) — The MCP server is called `cael`, and sessions are told which task list is the real one
+
+Berto asked the right question: would a fresh session in some other repo actually
+know to use this? No — two gaps, both now closed.
+
+**The word "Cael" appeared nowhere in it.** The server was registered as
+`focuspoint`, the tools were `list_tasks`/`start_task`, and no description
+mentioned Cael. Asking "what does Cael say I'm working on" had nothing to match
+on. Re-registered at user scope as **`cael`** (tools now read
+`mcp__cael__list_tasks`), `serverInfo.name` is `cael`, and every tool description
+names Cael.
+
+**Worse, there was a silent collision.** Claude Code ships its own per-session
+task scratchpad (`TaskList`/`TaskCreate`). A session asked "what are my tasks"
+could answer from *that*, find it empty, and report an empty board — which looks
+like Berto has nothing on, not like the wrong list was read. Every tool
+description and the server `instructions` now say explicitly that this is the
+real board and is *not* that scratchpad.
+
+Added to the **global** `~/.claude/CLAUDE.md` (not the project one — this has to
+apply in every repo): read the task list from the `cael` MCP server, never from
+the built-in task tools, and the write tools may keep the board honest but must
+never create or delete a task.
+
+Verified after deploy (`4b9a891`): `initialize` on the live URL reports
+`serverInfo {"name":"cael","version":"1.1.0"}` with the new instructions, and
+`claude mcp list` shows `cael … ✔ Connected` from outside the repo.
+
+**Not done, deliberately.** claude.ai and the mobile app can't use this yet:
+their custom-connector UI expects OAuth and can't send a bearer header. Adding
+an OAuth flow to `/api/mcp` is contained work if Berto ever wants the board on
+his phone. Claude Desktop *can* take it as-is and hasn't been set up.
+
+## 2026-08-25 (later) — The MCP server can add tasks now
+
+Berto asked Claude to add "reply to Jorie" to the board from a session outside the
+app and it couldn't: `/api/mcp` exposed read + three status moves, and creating a
+task was deliberately left out. He asked for it, so it's in.
+
+- `lib/tasks.ts` gains `createTask()` — the same narrow insert the REST route does,
+  minus the canvas bits. New tasks land in **up next**; nothing can be created
+  straight into "working now" (starting work stays `start_task`'s job, so the
+  WORKING_LIMIT cap can't be sidestepped by creating a task in progress).
+- `app/api/mcp/route.ts` registers **`create_task`** (title, priority, due_date,
+  estimated_minutes, recurrence, category). `estimated_minutes` is optional here,
+  unlike the agent's `add_todo` — a model guessing a number is worse than a null.
+  Server version bumped to 1.2.0 and the server `instructions` mention it.
+- Global `~/.claude/CLAUDE.md` said "never create or delete tasks". Now: create is
+  allowed on request, **delete is still Berto's alone**.
+
+Still no delete tool, on purpose.
+
+## 2026-08-25 (later still, again) — Tasks carry an update thread, and agents post to it
+
+Berto's agents can move his board over MCP, but they had no way to *say* anything on
+it: when a Claude session finished an intermediary step and needed him for the next
+one, that fact lived in a transcript he wasn't reading. Tasks now carry progress
+notes, and every note says whether it came from him or from an agent.
+
+**Data.** New `task_updates(id, task_id → todos ON DELETE CASCADE, body, author, created_at)`
+in `lib/db.ts`, with `lib/task-updates.ts` owning the reads/writes. The whole thread
+is kept — his call — but only the newest line is ever shown, so every place that
+lists tasks joins it with one `LEFT JOIN LATERAL` (`LATEST_UPDATE_JOIN` /
+`LATEST_UPDATE_COLUMNS`, exported so `lib/tasks.ts` and `/api/todos` can't drift).
+The lateral aliases its columns inside the subquery, or `created_at` would be
+ambiguous against `todos.created_at` in every select list. Mutations still hand back
+plain `TASK_COLUMNS` — a `RETURNING` clause can't join — so the update fields on
+`TaskRow` are optional, not nullable-required.
+
+**Agents.** MCP gains `post_task_update` (server 1.3.0), and Cael gains the matching
+eve tool `agent/tools/post_task_update.ts`. Both write `author='agent'`. `list_tasks`
+now prints the newest note under each task line and carries `last_update` /
+`last_update_by` / `last_update_at` in `structuredContent`, so an agent picking work
+up can see where it was left. Deliberately: posting an update does **not** move the
+task between lanes (Berto's call — he didn't want a note to park work in `waiting`);
+lane changes stay with start/stop/complete.
+
+**Berto's side.** `POST /api/todos/:id/updates` writes one as `me`, `GET` reads the
+thread. On the canvas, right-click → "Post an update" opens a one-line box on the
+card.
+
+**UI.** `app/_components/task-update-line.tsx` renders the one line every view shares:
+who + how long ago on a small header row, the note clamped to two lines under it.
+An agent note is tinted `primary` with the bot mark so it reads as a nudge; his own
+notes stay quiet. Shown on the canvas cards, the mobile list and the pipeline lanes.
+The pinned window is one line per task and stays that way, so it gets a bot/message
+badge next to the title with the note in its tooltip instead.
+
+Verified end to end on a scratch task against the real DB: REST post/read, the MCP
+tool (bearer against `/api/mcp`), `list_tasks` showing the note, and Playwright
+driving right-click → Post an update → typed → persisted as `author: "me"` with the
+thread intact. Scratch task deleted afterwards.
+
+Global `~/.claude/CLAUDE.md` now tells every session to post an update when it
+finishes a step or needs him — that's the half that makes this actually fire.
+
+## 2026-08-25 (last) — The five working-now slots became a focus dial (1–5)
+
+Five things in flight is the ceiling, not the target. Berto asked to be able to
+hold **one** when one thing actually matters, so the cap is now a setting.
+
+- **Where.** A small dial in the pinned window's header (crosshair + the number),
+  next to Start all: 1 — just this … 5 — full plate. That's the window you're
+  looking at when you decide to narrow, so that's where it lives.
+- **What it changes.** The same number does two jobs: how many rows the pinned
+  window holds, and the server-side cap on "working on now". Narrowing the window
+  narrows the board.
+- **Lowering it never yanks anything.** Set it to 1 with five running and the five
+  keep running — only *new* starts are refused until he's back under. That meant
+  `hasWorkingSlot` had to stop being "count − 1 < limit": a task already in
+  progress now always passes, or pausing and resuming one of those five would have
+  been refused. It returns `{ allowed, limit }` now so every refusal message can
+  say the real number ("You're focused on one thing at a time right now…").
+- **Storage.** New generic `app_settings(key, value, updated_at)` table; the limit
+  is `working_limit`, clamped 1–5, default 5. `GET`/`PUT /api/settings/working-limit`.
+  `lib/working-now.ts` owns `getWorkingLimit` / `setWorkingLimit` / `clampWorkingLimit`
+  and everything (board, REST, MCP `start_task`, the `update_todo` agent tool)
+  reads the same number.
+- **Desktop.** The pinned window was a fixed 340×268 sized for five rows, so a
+  focused day left four rows of dead space. New Tauri command `set_pin_rows`
+  (`pin_height(rows) = 48 + rows*44`), called from the web side via
+  `setPinWindowRows` whenever the limit changes. Old installed shells no-op, as
+  with every other command in that bridge — **needs a `npm run build` in `desktop/`
+  to take effect on Berto's machine.**
+
+Verified against the real board: set to 1, `start_task` on a queued task refused
+with the focused-day message, pausing and resuming one of the five already running
+still worked, out-of-range values (0, 9) clamped, and Playwright driving the pinned
+window showed one row at 1 and five at 5 with the change persisted server-side.
+`cargo check` clean on the Tauri change.
+
+## 2026-08-26 — Right-click a pinned row to take it off the window
+
+The focus dial decides *how many* rows the pinned window holds; this decides
+*which*. Berto asked to be able to right-click a row and remove it — his words:
+"it just becomes a regular task again, but doesn't get featured in the pinned
+view."
+
+- **New column** `todos.pinned_hidden_at`. Set = not featured in the pinned
+  window. Nothing else about the task changes: same lane, same priority, still on
+  the board, still in every list and every MCP read.
+- **`PUT /api/todos/:id/pinned` `{ pinned: false | true }`.** Removing also banks
+  any running timer and clears `in_progress` — a task that's off the window
+  shouldn't be holding a working-now slot or running a clock, which are the two
+  things that window is for. Putting it back just clears the flag.
+- **Three ways home**, so nothing can get stranded: the toast's Undo right after
+  removing, "Show in pinned window" on the board card's right-click menu (only
+  shown when the task is actually hidden), and *starting the task again* —
+  `start_task`, the timer route and the working-now toggle all clear the flag,
+  because working on something is the clearest possible statement that it belongs
+  up there.
+- **No backfill.** Removing a row does *not* pull the next task up — taking
+  something off the list is a decision to carry less, not a request for a
+  replacement. The focus dial comes down by one with it (5 → 4), so the window
+  genuinely holds one fewer thing and the native window shrinks to match. Undo puts
+  both the row and the slot back. Floor of 1: at one row there's no slot to give up,
+  so removing that task does show the next one. Bump the dial to take on another.
+
+Verified end to end: removing banked a running timer (5s) and dropped
+`in_progress`; putting back and re-starting both cleared the flag; Playwright
+drove right-click → Remove from pinned in the pinned window (row gone, next task
+moved up, task still open on the board) and right-click → Show in pinned window on
+the canvas card (flag cleared). Scratch task deleted.
+
+## 2026-08-27 — A streak and points, so finishing tasks pays something
+
+Berto's ask, verbatim: "add a streak or points or some kind of fun gamification for
+tasks done? i want to get addicted to getting tasks done, because success is getting
+the details done productively and never stalling." He picked the shape: **streak and
+points together**, a day counts only when a **daily goal of N tasks** is met, and it
+shows up on the **Tasks toolbar**, in the **pinned window**, and as a **celebration
+on completion**.
+
+**The two numbers do different jobs.** The streak is the one that hurts to lose —
+and it only advances on a day where he finished `daily_goal` tasks (default 5).
+"Any task done" was the other option and it's the wrong one: it keeps the streak
+alive on exactly the day the number should have noticed he coasted. The points are
+the per-task hit: `10 base + priority (high 10 / medium 5) + 1 per 10 min of
+estimate, capped at 20`. A 30m high-priority task pays 23; ticking off "expense the
+mochi donuts" pays 13.
+
+**`lib/streak.ts`** owns all of it — no db import at module scope, `sql` comes from
+the caller (same shape as `lib/working-now.ts`). Days are bucketed in
+`America/Toronto`, not UTC, or an 8pm completion would land on tomorrow. Two things
+worth knowing:
+- It filters on `completed_at IS NOT NULL`, **not** `completed = TRUE`. Recurring
+  tasks never flip `completed` (see lib/tasks.ts), and a daily habit not counting
+  toward the streak would have been absurd.
+- Today not being won yet does *not* break the streak — it's in play until midnight.
+  The count starts at today when today's a hit and at yesterday otherwise, and
+  `atRisk` is what lets the UI say "2 more or it resets".
+- `taskPoints()` (TS) and `POINTS_SQL` (for the all-time sum) are the same formula
+  written twice. Both are commented as such; change one, change the other.
+
+**Storage** reuses `app_settings` — key `daily_goal`, clamped 1–20, default 5,
+alongside `working_limit`. No new table. `GET /api/streak` returns the whole
+summary (streak, best, today, points, 14-day history); `GET/PUT
+/api/settings/daily-goal` sets the bar.
+
+**`StreakProvider`** sits in `app/(app)/layout.tsx`, above both the dashboard and the
+pinned window, so a task checked off in either scores in the same place. `award()`
+is called from `handleComplete` (dashboard — covers the canvas, the pipeline lanes
+and the mobile list) and from `PinView`'s own complete, optimistically, so the "+23"
+lands on the same beat as the checkbox rather than 400ms later. It trues up against
+the server 900ms after. The goal-hit confetti fires **once per day**, tracked by day
+key — a reward you get twice is wallpaper — and a goal already met when the app
+loads is history, not news.
+
+**UI.** `streak-chip.tsx` is flame + streak, a progress bar toward today's goal, and
+lifetime points; click it for the last 14 days as a grid, the record to beat, and the
+goal dial. It replaced the plain `0/27 today` counter on the Tasks toolbar (which is
+now just "27 open" — the chip owns "today"), and rides in the pinned window header in
+`compact` form at 340px. `streak-celebration.tsx` is the timer celebration's bigger
+sibling: 90 pieces of confetti, the ta-da sound, the streak number, and a line that
+means something different at 1 day than at 40. Self-closes after 6s so it never
+blocks the next task.
+
+Verified end to end against the real board on :3789 — burst read exactly `+23` for a
+30m high-priority task, the confetti fired on the task that crossed the goal (not
+before, not twice), the chip and `/api/streak` agreed on `streak 1 · 3/3 · 3,053`,
+and the goal dial persisted. Scratch tasks deleted and the goal restored; his numbers
+came back to exactly where they started (3,014 pts, best 5, 1 done today).
+
+## 2026-08-27 (later) — The pipelines panel drags wider
+
+248px was a guess, and it's the wrong one for a lane holding "Post the talk to
+linkedin and add your comments - link to the talk" — the title wrapped to three
+lines or truncated. The panel's right edge is now a drag handle.
+
+- **Where the number lives.** `TaskCanvas`, not `PipelineLanes` — the canvas has to
+  slide its own toolbar clear of the panel, so it owns the width and hands it down.
+  That's also why `LANE_OPEN_OFFSET` ("16.5rem") is gone: the offset is computed as
+  `laneWidth + LANE_GUTTER` (12px inset + 4px gap) instead of hard-coded.
+- **Bounds.** 200–720px, and never more than half the window however wide the screen
+  (`clampLaneWidth`, exported from pipeline-lanes.tsx so both sides agree). Saved to
+  `focuspoint.content-lane.width`; double-click the handle resets to 248.
+- **Pointer capture, not window listeners.** The drag crosses onto the Excalidraw
+  canvas, which swallows plain mousemove — capturing on the handle keeps it tracking.
+- **Two small things that would have looked broken.** The panel's `overflow-hidden`
+  clipped the handle sitting on its edge, so the rounding moved to the header
+  (`rounded-t-xl`) and the scrolling body (`rounded-b-xl`). And the toolbar's 150ms
+  `transition-[left]` — right for the collapse toggle — smeared it behind the cursor
+  mid-drag, so it's dropped while resizing and restored 200ms after the last move
+  (the same debounce that writes localStorage once per drag rather than per
+  pointermove).
+
+Verified with Playwright at 1440×950: dragged +240 → panel 488, toolbar left 504;
+survived a reload at 488; clamped at 720 dragging past the max and 200 past the min;
+double-click back to 248; collapse still parks the toolbar at 44 with no stray
+handle, and reopening restores the saved width.
+
+## 2026-08-29 — The ever-present chat bar, and a model ladder behind it
+
+Berto asked for a persistent line to Cael: a sizable input pill floating at the
+bottom-center of every section, dismissible to the corner. Then, mid-build: "I
+also want a model picker, with an average model in the middle but we can go all
+the way up and all the way down."
+
+**The bar** (`floating-chat-bar.tsx`, rendered from the `(app)` layout on every
+tab except `/chat`, which has its own composer). Desktop-only — on mobile the
+bottom nav owns that edge and Chat is one tap away. A ~700px pill with the Cael
+avatar, an input, the model picker, and send. The corner button docks it to a
+small avatar bubble bottom-right; the bubble brings it back; docked-or-not lives
+in `focuspoint:chat-bar-docked`. Sending rides the same path as "Run now":
+fresh thread, message on its way, chat page open.
+
+**Two real bugs fell out of verifying the send:**
+
+1. **StrictMode ate `initialMessage`** (dev-only, but it broke "Run now" too):
+   the effect marked `hasSentInitial` *before* its 100ms timer fired, so
+   StrictMode's mount→cleanup→mount cleared the timer and the second pass bailed
+   on the already-set ref. The mark now happens inside the timer callback.
+2. **Hydration clobbered `activeId`** — the dangerous one. Send from the bar
+   before `/api/threads` resolves and the hydration `setActiveId(loaded[0].id)`
+   yanked the view back to the newest DB thread — and the pending message was
+   then delivered INTO that old, real conversation. (My test probes landed in
+   Berto's actual morning thread; scrubbed from its stored events afterward,
+   though the eve server-side session for that thread still saw them.) The
+   provider now merges loaded rows instead of replacing and only sets `activeId`
+   when it's still empty.
+
+**The model ladder.** Five rungs, verified against the AI Gateway catalog, with
+Balanced in the middle: claude-3-haiku (Minimal) → claude-haiku-4.5 (Quick) →
+claude-sonnet-4.6 (Balanced, the default — Cael's usual self) → claude-opus-4.8
+(Strong) → claude-opus-5 (Max). One global setting in `app_settings`
+(`chat_model`, lib/chat-model.ts, GET/PUT `/api/settings/chat-model`), picked
+from a dropdown in the bar rendered Max-on-top so "up" reads upward.
+
+**How the agent honors it at runtime** — eve fixes an agent's model at compile
+time, so `agent/model.ts` hands `defineAgent` a Proxy over the default gateway
+model whose `doGenerate`/`doStream` re-read the setting per call and delegate to
+the chosen `gateway(id)`. Two compile-time footguns: a model *instance* can't be
+catalog-checked, so `modelContextWindowTokens: 200_000` (the ladder's floor) is
+declared by hand — without it the eve build dies with "does not have known AI
+Gateway context window metadata"; and agent-code edits need a dev-server restart
+to recompile (hot reload didn't pick them up). One `[model-picker] serving <id>`
+log line per switch, so the server logs always say which rung answered.
+
+Verified with Playwright on a private :3987 server: bar centered/sizable on home
+and tasks, hidden on chat; dock → bubble → reload → still docked → expand;
+fast-send lands in a fresh thread (the race); picker persists Quick; and the
+server log showed `serving anthropic/claude-3-haiku` then
+`serving anthropic/claude-sonnet-4.6` for consecutive turns after flipping the
+setting — the switch really is per-call, no rebuild, no new session. All test
+threads deleted, the model restored to Balanced, thread count back at 128.
+
+---
+
+## 2026-08-29 — Portfolio counts investments only
+
+Answering "how do I connect to Wealthsimple for free" ended up as a small
+correction to work a parallel session had just landed (`3384e46`).
+
+**The free route, for the record.** Wealthsimple publishes no developer API and
+no third-party OAuth. What exists is the GraphQL backend `my.wealthsimple.com`
+talks to, which you are allowed to drive as yourself: scrape the `wssdi` device
+cookie and the production `clientId` off the login page and its JS bundle, POST
+a password grant to `api.production.wealthsimple.com/v1/oauth/v2/token` with the
+6-digit code in `x-wealthsimple-otp`, then keep the refresh token. Read-only
+scope, `invest.read trade.read tax.read`. Reference port:
+github.com/gboudreau/ws-api-python.
+
+**What changed.** `fetchPortfolioValue()` was asking for net liquidation value
+across *every* account, which folds in the Cash account's float and the credit
+card's balance. Berto's answer to what the row should mean was "just
+investments", so it now runs a small accounts query first and scopes the
+financials query to the investment accounts — everything except `CASH`,
+`CREDIT_CARD` and `PORTFOLIO_LINE_OF_CREDIT`. An unrecognized account type
+counts as an investment: a missing account is invisible in the total, whereas a
+chequing balance quietly padding it is worse. Scoping the existing query with
+`accountIds`, rather than summing per-account values locally, keeps
+Wealthsimple's FX in play so a USD holding still arrives converted to CAD.
+
+**Verified.** `npm run typecheck` clean, and the unauthenticated half of the
+chain driven live: login page 200, `wssdi` found, bundle at
+`assets.wealthsimple.com/app-c766f5a345db678d.js`, `clientId` extracted. The
+authenticated half is untested — it needs Berto's password and a live TOTP code,
+which by design only ever happens locally via `scripts/wealthsimple-login.mjs`.
+
+**Next step is Berto's:** run `node scripts/wealthsimple-login.mjs` once. Until
+then `syncPortfolio()` is a no-op and the row stays hand-typed.
+
+**Note on two sessions at once.** Two background agents built this feature
+simultaneously; this one's `Write` of `lib/wealthsimple.ts` clobbered the other's
+committed version before it was noticed and restored with `git checkout HEAD`.
+The in-app password form drafted here was dropped on purpose — the committed
+design keeps passwords out of the deployed app entirely, which is the better
+call.
+
+---
+
+## 2026-08-30 — The scorecard becomes a high-score game
+
+Berto's note on the card: *"this top score doesn't look gamified enough — I want
+to come in every day and get excited about beating my high scores."* He was
+right, and the reason was structural: `1 / 4` is the same number whether he
+walked 400 steps or 19,900. A day that nearly went perfectly looked identical to
+a day he didn't try. Nothing to chase, and the only counter on the card read `0`.
+
+**The fix is a scored day, not a judged one.** `lib/scorecard.ts` now pays
+points: `BASE_POINTS` (200) scaled by how far a metric got toward its bar, plus
+up to `MAX_BONUS` (100) for overshooting, plus a flat `PERFECT_BONUS` (100) for
+landing all four. Ceiling `MAX_DAY_SCORE` = 1,300. The overshoot bonus is
+per-metric (`bonusFullAt`) because "more" means different things — 30k steps is a
+monster day (1.5×), three merged PRs is a shipping day (3×), but 15 hours of
+sleep is not twice as good as 7h30, so sleep's bonus stops at 9h (1.2×). The
+headline number now moves every single day.
+
+**And a bar to beat.** `computeRecords()` walks the 365 days already in hand and
+returns the standing high score plus a personal best per metric, always
+*excluding today* so today can beat them; `brokenRecords()` says which have
+already fallen. The card leads with today's score against `HIGH SCORE 606 ·
+Aug 23`, a bar filling toward it, and the line that does the actual work:
+**"228 pts to beat your best"**. Within 75% the bar turns amber before he gets
+there; past it the whole card goes gold.
+
+**Celebration** is confetti + toast, his pick over a quiet badge and over full
+arcade. `RecordConfetti` is deliberately *not* the existing full-screen
+`GoalCelebration` modal — records fall often enough that a dialog you must
+dismiss becomes a chore by week two. Pieces fall over the page, self-remove, and
+`localStorage["scorecard:celebrated"]` is keyed by day, so beating steps at noon
+and the score at 9pm are two moments but a page reload is neither.
+
+**Smaller things that mattered.** Each row shows what it's worth (`+178`) and the
+bar to beat inline (`best 25,270`, struck through the moment it falls). A
+`scoreTier` badge (Cold start → Legendary, graded against the fixed 1,300 so
+"Elite" can't quietly get harder every good week) gives him something to chase on
+a day the record is out of reach. The 14-day strip is now drawn by *score* and
+scaled to his record rather than to the unreachable 1,300 — against that ceiling
+every day looked equally flat and the strip said nothing.
+
+Portfolio stays below the line and scores nothing — a balance is a level, not an
+action — but it keeps a personal best, because that one only goes up.
+
+**Verified** on a private :3789 dev server against real data: today 379 pts /
+high score 606; then a PATCH pushing steps to 26,000 produced score 682,
+`broken: ["score","steps","sleep_minutes"]`, 70 confetti pieces on screen and
+three toasts naming each old record — then the real watch numbers (steps 64,
+sleep 400) were restored and the score returned to 379. `npm run typecheck`
+clean.
+
+Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`,
+`app/_components/record-confetti.tsx` (new).
+
+---
+
+## 2026-08-30 — Keystrokes replace PRs on the scorecard
+
+Berto, looking at the card: *"remove PRs and replace that row with the keystrokes —
+because keystrokes matter more than PRs."* He's right, and the reason is that a
+merged PR is a lumpy, gameable unit: a one-line typo fix and a week of work both
+count 1, and the last fortnight ranges from 1 to 26 in a day. Keys pressed is the
+honest volume of the work, and the counter was already running.
+
+**The swap.** `MetricKey`'s `prs` became `keystrokes`, sourced from
+`keystroke_days` (the launchd agent on his Mac, already feeding the Keystrokes
+card below). `MetricSource` lost `"github"` and gained `"agent"`; the card's
+"which rows may a human type over" rule now reads `source !== "agent"` — the
+agent owns that number and `recordKeystrokes` only ever moves it upward anyway.
+The `github_prs` table and its sync are untouched: other cards use them, PRs just
+no longer score the day.
+
+One real difference from the PR row: **an absent keystroke day is `null`, not
+zero.** The github table was complete, so a missing day genuinely meant "none
+merged"; this table is only as complete as the agent's uptime, and scoring a day
+the Mac was off as "typed nothing" would be a lie.
+
+**Target: 100,000/day.** Berto's own number — I offered 5,000 (a stretch above
+his tracked days of 4,343 and 3,349) and he typed 100,000 instead. Flagged to him
+at the time: at that bar a typical day pays ~7 points and a perfect day is
+effectively out of reach until his typing volume grows ~25×. It's a bar to grow
+into, and it's tunable without a deploy through the `scorecard_targets`
+app_setting, so this stays his dial rather than a code change.
+
+**Records now start at Aug 29**, his call when the tradeoff surfaced. Dropping
+PRs rescores history, and no day before Aug 29 has keystroke data — so every
+older day is missing a whole gating metric and would hold a high score the new
+scorecard could never fairly beat. `computeRecords()` takes a `since` floor,
+derived at runtime from the earliest `keystroke_days` row rather than hardcoded,
+so it stays correct if the table is ever backfilled. The high score moved from
+606 (Aug 23, PR-inflated) to **439 (Aug 29)**.
+
+That exposed a real inconsistency in the strip, now fixed: it was crowning Aug 23
+with `peak 596` directly under a card claiming the best was 439. Pre-tracking days
+are still drawn — they happened — but at 30% opacity, excluded from the peak, and
+labelled "before keystroke tracking, not comparable" on hover. The strip now
+scales to the tallest bar on screen so nothing clamps.
+
+**Verified** on a private :3789 server against live data: today 389 pts, high
+score 439 (Aug 29), keystrokes 3,544 / 100,000 → +7, `peak 439` matching the
+headline, and a genuine `broken: ["sleep_minutes"]` record firing on real numbers
+(6h40m over Aug 29's 6h38m). `npm run typecheck` clean. No test data written.
+
+Files: `lib/scorecard.ts`, `app/_components/scorecard-card.tsx`.
+
+---
+
+## 2026-09-02 — Mac app and keystroke agent moved to cael-agent-seven
+
+Berto: *"we have a desktop app but its still pointing to the old url, can we point
+it to the new one"* — and picked **https://cael-agent-seven.vercel.app** (the
+`cael-agent` project on the bertoaucctus team) over the `cael-keystrokes` stopgap
+it had been on since Aug 30.
+
+**Changed** — every hard-coded copy of the URL, of which there were six:
+`desktop/src-tauri/src/main.rs` (`APP_URL`), `desktop/src-tauri/tauri.conf.json`
+(`frontendDist`), `desktop/src-tauri/capabilities/main.json` (the WebView
+allowlist — the app is blank without this one), `desktop/README.md`,
+`keystroke-agent/menubar/KeystrokeMenuBar.swift` (the `FOCUSPOINT_URL` fallback)
+and `keystroke-agent/menubar/install.sh` (its default).
+
+Then rebuilt (`npm run build` in `desktop/`) and reinstalled `/Applications/Cael.app`
+from the bundle — the constant is compiled in, so editing the source alone leaves
+the installed binary on the old host. Verified with `strings` on the installed
+binary: only `https://cael-agent-seven.vercel.app` remains.
+
+Also rewrote the two **installed launchd plists** in `~/Library/LaunchAgents`
+(`com.focuspoint.keystrokes.plist`, `.menubar.plist`), which carried the old URL
+in their own `FOCUSPOINT_URL`, and reloaded both. They're running clean —
+`keystrokes.log` shows `counting to https://cael-agent-seven.vercel.app` and no
+POST errors since (the agent only logs on failure).
+
+### Two things Berto should know
+
+**1. cael-agent-seven needs the deploy script, not `vercel --prod`.** A plain
+`vercel --prod --scope bertoaucctus` fails with *"The `experimentalServices`
+property is no longer available for new projects. Use the `services` property
+instead."* — because `vercel.json` on main carries `experimentalServices`, which is
+what eve 0.18.2 emits and what the original (paused) project needs.
+`scripts/deploy-bertoaucctus.sh` exists for exactly this: it rewrites `vercel.json`
+to the `services` model, forces the middleware to the Node runtime, deploys, and
+restores the tree on exit. That works — used later the same day to ship the
+scorecard rewrite. *(Corrected: an earlier version of this entry said the host
+could not be redeployed at all. It can; the plain CLI invocation is what fails.)*
+
+The script's documented limitation stands: under `services`, eve 0.18.2's build
+output is never mounted, so **Cael's chat 404s** on this deployment. Pages and
+`/api/*` are fine. The real fix is the eve 0.18 → 0.47 upgrade.
+
+**2. The two hosts are on different databases — WRONG, see the 2026-09-02
+(hosts) entry above; they share one Neon database.** On restart the
+keystroke agent resumes from whatever today's count is on its target: against
+`cael-keystrokes` it read **8,448**, against `cael-agent-seven` it read **18,609**.
+Same day, same Mac, two different answers. Confirmed at the source: pulling
+production env for both projects (`VERCEL_ORG_ID=team_rw2fumuExVl71ZKWCk1jBKZ9
+VERCEL_PROJECT_ID=<id> vercel env pull`) gives two different `DATABASE_URL`s —
+`cael-keystrokes` is on the Neon branch `ep-shiny-mouse-ats0h3zi`, `cael-agent` on
+a different one. So keystrokes, thoughts, todos, scorecard history — everything —
+has been accumulating in two places since the Aug 30 stopgap. Not fixed here;
+flagging it because the numbers now differ depending on which host you open, and
+merging or picking one is Berto's call.
+
+*(Correction, later on 2026-09-02: this is wrong. The two keystroke readings were
+taken hours apart against a counter that grows all day, so they were never
+evidence of two databases. Both hosts serve byte-identical responses across
+`/api/thoughts`, `todos`, `measures`, `lists`, `reading`, `sketches`, `vision`,
+`threads`, `scheduled-tasks`, `dreams` and `memories` — including a 4.2 MB
+threads payload and a 2.3 MB sketches payload matching to the SHA — and report
+the same live keystroke count to the digit. There is one database.)*
+
+---
+
+## 2026-09-02 — The scorecard is out of 100, and a meditation timer to feed it
+
+Berto: *"the points should be more clear how its calculated — remember perfect
+means we hit our target, so really it should be between 0 and 100 the score, with
+100 being 8 hours of sleep, 100k keystrokes, and 30K steps, and fasted past noon,
+and meditated, and journalled, those are all the keys, lets also add a meditation
+timer to the app as well."*
+
+### The score is now a percentage of a perfect day
+
+The old model paid 200 points a metric, up to 100 more for overshooting, plus a
+100-point perfect-day bonus — a ceiling of 1,600, of which a "perfect" day scored
+1,300. It moved every day and had a record worth chasing, but nobody could say
+what 437 meant without opening `lib/scorecard.ts`, and calling 1,300-out-of-1,600
+perfect is a contradiction. Now: **six keys, 16.7 points each, 100 is perfect.**
+
+The consequences, all deliberate:
+
+- **Overshooting pays nothing.** 60,000 steps scores exactly what 30,000 does.
+- **The ceiling is reachable**, so 100 can be hit repeatedly and the high score
+  stops being the thing to chase — the perfect-day *streak* takes that job over.
+- Partial credit survives: half the target still banks half the slice, so a hard
+  day and a lazy one never read alike.
+
+**The keys and their targets**, from Berto's message: steps 30,000 (was 20,000),
+sleep 8h (was 7h30), keystrokes 100,000 (unchanged), the eating window, meditation
+20 min (new), journal written (new). **Weights are equal** — his call when the
+alternative was scoring the graded efforts above the single taps. Equal is the
+version you can't argue with: every key costs the same to skip.
+
+**Readwise "Notes written" dropped below the line.** It wasn't among the six he
+named. The number still syncs and still shows, next to the portfolio, in the
+tracked-but-not-gated section.
+
+**The card now shows its own arithmetic.** Every row carries `12.4/16.7` rather
+than a bare `+12`, and a line under the rows says what the number is: *"100 is a
+perfect day. 6 keys, worth 16.7 each. Hit a target and you bank the whole slice;
+get halfway and you bank half. Going past a target earns nothing extra."*
+
+**A rounding detail worth the twenty lines it cost.** 100 doesn't divide six ways,
+so the naive version prints six rows of 16.7 under a headline of 100 — rows that
+visibly sum to 100.2. `apportion()` does largest-remainder rounding across the
+gating rows, so a perfect day reads 16.7 · 16.7 · 16.7 · 16.7 · 16.6 · 16.6 = 100.0
+and every other day adds up too. A scorecard whose own arithmetic doesn't add up is
+one you stop believing, and "make it clear how it's calculated" was the whole ask.
+
+**Journal is derived, not tapped.** Any text on the day's `daily_journal` page earns
+it — same precedent as the eating window reading off the nutrition protocol rather
+than duplicating it. Its row is a state pill ("written" / "not yet"), not a
+checkbox, so nobody hunts for a control that was never going to exist. The check
+runs in SQL (`length(trim(regexp_replace(...)))`) so a year of journal text never
+crosses the wire to score a boolean.
+
+### The meditation timer
+
+New: `app/_components/meditation-timer.tsx`, on the home screen between the
+scorecard it feeds and the journal that finishes the day. 20 minutes and a bell at
+10 by default — Berto's own sit. Presets 5/10/20/30/45, interval bell none/5/10/15.
+Finished sits log themselves; a sit ended early still logs the time actually sat,
+because it happened. Under a minute isn't a sit and isn't written.
+
+**Bells are scheduled, not ticked.** Every strike for the session is placed on the
+AudioContext timeline the moment you press start, at an absolute time. Browsers
+throttle `setInterval` to ~1Hz or worse in a hidden tab — and the entire point of
+sitting is that you are not looking at the screen. The Web Audio clock doesn't care
+whether the tab is visible, so the ten-minute bell lands at ten minutes. Pausing
+stops the scheduled nodes; resuming re-schedules what's left. The countdown is
+derived from `Date.now()` for the same reason: counting ticks drifts by however
+long the tab was throttled, and a meditation timer that quietly runs long is worse
+than none.
+
+**The bells are synthesised, not sampled** (`lib/bells.ts`) — a decent bowl sample
+is a few hundred KB, the desktop WebView blocks cross-origin media anyway, and a
+sample plays the *same* strike every time, which twice a day starts to sound like a
+notification. So: additive synthesis of a struck bowl. Inharmonic partials
+(1 / 2.76 / 5.40 / 8.93 / 13.34 — irrational ratios are why a bell sounds like metal
+and not a synth pad), decay that shortens with partial number (the "ting… mmm"
+shape), two oscillators per partial detuned 1.2 cents so the tone breathes, and 25ms
+of filtered noise for the mallet. Interval bells are a higher, lighter bowl than the
+closing three, so halfway is never mistaken for the end.
+
+### Verified
+
+On a private :3789 server against live data:
+
+- `buildDay` unit pass: all targets exactly → **100** and rows sum to 100; all
+  targets *doubled* → still 100 (overshoot pays nothing); nothing logged → 0; half
+  of everything → 33.3; five of six → 83.3. Row points equalled the headline in
+  every case.
+- Live `/api/scorecard`: today 37.3, rows 0 + 16.7 + 3.9 + 16.7 + 0 + 0 = 37.3 ✓.
+  Sep 1 (the one day with a journal entry) correctly scored its journal key.
+- Timer driven in Playwright: countdown ran, pause froze it, resume continued from
+  the pause, End reset it, and a sub-minute sit was correctly **not** logged.
+  AudioContext live after the start click; no page errors.
+- POSTed a 20-minute sit → score 37.3 → 54.0, meditation row `20m / 20m` hit.
+  **Test row deleted afterwards**; the card is back on real numbers.
+- `lib/bells.ts` driven against a recording stub: partials inharmonic, high
+  partials ring out 1.49s against the fundamental's 9.05s, closing bell three
+  strikes at 0 / 2.4 / 4.8s fading 0.5 → 0.41 → 0.34.
+- `npm run build` and `npm run typecheck` clean.
+
+### Still true from this morning
+
+The Mac app points at `cael-agent-seven`, and this **shipped there** via
+`scripts/deploy-bertoaucctus.sh` (a plain `vercel --prod` is what the
+`experimentalServices` error rejects — the script patches the config first).
+Verified live: `/api/scorecard` on cael-agent-seven returns `37.4 / 100` with all
+six keys and their new targets.
+
+Two caveats carried over from this morning: **Cael's chat 404s** on this
+deployment (eve 0.18.2 under `services`), and `cael-keystrokes` is a **different
+database**, so it holds different numbers and is now the stale one — nothing points
+at it any more.
+
+Files: `lib/scorecard.ts`, `lib/bells.ts` (new), `lib/meditation.ts` (new),
+`lib/db.ts` (`meditation_days`), `app/api/meditation/route.ts` (new),
+`app/api/scorecard/route.ts`, `app/_components/meditation-timer.tsx` (new),
+`app/_components/scorecard-card.tsx`, `app/_components/home-screen.tsx`,
+`agent/tools/get_scorecard.ts`, `agent/tools/log_metrics.ts`.
+
+## 2026-09-03 — Rings instead of boxes, plus a habits row
+
+His ask: make the three scorecard metrics read like the Fitbit/Google Fit app —
+progress rings — and add a second row underneath for core habits: read, meditate,
+journal, fast til noon.
+
+**Decisions, confirmed with him first:**
+
+- Habits stay **unscored**. The 100-point scorecard is still exactly the three
+  keys from the Sep 3 cut (steps, sleep, keystrokes); the habit row is a plain
+  daily checklist below it, no points attached. Reopening the 3-vs-7-keys
+  tradeoff wasn't the ask.
+- **Read** and **journal** are auto-detected rather than tapped: read = a
+  `reading_notes` row (Kindle clippings) dated today, journal = a non-empty
+  `daily_journal` entry for today. Both already get written from real usage
+  elsewhere, so there was nothing to add. **Meditate** and **fast til noon** have
+  no existing tracker, so those two are a manual tap, backed by a new
+  `daily_habits` table (`habit_date` PK, `meditated`, `fasted_til_noon`).
+
+**Built:**
+
+- `app/_components/activity-rings.tsx` (new) — three SVG progress rings (Steps ·
+  Sleep · Keystrokes), replacing the old three-box row in `scorecard-card.tsx`.
+  Same click-to-edit behaviour as before (keystrokes stays read-only — the Mac
+  agent owns that number); a broken record still glows amber and gets the small
+  lightning badge, now on the ring's corner instead of the box header.
+- `app/_components/habit-row.tsx` (new) + `lib/habits.ts` (new) +
+  `app/api/habits/route.ts` (new) — the four-habit checklist. GET returns
+  today's four booleans; PATCH only accepts `meditate`/`fast` (read/journal
+  aren't settable — they follow their source table).
+- `lib/db.ts` — new `daily_habits` table.
+- `scorecard-card.tsx` — swapped the box row for `<ActivityRings>` + `<HabitRow>`,
+  deleted the now-dead `MetricBox` component.
+
+**Verified:** on a private `:3789` server against live data — rings render with
+correct fill percentages for today's real steps/sleep/keystrokes; habit row
+correctly showed Journal already checked (a real journal entry existed for
+today) with the other three unchecked; toggled Meditate on via Playwright,
+confirmed `/api/habits` flipped to `true`, toggled it back off and confirmed it
+reverted — no leftover test state. `npx tsc --noEmit` clean.
+
+Files: `lib/db.ts`, `lib/habits.ts` (new), `app/api/habits/route.ts` (new),
+`app/_components/activity-rings.tsx` (new), `app/_components/habit-row.tsx`
+(new), `app/_components/scorecard-card.tsx`.
+
+## 2026-09-05 — Fast til noon off the card
+
+His ask, with a screenshot of the live card: *"remove fast til noon from the main
+top of fold calculation … also remove notes and portfolio."*
+
+Notes written, Portfolio, and Eating window were already gone from `main` (the
+Sep 3 cut to three keys) — the screenshot was `cael-agent-seven` still running an
+older build. So the code change here is just the habit row: **Fast til noon** is
+dropped from `HABITS`, the `fast` PATCH field is no longer accepted, and the
+`daily_habits.fasted_til_noon` column is left alone (unused, harmless). The habit
+row is now Read · Meditate · Journal.
+
+Then redeployed to cael-agent-seven via `scripts/deploy-bertoaucctus.sh` so the
+live card matches main.
+
+Files: `lib/habits.ts`, `app/_components/habit-row.tsx`, `app/api/habits/route.ts`,
+`app/_components/scorecard-card.tsx`.
+
+## 2026-09-05 — Keystrokes target to 50k; why the watch keeps asking to sign in
+
+- **Keystrokes 100% = 50,000** (was 100k). His words: *"key strokes 100% should be
+  50K"*. Only the default in `lib/scorecard.ts` changed; there's no `scorecard_targets`
+  override row in `app_settings`, so the default is what's live. Past days rescore
+  against the new target, so the history strip shifts up — that's expected.
+- **Watch sign-in doesn't persist.** Diagnosis, not a code change: the health grant
+  is stored fine (`app_settings.google_health_tokens`) and refreshes itself, but the
+  Google Cloud OAuth consent screen is in **Testing** publishing status (External +
+  test user, per the Aug setup). Google expires every refresh token issued by a
+  Testing-mode app after **7 days**, at which point `getAccessToken()` gets a 400,
+  drops the row, and the card falls back to "Connect watch". Fix is in the Cloud
+  console, not the repo: Google Auth Platform → Audience → **Publish app** (move to
+  "In production"). No verification needed at one user — the next consent shows an
+  "unverified app" warning once, then the token lasts indefinitely. After
+  publishing, hit Connect watch one more time so a non-expiring token replaces the
+  current one.
+
+Files: `lib/scorecard.ts`.
+
+## 2026-09-05 — Daily journal back on the home page, with a 250-word goal
+
+His ask: *"on the main page after training journal, there should be daily journal
+with a goal of just writing 250 words of whats on my mind."*
+
+The tiptap journal editor (`daily-journal.tsx`, `/api/daily-journal`, the
+`daily_journal` table) all still existed — the card had just been dropped from
+`home-screen.tsx` in the Sep 3 scorecard cut (`aabb5c4`), which also left the habit
+row's "Journal" check pointing at a card nobody could see. So:
+
+- **Re-mounted `<DailyJournal />`** directly under the Training log section (before
+  the numeric Training chart). Section label is now "Daily journal".
+- **250-word target.** New footer on the card: a thin progress bar that fills as he
+  types plus a `n / 250 words` count; at 250 the bar and count turn green with a
+  check. It's a floor, not a cap — nothing stops him past it. Placeholder now reads
+  *"What's on your mind? 250 words, no editing."*
+- **Habit row agrees with the bar.** `JOURNAL_WORD_GOAL = 250` lives in
+  `lib/habits.ts` and the editor imports it. The "Journal" habit previously ticked
+  on any non-empty entry; it now ticks at ≥250 words, counted in SQL
+  (`regexp_split_to_array`) so the entry text never crosses the wire just to be
+  measured. Hint text updated to "250 words in today's journal".
+
+**Verified** on a private `:3789` server with Playwright against live data: section
+order Training log → Daily journal → Training; counter read `0 / 250 words` on
+today's (empty) entry; after PUTting a 250-word entry the counter read
+`250 / 250 words` with the green check and `/api/habits` flipped `journal: true`;
+restored today's entry to exactly what it was and confirmed the habit went back to
+`false`. `npx tsc --noEmit` clean.
+
+Files: `app/_components/daily-journal.tsx`, `app/_components/home-screen.tsx`,
+`lib/habits.ts`, `WORKLOG.md`.
+
+## 2026-09-05 — Bigger type in the journal and training log (phone)
+
+His feedback with a phone screenshot: *"a little bit tight font for me, remember
+im mostly going to be using cael on my phone."* The two writing surfaces were 14px.
+
+- `.journal-prose` (the tiptap editor) → 16px / 1.75 line-height; h1/h2 scaled up
+  to match. Min height 12rem.
+- Training log textarea → `text-base leading-7`. History rows `text-xs` → `text-sm`,
+  the date column and the journal word counter `11px` → `text-xs`.
+- 16px is also the iOS threshold below which Safari zooms the page on focus, so
+  this fixes that jump too.
+
+Checked at iPhone 14 viewport on `:3789`. `npx tsc --noEmit` clean.
+
+Files: `app/globals.css`, `app/_components/daily-journal.tsx`, `app/_components/training-log.tsx`.
+
+## 2026-09-05 — Type floor: nothing under 12px
+
+His rule, after the journal bump: *"no font under 12px"* — he uses Cael on his
+phone. Mechanical sweep: every `text-[9px]`…`text-[11.5px]` in `app/` and
+`components/` (101 spots, 29 files) became `text-xs` (12px); the one 0.7rem in
+`globals.css` became 0.75rem. Ring values went 13px → `text-sm`, and the value /
+target now stack on two lines — at 12px+ the Steps line wrapped mid-string and
+misaligned the three columns.
+
+Checked the scorecard at iPhone 14 width on `:3789`. `npx tsc --noEmit` clean.
+
+## 2026-09-05 — Konsta UI + a colourful home screen (Google Fit inspo)
+
+His ask: *"lets use the konsta, and also lets make the ui a bit more colorful and
+fun, think the google health app for inspo."* Decisions he confirmed first: home
+screen first (other tabs later), one colour per metric on soft pastel tiles, and
+Konsta's theme matched to the device.
+
+**Konsta UI (v5.4, `konsta` package):**
+- `app/globals.css` imports `konsta/theme.css` right after Tailwind, *before* the
+  app's own `@theme inline` so the app's tokens (`--color-primary` etc.) win. Konsta's
+  base paints `.dark` pure black; overridden back to the app palette in `@layer base`.
+- `app/_components/konsta-app.tsx` (new) wraps the app shell in Konsta's `<App>`.
+  Theme is picked on the client from the user agent — iOS on iPhone/iPad, Material
+  elsewhere — with a Material first render so hydration matches.
+- The mobile bottom nav in `app/(app)/layout.tsx` is now Konsta's `<Tabbar>` /
+  `<TabbarLink>` (the vaul "More" sheet is unchanged, opened from the last tab).
+  Konsta's own bar background is blanked and painted on the bar itself — the iOS
+  default is a fade-to-transparent gradient that read as a see-through bar. Links
+  get `flex-1 basis-0 min-w-0` so six fit at Pixel width. `--mobile-nav-h` is now
+  5rem (Material's bar is 80px). The old `NavButton` + its motion indicator are gone.
+
+**Colour:**
+- Rings (`activity-rings.tsx`): always in their colour now (Steps sky, Sleep violet,
+  Keystrokes emerald) on a matching pastel tile with a tinted track and a coloured
+  icon disc; the ring used to go grey until the target was hit.
+- Habits (`habit-row.tsx`): Read amber, Meditate teal, Journal rose, same tile idea;
+  done = stronger tint + ring.
+- Scorecard: headline number in terracotta and bumped to 40px; progress bar is a
+  sky→violet→emerald gradient. Journal word bar is rose (green at 250). Training log
+  gets an orange dumbbell disc.
+
+**Verified** on `:3789` with Playwright: iPhone 14 UA → `k-ios`, Pixel 7 UA →
+`k-material`, both bars opaque with all six tabs visible, More sheet opens, desktop
+unchanged apart from the colour. No page errors. `npx tsc --noEmit` clean.
+
+Files: `package.json`, `package-lock.json`, `app/globals.css`, `app/(app)/layout.tsx`,
+`app/_components/konsta-app.tsx` (new), `activity-rings.tsx`, `habit-row.tsx`,
+`scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`.
+
+## 2026-09-05 — eve 0.18.2 → 0.52.1: Cael's chat is back in production
+
+Berto asked for "the latest eve changes" implemented. eve on npm was at 0.52.1
+(published 2026-09-04); the app was on 0.18.2, 34 minors behind, and every
+deploy of the original config had been refused since Aug 30 (`experimentalServices`
+gone). The 0.49 attempt on branch `eve-0.49-upgrade` typechecked, built, deployed
+and then died at runtime on every route. This pass jumps straight to 0.52.1 and
+finds why that happened.
+
+**Migration (re-applied from the 0.49 branch, all still valid on 0.52):**
+- `vercel.json` deleted — `withEve()` generates the `services` block into
+  `.vercel/output/config.json` at build time and throws if vercel.json declares
+  services itself.
+- `middleware.ts` → `runtime: "nodejs"` (services reject Edge output).
+- Client renames: `SessionState`→`ClientSessionState`, `client.session(x)`→
+  `client.sessions.attach(id, { streamIndex })`, `send({ message })`→`send(message)`,
+  `agent.stop()`→`await agent.cancel()`, `maxReconnectAttempts`→per-stream
+  `streamReconnectPolicy`. `continuationToken` no longer exists.
+- Schedule handler: `receive(channel, input)`→`to(channel, target).send(msg, opts)`.
+
+**Three things the 0.49 branch never found, all fixed:**
+
+1. **The runtime crash was `sharp`.** Vercel function logs:
+   `Could not load the "sharp" module using the linux-x64 runtime` at module init
+   → `FUNCTION_INVOCATION_FAILED` on `/eve/v1/health` and everything else.
+   eve's bundler (Nitro/rolldown) had inlined sharp — reached via
+   `set_daily_meal` → `lib/nutrition-art.ts` — into the function, where its native
+   binary is unreachable. Fix: `build: { externalDependencies: ["sharp"] }` in
+   `agent/agent.ts` (eve then traces `@img/sharp-linux-x64` into the output — the
+   build log lists it) **and** a lazy `await import("sharp")` inside `upload()` so
+   a missing binary can only ever fail an image upload, never boot.
+2. **Old threads crashed the whole chat page.** Threads saved under 0.18 carry a
+   session with no `sessionId` (only the dead continuation token), and 0.52's
+   `ClientSessions.attach(undefined)` throws `reading 'length'` inside
+   `useEveAgent`. `useThreadAgent` now only passes `initialSession` when it has an
+   ID; the old transcript still renders and is preserved on the next turn.
+3. **Stale sessions failed silently.** A fixed session ID the server no longer
+   holds (expired — 30 days by default — reset, or minted on another deployment,
+   which is exactly what a local-dev turn on the shared DB produces) answers
+   409 `session_not_active`, and the UI just sat there. 0.18's server used to open
+   a new session in that case. `useThreadAgent` now catches it, re-saves the
+   transcript with `session: null` (the provider sends an explicit null — an
+   `undefined` dropped the key and the PATCH route kept the old session), asks
+   `AgentChat` to remount via a `sessionEpoch` key, and the fresh mount resends
+   the message on a new session. The resend is deferred a tick, like
+   `initialMessage`, because dev strict mode's double mount aborted it otherwise.
+
+**Verified:**
+- Local `eve dev`: `/eve/v1/health` ready; a client turn completes; Playwright
+  types into the composer and the streamed reply renders, no console errors.
+- Thread seeded with 7 old-shape events → 16 after a turn, first message intact.
+- Thread seeded with a bogus session ID → four 409s, then `POST /eve/v1/session`
+  202, reply rendered, 16 events, live session saved.
+- **Production (cael-agent-seven):** health `{"ok":true,"status":"ready"}` and a
+  client turn answered `PONG` with `turn.completed` — first working Cael chat on
+  that deployment since Aug 30. Sidebar RSC *prefetches* show 404 in the console
+  there (`/family?_rsc=…`), but the pages themselves return 200; pre-existing
+  noise, not this change.
+
+**Housekeeping:** `scripts/deploy-bertoaucctus.sh` is now a plain
+`vercel --prod --yes --scope bertoaucctus` and refuses to run if a vercel.json
+exists — the old version *wrote* a services vercel.json + patched middleware and
+would now break the build (another session ran it mid-upgrade and left a
+duplicate `runtime` key behind for a few minutes).
+
+**Left for Berto:** my first smoke test landed in the real thread "Hi Cael. I'm
+hurting today…" (it was the newest, so the UI opened it). It had 0 events before
+(created 2026-09-03 while chat was dead), so nothing was lost, but it now holds
+one junk PONGUI turn and pointed at a local-dev session; the app will recover the
+session on the next send. Clearing the junk needed a write the sandbox refused.
+
+Files: `package.json`, `package-lock.json`, `vercel.json` (deleted), `agent/agent.ts`,
+`agent/schedules/dispatcher.ts`, `lib/nutrition-art.ts`, `lib/eve-client.ts`,
+`hooks/use-thread-agent.ts`, `hooks/use-resume-turn.ts`, `hooks/use-eve-runtime.ts`,
+`app/_components/agent-chat.tsx`, `app/_components/threads-provider.tsx`,
+`middleware.ts`, `scripts/deploy-bertoaucctus.sh`.
+
+## 2026-09-05 — Deploy script retired (post eve 0.52)
+
+Deploying the Konsta commit through `scripts/deploy-bertoaucctus.sh` failed the
+build: another session had just landed the eve 0.18 → 0.52 upgrade (`580545c`),
+which deletes `vercel.json` and puts `runtime: "nodejs"` in `middleware.ts`
+itself — so the script's patch produced a duplicate `runtime` key. The script now
+refuses to run when `vercel.json` isn't tracked and prints the plain command.
+Deploy is now just `vercel --prod --yes --scope bertoaucctus`.
+
+## 2026-09-05 — Rounder, bigger, and a floating colour tab bar
+
+His feedback with a phone screenshot: *"a little more generously round at the
+corners, and bigger buttons, i think a more fun menu bar would be great too."*
+He picked, when asked: colour per tab, floating pill bar.
+
+- **Radius**: `--radius` 0.5rem → 0.875rem in `globals.css`, so every shadcn control
+  and card rounds more. Home-screen cards are `rounded-3xl`; metric and habit tiles
+  too.
+- **Bigger**: rings 76 → 88px with a 44px icon disc; habit tiles taller with 44px
+  icon discs and 14px labels; ring values 16px; Sync / Connect watch are 36px
+  rounded pills; day-nav chevrons on the journal and training log are `icon-sm`
+  with 20px arrows; day label 16px semibold; score bar 10px tall.
+- **Tab bar** (`app/(app)/layout.tsx`): Konsta `Tabbar` now floats as a pill
+  (`fixed inset-x-3`, 2rem radius, blur, shadow) 0.75rem above the home indicator.
+  Each tab has its own colour — Home terracotta, Chat sky, Tasks emerald, Notes
+  amber, Lists violet, More slate — and a new `TabIcon` draws a filled pill behind
+  the active icon with a shared motion `layoutId`, so it slides between tabs.
+  `--mobile-nav-gap` (0.75rem) joins `--mobile-nav-h` (5rem) in `globals.css`.
+
+**Gotchas hit:** (1) a Tailwind arbitrary `calc()` needs `_` for spaces —
+`bottom-[calc(var(--a)_+_var(--b))]` — or the rule is dropped and the fixed bar
+lands at the top; (2) Turbopack served a stale `globals.css` (old `--mobile-nav-h`)
+until the dev server was restarted — if a CSS variable edit "doesn't apply",
+restart before debugging.
+
+Verified on `:3789` at iPhone 14 and Pixel 7 widths and on desktop, no page errors.
+`npx tsc --noEmit` clean.
+
+Files: `app/globals.css`, `app/(app)/layout.tsx`, `activity-rings.tsx`,
+`habit-row.tsx`, `scorecard-card.tsx`, `daily-journal.tsx`, `training-log.tsx`,
+`home-screen.tsx`.
+
+## 2026-09-05 — Chat rebuilt on Vercel AI Elements; wizard avatar out of the chat header
+
+Berto: *"remove the little wizard icon, lets instead use the latest vercel ai
+elements to make this chat experience as cutting edge as possible."*
+
+**What changed.** The chat no longer goes through assistant-ui. eve 0.52's
+`defaultMessageReducer` already projects `agent.data.messages` in the AI SDK
+`parts[]` shape that AI Elements renders, so the runtime adapter
+(`hooks/use-eve-runtime.ts`) and the whole `components/assistant-ui/` tree are
+gone, along with the three `@assistant-ui/*` packages. In their place:
+
+- `components/chat/eve-thread.tsx` — `Conversation` + `Message`/`MessageResponse`
+  (Streamdown markdown, GFM, math, code blocks), consolidated `Reasoning` that
+  auto-opens while thinking, `Tool` cards for every `dynamic-tool` part (collapsed
+  when done, open on error, JSON output in `CodeBlock`), the ported calendar card
+  for `list_calendar_events`, an authorization card for eve sign-in prompts, a
+  `Shimmer` "Cael is thinking…" line until the first visible part lands, a copy
+  action on assistant replies (always visible on the last one, hover on older),
+  `ConversationScrollButton`, and the welcome screen with `Suggestions`.
+- `components/chat/eve-composer.tsx` — `PromptInput` with drag-and-drop /
+  paste attachments (inline previews + remove), a screenshot action, the existing
+  app-wide `ModelPicker`, and a submit button that becomes stop while a turn runs
+  (`agent.cancel()`). Files go out as eve `file` parts (data URLs); images are
+  also parked in Blob and their public URL appended, as before.
+- `components/chat/calendar-tool.tsx` — the calendar card, now a plain component
+  taking the tool part's state and output.
+- `agent-chat.tsx` — `CaelAvatar` removed from the header (name + status dot
+  stay); keeps a per-session map of sent files by message index so previews
+  survive the send (eve stores only a text summary of attachments).
+- Installed via `npx shadcn add @ai-elements/…` (registry already in
+  `components.json`): conversation, message, prompt-input, attachments, tool,
+  reasoning, suggestion, shimmer, plus `code-block` and `ui/scroll-area` as deps.
+  Existing `components/ui/*` files were deliberately not overwritten.
+- `react-markdown` is now a direct dependency: it only reached `manual-panel.tsx`
+  transitively through assistant-ui.
+
+**Verified** on `:3789` with Playwright on a throwaway thread: empty state
+(greeting + suggestions), typed message, shimmer, a `list_calendar_events` tool
+card, streamed reply with copy button, no page or console errors; iPhone
+viewport under the Konsta tab bar looks right. Test thread deleted.
+
+**Gotcha for the next session:** a `next dev` on this checkout started
+answering 404 on every dynamic route (static files still 200) after other
+sessions committed and rebuilt underneath it; a plain restart fixed it.
+
+**Open question for Berto:** the wizard avatar still appears in the sidebar
+brand, the home screen card, the floating chat bar and the app layout. Only the
+chat header was asked for; the rest is one small pass if wanted.
+
+Files: `app/_components/agent-chat.tsx`, `components/chat/*` (new),
+`components/ai-elements/*` (new), `components/ui/scroll-area.tsx` (new),
+`components/assistant-ui/*` (deleted), `hooks/use-eve-runtime.ts` (deleted),
+`package.json`, `package-lock.json`.
+
+## 2026-09-05 — Keystrokes target to 30k
+
+- **Keystrokes 100% = 30,000** (was 50k, set earlier today; 100k before that). His
+  words: *"change our goal for the keystrokes from 50k to 30k"*. Same single-line
+  change as last time: only the default in `lib/scorecard.ts`; still no
+  `scorecard_targets` override row in `app_settings`, so the default is what's live.
+  Past days rescore against the lower bar, so the history strip shifts up again.
+
+## 2026-09-05 — Training log shown once; 12–8 eating window habit
+
+Berto, with a screenshot of the home card: *"we have two training log entries for
+the day"* and *"add one more binary habit which is 12-8 eating window."*
+
+**The training log wasn't duplicated in the database** — `workout_notes` is keyed
+on the day, so there can only ever be one row. It was the card showing the open
+day twice: once in the textarea and again as the first row of the history list
+under it. The list now leaves out whichever day is open in the editor (today by
+default), and the "current row" highlight went with it since that row no longer
+exists. Walk back to Sep 3 and Sep 5 reappears in the list while Sep 3 drops out.
+
+**12–8 window** is a fourth tile on the habit row, a manual tap like Meditate,
+lime-coloured with a utensils icon. It is stored in a new `daily_habits.ate_in_window`
+column — not the old `fasted_til_noon` one, which only ever covered the morning
+half; this is the whole window (noon to 8pm), so it is its own flag. The column
+was added to the live Neon DB by hand and `ensureSchema()` carries the same
+`ADD COLUMN IF NOT EXISTS` for fresh setups. PATCH `/api/habits` accepts `window`.
+
+**Verified** on a private `:3789` server: tapped the tile via Playwright, `/api/habits`
+went `window: true`, tile showed the check, reverted to `false` afterwards. Body
+text contained today's note zero times outside the textarea. `npm run typecheck` clean.
+
+Files: `lib/habits.ts`, `lib/db.ts`, `app/api/habits/route.ts`,
+`app/_components/habit-row.tsx`, `app/_components/training-log.tsx`,
+`app/_components/scorecard-card.tsx`, `WORKLOG.md`.
+
+## 2026-09-06 — Keystroke agent survives a lost state file
+
+Berto's Mac had a thermal-emergency crash and reboot on 2026-09-06. The counter came
+back with an empty `~/.focuspoint-keystrokes.json`, logged *"resumed today at 0"*, and
+because the server keeps `GREATEST(existing, incoming)`, every key pressed after the
+reboot was silently uncounted until the local tally climbed back past the server's 7039.
+The menu bar showed ~190 while the server had 7039.
+
+**What changed** (`keystroke-agent/count_keystrokes.py`, `keystroke-agent/README.md`):
+
+- `save_state()` is atomic: writes `~/.focuspoint-keystrokes.json.tmp` beside the real
+  file, fsyncs, then `os.replace()`s it into place. A crash mid-write can no longer leave
+  an empty or partial file. The temp file is cleaned up on failure.
+- New `reconcile_with_server()` runs right after `load_state()`: GETs
+  `$FOCUSPOINT_URL/api/keystrokes` with the bearer token (middleware already allow-lists
+  the token on any method) and, if the server's `todayCount` for the same `today` is
+  higher than the local count, resumes from the server number and saves it. A server
+  `today` that differs from ours (midnight skew) is ignored rather than adopted.
+- A failed GET (DNS down, timeout) means "use local": one retry after
+  `KEYSTROKE_STARTUP_RETRY_SECONDS` (default 5s, since DNS was down for minutes after the
+  reboot), 10s timeout each, then a log line and normal startup. Startup never blocks on
+  the network beyond that.
+- Still count-only (the key is never inspected), still urllib-only. The menu bar picks
+  the corrected number up from the same file it already reads.
+
+**Verified.** Wrote `{"count": 42}` to the state file, ran
+`launchctl kickstart -k gui/$(id -u)/com.focuspoint.keystrokes`; log shows
+*"local count 42 is behind server 8594; resuming from server"* then
+*"resumed today at 8594"*, no `.tmp` left behind. Ran by hand against
+`https://does-not-exist.invalid` with a throwaway state file: two failed GET attempts,
+*"server unreachable at startup; using local count 5"*, and the listener started.
+
+## 2026-09-07 — Cael Mac app: fix blank window bouncing to Chrome
+
+Berto reported the Cael desktop app "doesn't house our app anymore, it just opens our
+app in a chrome window." Diagnosed by launching `/Applications/Cael.app` and capturing
+`log stream` output for the `focuspoint-desktop` process: WebKit reported
+`FrameLoader::checkLoadCompleteForThisFrame: Failed provisional load ... errorCode = 102`
+(`FrameLoadInterruptedByPolicyDecision`) on the very first navigation — the app's
+`on_navigation` handler in `desktop/src-tauri/src/main.rs` only allowlists the app's own
+host (`cael-keystrokes.vercel.app`) plus localhost, so it rejected the load and handed it
+to the system browser via `open`.
+
+**Root cause**: the app's Clerk instance is a dev/test key (`pk_test_...`, confirmed via
+`.env.local`'s `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), which requires a cross-origin
+"dev browser" handshake redirect to `*.clerk.accounts.dev` to set its session cookie
+(dev instances can't set first-party cookies on the app's own host). That redirect isn't
+the app's own host, so it got treated as an external link and bounced the whole
+sign-in flow out to Chrome — which is why the native window stayed permanently blank
+and the "real" session ended up living in a Chrome tab instead.
+
+**Fix** (`desktop/src-tauri/src/main.rs`): `on_navigation` now also allows hosts ending
+in `.clerk.accounts.dev` or `.clerk.com`, so the Clerk handshake completes silently
+inside the native WebView instead of leaving the app.
+
+**Verified**: added temporary `eprintln!` logging to confirm the exact URL/host being
+rejected, then removed it once the fix was confirmed. Cleared
+`~/Library/WebKit/com.bertomill.focuspoint`, `~/Library/Caches/com.bertomill.focuspoint`,
+and `~/Library/HTTPStorages/com.bertomill.focuspoint*` to force the true first-run
+handshake path, then ran the release binary directly — the sign-in page ("Sign in to
+bertomill.com", Clerk dev-mode banner) now renders inside the Cael window instead of a
+blank screen. Rebuilt with `npx tauri build` (the `.dmg` packaging step failed on
+`bundle_dmg.sh`, unrelated — the `.app` bundle built fine) and reinstalled it to
+`/Applications/Cael.app` (ad-hoc re-signed, quarantine flag cleared). Confirmed the
+installed app renders correctly on launch.
+
+**Note**: "Continue with Google" on that sign-in page still hands off to
+`accounts.google.com` in the system browser, which is correct/expected — only the
+same-origin Clerk handshake needed to stay in-app.
+
+## 2026-09-07 — Chat photo uploads: FUNCTION_PAYLOAD_TOO_LARGE
+
+Uploading a phone photo in the chat (desktop app or web) failed with
+`Request failed — Request Entity Too Large FUNCTION_PAYLOAD_TOO_LARGE`. Cause:
+`components/chat/eve-composer.tsx` sends images to Cael as an inline base64 data
+URL (a `type: "file"` part, since eve rejects `type: "image"`) so the model can
+actually see the picture — separately from uploading the same image to Blob
+storage for tools to reference by URL. A full-resolution phone photo (often
+3-8MB) base64-encodes to 4-10MB+ and blew past the chat function's request body
+limit before any resizing ever happened.
+
+**Fix**: added `downscaleImageDataUrl()` — decodes the pasted/attached image via
+`<img>` + `<canvas>`, downscales to at most 1568px on the long edge (Claude's
+vision gets no benefit past that anyway) and re-encodes as JPEG at quality 0.85.
+Runs before both the inline data URL sent to eve and the Blob upload, so both
+copies are the smaller version. Non-JPEG/PNG/WebP types (gifs, etc.) and decode
+failures fall through unchanged rather than dropping the image.
+
+**Verified**: headless-browser test generating a worst-case 4032×3024 random-noise
+JPEG (12.4MB data URL — real photos compress far better than noise) through the
+same resize logic: output shrank to 1568×1176 and ~920KB, a 13x reduction, safely
+under any function payload limit. `npm run typecheck` passes.
+
+## 2026-09-07 — Photos can be saved to memory (notes get an image_url)
+
+Berto asked whether images can be added to memory. They couldn't: `capture_thought`
+only ever wrote a `content` string to `thoughts`, so asking Cael to "save this photo to
+memory" (see the entry above) just filed a text note — at best a pasted blob URL, which
+the embedding can't do anything useful with. Separately, the Media tab's uploads
+(`app/_components/dashboard.tsx`) only lived in React state — gone on refresh, never
+written to the database at all.
+
+**What changed**:
+
+- `lib/db.ts`: `ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS image_url TEXT`. Notes now
+  optionally carry a photo, same table, same folders/tags/search — matches the pattern
+  already used by `thank_yous.image_url` (`log_thank_you`, Service wealth form).
+- `agent/tools/capture_thought.ts`: new optional `image_url` param, described as coming
+  from the '[Image uploaded — public URL: ...]' marker the chat composer already appends
+  after an image upload (`components/chat/eve-composer.tsx`, from the earlier
+  `FUNCTION_PAYLOAD_TOO_LARGE` fix). `agent/instructions.md` tells Cael to pass it
+  whenever the user shares a photo and wants it remembered (thank-you screenshots still
+  go to `log_thank_you`, unchanged).
+- `agent/tools/list_notes.ts`, `agent/tools/search_memory.ts`, `app/api/thoughts/route.ts`,
+  `app/api/thoughts/semantic-search/route.ts`: all select and return `image_url` now.
+- `app/_components/dashboard.tsx`: the Notes list renders a thumbnail above the note text
+  when `image_url` is present.
+- Deliberately out of scope (per Berto: image_url on `thoughts` was the ask, not a
+  rework of Media): the Media tab's uploads are still session-only, not written to
+  `thoughts` — a separate feature if he wants it persisted too.
+
+**Verified**: `npm run typecheck` passes. Ran the app's own dev server against the real
+Neon DB (`PORT=3789 npm run dev`, password-cookie login) and confirmed `information_schema`
+lists `image_url` on `thoughts` after `ensureSchema()` ran; inserted and read back a test
+row directly via `@neondatabase/serverless`; hit `GET /api/thoughts` and confirmed the
+JSON response includes `image_url`. Test rows deleted afterward.
+
+## 2026-09-13 — Menu bar: progress bar to 30k + confetti at the goal
+
+Berto, looking at `⌨ 12,627` in his menu bar: *"not sure if there are any little
+animations we can do at the top of our mac menu bar, but i like mental conditioning to the
+progress of getting closer to that 30k goal"*. Asked how; his call: *"definitely confetti,
+and a bar under the number"*, plus the goal celebration.
+
+**What changed**:
+
+- `lib/keystrokes.ts`: `KeystrokeSummary` gains `target` (from `metricDef("keystrokes")`
+  in `lib/scorecard.ts`, currently 30,000) so the menu bar and the scorecard can never
+  disagree about what 100% means. `/api/keystrokes` returns it automatically.
+- `keystroke-agent/menubar/KeystrokeMenuBar.swift`:
+  - The title is now a single drawn template image — ⌨ + the count + a 2pt bar under
+    the digits filled to `count/target` (track is the same ink at 22% alpha, like the
+    system battery icon), so it tints correctly in light and dark menu bars. Past the
+    goal the ⌨ becomes `star.fill` and the bar stays full.
+  - `target` is read from the API poll, falling back to 30k until the server answers.
+  - Confetti: a borderless, click-through, transparent `.popUpMenu`-level window hung
+    from the status item's frame with a `CAEmitterLayer` (8 colours × 3 shapes, 0.7s
+    burst, gravity, spin, ~5s total). Fires the first time today's count is seen at or
+    past the goal; deduped per day via `UserDefaults["celebratedDate"]`, so a relaunch
+    doesn't refire but crossing 30k while the app was down still gets its moment at the
+    next launch. Menu gains a "Goal · 30,000 · 43%" row and a **Replay celebration**
+    item (for podcast footage).
+  - Gotcha found in testing: firing synchronously from `init` gives the status item a
+    degenerate window frame `(0,0,83,0)` — the run loop hasn't placed it yet. The
+    launch-time fire is deferred 0.5s, and any anchor not intersecting a screen falls
+    back to the primary display's menu-bar extras area.
+  - `KEYSTROKE_DEBUG_DUMP=/path.png` (dev only) writes the rendered title to disk.
+- `keystroke-agent/README.md`: menu bar section describes the bar, star and confetti.
+
+**Verified**: `swiftc` build clean; `npm run typecheck` passes. Drove a scratch build
+against fake state files: 13,000 renders `⌨ 13,000` with the bar 43% full; 30,100 renders
+`★ 30,100` with a full bar, and the confetti window appears anchored at the item
+(`anchor=(754,949,83,33)`), captured mid-burst via `screencapture -l <windowid>` — dense
+multicolour burst falling out of the menu bar, gone by ~5s. Screen-level screenshots were
+unreliable because Gmail was full-screen on the main display at the time (menu bar
+hidden). Reinstalled the real app with `install.sh` (launchd reloaded, new PID); today's
+count is ~13k so no confetti fired on install. Deployed to production so
+`/api/keystrokes` carries `target`.
+
+## 2026-09-13 — Eight celebrations, a different one each day
+
+Right after the confetti shipped, Berto: *"now to make it even more addicting, lets add
+variable surprises each day when the user gets to 30k clicks, maybe 5-10 variations"*.
+Asked which: all eight proposed visuals, no sound, no notification.
+
+**What changed** (`keystroke-agent/menubar/KeystrokeMenuBar.swift`):
+
+- `Confetti` became `enum Celebration: CaseIterable` + `build(kind, screen, anchor) -> Show`
+  + `CelebrationPlayer`. Every show is still one `CAEmitterLayer` in a transparent,
+  click-through `.popUpMenu`-level window, torn down after `total` seconds, so the cost
+  model didn't change. Sprites are drawn at 2x with `contentsScale = 2` so they're crisp.
+- The eight: **confetti** (unchanged) · **fireworks** (invisible shell cells with
+  `lifetime 0.06` pop at random points and emit ~130 one-colour sparks + white glints — the
+  nested-cell trick) · **gold rain** (four golds, slow, full screen height, 12s) · **emoji
+  shower** (🎉🔥⌨️💪🏆⚡️🚀✨ rendered as sprites) · **streamers** (3×34 ribbons, fast spin)
+  · **falling 30,000** (single digits + whole "30,000" glyphs tinted per colour) ·
+  **balloons** (the only one that rises — released along the bottom of the screen, drift
+  up the full height, 14s) · **starfield** (a 900pt band under the menu bar; stars pop in
+  via `scaleSpeed` and fade, no motion).
+- Pick: `Celebration.pick(avoiding: last)` — uniform random over the other seven.
+  `UserDefaults["celebration"]` remembers what fired so tomorrow can't repeat it and the
+  menu's goal row can say "🎉 Goal · 30,000 · 104% · Fireworks".
+- Menu: "Replay celebration" is now a submenu — *Surprise me* + one item per show.
+- Dev hooks: `KEYSTROKE_DEBUG_SHOW=<rawValue>` plays that show 0.5s after launch;
+  the daily fire's deferral went 0.5s → 1.0s because at 0.5s the status item's window frame
+  was still occasionally degenerate and the show fell back to the extras-area guess.
+
+**Verified**: compiled clean; drove all eight via `KEYSTROKE_DEBUG_SHOW` against a fake
+state file and captured one frame of each window by id (`screencapture -l`). All eight
+draw as intended; fireworks were too dense (spark birthRate 4500 → 2200, shell 0.7 → 0.5)
+and whole "30,000"s too rare (1.2 → 2.5) — tuned, recompiled, reinstalled with
+`install.sh`. Redeployed production after rebasing onto another session's
+"Remove daily schedule dispatcher" commit, since the first deploy had gone out from a tree
+without it.
+
+## 2026-09-14 — Sidebar down to Home · Chat · Sketches; the whole app over MCP
+
+Berto: *"can you remove everything from the sidebar except home, chat, and sketches? and
+can we make this app completely mcp connectable to claude or codex?"*
+
+**Sidebar** (`app/(app)/layout.tsx`): `NAV_ITEMS` and `MOBILE_TABS` are now just Home,
+Chat, Sketches; `MORE_TABS` is empty and the phone's "More" drawer only renders when it
+has entries, so it's gone. The primary/secondary rule in the rail went with it. Every
+other section still exists at its URL (`/tasks`, `/notes`, `/measures`…) and through
+Cael's tools — they're just not destinations in the shell. `home-screen.tsx`'s section
+tiles were left alone (the ask was the sidebar).
+
+**MCP** (`app/api/mcp/route.ts`, new `lib/agent-tool-registry.ts`): the server used to
+carry six hand-written task tools. It now also registers every eve tool in
+`agent/tools/*.ts` — 44 of them — straight from their `defineTool()` definitions
+(description, zod `inputSchema`, `execute`), so Claude Code / claude.ai / Codex get the
+same capabilities as the in-app chat: notes, folders, semantic memory search, sketches,
+journal, dreams, scorecard + measures, vision, nutrition, workouts, reading, Google
+Calendar, scheduled tasks, Luma, GitHub PRs, X/LinkedIn posting. 50 tools total.
+
+- Results use the tool's own `toModelOutput` text when it has one (that's the wording
+  tuned for Cael's model), else pretty JSON; the raw object rides along as
+  `structuredContent`. Names starting `list_/get_/read_/search_/latest_` get
+  `readOnlyHint`.
+- Skipped: `list_todos`, `add_todo`, `complete_todo`, `post_task_update` (the six task
+  tools cover them with better descriptions) and `set_focus` (eve-session-only state).
+  `capture_thought`'s session tally is now in a try/catch — over MCP there's no eve
+  session, and the note is already saved by then.
+- `execute` is called with an empty context; no tool in `agent/tools/` uses `ctx` today.
+- Server `instructions` and version (2.0.0) describe the wider surface and flag that
+  `post_tweet`/`post_linkedin` publish publicly.
+- **Gotcha**: Turbopack can't resolve the `.js` suffix on relative TS imports
+  (`../../lib/db.js` → module not found), which eve's own compiler handled fine. All
+  relative imports under `agent/` are now extensionless (51 files, mechanical sed).
+  Recorded in CLAUDE.md so the next tool file doesn't reintroduce it.
+- Codex connection line added to CLAUDE.md alongside the Claude Code one.
+
+**Verified**: `npm run typecheck` passes. Dev server on :3789 (3000 was ~/venice):
+`tools/list` returns 50 tools, all with object schemas; `list_sketches`, `get_scorecard`
+and `list_folders` execute with real data; `/` serves 200; Playwright reads the rail as
+`['Home','Chat','Sketches']` and finds no "More" button at phone width (screenshots
+checked). A sandboxed `npm run build` failed only on fetching Geist from Google Fonts
+(no network in the sandbox); rerun unsandboxed.
+
+## 2026-09-26 — Apple touch icon actually 180×180 now
+
+**Bug.** `public/apple-icon.png` was a 1280×720 screenshot with the icon in the
+top-left corner, not the 180×180 render the 2026-08-25 entry claims. iOS squashed it
+into its square mask, so the home-screen icon showed a tiny tile in the corner of a
+white rectangle.
+
+**Fix.** Added `scripts/render-apple-icon.mjs`, which renders `public/icon.svg` with
+sharp into a real 180×180 PNG. Two deliberate changes from the browser-tab SVG:
+square corners (iOS applies its own superellipse mask, so baked-in rounding leaves
+wedges), and the artwork scaled up 18% so the orb fills the tile like a native icon.
+The halo still fades before the edge so the mask clips nothing. Comments are stripped
+before rendering because the SVG has a `-->` inside a comment that libxml rejects.
+
+**Files changed:** `public/apple-icon.png`, `scripts/render-apple-icon.mjs` (new).
+
+**Next steps:** re-run the script whenever `icon.svg` changes. Re-add to the home
+screen on the phone to see it — Safari caches the old touch icon per bookmark.
+
+## 2026-09-26 — Homepage simplified into a summary of what Berto does
+
+The bertomill.com front page was a tour of Cael: a pinned pitch card
+("I build AI agents, and I let one run my life"), live database stats, and
+four full-height art panels (Cael, Building, Writing, Podcast). Berto asked
+for something simpler that reads as a summary of what he does, using his
+public LinkedIn profile as the source.
+
+**What changed** — `app/site/page.tsx` rewritten as one centred column:
+
+- Intro: headshot, "I help enterprises put AI to work", a three-line bio
+  (GTM Lead at Aucctus, founder of MakersLounge, agents on the side, prior
+  AI strategy at KPMG and CIBC), LinkedIn + "Ask Cael about me" buttons.
+- "What I do": four items — Aucctus, MakersLounge (external links),
+  Cael (`/chat`) and Writing/Podcast (`/writing`).
+- "Latest": newest post and episode from `listContent`.
+- "Experience": six-row timeline from LinkedIn, with a "full history on
+  LinkedIn" link, plus Ivey as the education line.
+- Live stats (`getPublicStats`) dropped from the homepage; they still live on
+  `/building`. `StoryCard` deleted as nothing used it any more. The
+  `public/site-art/*.webp` panels are now unused but left in place.
+- `app/site/layout.tsx` site description updated to match.
+
+Decisions Berto made: single column over keeping the two-column layout; no
+stats row on home. Verified locally at `site.localhost:3001` on desktop and
+mobile; typecheck clean.
+
+## 2026-09-26 — Glass sculpture (vgpu, WebGPU) on the homepage
+
+Berto wanted the vgpu "Glass Sculpture" example on bertomill.com. Pulled with
+`npx vgpu examples pull glass-sculpture` and integrated as a homepage panel
+between the intro and "What I do" (his choice over a hero backdrop or a
+separate page).
+
+**Files** — `app/site/_components/glass-sculpture/` holds the example's
+`renderer.ts`, `scene.ts`, `camera.ts`, `pointer-input.ts` and the four `.wgsl`
+shaders, plus a new `glass-sculpture.tsx` client component. `next.config.ts`
+registers `@vgpu/wgsl/loader-webpack` for `.wgsl` under both `turbopack.rules`
+and the `webpack` hook; `wgsl.d.ts` at the root types the imports. `vgpu` added
+to dependencies.
+
+**Adaptations, and what stayed:**
+
+- No `lil-gui` settings panel. The site renders fixed controls (knot, clear
+  glass, studio rig, dispersion on, turntable on, 75% render scale) passed from
+  the component. Everything else in `renderer.ts` — the ordered cleanup stack,
+  the dispose-on-frame-failure paths, `gpu.dispose()` last — is the example's.
+- The wheel-to-dolly handler in `pointer-input.ts` is removed: it called
+  `preventDefault` on wheel, which would freeze page scrolling whenever the
+  cursor crossed the panel. Drag-to-orbit and hover-steered light remain.
+- WebGPU-only: the component renders nothing until it sees `navigator.gpu`,
+  and falls back to nothing if `renderer.ready` rejects. Firefox, most in-app
+  browsers and the server see the page exactly as before.
+
+Verified: typecheck, `next build` (Turbopack) and a live render at
+`site.localhost:3001`.
+
+## 2026-09-26 — Sculpture: transparent, slower
+
+Berto: the black box didn't fit the site, and it spun too fast.
+
+- `sculpture.wgsl` writes alpha 0 for every non-glass pixel (floor and backdrop
+  gone); the studio environment still exists for reflections/refraction.
+- `present.wgsl` carries alpha through, premultiplies, drops the vignette,
+  and lets bloom bleed faintly past the glass edge. `renderer.ts` opens the
+  surface with `alphaMode: 'premultiplied'`.
+- New `spinSpeed` control in `scene.ts` (default 1 = example pace); the site
+  passes 0.35. Container lost its black background/ring; height is now a fixed
+  26–30rem rather than 60vh.
+
+## 2026-09-26 — Sculpture moves into the hero
+
+Berto: the sculpture "kind of doesn't make sense" as its own panel, and the
+"build my own agents on the side" clause in the bio should go.
+
+- Hero is now a two-column grid on `lg` (text left, `GlassSculpture` right,
+  stacked below the text on smaller screens) at `max-w-5xl`; the sections
+  below stay at `max-w-3xl`. The standalone sculpture panel is gone.
+- Bio trimmed to Aucctus, MakersLounge, then KPMG/CIBC.
+
+## 2026-09-26 — bertomill.com gets its own BM favicon
+
+Berto: "can we add a nice little bm icon for my name" — a browser tab titled
+Berto Mill was showing the generic globe, and the public site had no mark of
+its own (it inherited Cael's orb from the root layout).
+
+- `public/bm-icon.svg` (new): a terracotta disc in the same primary gradient as
+  Cael's orb, with a bold white BM monogram. Reads at 16px; the two sites look
+  like siblings in a tab strip without sharing a mark.
+- `public/bm-apple-icon.png` (new, 180×180): full-bleed square version for the
+  iOS home screen, rendered by the new `scripts/render-bm-apple-icon.mjs`
+  (mirrors `render-apple-icon.mjs`). Re-run it after editing the SVG.
+- `app/site/layout.tsx`: `metadata.icons` now points at the two files, so the
+  `/site` tree overrides the root layout's Cael icons.
+- No middleware change: both files are top-level `public/` images, which
+  `isPublicAsset` already passes through on both hosts.
+
+Verified: typecheck, and sharp renders of the SVG at 512px and 32px.
+
+## 2026-09-27 — Site header: one headshot, no rule, Koto-style nav
+
+Berto, over three asks: don't show the headshot twice and make it bigger; drop
+the line under the header; and lay the nav out like koto.com (name and links
+grouped on the left, a MENU button on mobile that opens a full-screen sheet).
+
+- `app/site/page.tsx`: hero headshot 56px → 80px. The nav avatar is gone.
+- `app/site/_components/site-nav.tsx`, rewritten:
+  - Desktop: uppercase mono links sit right beside the name; Sign in, Book a
+    meeting and the theme toggle stay on the right. No bottom border.
+  - Mobile: a boxed MENU button opens a full-screen sheet — EXPLORE eyebrow,
+    big link list, Book a meeting, then a CHANNELS footer (LinkedIn, Sign in)
+    and the theme toggle. Escape and route changes close it; body scroll locks.
+  - The sheet is portaled to `<body>`: the header's `backdrop-blur` makes it a
+    containing block, which trapped the `fixed` overlay inside the 64px bar.
+
+Verified: typecheck, and the dev server at 375px and desktop widths.
+
+## 2026-09-27 — Homepage headline as liquid glass (vgpu TypeGPU example)
+
+Berto: "can we make the text of my title look like this liquid glass?", with
+the vgpu "TypeGPU Liquid Glass" example (`npx vgpu examples pull
+typegpu-liquid-glass`). Choices he made: transparent letters on the page's
+own background (not the example's dark panel), and a plain fade-in rather
+than keeping the word-by-word reveal under the glass.
+
+**Files** — `app/site/_components/liquid-glass-heading/`: `renderer.ts`
+(adapted from the example), three hand-written WGSL ports of its TypeGPU
+shaders (`field-blur.wgsl`, `gradient.wgsl`, `liquid-glass.wgsl`) and a
+`liquid-glass-heading.tsx` client component. `page.tsx` renders
+`LiquidGlassHeading` where `AnimatedHeading` was; `animated-heading.tsx`
+gained a `data-line` attribute on its line spans so the raster can find
+each line's box and text.
+
+**Why WGSL and not TypeGPU** — the example writes shaders as TypeScript
+`'use gpu'` functions, which typegpu 0.12 can only resolve with its
+`unplugin-typegpu` build plugin. That plugin has webpack/vite/rollup/esbuild
+entry points and nothing for Turbopack, which `next dev` uses here. The
+shaders are ported one to one (same taps, weights, stream maths, tonemap)
+and loaded by the `.wgsl` loader the glass sculpture already set up.
+typegpu was installed to read the example and uninstalled again.
+
+**Adaptations, and what stayed:**
+
+- The shape is the heading's text, not the logo. The component paints the
+  `h1`'s lines onto a 2D canvas using its computed font, letter-spacing and
+  each line span's box (baseline placed where CSS centres the content area
+  in the line box), and the renderer uploads that as an `rgba8unorm`
+  texture (`copyExternalImageToTexture`; Dawn needs `render_attachment`
+  usage on the destination too). A few blur passes turn coverage into the
+  field the rim and glow read; the example's gradient pass and 16 blur
+  passes over it are unchanged.
+- The field textures are the canvas's size, not a fixed 1024². Bakes are
+  re-run on surface resize, on `document.fonts.ready`, and on a
+  `ResizeObserver` of the heading, always on a macrotask so a bake never
+  runs inside vgpu's frame hook. Each bake disposes the previous scene and
+  coverage texture; `createScene` destroys what it made on any failure.
+- Output is transparent and premultiplied; the backdrop, vignette and drop
+  shadow are gone. Alpha is the letter mask plus a faint rim just outside
+  it (0.3 — 0.6 read as a smudge on the light theme).
+- The real `h1` stays in the document (a11y, SEO, layout). Once the first
+  frame draws, its ink transitions to transparent while the canvas fades in.
+  No WebGPU, `prefers-reduced-motion`, or a renderer failure leaves the
+  page as the animated heading it was.
+
+Verified: typecheck, `next build` (into `.next-verify` so the running dev
+server was undisturbed), and a live look at `site.localhost:3000` in light
+and dark themes and at phone width (reflow re-baked; no console errors).
+
+## 2026-09-27 — Concrete wall behind the hero
+
+Berto: "can we use this really nice concrete looking background from
+vgpu.sh?" Theirs is a live WebGPU render of a lit wall, so this recreates the
+look rather than lifting an asset.
+
+- `app/site/_components/concrete-wall.tsx` (new): full-bleed backdrop for the
+  hero. A warm grey base, a `PaperTexture` at `speed: 0` (roughness up, fibres
+  off) multiplied over it for plaster mottle, two blurred window-light patches
+  and one diagonal light band in CSS, and a fade into `bg-background` at the
+  bottom. Dark mode keeps the same layers at low strength.
+- `app/site/page.tsx`: the hero `RevealOnView` is wrapped in a
+  `relative isolate` div holding the wall. `isolate` matters: the wall sits at
+  `-z-10`, and without a stacking context it dropped behind the layout's
+  page background and vanished.
+- Full-bleed via `left-1/2 w-screen -translate-x-1/2`, since the hero lives
+  inside the page's `px-6` column.
+
+Verified: typecheck, and the dev server in light and dark.
+
+## 2026-09-27 — Liquid glass headline removed
+
+Berto saw it live and didn't like it. `liquid-glass-heading/` is deleted,
+`page.tsx` renders `AnimatedHeading` again, and the `data-line` attribute is
+gone from `animated-heading.tsx`. The entry above stays as the record of how
+it was done (the WGSL port and the text-raster bake) should it come back.
+
+## 2026-09-27 — The concrete wall moves to WebGPU
+
+Berto asked why the wall wasn't WebGPU; offered the choice, he picked a
+WebGPU wall with a moving light. Also restores the wall on the homepage: the
+"Remove the liquid glass headline" commit had dropped the `ConcreteWall`
+lines from `page.tsx` along with the heading.
+
+- `app/site/_components/concrete-wall/` (the old single file moved in here):
+  - `wall.wgsl`: one fullscreen pass. A five-octave value-noise height field
+    for the plaster, a normal from central differences, a soft key light with
+    inverse-square falloff, two soft-edged window panes and a diagonal band
+    that drift with a slow phase, plus 1/255 dither. Dark mode is a uniform,
+    not a second shader: same wall, darker base, less window light.
+  - `renderer.ts`: `init` → `surface` → `effect` → `frameLoop`, the sculpture's
+    shape. The light rests on a slow figure of eight in the upper left and is
+    pulled 45% toward the pointer while it's over the wall. Reduced motion
+    freezes the drift.
+  - `concrete-wall.tsx`: the CSS wall is always rendered underneath; the
+    canvas mounts only when `navigator.gpu` exists and fades in over it once
+    the renderer's `ready` resolves. A failed start logs and keeps the CSS
+    wall — the hero never goes blank.
+
+Verified: typecheck; dev server at 1440px in light and dark, and with the
+pointer over the wall.
+
+## 2026-09-27 — Work: a case-study section, laid out like koto.com/work
+
+Berto: "for the header lets add a 'work' option - similar to koto". Then, asked
+what fills it: go project by project, from a template he'll fill in; typographic
+tiles until there are images; Work replaces Building in the header.
+
+- `lib/content.ts`: a third `ContentKind`, `work`, on the same markdown-on-disk
+  pipeline as writing and podcast. Work frontmatter adds `org`, `role`, `year`,
+  `outcome`, `color` (tile background) and an optional `image`.
+- `content/work/_template.md`: the template, `published: false` so it never
+  ships. Sections: The challenge / What I did / What happened / What I'd do
+  differently.
+- `app/site/work/page.tsx`: sticky sidebar (eyebrow, title, section list) and
+  a tile grid; the first project spans both columns. Stacks on a phone.
+- `app/site/work/work-tile.tsx`: the org name set large on the project's
+  colour, caption with role, year and title over a gradient at the foot. An
+  `image` replaces the typography when one exists. The name area stops above
+  the caption so the two never collide on narrow tiles.
+- `app/site/work/[slug]/page.tsx`: the tile as hero, title, outcome, a
+  For / As / When fact row, then the markdown story in `Prose`.
+- `site-nav.tsx`: `/work` first in NAV; `/building` is out of the header but
+  still routable.
+
+Empty until the first project lands; the index says "Nothing published yet."
+
+Verified: typecheck; dev server at 1440px and 375px with three placeholder
+projects (deleted before commit).
+
+## 2026-09-27 — Chalk blueprint on the concrete wall
+
+Berto: "what if on that concrete wall we had a blueprint-style thing written on
+the concrete in grey chalk". Asked what it depicts, how loud, whether it
+animates: abstract architect's plan, barely there, static.
+
+- `app/site/_components/concrete-wall/chalk-blueprint.tsx`: a pure SVG layer,
+  1600×900 viewBox, `slice`-fitted. Plan footprint, partitions, door swings,
+  columns, dimension lines with tick ends, a dashed section cut, a north
+  arrow, a ghost grid and a few mono figures. Two filters make it chalk: a
+  turbulence displacement bends every stroke, and a grainy turbulence mask
+  knocks holes in them. Multiply-blended at 0.16 in light, screen at 0.11 in
+  dark. Drawn in the middle/right of the hero, clear of the avatar and the
+  headline.
+- `concrete-wall.tsx`: renders `<ChalkBlueprint />` above the WebGPU canvas
+  and below the bottom fade, so it shows on both the shader and CSS walls.
+
+Verified: typecheck; dev server in light and dark, no console errors.
+
+## 2026-09-27 — Work: MakersLounge case study, from the interview page
+
+Case studies now come from an interview page (a Claude artifact, private to
+Berto: https://claude.ai/artifact/Qv7gvcSvPpiJCoeUoC9wRi). He answers six
+sections per project; answers save to the page's own store under
+`interviews/<slug>`; Claude reads them and writes `content/work/<slug>.md`.
+
+- `content/work/makerslounge.md`: published. Mandate, the unglamorous work
+  (venues, invites, itinerary, signage, pizza), 1,500 builders and hundreds of
+  connections, the "very welcoming environment" line, and the hindsight about
+  loud, busy nights.
+- Role set to Founder, matching the homepage. No year yet; Berto left it blank.
+
+Verified: /work lists both projects; /work/makerslounge and /work/aucctus
+return 200; an unknown slug returns 404.
+
+## 2026-09-27 — Chalk blueprint aligned left with the headline
+
+Berto: "to the left of the screen like our title?". The plan was centred on the
+viewport, so it drifted relative to the headline as the width changed. Now the
+SVG is `xMinYMid slice` and the drawing is shifted left so its outer wall lines
+up with the headline's left edge. Checked at 1787px and 375px: within 10px of
+the headline at both.
+
+## 2026-09-27 — Training made bigger and simpler; Meals gets its own tab
+
+Berto: "everything should be a bit easier and bigger", separate the meal plan
+into its own menu page, and put the goal at the top of Training.
+
+- Training (`app/_components/training-plan-panel.tsx`): 3xl title with a goal
+  line under it ("Train optimally to reach my potential in Hyrox." by default;
+  tap to edit). A big Today card with 36px checkboxes sits above the week. The
+  week nav, race chips, day "+" buttons and session cards are larger.
+  "Draft this week" is now the primary button. Removed: the explainer
+  paragraph and the "Strava needs API keys" note (Connect/Sync show once keys
+  exist). The written plan is folded into a "Your written plan" disclosure.
+- Goal: stored in `app_settings` under `training.goal`, served from
+  `app/api/training/goal`, and passed to `draftWeek` as HIS GOAL.
+- Meals: new nav tab (UtensilsIcon, amber) at `/meals`. The tab id changed
+  from `nutrition-plan` to `meals`. `/nutrition/plan` redirects there. The
+  panel header now reads "Meals", with no back link.
+
+Verified: typecheck; local dev at /training and /meals; /nutrition/plan
+redirects to /meals.
+
+## 2026-09-27 — Etched sketches on the hero wall
+
+- New `app/site/_components/concrete-wall/etched-sketches.tsx`: running paces (5:20 → 3:20 min/km), code diagrams, and a bookshelf (Antifragile, The Talent Code, The Alchemist, …) carved into the wall via an SVG groove filter (shadow + highlight offsets). Kept small and fine so the headline owns the frame.
+- `concrete-wall.tsx`: gallery window light (skewed six-pane soft-light patch) and an inset edge shadow for depth.
+- Next: at narrow widths only the paces column is visible; consider repositioning for mobile.
+
+## 2026-09-27 — Training and Meals fill the width
+
+Berto: "less margin on the sides". Dropped `max-w-6xl` from both panels, and
+cut the shell padding for those tabs from px-5 to px-3 (sm:px-4). Also moved
+the first Hyrox to Fri 2026-10-02 (data only).
+
+## 2026-09-29 — Principles: a Notion-style page under the Home dashboard
+
+Berto: "under the main dashboard things, like a notion text editor? i want to add
+some principles there". Asked three things: full Notion feel vs. the existing
+toolbar editor (Notion feel), whether Cael can read/edit it (read + edit), and
+what happens to the hardcoded "Today that means: save · improve the service · …"
+line (seed it into the doc).
+
+- `app/_components/notion-editor.tsx`: reusable Tiptap editor with no box or
+  toolbar. "/" opens a block menu (text, H1–H3, bulleted/numbered/to-do lists,
+  toggle, quote, divider, code), filtered as you type, arrow keys + Enter, Esc
+  closes; positioned by `@tiptap/suggestion`'s own `mount()`. Selecting text
+  shows a bubble with bold/italic/strike/code/link (inline link field). Markdown
+  in and out via tiptap-markdown; toggles (`@tiptap/extension-details`) have no
+  markdown form, so they round-trip as `<details>` HTML. Choosing Toggle on a
+  list line lifts it out of the list first — inside a list item the caret lands
+  in the fold button. Only reports a change when the markdown actually moves
+  (Tiptap's trailing-line transaction on load was autosaving every page view).
+  Placeholders are decided from the node alone plus CSS, because the Placeholder
+  extension builds them while the editor still holds the previous state.
+- `app/_components/principles-doc.tsx`: the Home section (`#principles`), after
+  the training chart, replacing the mantra line. Loads `/api/principles`,
+  autosaves after 900ms, flushes with sendBeacon on unload. If the load fails it
+  shows "Couldn't load" and no editor, so a blank page can't overwrite it.
+- `lib/principles.ts` + `app/api/principles/route.ts`: one markdown doc in
+  `app_settings` under `principles.markdown`; opens on the four mantra
+  behaviours until first saved (the row now exists in the DB with them).
+- `agent/tools/principles_doc.ts` (registered in `lib/agent-tool-registry.ts`,
+  so it's on MCP too): read, or rewrite with the full markdown. Instructions tell
+  Cael to treat them as canon next to Key lessons and to add ones Berto states.
+- New deps: `@tiptap/suggestion`, `@tiptap/extension-details` (3.31.0, matching).
+- CSS: `.notion-prose` in globals.css (heading scale, placeholders, toggles).
+
+Verified: typecheck; local dev at 1280px and 375px, light and dark — slash menu
+(filter, flip above caret, Esc), toggle top-level and from a list line, markdown
+round-trip after reload, bubble + link saves `[text](https://…)`, no save on
+load, no console errors. Test edits were reverted to the four seed lines.
+
+Next: the "Money — be different, own the outcomes" lesson is still hardcoded in
+`agent/instructions.md` under Key lessons; could move into the doc if he wants
+one home for principles.
+
+## 2026-09-29 — Meals: a Notion-style Notes page under the week
+
+Berto: "for the meals section as well under the calendar we should just have a
+notion like page where we can just add things like typical grocery list etc."
+Asked three things: placement (right under the week grid, above the Recipe
+library), whether Cael can read/edit it (read + edit), and starting content
+(blank with a hint).
+
+- `app/_components/markdown-doc.tsx`: the load/autosave/sendBeacon shell from
+  the Principles doc, pulled out as `MarkdownDoc` (anchor id, endpoint, heading,
+  placeholder). `principles-doc.tsx` is now a thin wrapper on it, unchanged in
+  behaviour.
+- `/meals` gets a Notes section (`#meal-notes`) between the week grid and the
+  Recipe library, headed like the library ("Notes" + one-line hint).
+- `lib/settings-doc.ts`: get/set a whole markdown doc under one app_settings key;
+  `lib/principles.ts` and the new `lib/meal-notes.ts` (`meals.notes.markdown`,
+  blank by default) both use it. API: `app/api/meals/notes/route.ts`
+  (GET/PUT, POST alias for sendBeacon).
+- `agent/tools/meals_doc.ts` (registered, so on MCP too): read, or rewrite with
+  the full markdown. Instructions tell Cael it's the standing grocery list, not
+  the week's Groceries list in Lists. Also fixed the stale `/nutrition/plan`
+  mention there to `/meals`.
+- `lib/meal-suggest.ts`: daily/planned meal suggestions now include the notes
+  (capped at 3000 chars) so picks lean on what he already buys.
+
+Verified: typecheck; local dev at desktop and 375px — "/" menu → Heading 2 and
+to-do list, autosave ("Saved"), markdown `## …` / `- [ ] …` round-trips after
+reload, no horizontal scroll, no console errors; Principles on Home still loads
+with its old saved time (no save on load). Test text was cleared; the doc is
+blank.
+
+## 2026-09-29 — Scorecard: high-score markers + top-5 per metric; list_todos fix
+
+Berto: "add a little high score marker if today is the day i've hit a high score
+in a certain area", then "when we click on each of the main things — show a top 5
+high score for each". Picked "trophy pill + 'to best'" over pill-only.
+
+- `app/_components/activity-rings.tsx`: the tiny ⚡ record dot is now a 🏆 badge
+  on the ring plus a gold "High score" pill under the points; when no record,
+  a quiet "N to best" line (formatted per metric — "1h 39m to best" for sleep).
+  The ring itself is now a button that opens a popover with that metric's top 5
+  days, today highlighted. The value below the ring is still the editor.
+  (File got a full prettier reflow — kept on purpose.)
+- `lib/scorecard.ts`: `computeLeaderboards` + `leaderboards` on the summary —
+  top 5 per metric since `recordsSince`, today included, ties to the earlier day.
+- `agent/tools/list_todos.ts`: `SELECT *` returned Date objects and eve rejected
+  the result as non-JSON ("list todos · Error" in chat). Dates → ISO strings,
+  same as list_notes.
+
+Verified: typecheck; local dev — "to best" lines render, keystrokes popover
+shows 42,680 (Aug 31) / 40,738 today at #2; list_todos completes in chat.
+
+## 2026-09-30 — Favicon: green orb, and the tab icon actually loads now
+
+- `public/icon.svg` was not valid XML: one comment contained `--`, which comments can't have. Chrome rejected the file and showed the default globe in the tab. Fixed that.
+- Changed the icon to a plain green orb with no face (gradient #7fd9a0 → #3fae6c → #1f6b40). The dark tile, halo and gloss are unchanged.
+- Regenerated `public/apple-icon.png` with `node scripts/render-apple-icon.mjs`.
+
+## 2026-09-30 — Cael writes the articles on bertomill.com/writing (covers + photos)
+
+Berto: "enable our internal agent to help me write and edit and add a cover photo
+and sub photos to articles on the outward facing version of my app". Cael could
+only create files through the generic GitHub connection, couldn't read them (so
+it couldn't edit), and had no cover field anywhere.
+
+Decisions (asked Berto): posts move to **Neon** (instant, no deploy, drafts) over
+markdown-in-repo; images from **both** chat uploads and gpt-image-1; **draft
+first, publish only on his explicit say-so**; the Writing index **mixes** his own
+posts with the Substack feed (Substack can't be written to by an agent).
+
+- `lib/db.ts` + `scripts/posts-migrate.mjs`: `posts` table (slug, title,
+  summary, body markdown, tags, cover_url/alt, status draft|published,
+  published_at, preview_token). Migrated live; the two `content/writing/*.md`
+  posts imported as published and the files removed.
+- `lib/posts.ts`: CRUD + `getVisiblePost` (drafts only with `?preview=<token>`).
+  Neon returns DATE as local-midnight Dates — read local parts, not toISOString.
+- `lib/image-upload.ts`: the webp-resize-to-Blob helper, pulled out of
+  `lib/nutrition-art.ts` so both use it. `lib/post-art.ts`: gpt-image-1 at
+  1536x1024 (high quality for covers).
+- Tools: `list_posts`, `get_post`, `save_post` (full body or exact find/replace
+  `edits`, cover_url, rename), `publish_post` (publish/unpublish),
+  `generate_post_image` (cover auto-attaches; inline returns `![alt](url)`).
+  Registered in `lib/agent-tool-registry.ts` for MCP. `agent/instructions.md`
+  gets a Writing bullet (voice, never publish unasked, don't use GitHub for posts).
+- Site: `/writing` merges DB posts + Substack by date, cover thumbnail on own
+  posts, revalidate 60. `/writing/[slug]` renders per request from the DB, cover
+  image under the header, OG/twitter image = cover, draft banner + noindex.
+  Sitemap and the public site chat read the DB posts.
+
+Verified: typecheck; ran the tools against live DB — created a draft, generated
+a cover and an inline image, applied a find/replace edit (and a non-matching
+edit was rejected with nothing saved); preview page renders cover + inline image
+with the draft banner; same URL without the token 404s; index shows Substack +
+both migrated posts in date order. The test draft `tool-test-a-company-harness`
+is still in the table as a private draft.
+
+## 2026-09-30 — Favicon: Phosphor planet
+
+- Replaced the green orb with Phosphor's "Planet" icon (fill weight), in white on a green gradient tile (#4cc07e → #1f6b40). Picked from a side-by-side sheet of 10 Phosphor icons.
+- The icon's shape is copied into `public/icon.svg` from `@phosphor-icons/react`, which is already installed.
+- Simplified `scripts/render-apple-icon.mjs` (it no longer rescales the old halo) and regenerated `public/apple-icon.png`.
+
+## 2026-09-30 — Writing tab in the sidebar: manage and edit articles in Cael
+
+Berto: "maybe blog management and everything should be on the sidebar right?"
+Picked (asked): **full editor** over manage-only, placed **after Notes**.
+
+- `app/_components/writing-panel.tsx` + `app/(app)/writing/page.tsx`, wired into
+  `app/(app)/layout.tsx` (rail + phone bar). `/writing` lists drafts and
+  published posts with cover thumbs; `/writing?post=<slug>` opens the editor:
+  cover upload/replace/remove + alt text, title, summary, tags, and the body in
+  the Notion editor. Autosaves (900ms, sendBeacon on leave). Publish/Unpublish
+  behind a confirm dialog; Preview / View live; "Work on this with Cael" flushes
+  and starts a chat that reads the post with get_post. A never-published draft's
+  slug follows its title (so "Untitled" isn't permanent); once published it's fixed.
+- Photos are downscaled in the browser (≤2000px webp) before `/api/upload`,
+  which sits behind Vercel's ~4.5 MB body limit — phone photos would 413.
+- `app/api/posts` (GET list, POST new draft) and `app/api/posts/[id]` (GET,
+  PATCH any field incl. status; POST alias for sendBeacon). `lib/posts.ts` gains
+  `getPostById`.
+- `app/_components/notion-editor.tsx`: `@tiptap/extension-image` (installed with
+  --legacy-peer-deps because of excalidraw's React 18 peer). Every editor now
+  keeps `![](url)` through a round trip (before, the editor had no image node and
+  would have silently dropped them). With an `uploadImage` prop: "/image",
+  paste and drop upload and insert. Images serialize as their own block —
+  tiptap-markdown writes them inline, which glued the next paragraph onto the
+  image line; `BlockImage` closes the block.
+- `agent/instructions.md`: Cael knows about the tab and to re-read before editing.
+
+Verified in local dev against the live DB (on the private test draft only):
+list renders; editor shows cover + inline image; body edit autosaved with the
+image intact on its own line; renaming the title moved the slug and the URL;
+paste of an image uploaded a webp and inserted it; cover upload via the file
+input set cover_url; phone width — toolbar fits one row. Not clicked: Publish
+(would go live) and "Work on this with Cael" (would post into his real chat).
+Known: last write wins if Cael and the editor change the same post at once.
+
+## 2026-09-30 — Home: "today" snapshot for training and meals
+
+Berto: remove Training log, Daily journal and the Training chart from the home
+dashboard and replace them with widgets from the Training and Meals pages, so home
+is a quick look at what's on today.
+
+- New `app/_components/today-snapshot.tsx`: two cards side by side (stacked on phone),
+  each heading links to its page.
+  - **Today's training**: today's sessions from `/api/training/sessions` (type,
+    title, target km/min), with the same done checkbox as /training. Strava
+    activities not matched to a session show as chips. The next race countdown sits at
+    the bottom.
+  - **Today's meals**: lunch / snack / dinner from `/api/nutrition/plan?date=` with
+    thumbnails, the sitting that's live right now marked "now", and the protein ring.
+    Unplanned sittings say "Not planned".
+- `home-screen.tsx`: removed the Training log, Daily journal and WorkoutChart
+  sections, plus the single "Today's meal" card (with its thumbs up/down), because the
+  meals widget covers it. `/api/workouts` is still fetched because goal celebrations use it.
+  The TrainingLog / DailyJournal / WorkoutChart components are still in the repo and
+  can be put back anywhere.
+- Both widgets send the client's local date, because the server's "today" is UTC.
+
+Verified in local dev: training shows today's Speed session and "Hyrox · 2 days"; the
+Training link goes to /training; meals are empty in real data (nothing planned since Sep 13),
+so the populated state was checked by pointing the fetch at Sep 13 in the browser.
+Checked at phone width too.
+
+## 2026-09-30 — Writing editor: Cael in a side chat next to the document
+
+Berto: "having a right side agent chat next to the document would be great".
+Picked (asked): **one ongoing chat per article**, **update the document in
+place** when Cael saves, and both extras — **Ask Cael on a selection** and
+**quick actions**.
+
+- `app/_components/post-chat.tsx`: the panel. Thread per post stored in
+  `posts.chat_thread_id` (new column, migrated live), created as
+  "Writing: <title>" so it also shows in Chat history; falls back to a new
+  thread if that one was deleted. Every send is wrapped (Proxy over the eve
+  agent) to flush the editor first and prepend a hidden
+  `[[Context: Writing editor — … slug …]]` line (`lib/chat-context.ts`), which
+  the thread view strips. Watches the transcript for finished
+  `save_post` / `generate_post_image` / `publish_post` calls and reloads the post.
+  Quick-action chips (Tighten it, Suggest titles, Make a cover, Proofread).
+  Shows `turn.failed` events — a server-side failure never sets agent.error,
+  so without this a failed turn just sat there silently.
+- `writing-panel.tsx`: editor is now two columns (chat 400/440px on lg+, full
+  screen over the doc on phones); "Work on this with Cael" became a Cael toggle
+  (open state remembered per browser, default open on wide screens). While Cael
+  answers, title/summary/body are read-only ("Cael is editing…") so his save
+  and your typing can't cross; after a save the NotionEditor remounts
+  (`key={revision}`) on his version. `WritingPanel` no longer takes
+  `onWorkWithCael`.
+- `notion-editor.tsx`: `editable` prop; "Ask Cael" in the selection bubble
+  quotes the passage (`> …`) into the side chat's composer and focuses it.
+- `eve-thread.tsx` (`suggestions`, `className`, strips the context line),
+  `eve-composer.tsx` (`placeholder`, `autoFocus`, `globalDrop` — off beside the
+  doc so a dropped photo goes into the article), `threads-provider.tsx`
+  (`createThread(title?)`), `/api/posts/[id]` accepts `chatThreadId`.
+- `agent/instructions.md`: what the context line means; edit with save_post
+  rather than pasting rewrites; keep replies short.
+
+Verified locally (test draft only): panel opens beside the doc; thread created,
+titled and linked on the post; conversation restored after reload; "Ask Cael"
+quoted the selection into a focused composer; the context line is hidden in
+bubbles; error banner; phone layout. **Not verified: Cael actually editing and
+the live reload** — every model call returned 402 from the Vercel AI Gateway
+("A positive credit balance is required", insufficient_funds), which blocks all
+of Cael, not just this panel. Re-test the edit → reload loop once credits are
+topped up.
+
+## 2026-10-01 — Tweets: images, cost estimate, X credit balance
+
+Fixed the live 401 on posting first: the X keys in Vercel were stale/mismatched
+(`X_ACCESS_TOKEN` had at one point been set to an OAuth 2.0 token). All four
+OAuth 1.0a values were regenerated and re-added as Vercel **Secret** vars
+(`X_API_KEY`, `X_API_KEY_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`),
+production redeployed, and a text tweet posted fine.
+
+Then, on /writing?tab=tweets:
+- **Images**: attach up to 4 JPG/PNG/WEBP (≤5 MB each) via the image button or
+  by pasting into the composer; previews with remove, and thumbnails in the
+  confirm dialog. Image-only tweets are allowed.
+- **Cost**: the composer shows the X pay-per-use price of the post — $0.015,
+  or $0.20 when the text contains a link (highlighted, since every "Tweet this
+  post" share includes the article URL and costs ~13× a plain tweet). The
+  `post_tweet` tool mentions the price too.
+- **Balance**: "· $X left" next to the cost, from X's `GET /2/usage/credits`.
+
+**Files changed:**
+- `lib/x-api.ts` — `uploadTweetImage()` (v2 `POST https://api.x.com/2/media/upload`,
+  multipart, `media_category=tweet_image`, OAuth 1.0a — multipart bodies aren't
+  part of the signature); `postTweet(text, { postId, mediaIds })`;
+  `getXCreditBalance()`; X errors now read the problem-doc `detail`/`title`
+  too, so a 401 says why instead of just "HTTP 401".
+- `lib/x-shared.ts` (new) — image limits and prices, free of server imports so
+  the client composer can use them.
+- `app/api/tweets/route.ts` — POST takes multipart (`text`, `images`) as well as JSON.
+- `app/api/tweets/credits/route.ts` (new) — `{ balance: number | null }`.
+- `app/_components/writing-panel.tsx` — composer UI above.
+- `agent/tools/post_tweet.ts` — price in description and result.
+
+**Decisions:** images only from the Writing page for now (no image URLs or
+generated images from Cael yet). Prices are hard-coded from X's pricing page —
+update `lib/x-shared.ts` if X changes them.
+
+**Needs from Berto:** the balance needs the app's **Bearer Token** as a new
+Vercel Secret `X_BEARER_TOKEN` (production), then a redeploy. Until then the
+balance is simply hidden. Unit of `total_balance` assumed USD dollars per X's
+docs — sanity-check against the Developer Console once it shows.
+
+**Verified:** typecheck clean. Locally: attach two images, previews, remove,
+cost shows "~$0.20 (link)", confirm dialog shows thumbnails and cost (cancelled,
+nothing posted); server rejects a GIF and an empty tweet; credits route returns
+`null` without a bearer token. **Not verified: an actual image upload to X** —
+no X keys locally; first real image tweet in production is the test.
+## 2026-10-01 — bertomill.com/capabilities: capabilities backed by projects, all from the DB
+
+Berto: a feature that breaks down his core capabilities and filters to the
+projects that prove each one, "all built in to our DB so that nothing is
+hardcoded". Prompted by a Lead Full-Stack GenAI Developer contractor role
+description; the ten seeded capabilities are what that role screens for.
+Picked (asked): **projects only** (not per-feature), edited via **Cael MCP tools
+and an admin UI**, on a **new /capabilities page**, and **/work stays markdown**
+(projects link to a case study by `work_slug`).
+
+- Schema (`lib/db.ts` + `scripts/portfolio-migrate.mjs`, run live):
+  `capabilities`, `portfolio_projects` (draft/published), and the join
+  `project_capabilities` with an `evidence` column: how *that* project shows
+  *that* capability. That sentence is the point; a bare tag proves nothing.
+- `lib/portfolio.ts`: `getPortfolio`, `getPublishedPortfolio`, `upsertCapability`,
+  `upsertProject` (capabilities list replaces links; unknown slug throws),
+  deletes.
+- Tools (auto-exposed over MCP): `list_portfolio`, `save_capability`,
+  `save_portfolio_project` (creates drafts; publishing only when Berto says).
+- Admin: `PortfolioEditor` in the Career tab at `/career#portfolio`; APIs under
+  `/api/portfolio` (private host only).
+- Public: `app/site/capabilities/page.tsx`, filter at
+  `/capabilities?capability=<slug>`, project anchors `#<slug>`. Capabilities
+  with no published project are hidden. Added to site nav and sitemap.
+- Seeded: 10 capabilities; **Cael and Venice as drafts** with evidence lines
+  for Berto to review. Public page shows nothing until one is published.
+
+Verified: public page with drafts temporarily shown locally (desktop, filter,
+phone width, no horizontal scroll), then reverted; upsert/relink/unknown-slug/
+delete exercised against the DB with a throwaway draft. **Not verified in the
+browser: the Career-tab editor** (Clerk sign-in), typechecks and calls the same
+verified functions.
+
+## 2026-10-01 — Portfolio: Venice removed
+
+Berto: Venice has nothing to do with Cael and stays out of it. Deleted the
+Venice draft row (and its capability links) from `portfolio_projects`, and
+took it out of `scripts/portfolio-migrate.mjs` so a re-run can't seed it back.
+Portfolio now holds Cael and MakersLounge, both drafts. MakersLounge was added
+with evidence from the makerslounge-web codebase (6 of 10 capabilities); its
+gaps (evals, retrieval, observability, CI) are being built there, starting
+with matcher evals (bertovmill/makerslounge-web#26).
+
+## 2026-10-02 — Meals: editable suggestion prompt at /meals#meal-prompt
+
+Berto asked to see the prompt behind meal suggestions and have full control
+over it. The prompt was hardcoded in `lib/meal-suggest.ts` (+ per-sitting
+guidance in `lib/nutrition.ts`).
+
+- `lib/meal-prompt.ts`: one template with `{{placeholders}}` (slot, date,
+  guidance, notes, protein_target, planned_today, staples, food_thoughts,
+  recipes, recent_meals, feedback) plus a guidance line per sitting. Stored as
+  JSON under app_settings `meals.prompt.config`; no row = defaults (the old
+  prompt, verbatim apart from unwrapped lines). Placeholders render data only,
+  with "(none)" when empty, so every heading/instruction is editable text.
+  Unknown placeholders are left as typed so typos show in the preview.
+- `lib/meal-suggest.ts` now sends `buildMealPrompt()`; `gatherContext` moved
+  into meal-prompt.ts. Every path (✨, Fill week, daily tick, agent tool) uses it.
+- APIs: `GET/PUT/DELETE /api/meals/prompt` (DELETE = reset to default),
+  `POST /api/meals/prompt/preview` (renders a draft for a date + slot, and
+  lists the fixed output schema fields + model).
+- UI: `MealPromptEditor` (collapsible section under Notes on /meals, opened
+  by `#meal-prompt` / the new "Prompt" header button): template editor,
+  click-to-insert placeholders, guidance per sitting, live preview of the exact
+  prompt for any cell in the week, save / discard / reset.
+
+Not editable on purpose: the output schema (grid, protein totals and groceries
+read those fields) and the model. Observed while testing: the "OTHER STAPLES
+ON FILE" list (nutrition_staples) still carries dark chocolate, avocado etc.,
+which is part of why snacks keep coming back as chocolate/almonds.
+
+Verified locally: preview renders real data, draft edits update it, PUT /
+GET / DELETE round trip (DB left on defaults).
+
+## 2026-10-03 — Training: structured workouts logged set by set
+
+Berto wanted logging a repeat workout to be "just typing the numbers", charted
+week over week. His once-a-week upper-body lift is now a hardcoded template;
+each session is a table of reps per set.
+
+- `lib/workout-templates.ts` (client-safe): the "Upper body strength" template —
+  warm-up, 4 supersets (hammer row 135/side, hammer press 70/side, chin-ups BW,
+  bent-over barbell row 45/side; partners push-ups / sit-ups / toe touches /
+  BW tricep extensions at × 20), ab circuit 3 × 10 × 3, cool-down. Progression is
+  a rep ladder at fixed weight (Berto): 10 → 15 → 20 per set; hit every set and
+  the next session steps up a rung; at the top rung the page suggests more weight,
+  and a new weight drops back to × 10. Partners/abs are one-rung (fixed) and not
+  charted. `nextPrescription()` derives the target from the last log — no state table.
+- `strength_logs` table (template, log_date, exercise, weight, target_reps,
+  reps INT[]; skipped set = -1). `lib/strength.ts` reads/writes it and ticks the
+  matching planned session done on save.
+- API: `GET/PUT /api/training/workouts/[template]?date=`.
+- Page: `/training/workouts/upper-body/<date>` (rendered by TrainingPlanPanel
+  from the pathname; the layout now maps sub-paths to their section tab).
+  Autosaves 700 ms after typing; last session's reps are the placeholders (only
+  when the weight is unchanged); tapping a row's total fills empty sets with the
+  target. Progress charts: total reps per session vs a dashed target step line,
+  scaled to the top rung (4 × 20 = 80), weight jumps marked.
+- Strength sessions titled "Upper body …" get a "Log sets" button on /training;
+  the weekly coach brief now tells Cael to title that session "Upper body strength".
+- Old `workout_logs` (5×5 + 10K) archived under a collapsed "Past programs".
+- Seeded 2026-10-03: hammer row 10/10/8/6, press 10/8/6/6, chin-ups 10/10/8/8,
+  barbell row 10×4 (→ × 15 next), partners 4×20, abs 3×10. Tricep extension
+  reps weren't given, left blank.
+
+Next: a Cael tool to log sets from chat; DB-backed templates when the routine
+changes; duration-based templates for running/HIIT.
+
+## 2026-10-03 — Workout log: phone input fixes
+
+Tested the Today → View sets → tap a box flow at phone width. Rep boxes now use
+`pattern="[0-9]*"` (iOS number pad) and select their value on every tap, so
+typing replaces instead of appending (tapping the already-focused box gave
+6 → 76 before). Weight box is 16px on phones so iOS doesn't zoom, and the weight
++ unit stay on one line.
+
+## 2026-10-03 — Upper-body workout renamed "Unity Standard Upper Body"
+
+Named for Unity, his gym. Slug is now `unity-standard-upper-body`
+(`/training/workouts/unity-standard-upper-body/<date>`); the old `upper-body`
+slug is an alias so earlier links still resolve. Existing strength_logs rows
+moved to the new slug; a stray tricep-extension row from UI testing removed
+(he hasn't given those reps). Coach brief now titles the session with this name.
+
+Agreed week (not built yet): Mon Stations · Tue Lower Body · Wed Rest ·
+Thu Threshold Intervals · Fri Unity Standard Upper Body · Sat Hyrox Sim ·
+Sun 20K easy. Any workout can be dropped for a week when he needs rest
+(upper body first). Planned: equipment tags, swap days, travel reshuffle.
+Fitbit: only steps + sleep are synced today — no heart rate yet.
+
+## 2026-10-03 — Meals prompt editor: bigger type for phone editing
+
+Berto edits the prompt on his phone. Template and guidance boxes are 16px on
+phones (also stops iOS zooming in on focus) and 14px from md up; preview,
+labels, placeholder chips and buttons each bumped a size. File:
+`app/_components/meal-prompt-editor.tsx`. Checked at 375px: no sideways scroll.
+
+## 2026-10-03 — Unity Standard Lower Body template
+
+Second structured workout, `/training/workouts/unity-standard-lower-body/<date>`,
+same format as upper (Berto picked the exercises from what Unity has):
+- SS1 back squat (ladder) + wall balls × 15
+- SS2 deadlift (ladder) + walking lunges × 20
+- SS3 split squat per leg (ladder) + hamstring curls (ladder) — curls over back
+  extensions because deadlifts already load the lower back; no calf-raise machine
+- SS4 heavy sled push 4 × 25 m (weight logged, not charted) + box jumps × 8
+- Core finisher: the same 3 × 10 toe touches / bicycle crunches / knee tucks
+No starting weights yet: template exercises can be `loaded` with a null weight,
+shown as an outlined "—" box he fills the first time. Added `unit: "m"` for the
+sled. Warm-up/cool-down are optional on a template (none given for lower).
+Strength sessions titled "… Lower Body …" link to it; coach brief updated.
+
+## 2026-10-03 — Lower body starting weights
+
+Back squat starts at 225 lbs (bar + two plates a side, ~10 reps now), × 10 on
+the ladder. Wall balls default to the 9 kg ball (new `weightUnit: "kg"` on a
+template exercise); when Unity is out of 9 kg he types the ball he used, so the
+log shows it. Wall balls stay a fixed × 15 for now; raise the rung when he's ready.
+
+## 2026-10-03 — Meals: meal log on /meals, leaner default prompt
+
+Berto read the live prompt preview: the old food thoughts and the old staples
+shelf were mostly noise. He wants the prompt built from his staples and a log
+of meals he liked, with notes. Picked (asked): staples from **Notes on /meals
+only**; **reuse nutrition_meals** as the log with a UI on /meals; drop food
+thoughts. He left "keep recent / feedback / recipes" unticked, so they're out
+of the default too (still available as placeholders).
+
+- `lib/meal-prompt.ts`: new placeholders `{{liked_meals}}` (felt_good, last
+  40, with notes) and `{{disliked_meals}}` (last 20). Default template is now:
+  sitting + guidance, Notes, protein target / planned today, liked, disliked.
+  `{{staples}}`, `{{food_thoughts}}`, `{{recipes}}`, `{{recent_meals}}`,
+  `{{feedback}}` still work if he adds them back.
+- His saved prompt (`meals.prompt.config`, saved earlier today with only the
+  snack guidance changed) was moved onto the new template, guidance kept.
+- `app/_components/meal-log.tsx`: "Meal log" section at `/meals#meal-log`
+  (between Notes and the prompt editor): log name / sitting / date /
+  liked-or-not / notes; tap the thumb to flip it, tap a note to edit, delete.
+  Uses the existing `/api/nutrition/meals` routes. Phone-sized type.
+
+Verified locally: log + delete through the UI (test row removed), preview
+renders the liked list from real rows.
+
+## 2026-10-03 — Lower body: all starting weights set
+
+Deadlift 225 × 10, fixed (one rung, no weight prompt) — he doesn't want to push
+deadlifts and risk injury. Walking lunges 80 lbs (sandbag or 2 × 40 lb). Split
+squat 135. Hamstring curls (Hammer plate-loaded) 50 — a guess, correct after the
+first session. Sled push 360 lbs (8 × 45 plates). Box jumps → burpees × 10 (no
+box near the sled).
+
+## 2026-10-04 — Today's plan: daily habits slotted around the calendar
+
+Berto wanted his daily habits (morning meditation, reading, workout, a 20-min
+nap) written down in Principles, and a quick schedule builder that reads them
+plus the calendar. Picked (asked): habits live as a **section in the Principles
+doc**; the plan is **shown on Home only, never written to Google Calendar**;
+placement is **simple rules, no LLM**; the timeline **is the checklist**
+(tick boxes on each habit block — the old habit row came off on 2026-09-30).
+
+- `lib/day-plan.ts` (new, pure): parses the first heading that mentions
+  "habit" (his existing "On habits" section matches) — each list item is
+  `Name — 20 min — morning` / `Nap 20 min at 1pm`, loosely (durations in
+  m/min/h/hours, `1pm`/`13:00`, morning/midday/afternoon/evening, `morn*` for
+  typos). Default 30 min, anytime 7am–9:30pm. `planDay()` places habits in list
+  order into the first free gap in their window (an explicit time gets a 3h
+  grace), else later in the day, else "no gap left". Day is 6am–10pm.
+- `app/api/day-plan/route.ts` (new): GET = Principles + today's timed busy
+  Google events (skips all-day, free/transparent, declined) in
+  `STREAK_TIME_ZONE` minutes → plan + ticks. PATCH `{key, done}` ticks.
+- `lib/habits.ts`: `getHabitTicks`/`setHabitTick`. Some habits tick themselves
+  by name: read* ← a Kindle note today, workout/train/gym/run/lift ← a done
+  training session, strength sets or a Strava activity, journal ← 250 words,
+  meditat* ← the legacy `daily_habits.meditated`. Others are manual ticks.
+- `lib/db.ts`: `habit_checks (habit_date, habit_key, done)`; created lazily on
+  the first tick if missing.
+- `app/_components/day-plan-card.tsx`: "Today's plan" on Home (`#today-plan`),
+  under Today's training/meals — habits with ticks, meetings muted for context.
+
+Verified locally on :3003: card renders his three habits from "On habits", tick
+persists through the API (test tick undone). Google Calendar was **not
+connected** (`google_auth` empty, no `GOOGLE_REFRESH_TOKEN` in env), so meetings
+aren't factored in until he reconnects at `/api/google/connect`.
+
+Next: his "On habits" list has no nap line yet; Cael could get a tool to read
+the day plan.
+
+## 2026-10-04 — Today's plan: adjustable day start (default 5:30)
+
+Berto usually starts around 5:30am but not always, and doesn't open Cael in the
+morning — so no "I'm up" tap; a standing start time he can adjust instead.
+
+- `lib/day-plan.ts`: `DEFAULT_DAY_START` 5:30; `planDay(habits, events, dayStart)`
+  — "morning" and untimed habits open at the day start (morning keeps ≥5h);
+  nothing is placed before it. `parseClock`/`toClock` helpers.
+- `app/api/day-plan/route.ts`: start stored in app_settings `day_plan.start`
+  ("HH:MM"); GET returns `dayStart`, PUT `{ dayStart }` saves it (400 on junk).
+- `day-plan-card.tsx`: "Day starts [05:30]" time input in the card header;
+  saves on blur/Enter and re-plans.
+
+Verified locally: 5:30 → Meditate 5:30, Read 5:50, Workout 5:52; PUT 06:15
+re-plans from 6:15; set back to 05:30; bad time → 400.
+## 2026-10-04 (chat) — Runs planned by distance + pace
+
+Berto doesn't want to plan runs as km + minutes; pace is what he thinks in. New
+`training_sessions.target_pace_sec` (seconds per km; added on live Neon, mirrored
+in `ensureSchema` and `scripts/training-migrate.mjs`). For long run / intervals /
+easy, `session-editor.tsx` now shows **km · pace (mm:ss) · intensity** with a live
+"≈ 1h 50m at that pace" hint and an inline error for an unreadable pace; other
+types keep a minutes box. `saveSession` derives `target_minutes = km × pace` when
+both are set, so weekly minutes and the agent's plan text keep working. Older runs
+(km + minutes, no pace) open with the implied pace prefilled. Cards (/training
+and the today snapshot) use `targetLabel()` → "20 km · 5:30/km · 110 min".
+Agent `set_training_session` takes `target_pace_sec`; the training coach is told
+to plan runs as distance + pace.
+
+Verified on :3007: create 20 km @ 330 s → 110 min, edit to 300 s → 100 min,
+switch to strength clears km/pace (throwaway 2021 row, deleted); editor hint
+renders. Typecheck clean.
+
+Strava: still not connected — `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` are
+missing from `.env.local` and Vercel. The integration code is ready.
+
+## 2026-10-04 (chat) — Strava keys in, Connect pinned to cael.bertomill.com
+
+`STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` added to Vercel production (Secret
+type); Strava app callback domain set to `cael.bertomill.com`. First Connect
+failed with `redirect_uri invalid` because it was started from
+`cael-agent-seven.vercel.app` and the redirect is built from the request origin.
+Strava allows one callback domain, so `/api/strava/connect` now bounces any
+`*.vercel.app` host to `https://cael.bertomill.com/api/strava/connect` first
+(state cookie and callback then share a host). localhost still works.
+
+## 2026-10-04 — Habit nudge every other day (web push)
+
+Berto: he won't tick the habits every day; what matters is remembering them
+every couple of days. Picked (asked): a phone push every 2 days, sent regardless
+of ticks.
+
+- `app/api/cron/habit-nudge/route.ts`: verifies `CRON_SECRET`, reads the habits
+  section of Principles, `sendPush` "Your daily habits — Meditate · Read ·
+  Workout · Nap", tapping opens `/#today-plan`.
+- `vercel.json` (new): one cron, `0 16 */2 * *` (noon EDT / 11am EST, odd days of
+  the month — so the 31st→1st runs back to back; fine for "every couple days").
+  A plain Next route, not an eve schedule, so no agent session per fire (the
+  dispatcher was removed 2026-09-12 to cut Fluid CPU).
+- Habits doc edits (DB, not code): "Read 2 mins" → "Read 20 mins"; added
+  "Nap 20 mins sometime midday" under On habits.
+
+**No push device is subscribed yet** (`push_subscriptions` empty) — he needs to
+open Cael from the home-screen app on his phone and turn on the bell in chat.
+
+## 2026-10-04 — Today's plan: info button with "why", in his own words
+
+Asked for an info button per habit. Picked: "why it matters, but in my
+verbiage" — so nothing is generated.
+
+- `lib/day-plan.ts`: `DailyHabit.why: string[]` — indented sub-bullets under the
+  habit line in "On habits" (not habits themselves any more); failing that, the
+  lines of an "On <word>" section sharing the name's stem ("Nap" → "On napping",
+  stem = first word minus trailing "e", ≥3 letters).
+- `day-plan-card.tsx`: ⓘ per habit toggles a muted note under the row with those
+  lines; when there are none it says to add an indented bullet in Principles.
+
+Today: Nap shows his On napping line; Meditate/Read/Workout have no why yet.
+
+## 2026-10-04 — Session editor is a page; pace suggested from Strava
+
+Berto didn't want the add/edit session modal. It's now a page:
+`/training/sessions/<id>` (edit) and `/training/sessions/new/<date>` (add),
+rendered by TrainingPlanPanel from the pathname like the workout pages. Bigger
+touch targets (h-12 inputs, intensity as three buttons). Save/Delete/back return
+to `/training?week=<monday>`, and the week grid reads `?week` after mount so you
+land on the week you were editing.
+
+Pace suggestions (`paceSuggestions()` in lib/training.ts,
+`GET /api/training/pace-suggestions`), shown under the pace box with their basis
+and a "Use" button:
+- long run: median pace of Strava runs ≥ 14 km, last 60 days
+- easy: median of the slower half of runs under 14 km, last 60 days
+- intervals: average 1 km run split from his latest Hyrox result (3:54, Ottawa)
+Strava is not connected right now (no tokens, 0 cached activities), so long and
+easy show a "Connect Strava" hint until it is.
+
+## 2026-10-04 (chat) — Fitbit workouts replace Strava; session page autosaves
+
+Strava connected fine but every data call returned `403 Application Status
+Inactive`: since 2026-06-30 Strava deactivates Standard-tier API apps whose owner
+has no paid subscription. Berto won't pay, so /training now reads workouts off his
+**Fitbit Charge 6 through the Google Health connection** Cael already had for
+steps/sleep (`activity_and_fitness.readonly` already covered `exercise`).
+
+- `lib/google-health.ts` `fetchExercises(since)`: pages `dataTypes/exercise/dataPoints`
+  newest-first (the endpoint 400s on any `exercise.interval.*` filter). Flattens to
+  type, name, local start (startTime + startUtcOffset), distance, activeDuration, avg
+  HR, AZM, zone seconds [light, moderate, vigorous, peak], auto-detected flag.
+- New `fitbit_exercises` table (text ids — data point ids are long numeric strings);
+  `training_sessions` gains `activity_id`, `actual_avg_hr`, `actual_zones`;
+  `actual_effort` now holds AZM. Live Neon migrated (`scripts/training-migrate.mjs`).
+- `syncWorkouts` / `matchActivities` in `lib/training.ts` (renamed from syncStrava);
+  `SESSION_TYPES[].sports` are Fitbit exerciseTypes. Walks, BIKING / OUTDOOR_BIKE (his
+  commute) and ELLIPTICAL never match and are hidden from the day strips.
+- `/api/training/sync` (GET status, POST sync) replaces `/api/strava/{sync,status}`;
+  agent tool `sync_workouts` replaces `sync_strava`. Pace suggestions, the coach's
+  weekly load (km + AZM) and the "trained today" habit read Fitbit.
+- Cards: plan line, then actual "15.8 km · 5:19/km · 84 min", "♥ 147 avg · 166 AZM",
+  and a stacked heart-rate zone bar. "Sync Fitbit" button; quiet sync on open if
+  >30 min stale. Strava Connect button gone; `lib/strava.ts` + connect/callback
+  routes kept in case he ever subscribes.
+- Session page (`session-editor.tsx`): editing an existing session autosaves ~0.6 s
+  after the last change ("Saving… / Saved"), flushes a pending save with `keepalive`
+  on leave; Save → Done. New sessions still use Add.
+
+Verified on :3007 against live data: 67 workouts pulled over 28 days; today's long
+run matched (15.8 km, 84 min, HR 147, 166 AZM, 82 min cardio). Autosave: throwaway
+2021 session, typed 6:00 → PATCH saved 10 km @ 360 s = 60 min; deleted. Typecheck clean.
+## 2026-10-04 — Workout bank: every repeat workout editable, weeks fill themselves
+
+Berto wanted a workout bank with the workouts preset and easy to change. He
+chose: full structure editing, splits per rep/station for the running and Hyrox
+days, and the default week auto-filling each new week.
+
+- **Storage:** `workout_bank` table (slug PK, JSONB definition, archived) in
+  `lib/workout-bank.ts`, seeded on first read from `SEED_WORKOUTS`
+  (lib/workout-templates.ts, now only the seed). Six workouts with default days:
+  Mon Stations · Tue Unity Standard Lower Body · Wed rest · Thu Threshold
+  Intervals · Fri Unity Standard Upper Body · Sat Hyrox Sim · Sun 20K Long Run.
+- **Timed sets:** exercises can be `measure: "time"` (seconds stored in the
+  same strength_logs.reps array; target = time to beat; empty ladder = no target).
+  Times are typed as digits on the phone pad ("345" → 3:45, "12300" → 1:23:00),
+  tidied to m:ss on blur. Timed rows render as wrapping boxes (or one box beside
+  the name for single-time rows); charts plot average per set vs target with a
+  zoomed axis. Intervals: 6 × 1 km ≤ 3:45. 20K: 4 × 5 km ≤ 25:00 (5:00/km,
+  zone 2). Sim: 8 × (1 km ≤ 3:54 + station). Stations: 4 rounds of 1 km +
+  station. Station times have no targets: both raced splits were mixed doubles.
+- **Linking:** `training_sessions.workout_slug` replaces title matching (old
+  upper/lower sessions backfilled). Logging ticks the session done; clearing every
+  number unticks it (unless Strava did it).
+- **Default week:** `fillWeekFromBank()` runs on GET /api/training/sessions for a
+  whole Monday–Sunday week, this week or later, when it's empty: each workout on
+  its default day, rest on the leftover day. Each week fills once
+  (app_settings `training.bank_filled_weeks`), so a cleared week stays clear.
+  Oct 5–11 was already drafted (post-race easy week), so Oct 12 is the first
+  filled week.
+- **Pages:** `/training/workouts` (the bank, by day) · `/training/workouts/new` ·
+  `/training/workouts/<slug>/edit` (name, calendar type, default day with a clash
+  warning, distance/pace or minutes, intensity, warm-up/cool-down, blocks and
+  exercises: add/remove/reorder, sets, reps or time, ladder/target, weight +
+  lbs/kg + per side, chart it, note). Remove = archive (logs kept). "Workout bank"
+  button on /training; "Edit workout" on each log page. APIs: `/api/training/bank`
+  (GET, POST), `/api/training/bank/[slug]` (GET, PUT, DELETE).
+- **Cael:** new `workout_bank` tool (list/get/save/remove, also on MCP);
+  `set_training_session` takes `workout_slug`; the coach's week brief lists the
+  bank with slugs.
+- Fixed while testing: the week grid could show the wrong week when two loads
+  raced (stale response now ignored).
+
+Open: a 4 × 20 tricep-extension row reappeared on 2026-10-03 from a whole-page
+save at 17:29 — left in place, asked Berto whether he logged it.
+
+## 2026-10-04 — Wednesday: restorative yoga instead of rest
+
+Berto: restorative yoga beats a full rest day. New session type `yoga`
+("Yoga / mobility", lime; Fitbit YOGA / PILATES / STRETCHING tick it off) and a
+bank workout "Restorative Yoga" (slug `restorative-yoga`, Wednesday, 45 min easy,
+one timed row to log how long). Added to the live bank (and the seed); the
+already-filled Wed Oct 14 rest switched to it. With all seven days taken, filled
+weeks no longer get a rest session. set_training_session accepts `yoga`.
+
+## 2026-10-04 — "Fill from bank" button; Oct 5–11 switched to the default week
+
+Oct 5–11 had Cael's post-race easy week, drafted before the bank existed, so
+auto-fill (empty weeks only) skipped it. Berto chose the full default lineup and
+a reset button. `fillWeekFromBank(week, { replace: true })` deletes the week's
+unfinished sessions and lays the default lineup over it — done sessions stay and
+a workout already done that week isn't re-added. `POST /api/training/sessions/fill
+{ week_start }`; "Fill from bank" button (with a confirm) on this and later weeks.
+Ran it for Oct 5–11: Stations · Lower · Yoga · Intervals · Upper · Sim · 20K.
+(Tested via a direct script: another session's uncommitted nutrition edits —
+missing meal-prompt-editor — were breaking the local page build.)
+
+## 2026-10-04 — Meals: bank only, tick to log
+
+Berto: no AI-generated meals — every planned sitting comes from the meal bank,
+and logging should be easier.
+
+- **No generation.** Removed `lib/meal-suggest.ts`, `lib/meal-prompt.ts`, the
+  Prompt editor (`meal-prompt-editor.tsx`, `/api/meals/prompt*`), the background
+  fill job and `generateMealImage`. `fillFromBank()` (lib/nutrition-plan.ts)
+  rotates bank meals into cells: tagged for that sitting or untagged ("any"),
+  least-planned over the last three weeks first, ties random; a swap avoids the
+  current pick. Used by "Fill week from bank", the shuffle button on a cell,
+  `POST /api/nutrition/plan` (Nutrition screen) and `/api/nutrition/plan/fill`
+  (now synchronous).
+- **Tick to log.** Cells for today and past days have an "Ate" checkbox: a
+  `nutrition_meals` row for that date + sitting with the meal's protein, so the
+  ring moves on /meals. `GET /api/nutrition/meals?from=&to=` feeds the ticks.
+  Picking for today/past has an "Ate it" toggle (on for past days and sittings up
+  to now) so pick + log is one step; swapping an eaten cell re-logs it.
+- **New meals go into the bank first** ("Add to bank & use" in the picker). The
+  Meal log section is history + thumbs/notes only (its free-text form is gone).
+  "Recipe library" → **Meal bank** (`/meals#meal-bank`), with a sitting dropdown
+  per meal.
+- **Cael:** `set_daily_meal` now takes `meal` (a bank name) or rotates one in;
+  unknown names fail with the bank listed. Instructions updated.
+- Seeded the bank with Berto's four: whole-wheat beef pasta (dinner), chicken &
+  rice (dinner), chicken burritos (lunch), eggs/toast/fruit (lunch). No snack yet.
+
+## 2026-10-05 — Drag sessions between days on /training
+
+Berto: some days the workout won't happen, so he wants to drag it to another
+day. Added @dnd-kit/core: each session card in the week grid is draggable onto
+another day (mouse after 6 px; on the phone press-and-hold 250 ms, so scrolling
+and taps still work; dnd-kit auto-scrolls the stacked phone layout). The day
+column lights up under the card; on drop the session's date PATCHes (optimistic,
+reverts on failure) with a toast. It moves rather than swaps — two sessions can
+share a day. Tested Wed yoga → Thu and back.
+Also checked "log page slow to load": the API answers in ~55 ms; the wait was
+the dev server compiling the route on first open.
+
+## 2026-10-05 — Stations rebuilt from Toronto 2026; Toronto times are the targets
+
+Toronto 2026 (Pro solo, 1:07:12, 33rd, AG 6th) station places: lunges 5, ski 11,
+row 11, sled pull 13, BBJ 23, sled push 72, farmers 109, wall balls 198 (7:38).
+Runs 33:21 (4:10 avg), fading to 4:30–4:35 on runs 4–6 after the sleds.
+Research (elite schedules, wall-ball EMOM/set-planning advice): run quality
+first then stations; wall balls ~2 short blocks a week with planned sets;
+farmers and sled push one block each; full sims sparingly.
+
+Bank edits (DB only — the code seed is unchanged and only matters on an empty
+bank): **Stations** = 4 × (run 1 km ≤ 4:10 + station): wall balls × 50 ≤ 3:49
+(9 kg, planned 25–25), farmers 200 m ≤ 1:46, sled push 50 m ≤ 3:18, wall balls
+× 50 ≤ 3:49; station rows charted. **Hyrox Sim** targets now Toronto: runs ≤ 4:10
+(was the doubles 3:54), each station its Toronto time. Wall balls' second weekly
+block is Tuesday's squat + wall-ball superset.
+## 2026-10-04 (chat) — Session page shows what actually happened
+
+Berto saw 5:19/km on the card but 4:00 in the editor and asked to sync them. The
+editor's pace is the *plan* (old 20 km / 80 min); he chose to keep the plan and show
+actuals alongside rather than overwrite. Done sessions now open with an **Actual ·
+from your Fitbit** block (`#actual`): distance, pace, time, avg HR, AZM, and the
+heart-rate zone bar with minutes per zone; the editable fields below sit under a
+**Plan** heading. `ZoneBar` moved to `app/_components/zone-bar.tsx` (shared by the
+week cards and the session page). Checked on :3007 against his Oct 4 long run.
+
+## 2026-10-04 — Meals: Meal 1 / 2 / 3 + optional snack
+
+Berto doesn't eat "lunch" and "dinner" — his first meal might be at noon, and
+some days there are only two. Sittings are now **Meal 1, Meal 2, Meal 3** and an
+optional **Snack** (`meal1`–`meal3`, `snack`; `MEAL_SLOTS` / `ALL_SLOTS` in
+lib/nutrition.ts). No clock: the "now" marker became "next" (first meal not yet
+eaten/planned).
+
+- Bank meals aren't tied to a sitting any more (dropdown removed). The fill picks
+  from the whole bank, least-planned first, never the same meal twice in a day,
+  and only fills Meals 1–3. × on a meal removes it (a two-meal day).
+- Snack: a slim row on desktop; on phones a "+ Snack" button opens it.
+- Bigger type and icons on phones (cells text-sm, headers, buttons).
+- Old lunch/dinner rows are left as an archive outside the grid; old AI snacks
+  before 2026-10-04 were relabelled `archived_snack`
+  (scripts/meals-numbered-migrate.mjs, already run: 23 plans).
+- Cael: `set_daily_meal` / `log_meal` take `meal1`–`meal3` | `snack`.
+
+## 2026-10-05 — Stations: 2 heavy rounds, 100 wall balls, count editable on the day
+
+Berto: race volume on wall balls (100, later maybe 120), more station work and
+less running (Monday was 4 km on top of Thu intervals, Sat sim, Sun 20K — hard
+on ankles and knees). **Stations** is now 2 rounds of: run 1 km (≤ 4:10) →
+wall balls × 100 (9 kg, ≤ 7:38) → farmers carry 200 m (≤ 1:46) → sled push
+50 m (≤ 3:18). 2 km of running instead of 4.
+
+New per-log **amount** for timed sets (`amount`/`amountUnit` on a template
+exercise; `strength_logs.amount`): the log row shows "× [100] reps" as an
+editable box; the next session starts from the last one's count, so bumping to
+120 sticks. Charts mark a count change like a weight change and show it in the
+tooltip; duplicate exercise charts are titled by round. Editor: "Count" field +
+reps/metres for timed exercises. Timed targets now always come from the bank
+(not the last log), so editing a target takes effect next session.
+
+## 2026-10-05 — Stations: 3 rounds, Berto's targets
+
+Three rounds (2 min rest before rounds 2 and 3) of run 1 km ≤ 4:00 → wall balls
+× 100 ≤ 5:00 → farmers 200 m ≤ 2:00 → sled push 50 m ≤ 3:00. ~15:30 a round,
+~51 min of work with rests, ~65 min with warm-up/cool-down (plan 65 min, hard).
+Wall balls charted every round; farmers/sled round 1. Flagged: 300 + Tuesday's 60
+wall balls is big shoulder volume — cut round 3's count on the day if form goes.
+`saveWorkout` now also syncs type/targets/intensity (not just the title) onto
+upcoming unfinished sessions linked to that workout.
+## 2026-10-04 (chat) — Actual distance + pace are typed in; Fitbit gives heart rate only
+
+Fitbit had his long run at 15.8 km / 5:19 while Strava had it nearer 4:50/km, so
+Berto doesn't trust the watch's distance or time. He chose: **he ticks sessions
+himself** and **types actual distance + pace** (time worked out); Fitbit only
+contributes **avg HR, AZM and zone time**.
+
+- `setSessionDone` attaches that day's Fitbit workout HR on tick (`attachHeartRate`,
+  replaces `matchActivities`); `syncWorkouts` now only attaches HR to ticked
+  sessions with none — it never ticks or writes km/minutes.
+- New `training_sessions.actual_pace_sec`; `setActuals(id, km, pace)` + PATCH
+  `{ actuals: { km, pace_sec } }`. Session page "What you ran" block: Distance +
+  Pace inputs that autosave, "Xh Ym total", then "Heart rate · from your Fitbit".
+- Week totals use logged actual km/minutes; Fitbit chips show name · ♥ · AZM only.
+  Pace suggestions are the median of his logged paces (60 days), not Fitbit's.
+  Coach brief: sessions + logged km, AZM from Fitbit. Agent told never to take km
+  or pace from the watch; `set_training_session` takes `actual_pace_sec`.
+- Cleared the watch km/minutes from the one auto-matched session (Oct 4 long run),
+  keeping its HR. Live Neon migrated.
+
+Verified on :3007: throwaway 2021 session ticked → typed 17.4 / 4:50 → saved 290 s,
+84 min, plan untouched; deleted. Sync over 28 days attached HR to nothing new.
+
+## 2026-10-04 — Meals: Meal log section removed
+
+Berto found Meal log next to Meal bank confusing, so /meals now shows only the
+bank under the grid. `meal-log.tsx` is gone; eaten ticks still write
+`nutrition_meals` rows (the history and Cael's `log_meal` / `list_nutrition`
+are unchanged).
+
+## 2026-10-04 (chat) — Workout page: add reps, warm-up / cool-down checklists
+
+On Threshold Intervals Berto may run 8 or 10 reps instead of 6, and wanted the
+warm-up and cool-down to be real tick-offs. Week-over-week measure stays simple:
+**average time per rep** (the existing Progress chart already plots that).
+
+- Timed multi-set exercises (1 km reps, 5 km splits) get **+ Rep** and, past the
+  planned count, a remove button; the label reads "8 reps (plan 6)". A day's log
+  keeps however many reps he did (`initialRows` reads `max(sets, logged)`); trailing
+  empty boxes are dropped on save as before.
+- Warm-up / cool-down render as checklists, one box per " + " part
+  (`checklistParts`): "15 min easy", "4 × 20 s strides". Stored in new
+  `workout_checks (template, log_date, part, done BOOLEAN[])`, returned as `checks`
+  by `getWorkoutDay`, ticked via PATCH `/api/training/workouts/<slug>`.
+
+Verified on :3007 with a 2021 date: ticked a warm-up part, added reps 7–8, typed
+3:50 and 3:40 → reload kept all of it, chart showed avg 3:45. Test rows deleted.
+## 2026-10-04 — Meals: photos for bank meals, meal detail
+
+Berto recognises a meal by its picture faster than its name.
+
+- Tap a bank meal → detail dialog: photo, protein/kcal, his notes, ingredient
+  list, "Generate picture" / "New picture", remove from bank.
+- `POST /api/nutrition/recipes/[id]/image` → `generateRecipeImage()`
+  (lib/nutrition-art.ts, gpt-image-1, same food-photo style as staples/rules)
+  saves `nutrition_recipes.image_url` and copies it onto every planned cell made
+  from that meal.
+- The grid shows the photo as a real thumbnail (beside the name on phones, a
+  strip on top on desktop) instead of a 15% background; the picker lists show it
+  too. Generated photos for all four bank meals.
+## 2026-10-05 — Lap timer on timed workouts
+
+Berto wanted start/stop instead of typing times, worried about the screen going
+off. `app/_components/workout-timer.tsx`, pinned above the tab bar on any
+workout with timed sets: Start once, then one big "Done → next" button per
+segment (each timed set, in block order); each tap writes the split into its
+time box, which autosaves. Pause/Resume for talking to someone or loading the
+sled — paused time never counts. Exercises with `waitBetweenSets` (the interval
+reps) wait for "Start rep N" so the 90 s jog isn't timed. Stop drops only the
+split in progress.
+- Robust to sleep/kill: state is timestamps (segment start, paused ms, paused
+  at) in localStorage per workout + date; elapsed = now − start − paused, so a
+  frozen or reloaded page is exact. Screen Wake Lock held while it runs (re-taken
+  on visibilitychange). Same device only — not synced to the server.
+- Current segment's box gets a ring. Tested: pause excluded (2.0 s), reload
+  mid-rep kept timing, rep 1 survived reload, interval wait state.
+Note: Wake Lock inside the Capacitor iOS shell's WKWebView is unverified; timing
+stays correct regardless, the screen may just sleep there.
+
+## 2026-10-04 — Meals: one day at a time on phones, swipe between days
+
+- Phones show a Mo–Su day strip and one day's meals (today by default). Swipe
+  left/right moves a day and crosses into the next/previous week; only clear
+  sideways swipes count, so scrolling never flips the day. Week arrows are bigger
+  on phones; "This week" became "Today".
+- Trimmed the protein card copy to "N g to go" / "Planned N g · kcal".
+
+---
+
+## 2026-10-04 — Home: swipe between days; full screen under the status bar
+
+Berto (screenshot of the installed iPhone app): swipe left/right to change days, and
+the screen should fill the whole phone instead of stopping under the clock/Wi-Fi/battery.
+
+- **Swipe between days on Home** (`home-screen.tsx`): a clear sideways swipe anywhere
+  on Home moves a day (left = next, right = previous); same rule as Meals, so vertical
+  scrolling never flips the day, and swipes starting in inputs/editors are ignored.
+  ←/→ keys do it on desktop. The new day slides in from the side it came from. The
+  header date follows, and a **Today** pill appears on any other day to jump back.
+  The day is kept as an offset from today, so "today" still means today after midnight.
+  - Past days: the scorecard shows that day's score, rings and values (editable;
+    corrections are written to that day). The line reads "N pts short of your best", or
+    "Your high score" if that day holds it. No record confetti for past days.
+  - Future days: no scorecard (nothing to score yet), just the planned training and meals.
+  - Training and meals follow the day ("Yesterday's training", "Tomorrow's meals",
+    "Thursday's …"). Today's plan (habits around the calendar) shows on today only.
+  - API: `GET /api/scorecard?date=YYYY-MM-DD` and `getScorecardSummary(sql, date)`
+    look at a past day (a future date falls back to today). PATCH now answers for
+    the day it wrote. Summary gained `isToday`. Streak and the 14-day chart stay
+    anchored to the real today.
+- **Full screen on the iPhone** (`app/layout.tsx`): `appleWebApp` with
+  `statusBarStyle: "black-translucent"`, so the installed app draws under the status
+  bar. Home's photo is taller by `--safe-top` (new var in `globals.css`) and runs up
+  under the clock; the header is pushed below it. Every other section pads past it
+  (`pt-[var(--safe-top)]` on the shell `main` when not on Home; the Writing panel's
+  full-screen chat too). `agent-chat.tsx` is now `flex-1` instead of `h-dvh`, so the
+  padding can't push the composer off the bottom.
+  - **The home-screen icon must be removed and re-added once**: iOS reads the
+    status-bar style only when the icon is added.
+  - iOS 26+ puts a Liquid Glass blur over the status-bar strip of such apps, so the
+    photo shows through it softened, not perfectly sharp. That's the OS, not the app.
+- Verified at 390px in Playwright with the API stubbed and a 47px status bar simulated
+  (no DB or eve in the cloud container): swipe right → Saturday + "Yesterday's",
+  two swipes left → Monday + "Tomorrow's" with no scorecard, a vertical drag doesn't
+  flip, Today pill returns; `/training` and `/chat` start at 47px, composer on screen.
+  `npm run typecheck` clean.
+- Berto's message was cut off ("…but on mobile if we") — the rest of that thought
+  is still to come.
+
+---
+
+## 2026-10-04 — Meals: hold and drag to rearrange
+
+Berto: "hold and drag to rearrange meals on the meal page". Same feel as dragging
+sessions on /training (`@dnd-kit/core`): mouse drags after 6 px; on the phone it's
+press-and-hold 250 ms, so scrolling, swiping days and tapping the card's buttons
+still work.
+
+- Drop a meal on another sitting: an empty one takes it, a filled one **swaps**
+  (Meal 1 ↔ Meal 3), so rearranging never loses a meal. Works across days on the
+  desktop week grid.
+- Phone (one day at a time): drop on another sitting of the day, or on a day in
+  the Mo–Su strip to move it to the same sitting that day (the pill grows under the
+  finger; toast "Burritos moved to 3 Sat"). A drag never also counts as a day swipe.
+- The "Ate it" tick travels with its meal, and the protein ring follows when an
+  eaten meal leaves or joins today.
+- API: `PATCH /api/nutrition/plan { from: {date, slot}, to: {date, slot} }` →
+  `movePlannedMeal()` in `lib/nutrition-plan.ts`. One transaction that parks the
+  moving row on a temporary `__moving` slot, because (meal_date, slot) is unique
+  and a direct swap collides. The same three steps move the nutrition_meals log rows.
+- Files: `app/_components/week-plan-panel.tsx` (MealDnd, DayDrop, moveMeal),
+  `app/api/nutrition/plan/route.ts`, `lib/nutrition-plan.ts`.
+- Verified: Playwright at 390px (press-and-hold drag Meal 1 → Meal 3 swaps with the
+  tick following; Burritos → Sat pill moves it and the ring goes 120 → 160 g to go;
+  a tap on Swap still opens the picker) and at 1280px (mouse drag swaps). API stubbed,
+  since there's no DB in the cloud container. The swap SQL itself was run against a
+  local Postgres 16 with the unique index. `npm run typecheck` clean.
+
+---
+
+## 2026-10-05 — Grocery list: add quick items
+
+Berto: "for the grocery section of the app, it doesn't allow us to add quick items".
+The Grocery list on /meals (`#grocery-list`) was built only from meal ingredients,
+so there was nowhere to type a one-off like milk or paper towels.
+
+- **Add an item** box at the top of the Grocery list dialog (Enter or Add). It goes
+  straight onto the **Groceries** list in Lists — the same list "Send to Groceries"
+  and the store run use — so there's one list to shop from. An item already open
+  there isn't added twice (case/space-insensitive; toast says so). Ticked-off
+  items can be added again.
+- **Extras** section: anything open on Groceries that no planned meal accounts
+  for (the quick items, plus older leftovers). Each has a tick to mark it bought
+  (completes it in Lists, same as ticking there). Meal items sit under
+  "From your meals" when there are extras; otherwise the list looks as before.
+- Copy includes the extras. The dialog's empty state now points at the add box,
+  and the box shows even when no meals are planned.
+- API: `GET/POST /api/nutrition/groceries/items` → `getOpenGroceries()` /
+  `addQuickGrocery()` in `lib/nutrition-plan.ts`. A shared `groceryListId()`
+  finds-or-creates the Groceries list (now used by `addPlanToGroceries` too).
+  Ticking uses the existing `PATCH /api/lists/[id]/items/[itemId]`.
+- Files: `app/_components/week-plan-panel.tsx` (GroceryListDialog),
+  `app/api/nutrition/groceries/items/route.ts` (new), `lib/nutrition-plan.ts`.
+- Verified: `npm run typecheck` clean; the new queries (dedupe lookup, open-items
+  read, insert) run against a local Postgres 16 with the lists/list_items schema.
+  The dev server can't start in the cloud container (eve's dev process needs
+  Node 24 and the AI Gateway, which is 403 here), so the real `WeekPlanPanel` was
+  bundled with esbuild + the app's compiled Tailwind in a scratch harness with
+  fetch stubbed, and driven in Chromium at 390px: add via Enter and via the button,
+  tick off an extra (PATCHes the list item), "milk" again → "already on Groceries"
+  toast, no page errors. Placeholder shortened to "Add milk, paper towels…" after
+  the screenshot showed the longer one clipped on a phone.
+
+---
+
+## 2026-10-06 — Lower body: rear-foot elevated split squats replace wall balls
+
+Berto: on Unity Standard Lower Body he's doing rear-foot elevated single-leg
+squats in place of the wall balls, 40 lb, 10 each leg.
+
+- Superset 1 is now back squat + **Rear-foot elevated split squat**: 4 sets,
+  40 lb, per side, ladder 10 → 15 → 20 like the other loaded lifts, charted
+  (`tracked`), note "Back foot up on a bench". Key `rfe_split_squat`.
+- Seed (`lib/workout-templates.ts`, shared `RFE_SPLIT_SQUAT`) updated, and since
+  the live bank is in the DB and this container has no DATABASE_URL, a one-time
+  migration in `ensureBank()` (`lib/workout-bank.ts`) swaps the `wall_balls`
+  exercise for it on the next deploy's first bank read. It skips once
+  `rfe_split_squat` is in, so wall balls re-added from the editor stay.
+  Old wall-ball logs stay in `strength_logs` under their key.
+- Wall balls are still in Stations and the Hyrox Sim (now his only wall-ball work;
+  the 2026-10-05 note about Tuesday being the second weekly block no longer holds).
+- Verified: `npx tsc --noEmit` clean; the swap run against the old seed definition
+  (swaps the first time, no-op the second).
+- If "40" meant 40 per hand rather than total, change the weight at /training/workouts.
+
+---
+
+## 2026-10-06 — Workout log: tap an empty set to fill the target
+
+Berto, entering reps mid-superset: tapping a box should just fill in the
+prescribed reps, and a second tap should let him change it if he fell short.
+
+- In the rep tables (`ExerciseRow`, `app/_components/workout-log.tsx`), an empty
+  set box with a target is `readOnly`: one tap fills it with the target (× 10 →
+  10) and blurs, so the number pad doesn't come up. Once filled, it's a normal
+  input: tap again → number pad with the value selected, so typing replaces it.
+- With no target ("log it") the box behaves as before. A digit typed into an empty
+  box from a computer keyboard (Tab in) still goes in. Timed rows are unchanged.
+  Tapping the total still fills every empty set at once.
+- Verified: `npx tsc --noEmit` clean. The real `WorkoutLog` bundled with esbuild
+  (fetch stubbed) and driven in Chromium at 390px with touch: tap → 10 and not
+  focused; tap again → focused, type 8 → 8; next box tap → 10; typed 7 into an
+  empty box via keyboard → 7; autosave PUT carried `[8,10,7,null]`.
+
+---
+
+## 2026-10-06 — Workouts: rename an exercise right from the log
+
+Berto: exercise names should be fully customizable from the workout page, and a
+rename should carry to every future workout, not just the one open — he often
+makes small variations.
+
+- On `/training/workouts/<slug>/<date>` each exercise name is now a button (small
+  pencil after it). Tap → text box with the name selected; Enter or tapping away
+  saves, Escape cancels, a blank or unchanged name does nothing. Works on rep rows
+  and timed rows alike.
+- Saving re-reads the workout from the bank (`GET /api/training/bank/<slug>`),
+  changes that one exercise's name and PUTs it back, so it's the same write the
+  full editor makes: every later session, the charts and Cael see the new name.
+  The exercise **key stays**, so its logs, ladder and chart history carry over
+  (past sessions show the new name too, since names live only in the bank).
+  Toast: "Renamed to … · Every session from now on uses it."
+- Files: `app/_components/workout-log.tsx` (`ExerciseName`, `renameExercise`).
+- Verified: `npm run typecheck` clean. No DB/dev server in the cloud container, so
+  the real `WorkoutLog` was bundled with esbuild + the app's compiled Tailwind,
+  fetch stubbed, and driven in Chromium at 390px on Lower Body: Deadlift → "Trap
+  bar deadlift" sends one PUT with key `deadlift` kept and every other exercise
+  unchanged; Escape and a blank name send nothing; no page errors.
+- Next, if wanted: the same tap-to-rename on the superset labels, or a
+  "just today" option for one-off swaps (today it's always a bank rename).
+
+## 2026-10-06 — Career plan: destination, checkpoints, daily actions, trajectory
+
+Berto: training has a goal, races, checkpoints and a daily plan, so he always knows
+what to do; career needs the same — a destination, a trajectory, and daily
+activities beyond the day job, so moving toward it is automatic, not up to chance.
+
+/career now opens like /training:
+- **Destination** under the title (one sentence, tap to rewrite) and a **By <date>**
+  chip with days left (the "race"). Stored as JSON in `app_settings`
+  `career.destination` (`goal`, `target_date`, `started_on` = the day the date was
+  first set, the left end of the trajectory line). Default goal is a draft: "Land a
+  senior GTM strategy role at an AI company I believe in, on my terms." No date
+  until he sets one.
+- **Checkpoints**: dated chips like races (`career_checkpoints` table). Tap to
+  rename/redate, mark **Reached**, or delete; overdue ones go rose with "Nd late".
+- **Today** card: the daily actions as big checkboxes, "2/5 done". The actions
+  aren't a new table: they're parsed from the numbered list in the existing Daily
+  actions doc (`parseCareerActions`: bold text = title, rest = detail, trailing
+  "(1, 4)" = principles served). Editing that doc (by hand or via Cael) changes the
+  checklist. Ticks live in `career_action_log (day, action_key)`, keyed by a slug of
+  the title, so rewording the detail keeps history; renaming the title starts fresh.
+  After ticking, "+ Add who or what" stores a note (e.g. "Messaged Dana at Glean").
+- **Trajectory**: a line from start to the destination date with checkpoint dots
+  and a today marker, the next/overdue checkpoint, % of actions done over the last
+  28 days (or since the first tick), and per action: pace per week and "~N more by
+  <date>" at that pace.
+- **Week** grid: one row per action, a box per day, ←/→ between weeks, back-fill
+  past days; "5/35 done".
+- The research (archetype, themes, roles) stays further down; its "N postings,
+  researched …" line moved into that section.
+
+Cael:
+- New tool `career_plan` (op = read / set_destination / add_checkpoint /
+  update_checkpoint / delete_checkpoint / tick / untick). Tick matches an action by
+  title and takes a note. Exposed over MCP via the registry; chat label "career plan".
+- Daily snapshot gains **Career today**: destination + days, next/overdue
+  checkpoints, today's actions with ✓, pace and projection (`summarizeCareerPlan`).
+- Instructions: tick actions when he reports them; when asked what to do for his
+  career, start from unticked actions + next checkpoint; offer to set a date and
+  work back to measurable checkpoints if missing, saving only what he agrees to;
+  say plainly if pace projects short.
+
+Files: `lib/career-plan.ts` (new; tables also created lazily since read paths skip
+ensureSchema), `lib/db.ts` (same DDL in ensureSchema), `app/api/career/plan`,
+`app/api/career/checkpoints` (+ `[id]`), `app/api/career/actions`,
+`app/_components/career-plan.tsx` (new), `app/_components/career-panel.tsx`,
+`agent/tools/career_plan.ts`, `agent/lib/daily-snapshot.ts`, `agent/instructions.md`,
+`lib/agent-tool-registry.ts`, `components/chat/eve-thread.tsx`.
+
+Verified: `npm run typecheck` clean; parser + pace + summary run with tsx against the
+default doc. No DB in the cloud container and the eve dev server needs the AI Gateway,
+so `CareerPlan` was bundled with esbuild + the app's compiled Tailwind, fetch stubbed,
+and driven in Chromium at 390px: no horizontal scroll, no page errors; ticking sends
+`POST /api/career/actions {day, key, done}`, adding a checkpoint sends the right POST.
+Not yet run against the real Neon DB.
+
+Next: set the real destination date and 3–5 measurable checkpoints with Cael
+(e.g. hiring-manager conversations, referrals, interviews); maybe a career line in
+Home's day plan or a push nudge if actions are unticked by evening.
+
+## 2026-10-06 — Notes look like Apple Notes
+
+Berto: make the Notes section look more like Apple Notes.
+
+/notes now:
+- **Large "Notes" title**, the composer in a rounded card, and a filled grey search
+  field (still semantic search) above the Tags picker.
+- **Date groups** like Apple's: Today, Yesterday, Previous 7 Days, Previous 30 Days,
+  then month names this year, then years. Each group is an inset rounded card with
+  dividers that start at the text. Search results are one "Top Results" group, kept
+  in relevance order. "N Notes" at the foot of the list.
+- **Rows**: a bold one-line title, then the date (time today, "Yesterday", weekday
+  this week, else the date) and a muted preview, a tag line if there are tags, and
+  a 48px thumbnail on the right when the note has a photo. Before this, a photo
+  showed full-width in the list. Title = the first line. Most of Cael's notes are
+  one paragraph, so with no second line the first sentence (≤100 chars) is the
+  title. Failing that, the text breaks at a word near 55 chars so the preview line
+  continues it, instead of "No additional text".
+- **Opening a note**: on desktop it opens in a right pane beside a 360/400px list
+  (the selected row is highlighted, with an empty state until a note is picked).
+  On a phone it opens full screen over the list with a "‹ Notes" back button. The
+  list stays mounted underneath, so going back keeps the scroll position. The page
+  shows the created date centred, tags as #chips (tap = filter by that tag), the
+  photo full width (object-contain, ✕ to remove), and the text. A short first line
+  followed by more text shows as a large bold title.
+- **Editing**: tap the text to edit; Enter is a new line (like Apple Notes, unlike
+  the composer). It saves on Done, Escape, ⌘/Ctrl+Enter, blur, going back, or
+  clicking another note. There's no Cancel, same as Notes. The toolbar adds or
+  changes the photo (saves immediately) or deletes the note (with a confirm).
+  Unchanged text doesn't PATCH, since every PATCH re-embeds the note.
+
+Files: `app/_components/notes-view.tsx` (new: `NotesList`, `NoteDetail`,
+`NoNoteSelected`, grouping and title/preview helpers), `app/_components/dashboard.tsx`
+(notes tab layout; the inline edit/expand state replaced by `openNoteId` and
+`handleSaveThought`; edits and deletes also update an active search's results).
+
+Verified: `npm run typecheck` clean. No DB in the cloud container, so the real
+`Dashboard` (activeTab="notes") was bundled with esbuild + the app's compiled
+Tailwind, with fetch stubbed and sample notes, and driven in Chromium at 1280px and 390px.
+Grouping, thumbnails and the two-pane/overlay layout render; no horizontal scroll and
+no page errors in light or dark; editing then switching notes (desktop) or tapping
+"‹ Notes" (phone) sends one `PATCH /api/thoughts/:id` with the new text.
+Not yet run against the real Neon DB.
+
+Next: maybe pinned notes (Apple's "Pinned" group) and a compose button that opens a
+blank note straight into the editor.
+
+## 2026-10-11 — Principles: toggle headings
+
+Berto wanted to fold his "On focus"-style headings, typing ">" in front of one
+like Notion. Asked two things: what goes inside (the heading's section, not an
+empty toggle) and whether the "/" menu gets entries too (yes).
+
+- `app/_components/notion-editor.tsx` (all Notion-style pages, Principles and
+  meal Notes): toggle summaries take a `level` (`data-level`), making a "toggle
+  heading". `> ` at the start of a heading turns it into one and folds its
+  section in: the blocks after it up to the next heading or toggle heading of
+  the same size or bigger. `# ` – `### ` at the start of a plain toggle line
+  makes it a toggle heading. "/" menu: Toggle heading 1–3 (`/toggle` lists them,
+  `/toggleh2`, `/th2`; the menu closes at a space, so no "/toggle heading 2"),
+  which make an empty-bodied one, or resize a toggle line.
+- Markdown: toggles used to serialize as one lump of HTML. Now only the
+  `<details>` / `<summary data-level="2">…</summary>` / `</details>` lines are
+  HTML and the folded blocks stay markdown. Old saved toggles still load.
+- `lib/day-plan.ts`: the habit reader treats a `<summary data-level>` line as a
+  heading (`headingText`), so a toggled "On habits" still feeds the Today card;
+  a toggled "On napping" section ends at `</details>` for the habit's "why".
+  `setHabitTime` works on a toggled section too.
+- `agent/tools/principles_doc.ts`: told Cael the new toggle shape.
+- CSS (globals.css): heading scale and spacing on `summary[data-level]`, the
+  triangle sized to that line.
+
+Verified on :3789 with writes to `/api/principles` intercepted (real doc
+untouched): `> ` on "On focus" folded its 3 bullets and stopped at "On
+journalling"; folding persisted through a markdown round trip; `/toggleh3` and
+`## ` on a plain toggle; 22px/600 summary; tsx check of parseDailyHabits /
+setHabitTime on a toggled doc. Gotcha: the Turbopack dev cache (`.next/dev`)
+served a stale globals.css across restarts until deleted.
+
+---
+
+## 2026-10-11 — Training: reorder sessions within a day, remove one from the card
+
+Berto: wants to re-order workouts within a day (only moving between days worked) and
+delete a workout off a day, since he swaps workouts out.
+
+- **Reorder**: each session card is now also a drop target. Drop a card on another
+  card and it takes that spot. In the same day, dragging down puts it below the card
+  and dragging up puts it above. A line shows where it will land. Dropping on a card
+  in another day moves it there at that spot; dropping on a day's empty space adds it
+  to the end, as before. The card under the pointer wins over the day around it
+  (`preferCards` collision: `pointerWithin`, falling back to `rectIntersection`).
+  Same gestures as before: drag with the mouse, press-and-hold on a phone.
+- Saved with one call, `POST /api/training/sessions/reorder {session_date, ids}`,
+  which sets `session_date` and `position` 0…n for the day it lands on
+  (`reorderDay` in `lib/training.ts`). The `position` column and the
+  `ORDER BY session_date, position, id` already existed; only the UI was missing.
+  The optimistic state is re-sorted the same way (`inDayOrder`).
+- **Remove**: a trash button on every session card (the week grid and Today), with a
+  confirm, then an optimistic DELETE and a "removed" toast. On desktop it shows on
+  hover so the narrow columns stay clean; on a phone it's always there. Logged
+  splits/sets aren't touched: they're keyed by workout + date, not by the session.
+  (The session page's Delete button still works too.)
+
+Files: `app/_components/training-plan-panel.tsx`, `lib/training.ts` (`reorderDay`),
+`app/api/training/sessions/reorder/route.ts` (new).
+
+Verified: `npm run typecheck` clean. No DB in the cloud container, so the real
+`TrainingPlanPanel` was bundled with esbuild + the app's compiled Tailwind, with
+fetch stubbed, and driven in Chromium. At 390px: dragging Sunday's long run up onto
+the first card made it [4,2,3]; dragging it back down made it [2,3,4]; dragging
+Saturday's Hyrox Sim onto a Sunday card inserted it above that card ([2,1,3,4]).
+Each drag sent the matching reorder POST. Removing a card sent
+`DELETE /api/training/sessions/3`. At 1280px, dropping on an empty day still moves
+the session there. No horizontal scroll, no page errors.
+Not yet run against the real Neon DB or on a real phone (touch drag).
+
+Next: maybe let Cael set the order too (`position` on `set_training_session`), and an
+Undo on the "removed" toast instead of the confirm.
+
+## 2026-10-11 — Workouts: week over week; push-ups between the shoulder raises
+
+Berto: wants to see this week against previous weeks (something motivating), and
+push-ups added between the shoulder raises in the upper-body warm-up.
+
+- **Week over week** on every workout log page (`/training/workouts/<slug>/<date>`):
+  a table of each exercise across the last three logged sessions and this one, plus a
+  "Total reps" row. Reps exercises show total reps; timed ones show the average time
+  per set. A cell is green when it beats the session before: more reps at the same
+  weight, any heavier weight, or a faster time. A new weight shows under the number.
+  This session's column reads what's typed, so it updates while he logs.
+  Exercises with no data in any column are hidden.
+- **Headline near the top** (above the warm-up), linking to the table: "Last time:
+  551 reps. Beat it." before he starts, then "N more to match last time", "Level
+  with last time" or "N reps up on last time" (green) as he logs.
+  Only shows when there's an earlier session.
+  Uses the `history` the page already loads; no API change.
+- **Upper-body warm-up** is now five tick boxes: Front raise (10–15 lb dumbbells) +
+  Push-ups + Side raise + Push-ups + Bent-over raise. The seed changed, and a
+  one-time step in `ensureBank` rewrites the live bank row, but only while its
+  warm-up is still the exact old text, so later edits from the editor stay. Today's
+  existing warm-up tick lands on the first box (ticks are stored by position).
+
+Files: `app/_components/workout-log.tsx` (`useWeeks`, `VsLastWeek`, `WeekCompare`),
+`lib/workout-templates.ts` (`UPPER_BODY_WARMUP`, `OLD_UPPER_BODY_WARMUP`),
+`lib/workout-bank.ts` (one-time warm-up update).
+
+Verified: `tsc --noEmit` clean. No DB in the cloud container, so `WorkoutLog` was
+bundled with esbuild + the compiled Tailwind, with fetch stubbed and three fake past
+weeks, and driven in Chromium at 390px. The warm-up shows the five boxes; the table
+shows Sep 20 / Sep 27 / Oct 4 / Today with greens where reps went up; tapping 8 sets
+moved Today to 120 and the headline updated. No horizontal scroll, no page errors.
+The warm-up migration hasn't run against Neon yet; it runs the first time the bank
+loads after deploy.
+
+Next: the same week-over-week idea on /training itself (sessions done and km per
+week for the last ~6 weeks), if he wants it there too.
+
+## 2026-10-11 — Training: this week vs the last two; coaching cues behind an ⓘ
+
+Berto: compare the current week with the last two weeks on /training, and an info
+button on each exercise with one or two coaching cues he can edit.
+
+- **"This week vs the last two"** card on /training, between the week controls
+  and the grid. For each metric (sessions done/planned, km, minutes, Fitbit effort
+  in AZM) there's one bar per week, scaled to the best of the three. This week's bar
+  and number turn green once they're at or past last week's. The heading line says
+  "N more sessions than last week", "Level with last week" or "N more to match last
+  week". Metrics that are 0 in all three weeks are hidden. On a past week the labels
+  become "Week of MM/DD". The two earlier weeks are one extra fetch with a 14-day
+  range: the sessions API only auto-fills from the bank on an exact 7-day range, so
+  past weeks aren't touched. `weekStats()` is now shared by the header count and the card.
+- **Coaching cues**: an ⓘ next to every exercise name on the workout log (rep and
+  timed rows) opens a panel with one or two cues. "Edit" turns it into a textarea;
+  Save writes `cues` into that exercise in the bank, so every later session shows
+  it. Clearing it saves "" and shows "No cues yet." with Add. The stock cues are
+  `DEFAULT_CUES` by exercise key in `lib/workout-templates.ts`, covering every
+  exercise in the seeded bank; the 1 km runs between Hyrox stations (`run_N`) share
+  one. `cuesFor(ex)` returns his cues if set, else the stock ones, so nothing needed
+  migrating, and keys survive renames. Exercises he adds himself start empty.
+  `renameExercise` became `updateExercise(key, patch)`, used for both.
+- Cael's `workout_bank` tool description now mentions `cues`, so Cael can set them.
+
+Files: `app/_components/training-plan-panel.tsx` (`weekStats`, `WeekTrend`),
+`app/_components/workout-log.tsx` (`CuesButton`, `Cues`, `updateExercise`),
+`lib/workout-templates.ts` (`cues`, `DEFAULT_CUES`, `cuesFor`),
+`agent/tools/workout_bank.ts`.
+
+Verified: `tsc --noEmit` clean. Bundled with esbuild + the compiled Tailwind, with
+fetch stubbed, in Chromium at 390px. The trend card with two fake earlier weeks
+(3/3 · 32 km, 4/4 · 41 km) against this week shows bars and "1 more to match last
+week". Hammer row's ⓘ shows the stock cue; editing to two lines sends one bank PUT
+with only that exercise's `cues` set, and the panel shows the new text. No horizontal
+scroll, no page errors. Not yet run against Neon.
+
+## 2026-10-11 — Workouts: set next session's target by hand (10 → 12)
+
+Berto: after hitting every set he often goes up 2 reps (10 → 12), not the ladder's
+next rung (15). He wants to set that today, so next week opens at 12.
+
+- Once every set hits the target, the "Next: × 15" under the total is a button.
+  Tapping it opens a **Next session** panel under the row: −/+ stepper, and chips
+  for Same / +1 / +2 / Ladder (Ladder only when it's above +2). Picking a number
+  saves it with today's log (autosave, like the reps). The label then reads
+  "Next: × 12". "Back to the ladder" clears it. Picking the ladder's own number
+  stores nothing, so the default behaviour is unchanged.
+- Stored as `strength_logs.next_target` (new nullable column, added in
+  `ensureTable` and `ensureSchema`). `nextPrescription` uses it first, for rep
+  exercises only (timed targets still come from the bank).
+- Ladder fix that goes with it: a clean session steps to the **next rung above**
+  the target (`find(r > target)`) instead of `indexOf(target) + 1`. On-ladder targets
+  behave the same as before; a hand-set 12 now climbs to 15 rather than reading
+  as "top rung, add weight".
+
+Files: `lib/workout-templates.ts` (`next_target` on `StrengthLog`,
+`nextPrescription`), `lib/strength.ts`, `lib/db.ts`,
+`app/api/training/workouts/[template]/route.ts`, `app/_components/workout-log.tsx`
+(`Row.next`, `NextTarget`).
+
+Verified: `tsc --noEmit` clean. `nextPrescription` checked with node: clean 10 → 15;
+clean 10 with 12 picked → 12; missed at 12 → 12; clean 12 → 15; clean 20 → 20 plus
+the add-weight hint; missed 10 with 12 picked → 12. In the Chromium harness at 390px:
+four taps on hammer row show "Next: × 15"; opening it and tapping "+2 · 12" saves
+`next_target: 12` in the PUT and relabels to "Next: × 12". "Back to the ladder"
+saves null. No page errors. Not yet run against Neon; the column is added on the
+first workout load.
+
+## 2026-10-11 — Upper body: dumbbell chest flies replace tricep extensions (Superset 4)
+
+Berto: superset the bent-over barbell row with 30 lb dumbbell chest flies on the
+bench instead. He remembered the partner as push-ups; it was bodyweight tricep
+extensions (push-ups are Superset 1's partner and stay).
+
+- New exercise `db_chest_fly` ("Dumbbell chest flies (bench)"): 4 sets, the same
+  10 → 15 → 20 rep ladder as the main lifts, 30 lb, shown as /side (per dumbbell).
+  It isn't charted, like the other superset partners. Stock cue added to `DEFAULT_CUES`.
+- Seed changed. A one-time step in `ensureBank`, alongside the warm-up one, swaps
+  `tricep_extensions` for it in the live upper-body row, but only while tricep
+  extensions are there and the flies aren't, so adding them back from the editor
+  sticks. Both upper-body edits now share one read and at most one write. The old
+  tricep logs stay in `strength_logs` under their own key and no longer show on the page.
+
+Files: `lib/workout-templates.ts` (`DB_CHEST_FLY`, cue), `lib/workout-bank.ts`.
+
+Verified: `tsc --noEmit` clean. In the harness at 390px, Superset 4 shows the barbell
+row and "Dumbbell chest flies (bench)" × 10 at 30 /side, with its ⓘ cue. No page errors.
+The live bank swap runs on the first workout-bank load after deploy (not run against Neon here).
+
+## 2026-10-11 — iPhone app: blank band after typing (keyboard leaves the shell shifted)
+
+Berto sent a screenshot of the workout log: Superset 3's header, then nothing down
+to the tab bar, with the top of the page running up under the clock. He had just
+typed reps (8, 8) with the number pad.
+
+Cause (diagnosed from the screenshot, not reproduced on a device): in the installed
+iPhone app the keyboard scrolls the whole document up to keep the focused field
+visible, and doesn't always scroll it back. The shell is `h-dvh overflow-hidden`
+and never meant to scroll as a whole, so it stays shifted up by the keyboard's
+height. The top goes under the status bar (normally there's `--safe-top` padding),
+and the page background shows between the shell's bottom edge and the fixed tab bar.
+
+Fix in `app/(app)/layout.tsx`: one effect listens for `focusout`, window `scroll`
+and `visualViewport` `resize`. 60 ms later, if no editable field has focus and
+`window.scrollY/X` isn't 0, it calls `scrollTo(0, 0)`. Moving from one set box to
+the next keeps focus on a field, so it doesn't fire mid-typing. The read-only
+"tap to fill" boxes count as not editing. It does nothing while pinch-zoomed
+(`visualViewport.scale > 1`), because zoom is deliberately allowed for sketches.
+This covers every section, not just training.
+
+Verified: `tsc --noEmit` clean. Not testable in headless Chromium (no iOS keyboard);
+needs a check on the phone: type a number on a workout, dismiss the keyboard, scroll.
+
+## 2026-10-11 — Site: "Ask AI" panel replaces the Ask Cael tab
+
+Nobody arriving at bertomill.com knows what "Ask Cael" is, so the tab is gone.
+In its place, an **Ask AI** button at the right of every header opens a panel
+on the right, modelled on the Vercel docs' sidebar: on a laptop the page slides
+over 420px to make room (a push, not an overlay); on a phone it covers the page.
+⌘I / Ctrl+I toggles it, Escape closes it, and it lives in the site layout so a
+conversation survives navigating around the site.
+
+- `app/site/_components/ask-ai.tsx` — `AskAiProvider` (owns the page wrapper so
+  it can push it; hash sync; keyboard shortcut) and `AskAiButton` (the pill each
+  header restyles). `ask-ai-context.tsx` holds the context so panel and provider
+  don't import each other. `ask-ai-panel.tsx` is the fixed column (header with
+  New chat / close, slide transition, `inert` while closed, body-scroll lock on
+  phones); `ask-ai-chat.tsx` is the thread — the old `public-chat.tsx` logic
+  (same `/api/site/chat` text stream) re-skinned with AI Elements'
+  `Conversation` + `Shimmer`, Vercel-style icon suggestions, the shortcut tip and
+  a tall input box. It loads with `next/dynamic` on first open, so no page pays
+  for streamdown until someone asks something. `Prose` takes a `className` so
+  the chat can tighten the article typography.
+- Deep link: `/#ask-cael` (`ASK_AI_HASH` in `lib/public-site.ts`) opens the panel
+  on arrival and from any plain `<a href="#ask-cael">`; the hash is kept on the
+  URL while open (re-applied after client navigation) and removed on close.
+  `/chat` now redirects there (sitemap entry dropped); the homepage "Building"
+  card and the "Ask AI about me" CTA open the panel instead of leaving the page.
+- Homepage header: its wide/compact switch is now a **container query** on the
+  header (`@container` + `@min-[1180px]:`), not a viewport one — with the panel
+  open the header is 420px narrower than the window, and the full link row needs
+  ~1180px. Below that it collapses to the boxed ASK AI + MENU pair, which also
+  fixes the pre-existing wrap on tablet widths. Inner pages: the compact box
+  tightens on phones (`gap-4`, label truncates) so a sparkle-only Ask AI box fits
+  beside it; from `sm` up it reads "✦ ASK AI".
+
+Verified on a worktree dev server (site.localhost:3017): open/close via button,
+⌘I and », suggestion → streamed answer, thread kept across close/reopen and
+across a client-side navigation, `/writing#ask-cael` opens on load, `/chat`
+redirects to `/#ask-cael`, phone layout (375px) on home and inner pages, dark mode.
+
+## 2026-10-11 — Site title is "Robert Mill"; typing dots in the Ask AI panel
+
+- The site now goes by his full name: header brand (wide, compact box, menu
+  sheet), `<title>` default + template, Open Graph `siteName`, the footer © line
+  and the headshot alts all say **Robert Mill**. "Berto" stays in the prose and
+  as the JSON-LD `alternateName`, so searches for either still land here.
+- Ask AI panel: the shimmering "Thinking…" is replaced by the classic typing
+  indicator — three dots bouncing in sequence inside a grey Cael bubble
+  (`TypingDots` in `ask-ai-chat.tsx`; no registry ships one, so it is three
+  spans on `animate-bounce`). The empty assistant turn is now opened the moment
+  a question is sent rather than when the response headers arrive, so the dots
+  cover the server's context build too — before, nothing showed for 1–3 s.
+
+Verified on a worktree dev server (site.localhost:3018): tab title and header
+read "Robert Mill"; sending a question shows the dots immediately, then streams.
+
+## 2026-10-11 — Toggles on any line: "> " folds a bold or plain line, not just headings
+
+Berto's "5-year review" Home section is written as bold lead lines over bullet
+lists, not headings, so the `> ` shortcut from the Principles work (toggle
+headings) did nothing there — StarterKit turned it into a quote instead. Asked
+what a plain-line toggle should swallow; he chose: the list right under it.
+
+- `app/_components/notion-editor.tsx` (every Notion-style page: Home sections,
+  Principles, meal Notes, open notes): `toggleHeadingAt` → `toggleLineAt`, which
+  takes a heading or a paragraph. A paragraph becomes a plain toggle (no
+  `data-level`; bold and the other marks on its text stay) holding the blocks
+  right under it — lists, quotes, code, images (`LEAD_ATTACHMENTS`) — up to the
+  next line of text, heading, toggle or divider. Headings fold their section
+  exactly as before.
+- `> ` now always makes a toggle, the way Notion reads it; the quote block is
+  still in the `/` menu. Inside a list item `> ` keeps StarterKit's meaning
+  (a toggle can't be a list item's first line).
+- `> ` right after a line break works too: the review had "Those were my major
+  accomplishments.\" and the next bold line in one paragraph (a `\` hard
+  break), so the rule splits the paragraph there and toggles the part after.
+  Tiptap input rules read a break as "\n" and then re-check the matched text
+  against the document with `textBetween`, where a break reads as "", so the
+  break must stay out of the match: a lookbehind, `(?<=^|\n)>\s$`, with
+  positions taken from the caret rather than `range.from`.
+- A line with further breaks: the summary is the text up to the first break;
+  the rest becomes the first line inside the toggle.
+- Markdown shape is unchanged: `<details open>` / `<summary><strong>…</strong>
+  </summary>` / the bullets / `</details>`. Cael's `home_sections` tool already
+  says to keep `<details>` lines intact. `lib/day-plan.ts` treats only
+  `data-level` summaries as headings, which is right — a bold line wasn't a
+  heading before either.
+
+Verified on :3789 from a worktree with every PUT/POST to `/api/home-sections/*`
+intercepted (real doc checked untouched afterwards): `> ` on "**2021 to 2026…**"
+folded its 6 bullets and stopped at "Those were my major accomplishments."; `> `
+before "**Some of the things…**" (after the break) split the paragraph and
+folded its 4 bullets; the saved markdown reloaded with bold summaries; the
+triangle folds; `## ` then `> ` on a plain line still makes a level-2 toggle
+heading that swallows everything to the next heading of its size.
+Gotchas: Turbopack in a worktree under `.claude/worktrees/` infers the parent
+checkout as the workspace root and didn't hot-reload edits — restart the dev
+server after each change. The `/#5-year-review` anchor id starts with a digit,
+so CSS/Playwright selectors need `[id="5-year-review"]`, not `#5-year-review`.
+
+## 2026-10-13 — Workout log: change today's target reps inline
+
+Berto: the weight next to each exercise is already editable in place; the number
+of reps ("× 10") needed the same.
+
+- On every rep row of `/training/workouts/<slug>/<date>` the "× 10" is now an
+  input (`TargetField`, `app/_components/workout-log.tsx`), styled like the
+  weight box beside it: borderless until hover, number pad on the phone, the
+  value selected on tap so typing replaces it, Enter or tapping away finishes.
+  The × is its label, so tapping it lands in the box too. The box hugs its
+  digits (`calc(Nch + 6px)`, tabular numerals) so "× 20 · BW" still fits on one
+  line in the phone's narrow exercise column, same as the old label did.
+- It edits today's `target_reps`, the same field the ladder already keeps per
+  log: the total's goal, the green "hit" state of each set, tap-to-fill and the
+  "Next: × …" panel all follow it at once, and it autosaves with the reps. Next
+  session's ladder carries on from the new number (a clean 12 climbs to 15, a
+  missed 12 stays at 12), exactly as a hand-set "Next session" target does. A
+  box left empty, or a typed 0, keeps the target it had; digits only, three at
+  most. The sled push shows "× 25 m" with the m kept.
+- The amber "All sets hit N last time. Add weight?" line now names the
+  prescription's rung (`p.target`), not whatever is typed today.
+- Timed rows are unchanged: their time targets come from the bank, and the count
+  ("× 100 reps") was already editable there.
+
+Verified: `npm run typecheck` clean. No DATABASE_URL in the cloud container and
+the project's Playwright wants a newer headless shell than is installed, so the
+real `WorkoutLog` was bundled with esbuild (next/link shimmed, fetch stubbed with
+a seeded last session) plus the app's Tailwind compiled via `@tailwindcss/node`,
+and driven in the preinstalled Chromium (`/opt/pw-browsers/chromium`) at 390px
+with touch: hammer row opened at the ladder's 15; tap → 15 in set 1; typed 12 →
+set 1 still green, total "15/48", the fill button and tap-to-fill use 12; the
+autosave PUT carried `target_reps: 12, reps: [15, 12, null, null]`; clearing the
+box or typing 0 left 12 and sent nothing; "1a2345" → 123; hammer press's
+add-weight line stayed "hit 20" after typing 25; all four at 12 → "Next: × 15";
+sled push "× 25 m"; desktop click/type/Tab. 24/24 checks, no page errors.
+Screenshots of the committed and new versions at 390px line up (same wrapping).
+
+## 2026-10-13 — Chat box keeps the text after send; eve 0.52 → 0.79
+
+Berto (from the phone, mid-"Cael is thinking…"): sometimes the message stays in
+the box after sending. And: are we on the latest eve improvements?
+
+**The stuck text.** AI Elements' `PromptInput` clears the box only when
+`onSubmit` returns — or, if it returns a promise, when that promise settles,
+and never if it rejects ("user may want to retry"). The composer awaited
+`agent.send()`, and eve's `send` resolves only once the *whole answer* has
+streamed (it consumes the event stream inside the promise), rejecting when
+the stream drops — which iOS does whenever the app is backgrounded. So the
+text sat in the box for the length of every answer, and for good after a
+dropped stream.
+
+- `components/chat/eve-composer.tsx`: `handleSubmit` is synchronous again. It
+  captures the message, stops dictation and kicks off a detached `deliver()`
+  (downscale → Blob upload → `agent.send`, errors swallowed because eve already
+  reports them: failed bubble, `agent.error` banner, stale-session resend). The
+  box clears the moment the message goes out, like the Claude app. Enter while
+  Cael is still answering throws, which PromptInput swallows without clearing —
+  same as before, when eve's own "already processing a turn" rejection kept it.
+
+**eve 0.52.1 → 0.79.0** (27 minors; `ai` 7.0.4 → 7.0.139, the peer eve wants;
+the `overrides.ai` pin in package.json moved with it). `tsc --noEmit` was clean
+on the new version with no code changes, and `next build` (which runs eve's
+build through `withEve`) passes under Node 24. Eve ≥0.79 refuses Node 22, so
+the local build ran on `npx node@24`; Vercel already builds on 24 (`engines`).
+What changed underneath that matters here:
+
+- 0.70.3: eve itself now retries stream opens on Safari/iOS "Load failed" — the
+  thing `reattach()` in `hooks/use-thread-agent.ts` was built around. The hook
+  stays as belt-and-braces.
+- 0.70: `useEveAgent()` returns `ConversationState` (extends `EveMessageData`,
+  so `agent.data.messages` and every `EveMessage*` type still hold) plus
+  `turns`, `inputs`, `tasks`, `agents`; `toolCallState()` and `followSubagents`
+  are available. Not wired in yet.
+- 0.69: subagent calls are tasks. `subagent.called/completed` are gone; the
+  stream says `task.started` / `task.settled` / `agent.started` / `turn.waiting`
+  / `input.resolved`. `lib/trace-utils.ts` summarises those (old names kept
+  for saved traces). A delegation to `training_coach` / `planner` now parks the
+  turn (`turn.waiting`, status stays `streaming`) and the text Cael writes
+  before delegating completes as `"stop"`, so the push notification in
+  `agent/channels/eve.ts` may fire once for that narration and again for the
+  final reply.
+- 0.76: `load_skill` → `eve__skill`; `connection_search`/`connection_execute`
+  → `eve__search`/`eve__tool`; connection tools are named `github__<tool>`.
+  `agent/instructions.md` wording and the thread's `QUIET_TOOLS` (eve-thread.tsx) updated.
+- 0.76.2: sessions built by an older eve are *stranded* (409
+  `session_stranded`, `ClientSessionStrandedError`), never reset implicitly.
+  `isStaleSession()` in `use-thread-agent.ts` now treats that like
+  `session_not_active` — transcript carried to a fresh session, message resent
+  — and fires `session.reset()` on the stranded one. Expect this once per old
+  thread after deploy (on Vercel, handoff across this boundary is refused).
+- 0.72/0.78: approvals run as the requester; `once()` on the calendar and
+  GitHub writes unchanged. 0.77: `eveChannel` accepts `fetchFile`/`uploadPolicy`
+  (a web client can send a Blob URL instead of inline base64 — would let the
+  composer stop downscaling photos; not done). 0.66: tool schemas reach the
+  model as JSON Schema — the MCP bridge (`app/api/mcp/route.ts`) still reads
+  `description`/`inputSchema`/`execute`/`toModelOutput` off `defineTool()`,
+  which still returns the stamped definition.
+- Not adopted, worth a look: `prewarm` (create the session while he types, so
+  the first message of a new thread doesn't pay session startup).
+
+Verified: `npm run typecheck` clean; `npm run build` passes on Node 24. No
+DATABASE_URL here, so the real `EveComposer` was bundled with esbuild (model
+picker stubbed, `/api/upload` routed to a fake) with the app's Tailwind and
+driven in the preinstalled Chromium at 390px (touch) and 1280px: text + Enter
+→ box empty before the fake `send` settles, stop button up; Enter mid-answer →
+text kept, nothing sent; after the answer the same text sends and clears; a
+rejected send ("Load failed") leaves the box empty; a photo + text clears the
+box before the downscale/upload finishes and sends text + file + blob note,
+attachment chips gone; empty Enter sends nothing. 25/25, no page errors.
+Needs a real check on the phone against production after deploy.
+
+## 2026-10-15 — Threshold Intervals: 30 Rockies between each 1 km rep
+
+Berto asked for heavy abs between the runs: run, 30 Rockies (his own name for
+the exercise), run, and so on.
+
+- `lib/workout-templates.ts`: new `ROCKIES` exercise (key `rockies`, 5 sets ×
+  30, bodyweight, not charted) in the threshold main set after the 1 km rep —
+  one set after each rep except the last, which goes straight to cool-down.
+  The rep's note now reads "Hold 3:45 on every rep · 30 Rockies between"
+  (`KM_REP_NOTE`; the old one is kept as `OLD_KM_REP_NOTE`).
+- `lib/workout-bank.ts`: one-time patch in `ensureBank()` adds the Rockies to
+  the stored `threshold-intervals` definition, only while the rep's note is
+  still the original — so removing or editing them from /training/workouts sticks.
+- The lap timer only times `measure: "time"` exercises, so it's unchanged: after
+  each rep it still waits for a tap, which is now after the Rockies.
+- No stock ⓘ cues for Rockies (don't know his exact movement); he can write
+  them from the log. Sets/target editable inline as usual.
+
+Verified: `npm run typecheck` clean. No DATABASE_URL here, so the bank patch
+runs on the first read in production.
+
+## 2026-10-15 — Threshold Intervals: 3 min rest countdown between reps
+
+Same day, Berto: a 3 minute rest timer between each rep (the Rockies happen in it).
+
+- `lib/workout-templates.ts`: `restBetweenSets?: number` (seconds) on
+  `TemplateExercise`; `km_rep` gets `KM_REP_REST_SEC` = 180. Note now
+  "Hold 3:45 on every rep · 30 Rockies + 3 min rest between" (`KM_REP_NOTE`;
+  the Rockies-only note kept as `ROCKIES_KM_REP_NOTE`).
+- `lib/workout-bank.ts`: the threshold one-time patch now handles either earlier
+  note — adds the Rockies if they were never added, then sets the new note and the
+  rest. Skipped once the note's been changed, so editor edits stick.
+- `app/_components/workout-timer.tsx`: `Segment.restSec`, `TimerState.restStart`.
+  After "Done" on a rep, the waiting screen counts 3:00 down; at zero it shows
+  "Go" (pulsing) with "Rest's up — go", beeps three times (Web Audio, unlocked
+  by the Start/Done tap so it works on iOS) and vibrates where supported. The
+  next rep still starts on a tap, so a slow set of Rockies doesn't start the
+  clock early. The countdown runs off timestamps like the rest of the timer, so
+  it survives the phone sleeping; the beep only fires within 5 s of zero.
+
+Verified: typecheck clean; `WorkoutTimer` bundled with esbuild on the seed
+threshold workout and driven in Chromium with a fake clock — rep 1 split 3:45
+recorded, rest shows 2:59 → 0:59 → "Go", tap starts rep 2. No page errors.
+Beep/vibrate need checking on the phone.
+
+## 2026-10-15 — Threshold Intervals: cool-down is a walk + static stretch
+
+Berto: the 10 min easy cool-down becomes a 5 min walk and a 6 min static stretch.
+`THRESHOLD_COOLDOWN` = "5 min walk + 6 min static stretch" in
+`lib/workout-templates.ts` (shows as two tick-off items via `checklistParts`).
+`lib/workout-bank.ts` patches the stored threshold definition once, only while
+its cool-down is still "10 min easy" (`OLD_THRESHOLD_COOLDOWN`), so editor
+changes stick. Typecheck clean.
+
+## 2026-10-15 — Training: drop the week-vs-last-two chart
+
+Berto found "This week vs the last two" confusing. Removed `WeekTrend` and the
+extra 14-day sessions fetch that only fed it (`app/_components/training-plan-panel.tsx`).
+`weekStats` stays — the "3/7 done" line uses it.
+
+## 2026-10-15 — Threshold Intervals: Rockies, then a 2 min rest; the treadmill times the rep
+
+Berto: run, 30 Rockies, then 2 min rest. He times the 1 km reps on the treadmill
+and types them in, so the phone only needs to count the rest.
+
+- `TemplateExercise.selfTimed`: the lap timer (`timedSegments`) skips it; the log
+  shows `RestTimer` instead — "Start 2:00 rest", counts down, beeps/buzzes at zero
+  (same Web Audio + vibrate as the lap timer), stored start time so a sleeping
+  phone doesn't lose it. Skip / Restart / Dismiss.
+- `km_rep`: `selfTimed`, `restBetweenSets` 120 (`KM_REP_REST_SEC`), note
+  "Hold 3:45 on every rep · 30 Rockies, then 2 min rest". The `ensureBank` patch
+  now accepts any of the three earlier notes; the 3 min version never reached
+  production (see below), so the stored definition goes straight to this one.
+- Workout log: a block mixing timed and rep exercises used to fall back to the
+  reps table (the rep showed "× 225 · 0/1350"). Now timed exercises get their
+  time boxes and the rest go in a rep table under them, same section.
+
+## 2026-10-15 — Production builds were failing since the eve 0.79 bump
+
+Every production deploy since 2026-10-13 errored: eve 0.79 reserves the skill
+name "eve", and the vendored official skill lived at `agent/skills/eve/`.
+Renamed to `agent/skills/eve_framework/`. (Locally `eve build` then stops on a
+microsandbox migration error specific to this Mac; not a code issue.)
+
+## 2026-10-15 — Threshold Intervals: dynamic stretching instead of strides
+
+Berto did 5 min dynamic stretching rather than the 4 × 20 s strides. Warm-up is now
+"10 min easy + 5 min dynamic stretching" (`THRESHOLD_WARMUP`); `ensureBank` swaps it
+in while the stored warm-up is still the strides one. Ticks are per position, so
+today's two stay ticked. Checked in the preview.
+
+## 2026-10-15 — Workout log: no "← Training" link
+
+Berto: unnecessary (the sidebar/tab bar already has Training). Removed from the
+top of `app/_components/workout-log.tsx`; the session editor keeps its own.
+
+## 2026-10-16 — Faster launch on the phone: titles-only threads, split panels, cached scripts
+
+Berto: Cael takes 5–10 s to open on his phone every time. Measured on a real
+signed-in launch: `/api/threads` sent every chat's full transcript (~4 MB over
+the wire, 10.7 MB unpacked), 31 API requests fired before anything settled, and
+the shell shipped ~1.8 MB of JS. The Capacitor iOS shell loads the same site, so
+it was just as slow; Berto uses the home-screen web app.
+
+- `GET /api/threads` returns id/title/timestamps only. `?include=events` keeps
+  the full rows for the traces view. `PATCH /api/threads/[id]` no longer echoes
+  the transcript back on every 2.5 s checkpoint.
+- `threads-provider`: records carry `loaded`; `ensureLoaded(id)` fetches one
+  thread's transcript, `useThreadLoaded(id)` gates `AgentChat` and `PostChat`
+  until it's there (skeleton, or "Couldn't load this chat / Try again"). A failed
+  load never opens the chat empty: its first checkpoint would overwrite the saved
+  transcript.
+- `app/(app)/layout.tsx`: chat, chat sidebar, Dashboard, and the
+  newsletter/meals/training/career/writing/pin panels are `next/dynamic` chunks.
+  On Home the hidden Dashboard and chat are no longer mounted (they were what
+  fired most of the 31 startup requests); chat mounts on first visit and then
+  stays mounted so streaming survives tab switches.
+- `/api/github?dates=1`: Home's Craft chart only needs `merged_at` (was ~386 KB).
+- `public/sw.js` now caches `/_next/static/*` cache-first (content-hashed, capped
+  at 400 entries) and Clerk's loader stale-while-revalidate. Pages and `/api`
+  always hit the network. Skipped on localhost. Registered at startup from the
+  layout, not only from the chat's push bell.
+- Follow-up: Home still parsed Tiptap (~520 KB, via `MarkdownDoc` → `NotionEditor`)
+  and recharts (~330 KB, via `ScoreChart`) before first paint. Both are
+  `next/dynamic` now (`markdown-doc.tsx`, `scorecard-card.tsx`); the doc shows its
+  skeleton until the editor chunk lands.
+- Measured live after the first deploy (desktop, warm SW): load event 1767 → 376 ms,
+  data requests start at 354 ms instead of 1820 ms and finish by ~1.4 s, `/api/threads`
+  3984 KB → 11 KB, 31 → 21 startup requests, 0 KB of JS from the network.
+
+## 2026-10-16 — Training: no goal line, no back link, swipe between sessions
+
+Berto: the goal sentence isn't needed in the everyday view; Edit session doesn't
+need the "← Training" link and should swipe between days on the phone.
+
+- `training-plan-panel.tsx`: removed `GoalLine` from the header (the goal itself
+  stays in the DB and still feeds Cael's weekly drafting via `/api/training/goal`).
+- `session-editor.tsx`: dropped the back link. Swiping left/right (≥60 px,
+  mostly horizontal, not starting in a field) `router.replace`s to the next /
+  previous session, from sessions ±14 days in plan order. A 29-day range on
+  purpose: exactly 7 days would trigger the week auto-fill from the bank.
+
+## 2026-10-16 — Speed evals: `npm run eval:speed`
+
+`scripts/speed-eval.mjs`, 22 code checks, no login needed, exit 1 on failure:
+- Follows static imports from `app/(app)/layout.tsx` and `home-screen.tsx`
+  (`next/dynamic` doesn't count) and fails if Home reaches Tiptap, recharts,
+  Excalidraw, FullCalendar, eve/react, or the chat/dashboard/editor/panel modules.
+  Prints the import chain to fix.
+- Home's distinct `/api` fetch paths ≤ 24 (23 today).
+- `/api/threads` keeps a titles-only query; full rows only behind `?include=events`;
+  chat waits on `useThreadLoaded`.
+- `sw.js` caches `/_next/static/` cache-first, never `/api`, and is registered at startup.
+
+First run caught a leak: the command palette (on every screen) imported
+`noteTitleAndPreview` from `notes-view`, which dragged the Tiptap editor onto
+Home's first load. Moved the helper to `lib/note-title.ts` (re-exported from
+notes-view).
+
+## 2026-10-17 — Homepage: three eve agents living in the room
+
+Berto wanted video-game characters wandering bertomill.com's hero that you can
+click and talk to, each a real eve agent. Cast (his picks): **Robot = Work**
+(on the desk), **Pigeon = Social** (writing, podcast, on the windowsill),
+**Yeti = Fitness** (HYROX, on the desk, in front).
+
+- `app/site/_components/hero-agents/`: `cast.ts` (who, where, which clips),
+  `stage.ts` (three.js on a transparent canvas, orthographic camera in CSS pixels,
+  so characters stand on DOM-measured lanes: the desk top via `[data-hero-desk]`,
+  the sill via `windowRect`/`sillAnchor`), `hero-agents.tsx` (lazy-loads the
+  stage after idle, runs only while the hero is on screen, one real `<button>`
+  per character that follows it), `agent-card.tsx` (`useEveAgent` chat bubble above
+  the character's head; it nods on a reply and shakes its head on an error).
+- Layering: characters at z-9, under DeskScene (z-10), so the money tree and jar
+  stay in front; the chat card is on its own z-30 layer.
+- Models (CC0) in `public/site-art/agent-*.glb`: RobotExpressive (Tomás Laulhé,
+  three.js examples) and Quaternius Ultimate Monsters (Pigeon, Yeti). `.glb` added
+  to the public-host asset allowlist in `lib/public-site.ts`. Berto rejected
+  human low-poly characters as "too human"; he wants cartoonish.
+- The agents live in a **separate** repo and Vercel project,
+  `bertovmill/bertomill-agents` (eve workspace, https://bertomill-agents.vercel.app/eve/{work,social,fitness}),
+  so nothing public shares a deploy with Cael. Each agent has one tool that reads an
+  allowlist of public bertomill.com pages. Anonymous auth, CORS limited to bertomill.com
+  and localhost/site.localhost, rate limits and per-session caps. See its INTEGRATION.md.
+- Verified on site.localhost:3017 (desktop and phone): the characters walk, fidget
+  and face you when clicked, and the Yeti answered "best time" with 55:20 (Ottawa 2026)
+  from the live /fitness page.
+
+Next: bertomill-agents has no git auto-deploy (`vercel git connect` would add it);
+its rate limits are per instance (in memory).
+
+## 2026-10-17 (later) — Homepage: one plush buddy instead of three characters
+
+Berto found the yeti scary and three agents confusing. Now there's **one** soft
+plush buddy on the desk, built entirely in code (`hero-agents/buddy.ts`): a sage
+felt gumdrop (MeshPhysicalMaterial sheen plus a fine noise normal map) with a two-leaf
+sprout (a nod to the money tree), dot eyes with glints, blush and stubby arms.
+Muse Spark's mascot was the inspiration, not the template. Motion is all
+procedural: breathing, blinking, waddle-walk, wave, hop, nod (reply landed),
+shrug (error), a curious sway while it thinks, and eyes that follow the pointer.
+
+- The backend is one eve agent, `guide` (bertomill-agents, `/eve/guide`), with the
+  union of the old page allowlists. work/social/fitness are deleted.
+- **Ask AI on the homepage opens the buddy**: `AskAiProvider` gained
+  `request()`/`setOpener()`. The buddy registers itself, so the nav button, ⌘I
+  and `#ask-cael` open its speech bubble (scrolling back up first if needed).
+  Inner pages still open the Ask Cael panel. Without WebGL, nothing registers
+  and Ask AI falls back to the panel.
+- The GLB models and the `.glb` public-asset allowance are removed.
+- Verified on site.localhost:3017: Ask AI opened the bubble (the panel stayed shut),
+  and "How's his HYROX going?" answered from the live /fitness page.
+
+## 2026-10-17 (later) — Buddy chat bubble is resizable
+
+Berto wanted the buddy's chat bubble resizable. There are grips in both top corners
+(only the right one on phones, height only). It's anchored at the bottom above the
+buddy's head, so dragging up makes it taller and dragging sideways widens it on both
+sides, keeping it centred over the buddy. Clamped to 300–760 px wide and 240 px up to
+just under the nav. Arrow keys resize too (Shift for bigger steps); double-click
+resets. The size is remembered in localStorage (`buddy-chat-size`).
+File: `app/site/_components/hero-agents/agent-card.tsx`.
+
+## 2026-10-17 (later) — Buddy chat resize: no more lag
+
+Berto said resizing felt laggy. There were three causes:
+1. The card's `duration-200` (meant for the entrance animation) also gave it a
+   `transition: all 0.2s`, so every size change eased in over 200 ms. Fixed with `transition-none`.
+2. Each pointermove set React state, re-rendering the whole chat and re-parsing every
+   message's markdown. The drag now writes the CSS variables straight onto the card, at
+   most once a frame, and commits the size to state once on release.
+3. The `backdrop-blur` was re-blurred every frame. It's dropped while resizing (`data-resizing`).
+The thread is also memoized (`useMemo` on messages), so typing in the box doesn't re-render it.
+Verified: height tracks the pointer 1:1 during the drag.
+
+## 2026-10-17 — Writing page: Medium posts with covers
+
+/writing now lists Berto's Medium posts alongside his own articles and Substack.
+`lib/medium.ts` reads https://medium.com/feed/@bertomill (hourly cache, browser-ish
+user agent, an empty list if it's down). It takes each post's first image as the cover
+(at 480 px) and the first real paragraph as the summary, and strips `?source=rss` from
+links. Rows are tagged "· Medium" and show the cover thumbnail. A post cross-posted
+under the same title appears once. `next.config.ts` allows cdn-images-1.medium.com and
+miro.medium.com for next/image.
+Limit: Medium's feed only carries the latest 10 posts, so older ones drop off as new
+ones arrive. Medium tags are skipped (they're noisy slugs).
+Verified on site.localhost:3017: 10 Medium rows, all 10 covers load.
+
+## 2026-10-17 — Writing page: bigger covers
+
+Berto liked the Apple-style list but found the 112 px thumbnails hard to see. Covers
+are now 192 × 120 (16:10) beside each post from `sm` up, and full width above the
+title on phones (they used to be hidden there), with a slight zoom on hover.
+
+## 2026-10-17 — Writing page: inline subscribe like the homepage
+
+The "Subscribe →" link in the /writing header is now the homepage hero's sign-up: the
+"Get what I'm learning building AI, by email" label plus the inline `SubscribeForm`
+(email box and Subscribe button), with `source="writing"`, so Kit's referrer shows
+where people signed up.
+
+## 2026-10-17 — Podcast page: inline subscribe
+
+/podcast now has the same sign-up as the homepage and /writing under its intro: the
+"Get what I'm learning building AI, by email" label plus `SubscribeForm` with
+`source="podcast"`.
+
+## 2026-10-17 — Fitness page: inline subscribe
+
+/fitness now has the same sign-up as the homepage, /writing and /podcast, under the
+"Fitness" title in the hero's left column: the "Get what I'm learning building AI, by
+email" label plus `SubscribeForm` with `source="fitness"`.
+
+## 2026-10-17 — Footer: newsletter card loses the art
+
+The footer's newsletter card no longer has the glass-wing portrait behind it. It's now a
+plain bordered card (`bg-card`) with the heading, blurb and the same `SubscribeForm`.
+Dropped the `next/image` import from `site-footer.tsx`; `public/site-art/writing.webp` is
+now unused (left in place).
+
+## 2026-10-17 — Homepage: roller shade in the window
+
+The window on the homepage wall now has a linen roller shade, drawn partway down (30% of
+the glass) from a slim roller tube, with a dark hem bar and a small pull tab beneath.
+Drag the bar or the tab up and down; it stays where you leave it (not persisted across
+reloads). `app/site/_components/concrete-wall/window-blind.tsx`, mounted in `DeskScene`
+under the plant and jar so they still stand in front of it.
+Decisions: it's a DOM layer over the glass, not part of the shader, so it looks the same
+on the WebGPU wall and the CSS fallback and needs no shader change; it reuses
+`windowRect` and the wall's black mullions (drawn over the shade); the linen dims after
+dark with the desk's `--desk-light` / `--desk-tone`.
+Verified at 1440x900 (CSS-fallback path): default, dragged down, dragged up, fully closed.
+Next: maybe persist the position, or make it follow the sky.
+
+## 2026-10-17 — Homepage: shade is now translucent, drawn by the shader
+
+Berto: make the roller shade semi-transparent and in front of the window, no black
+border, GPU quality. The shade is now drawn in `wall.wgsl` (new `blind` uniform: hem
+position + "shader draws it" flag): a light-filtering linen sheet in front of the glass
+and the mullion. The view behind is diffused (14-tap golden-angle blur of the city
+photo) and dimmed, the fabric scatters daylight (dark at night), fine linen weave, a
+curve of shadow under the roller, a faint stitched seam at the hem and a soft shadow on
+the view below it. No black hem bar, tube or border.
+`blind-store.ts` is a tiny external store holding the hem position and whether the
+shader is live; the renderer reads it each frame. `window-blind.tsx` is now just the
+drag strip along the hem + the pull tab, plus a CSS version (translucent, backdrop-blur
+panel) for browsers without WebGPU. Rolled fully up (hem at 0) the shade disappears.
+Verified at 1440x900 with WebGPU (headless Chromium, swiftshader/metal) and without:
+default, dragged down/up/closed.
+Next: persist hem position across reloads; maybe let the sky drive it.

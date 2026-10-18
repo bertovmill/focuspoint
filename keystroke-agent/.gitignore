@@ -1,0 +1,8 @@
+# Local, per-machine — never commit
+.venv/
+keystrokes.log
+__pycache__/
+
+# Built by menubar/install.sh — a compiled artifact, not source.
+menubar/KeystrokeMenuBar.app/
+menubar/menubar.log

@@ -1,6 +1,8 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { getDb } from "../../lib/db.js";
+import { getDb } from "../../lib/db";
+import { TASK_CATEGORIES } from "../../lib/task-categories";
+import { jsonSafe } from "../../lib/json-safe";
 
 export default defineTool({
   description: "Add a new todo task for the user.",
@@ -12,15 +14,26 @@ export default defineTool({
       .enum(["none", "daily", "weekly", "monthly"])
       .default("none")
       .describe("How often this task repeats. 'none' means one-time."),
+    estimated_minutes: z
+      .number()
+      .int()
+      .positive()
+      .describe("Required. Estimated time to complete this task, in minutes."),
+    category: z
+      .enum(TASK_CATEGORIES)
+      .optional()
+      .describe(
+        "Optional kind of work: 'events' (an event he's running or attending), 'calls' (a call/meeting with someone), 'ai_agents' (building or wiring up AI agents), or 'content' (writing, recording, editing or publishing content). Leave it off for anything else — most tasks are none of these.",
+      ),
   }),
-  async execute({ title, priority, due_date, recurrence }) {
+  async execute({ title, priority, due_date, recurrence, estimated_minutes, category }) {
     const sql = getDb();
     const [row] = await sql`
-      INSERT INTO todos (title, priority, due_date, recurrence)
-      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence})
-      RETURNING id, title, priority, due_date, recurrence, created_at
+      INSERT INTO todos (title, priority, due_date, recurrence, estimated_minutes, category)
+      VALUES (${title}, ${priority}, ${due_date ?? null}, ${recurrence}, ${estimated_minutes}, ${category ?? null})
+      RETURNING id, title, priority, due_date, recurrence, estimated_minutes, category, created_at
     `;
-    return row;
+    return jsonSafe(row);
   },
   toModelOutput(output) {
     const rec = output.recurrence && output.recurrence !== "none" ? ` (repeats ${output.recurrence})` : "";

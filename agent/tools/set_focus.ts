@@ -1,7 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 
-import { sessionMemory } from "../lib/session-state.js";
+import { sessionMemory } from "../lib/session-state";
 
 export default defineTool({
   description:

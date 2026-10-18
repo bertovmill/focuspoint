@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 
 export function getDb() {
@@ -6,7 +7,47 @@ export function getDb() {
   return neon(url);
 }
 
-export async function ensureSchema() {
+/**
+ * Make sure every table exists, cheaply.
+ *
+ * `applySchema` below is ~110 sequential statements, so running it on every cold
+ * start (and on every request in the routes that call this) was slow, and one
+ * dropped connection mid-way crashed the instance. Instead it runs once per
+ * schema version: the version is a hash of `applySchema`'s own code, stored in
+ * `schema_meta`, so editing the schema and deploying re-applies it and nothing
+ * else does. Within one process the check itself happens only once.
+ */
+let ensured: Promise<void> | null = null;
+
+export function ensureSchema(): Promise<void> {
+  ensured ??= ensureSchemaOnce().catch((err) => {
+    ensured = null; // let the next caller try again
+    throw err;
+  });
+  return ensured;
+}
+
+const SCHEMA_VERSION = createHash("sha256").update(applySchema.toString()).digest("hex").slice(0, 16);
+
+async function ensureSchemaOnce() {
+  const sql = getDb();
+  await sql`
+    CREATE TABLE IF NOT EXISTS schema_meta (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      version TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  const [row] = await sql`SELECT version FROM schema_meta WHERE id = 1`;
+  if (row?.version === SCHEMA_VERSION) return;
+  await applySchema();
+  await sql`
+    INSERT INTO schema_meta (id, version) VALUES (1, ${SCHEMA_VERSION})
+    ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, applied_at = NOW()
+  `;
+}
+
+async function applySchema() {
   const sql = getDb();
   await sql`CREATE EXTENSION IF NOT EXISTS vector`;
   await sql`
@@ -29,6 +70,10 @@ export async function ensureSchema() {
   `;
   // Semantic-search embedding column (pgvector). 1536 = text-embedding-3-small.
   await sql`ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS embedding vector(1536)`;
+  // A note can carry a photo (Blob URL) alongside or instead of text — chat
+  // uploads and the Media tab both land here so a saved image is a real,
+  // searchable note rather than session-only state.
+  await sql`ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS image_url TEXT`;
   await sql`
     CREATE TABLE IF NOT EXISTS todos (
       id SERIAL PRIMARY KEY,
@@ -41,6 +86,64 @@ export async function ensureSchema() {
     )
   `;
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS recurrence TEXT DEFAULT 'none'`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS in_progress BOOLEAN DEFAULT FALSE`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS waiting BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS timer_started_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS time_spent_seconds INTEGER NOT NULL DEFAULT 0`;
+  // Manual "do this next" queue position. NULL = unnumbered; numbers need not be
+  // contiguous or unique — they're whatever order the owner typed.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS task_number INTEGER`;
+  // Estimated time to complete, in minutes. NULL = no estimate; drives the timer countdown.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS estimated_minutes INTEGER`;
+  // Optional kind of work — see lib/task-categories.ts. The four pipeline categories
+  // ('content' | 'code' | 'community' | 'sales') also decide which lane a top-level
+  // task shows up in. NULL = uncategorized, which is most tasks.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS category TEXT`;
+  // Google Calendar event written when the task was completed, so the block can be
+  // removed again on uncomplete (see lib/task-calendar.ts). NULL = nothing logged.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS calendar_event_id TEXT`;
+  // Where the task's card sits on the Tasks canvas, in Excalidraw *scene* coordinates
+  // (not pixels — they survive pan/zoom). NULL on both = never placed, so the canvas
+  // auto-drops it into the inbox column and persists the position it landed on.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_x DOUBLE PRECISION`;
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS canvas_y DOUBLE PRECISION`;
+  // Parent task, used by the Content lane on the Tasks canvas: a category='content'
+  // row with parent_id NULL is a content *piece* (a video, a post), and the tasks
+  // needed to ship it hang off it as children. NULL = a normal standalone task.
+  // Cascade so deleting the piece takes its checklist with it.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES todos(id) ON DELETE CASCADE`;
+  // Cosmetic card colour picked from the canvas right-click menu (see lib/task-colors.ts).
+  // NULL = a plain card. Deliberately not tied to in_progress/waiting.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS color TEXT`;
+  // Set when a task was taken out of the pinned window ("remove from pinned"). It
+  // stays an ordinary task on the board — it just stops being featured up there
+  // until it's put back, or until it's started again. NULL = eligible for the
+  // pinned window, which is nearly every task.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS pinned_hidden_at TIMESTAMPTZ`;
+  // Progress notes on a task, newest last. Written by Berto from the board and by
+  // Claude over MCP (see app/api/mcp/route.ts) when an agent finishes an intermediary
+  // step and needs him to pick it up — `author` says which. The whole thread is kept;
+  // the cards only ever show the latest line.
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_updates (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      author TEXT NOT NULL DEFAULT 'me',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS task_updates_task_idx ON task_updates (task_id, created_at DESC, id DESC)`;
+  // Small key/value store for app-wide settings that aren't worth a table of their
+  // own — currently just `working_limit`, how many things Berto lets himself work
+  // on at once (see lib/working-now.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS dreams (
       id SERIAL PRIMARY KEY,
@@ -64,14 +167,43 @@ export async function ensureSchema() {
     )
   `;
   await sql`
-    CREATE TABLE IF NOT EXISTS content_ideas (
+    CREATE TABLE IF NOT EXISTS lists (
       id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS list_items (
+      id SERIAL PRIMARY KEY,
+      list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       completed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       completed_at TIMESTAMPTZ
     )
   `;
+
+  // One-time migration: fold the legacy content_ideas table into a seeded "Content Ideas" list.
+  const [{ exists: hasContentIdeas }] = await sql`
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_ideas') AS exists
+  `;
+  if (hasContentIdeas) {
+    const [{ count: existingListCount }] = await sql`SELECT COUNT(*) FROM lists WHERE name = 'Content Ideas'`;
+    if (Number(existingListCount) === 0) {
+      const [{ id: listId }] = await sql`INSERT INTO lists (name) VALUES ('Content Ideas') RETURNING id`;
+      await sql`
+        INSERT INTO list_items (list_id, title, completed, created_at, completed_at)
+        SELECT ${listId}, title, completed, created_at, completed_at FROM content_ideas
+      `;
+    }
+    await sql`DROP TABLE content_ideas`;
+  }
+  const [{ count: groceriesListCount }] = await sql`SELECT COUNT(*) FROM lists WHERE name = 'Groceries'`;
+  if (Number(groceriesListCount) === 0) {
+    await sql`INSERT INTO lists (name) VALUES ('Groceries')`;
+  }
+
   await sql`
     CREATE TABLE IF NOT EXISTS journal_templates (
       id SERIAL PRIMARY KEY,
@@ -89,6 +221,301 @@ export async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS measures (
+      id SERIAL PRIMARY KEY,
+      category TEXT NOT NULL,
+      recorded_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      data JSONB NOT NULL DEFAULT '{}',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS career_targets (
+      id SERIAL PRIMARY KEY,
+      company TEXT NOT NULL,
+      role TEXT,
+      url TEXT,
+      contact_name TEXT,
+      contact_title TEXT,
+      contact_url TEXT,
+      status TEXT NOT NULL DEFAULT 'target',
+      next_step TEXT,
+      next_date DATE,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // The career plan (lib/career-plan.ts): dated checkpoints toward the destination,
+  // and one row per daily action ticked per day. lib/career-plan.ts also creates
+  // these lazily, since the read paths skip ensureSchema.
+  await sql`
+    CREATE TABLE IF NOT EXISTS career_checkpoints (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      due_date DATE NOT NULL,
+      done_on DATE,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS career_action_log (
+      day DATE NOT NULL,
+      action_key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      note TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (day, action_key)
+    )
+  `;
+  // Berto's own titled sections at the top of Home (lib/home-sections.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS home_sections (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS vision_items (
+      id SERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT,
+      content TEXT,
+      image_url TEXT,
+      horizon TEXT,
+      achieved BOOLEAN DEFAULT FALSE,
+      achieved_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS sketches (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Untitled',
+      image_data TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // The editable Excalidraw document ({elements, appState, files}). image_data is now just
+  // the PNG thumbnail for the gallery. Sketches drawn before the Excalidraw switch have a
+  // NULL scene and are re-opened by importing their PNG as an image element.
+  await sql`ALTER TABLE sketches ADD COLUMN IF NOT EXISTS scene JSONB`;
+  // The Tasks canvas: one single, never-ending Excalidraw scene (id = 1) holding the
+  // freeform half of the notebook — arrows, scribbles, headings, anything Berto draws
+  // around the task cards. The cards themselves are NOT in here; they're `todos` rows
+  // positioned by canvas_x/canvas_y and rendered as React on top of this scene.
+  await sql`
+    CREATE TABLE IF NOT EXISTS task_canvas (
+      id INTEGER PRIMARY KEY,
+      scene JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // ── Luma mirror ────────────────────────────────────────────────────────────
+  // The MakersLounge calendar, pulled in whole so Cael can use it as context —
+  // what's coming up, how the last one went, who keeps showing up. Every table
+  // keeps the full API object in `raw`: Luma adds fields over time, JSONB costs
+  // nothing, and it means a schema gap never loses data that was already fetched.
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_events (
+      api_id TEXT PRIMARY KEY,
+      name TEXT,
+      description TEXT,
+      description_md TEXT,
+      url TEXT,
+      cover_url TEXT,
+      start_at TIMESTAMPTZ,
+      end_at TIMESTAMPTZ,
+      timezone TEXT,
+      location_type TEXT,
+      address TEXT,
+      visibility TEXT,
+      spots_remaining INTEGER,
+      registration_open BOOLEAN,
+      require_approval BOOLEAN,
+      guest_count INTEGER,
+      approved_count INTEGER,
+      checked_in_count INTEGER,
+      hosts JSONB,
+      tags JSONB,
+      raw JSONB,
+      created_at TIMESTAMPTZ,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_guests (
+      api_id TEXT PRIMARY KEY,
+      event_api_id TEXT NOT NULL,
+      name TEXT,
+      email TEXT,
+      phone_number TEXT,
+      approval_status TEXT,
+      registered_at TIMESTAMPTZ,
+      joined_at TIMESTAMPTZ,
+      invited_at TIMESTAMPTZ,
+      checked_in_at TIMESTAMPTZ,
+      source TEXT,
+      registration_answers JSONB,
+      raw JSONB,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS luma_guests_event_idx ON luma_guests (event_api_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS luma_guests_email_idx ON luma_guests (email)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_people (
+      api_id TEXT PRIMARY KEY,
+      email TEXT,
+      name TEXT,
+      first_seen_at TIMESTAMPTZ,
+      event_approved_count INTEGER,
+      event_checked_in_count INTEGER,
+      revenue_usd_cents INTEGER,
+      membership JSONB,
+      tags JSONB,
+      raw JSONB,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // One row per sync so a stale answer can always be explained — "as of when".
+  await sql`
+    CREATE TABLE IF NOT EXISTS luma_sync_runs (
+      id SERIAL PRIMARY KEY,
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      finished_at TIMESTAMPTZ,
+      events INTEGER DEFAULT 0,
+      guests INTEGER DEFAULT 0,
+      people INTEGER DEFAULT 0,
+      ok BOOLEAN DEFAULT FALSE,
+      error TEXT
+    )
+  `;
+  // Everyone who has ever signed in through Clerk. A ledger of accounts, not an
+  // authorisation table: `is_owner` is a mirror of the email check in lib/owner.ts,
+  // recorded for visibility, and never read to decide access. See lib/users.ts.
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      clerk_user_id TEXT UNIQUE NOT NULL,
+      email TEXT,
+      is_owner BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // Google Calendar OAuth tokens — single-user app, one row (id = 1)
+  await sql`
+    CREATE TABLE IF NOT EXISTS google_auth (
+      id INTEGER PRIMARY KEY,
+      refresh_token TEXT NOT NULL,
+      access_token TEXT,
+      access_token_expires_at TIMESTAMPTZ,
+      email TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // Daily meal recommendation (photo + name/description), one row per day. Feedback
+  // (thumbs up/down) on today's meal informs the next day's suggestion.
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_recommendations (
+      id SERIAL PRIMARY KEY,
+      meal_date DATE NOT NULL DEFAULT CURRENT_DATE UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      cuisine TEXT,
+      image_url TEXT,
+      feedback TEXT,
+      feedback_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // Three recommendations a day, one per sitting, instead of the original single
+  // daily dish. The old UNIQUE(meal_date) has to go for that.
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS slot TEXT NOT NULL DEFAULT 'dinner'`;
+  await sql`ALTER TABLE meal_recommendations DROP CONSTRAINT IF EXISTS meal_recommendations_meal_date_key`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS meal_recommendations_date_slot_key ON meal_recommendations (meal_date, slot)`;
+  // Workout log: one row per exercise per day. `value` is lbs for the lifts
+  // (squat/deadlift/bench/chinups) and minutes for the 10k run.
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_logs (
+      id SERIAL PRIMARY KEY,
+      exercise TEXT NOT NULL,
+      value NUMERIC NOT NULL,
+      logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(exercise, logged_date)
+    )
+  `;
+  // Merged pull requests authored on GitHub, mirrored from the Search API by
+  // lib/github-sync.ts. This is the real Craft metric on the home screen — it
+  // replaced a count of thoughts tagged "craft", which was only ever a proxy.
+  //
+  // Keyed on GitHub's own PR node id so a re-sync upserts instead of duplicating,
+  // and `merged_at` (never `created_at`) is the date a PR counts on: shipping is
+  // the signal, and a PR opened in March and merged in May belongs to May.
+  await sql`
+    CREATE TABLE IF NOT EXISTS github_prs (
+      id BIGINT PRIMARY KEY,
+      account TEXT NOT NULL,
+      repo TEXT NOT NULL,
+      number INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      merged_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS github_prs_merged_at_idx ON github_prs (merged_at)`;
+
+  // Reading log: one row per finished book (append-only, like thoughts). `is_estimate`
+  // flags the 15 pre-tracking books seeded as a rough average so the year's pace/projection
+  // isn't starting from zero.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_logs (
+      id SERIAL PRIMARY KEY,
+      book_title TEXT NOT NULL,
+      pages INTEGER NOT NULL,
+      logged_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      is_estimate BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // Family memories: an optional photo + title + description + the date it happened,
+  // added from chat, the Family widget, or the /family page. Editable after creation.
+  await sql`
+    CREATE TABLE IF NOT EXISTS memories (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      description TEXT,
+      image_url TEXT,
+      memory_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`ALTER TABLE memories ALTER COLUMN image_url DROP NOT NULL`;
+  await sql`ALTER TABLE memories ADD COLUMN IF NOT EXISTS memory_date DATE NOT NULL DEFAULT CURRENT_DATE`;
+  // Service thank-yous: a screenshot/photo of a DM, email, or written card someone sent, plus an
+  // optional note. Logged from chat via the log_thank_you tool. Feeds the Service wealth-form chart.
+  await sql`
+    CREATE TABLE IF NOT EXISTS thank_yous (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      note TEXT,
+      image_url TEXT,
+      thanked_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -99,6 +526,374 @@ export async function ensureSchema() {
       last_run_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // ── Nutrition ────────────────────────────────────────────────────────────
+  // Meals worth repeating: the ones that left Berto with good energy. Logged by
+  // one tap on the Nutrition screen (or by Cael), never scored on macros.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_meals (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      notes TEXT,
+      felt_good BOOLEAN NOT NULL DEFAULT TRUE,
+      eaten_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS nutrition_meals_date_idx ON nutrition_meals (eaten_date DESC)`;
+  // Which sitting the meal was — 'lunch' | 'snack' | 'dinner', matching the three
+  // slots Berto eats. NULL for a meal logged outside the three (or by Cael from chat).
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS slot TEXT`;
+  // The standing shelf of energy-boosting staples — foods that reliably work,
+  // each with the reason. `why` is usually lifted from the thought that named it.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_staples (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      why TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // AI-generated photo of the ingredient (see lib/nutrition-art.ts). NULL until generated.
+  await sql`ALTER TABLE nutrition_staples ADD COLUMN IF NOT EXISTS image_url TEXT`;
+  // Art for the four protocol rules. Only four rows, ever — but the pictures live
+  // here rather than in the repo because generating them needs AI Gateway creds,
+  // which only exist on the deployed app.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_rule_art (
+      rule_key TEXT PRIMARY KEY,
+      image_url TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // One row per day recording which of the protocol rules were kept (rule keys
+  // live in lib/nutrition.ts). A day is "on protocol" only when all of them are.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_days (
+      logged_date DATE PRIMARY KEY DEFAULT CURRENT_DATE,
+      rules TEXT[] NOT NULL DEFAULT '{}',
+      note TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  // ── Meal plan (2026-09-26) ───────────────────────────────────────────────
+  // The week grid on /meals stores its cells in meal_recommendations,
+  // which was already one row per (date, slot). Protein and calories are the
+  // two numbers Berto chose to track; ingredients feed the Groceries button.
+  // recipe_id points back at the library entry a cell was picked from (NULL
+  // when Cael suggested it or it was typed in), so "save to library" and the
+  // picker can tell the two apart.
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS protein_g NUMERIC`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS kcal INTEGER`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS ingredients TEXT[] NOT NULL DEFAULT '{}'`;
+  await sql`ALTER TABLE meal_recommendations ADD COLUMN IF NOT EXISTS recipe_id INTEGER`;
+  // What was actually eaten carries the same two numbers, copied from the plan
+  // cell when a sitting is ticked — the protein ring counts eaten, not planned.
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS protein_g NUMERIC`;
+  await sql`ALTER TABLE nutrition_meals ADD COLUMN IF NOT EXISTS kcal INTEGER`;
+  // The recipe library: reusable meals with their numbers and shopping list.
+  // `slot` is a hint for the picker's ordering, not a restriction.
+  await sql`
+    CREATE TABLE IF NOT EXISTS nutrition_recipes (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      slot TEXT,
+      protein_g NUMERIC,
+      kcal INTEGER,
+      ingredients TEXT[] NOT NULL DEFAULT '{}',
+      image_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  // ── Training plan (2026-09-26) ───────────────────────────────────────────
+  // /training: the week's sessions, the races they build toward, and a cache of
+  // Strava activities that mark sessions done. Separate from workout_logs (the
+  // six lift numbers) and workout_notes (the day's plain-text note) — those are
+  // what happened in the gym; this is what was planned and whether it happened.
+  await sql`
+    CREATE TABLE IF NOT EXISTS training_events (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      event_date DATE NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'hyrox',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS training_sessions (
+      id SERIAL PRIMARY KEY,
+      session_date DATE NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      target_km NUMERIC,
+      target_minutes INTEGER,
+      intensity TEXT,
+      notes TEXT,
+      done BOOLEAN NOT NULL DEFAULT FALSE,
+      done_at TIMESTAMPTZ,
+      strava_activity_id BIGINT,
+      actual_km NUMERIC,
+      actual_minutes INTEGER,
+      actual_effort INTEGER,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS target_pace_sec INTEGER`;
+  // Fitbit workouts via Google Health (Strava's API went subscriber-only, 2026-10-04).
+  await sql`
+    CREATE TABLE IF NOT EXISTS fitbit_exercises (
+      id TEXT PRIMARY KEY,
+      exercise_type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      start_local TIMESTAMP NOT NULL,
+      distance_m INTEGER NOT NULL DEFAULT 0,
+      active_s INTEGER NOT NULL DEFAULT 0,
+      avg_hr INTEGER,
+      azm INTEGER,
+      zones INTEGER[],
+      auto BOOLEAN NOT NULL DEFAULT FALSE,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS fitbit_exercises_start_idx ON fitbit_exercises (start_local)`;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS activity_id TEXT`;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_pace_sec INTEGER`;
+  await sql`CREATE INDEX IF NOT EXISTS training_sessions_date_idx ON training_sessions (session_date)`;
+  // Which workout-bank entry a session logs into (lib/workout-bank.ts).
+  await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS workout_slug TEXT`;
+  // Structured workouts (lib/workout-templates.ts): one row per exercise per
+  // session of a template, holding the reps of each set. weight + target_reps are
+  // stored per row so the rep ladder and any weight jump read straight off history.
+  await sql`
+    CREATE TABLE IF NOT EXISTS strength_logs (
+      id SERIAL PRIMARY KEY,
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      exercise TEXT NOT NULL,
+      weight NUMERIC,
+      target_reps INTEGER NOT NULL,
+      reps INTEGER[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(template, log_date, exercise)
+    )
+  `;
+  await sql`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
+  await sql`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS next_target INTEGER`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_checks (
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      part TEXT NOT NULL,
+      done BOOLEAN[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template, log_date, part)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS strava_activities (
+      id BIGINT PRIMARY KEY,
+      name TEXT NOT NULL,
+      sport_type TEXT NOT NULL,
+      start_local TIMESTAMP NOT NULL,
+      distance_m NUMERIC NOT NULL DEFAULT 0,
+      moving_time_s INTEGER NOT NULL DEFAULT 0,
+      elapsed_time_s INTEGER NOT NULL DEFAULT 0,
+      elevation_m NUMERIC,
+      relative_effort INTEGER,
+      avg_speed NUMERIC,
+      synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS strava_activities_start_idx ON strava_activities (start_local DESC)`;
+
+  // The daily scorecard (lib/scorecard.ts) — one row per day, holding only the
+  // numbers that have nowhere better to live. PRs come from github_prs and the
+  // eating window from nutrition_days.rules, so neither is duplicated here.
+  // NULL means "never logged", which is not the same as a logged zero.
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_metrics (
+      recorded_date DATE PRIMARY KEY,
+      steps INTEGER,
+      sleep_minutes INTEGER,
+      portfolio NUMERIC,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  // Readwise *notes* (not highlights) counted from their export API and cached here,
+  // so the card doesn't call out to Readwise on every page load.
+  await sql`ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS readwise_notes INTEGER`;
+
+  // Keystrokes per day, posted by the local macOS counter (keystroke-agent/). One row
+  // per day in Berto's timezone; `count` is *only* how many keys were pressed — never
+  // which ones. The agent sends a cumulative running total, so lib/keystrokes.ts upserts
+  // with GREATEST: a restart that lost its local tally can never walk the number backward.
+  await sql`
+    CREATE TABLE IF NOT EXISTS keystroke_days (
+      logged_date DATE PRIMARY KEY,
+      count BIGINT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  // Reading notes, imported from Kindle's local `My Clippings.txt` (read.amazon.com/notebook
+  // and Readwise both source from the same clippings — this just skips their sync lag by
+  // reading the file directly off the device). `note_date` is the date Kindle stamped on the
+  // clipping, not the import date, so notes land on the day they were actually written. The
+  // unique constraint is the dedupe: re-pasting the same file after adding new notes is a
+  // no-op for everything already stored.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_notes (
+      id SERIAL PRIMARY KEY,
+      book_title TEXT NOT NULL,
+      note TEXT NOT NULL,
+      location TEXT,
+      note_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (book_title, note, note_date)
+    )
+  `;
+
+  // The daily journal — one free-form markdown document per day, written by hand in
+  // the editor on the home page (app/_components/daily-journal.tsx). Keyed by the
+  // local date so there is exactly one page per day; an absent row means "not
+  // written yet", which is not the same as an emptied one.
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_journal (
+      entry_date DATE PRIMARY KEY,
+      content TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  // The training log — one plain-text note per day describing the workout that was
+  // done and what was accomplished ("push day, bench 5x5 @185, first unbroken set
+  // of dips"). Deliberately separate from `workout_logs`, which holds only the six
+  // numeric lifts: the number says how much, this says what happened. Keyed by the
+  // local date, one note per day, so re-logging a day overwrites rather than
+  // appending — the note is the day's summary, not a stream of entries.
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_notes (
+      logged_date DATE PRIMARY KEY,
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  // The two core habits with nowhere else to live (lib/habits.ts). Read and journal
+  // are derived from reading_notes / daily_journal instead of stored here — only
+  // meditate and fasting need a manual tap. One row per day; an absent row means
+  // neither happened yet, not a logged "no".
+  await sql`
+    CREATE TABLE IF NOT EXISTS daily_habits (
+      habit_date DATE PRIMARY KEY,
+      meditated BOOLEAN NOT NULL DEFAULT FALSE,
+      fasted_til_noon BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  // 12–8 eating window (2026-09-05). Not the old fasted_til_noon: that was the
+  // morning half only; this is the whole window, so it is its own flag.
+  await sql`ALTER TABLE daily_habits ADD COLUMN IF NOT EXISTS ate_in_window BOOLEAN NOT NULL DEFAULT FALSE`;
+  // Ticks on the Today timeline (lib/day-plan.ts). The habits are whatever the
+  // "Daily habits" section of the Principles doc lists, so a tick is keyed by the
+  // habit's slug rather than a column per habit.
+  await sql`
+    CREATE TABLE IF NOT EXISTS habit_checks (
+      habit_date DATE NOT NULL,
+      habit_key TEXT NOT NULL,
+      done BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (habit_date, habit_key)
+    )
+  `;
+
+  // Articles for bertomill.com/writing that Cael drafts and edits (lib/posts.ts).
+  // They sit alongside the Substack feed on the Writing index. A draft is only
+  // reachable with its preview_token; `published_at` is the visible dateline.
+  await sql`
+    CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      tags TEXT[] NOT NULL DEFAULT '{}',
+      cover_url TEXT,
+      cover_alt TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      published_at DATE,
+      preview_token TEXT NOT NULL DEFAULT md5(random()::text || clock_timestamp()::text),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  // The last time the post was shared to X from the editor (2026-09-30).
+  await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tweet_url TEXT`;
+  await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS tweeted_at TIMESTAMPTZ`;
+  // The chat thread beside the post in the Writing editor — one ongoing
+  // conversation with Cael per article (2026-09-30).
+  await sql`ALTER TABLE posts ADD COLUMN IF NOT EXISTS chat_thread_id TEXT`;
+
+  // Every tweet Cael posts, from any path (the Writing page, the agent, MCP, the
+  // daily-tweet task), shown on /writing?tab=tweets (lib/tweets.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS tweets (
+      id SERIAL PRIMARY KEY,
+      tweet_id TEXT NOT NULL UNIQUE,
+      text TEXT NOT NULL,
+      url TEXT NOT NULL,
+      post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  // bertomill.com/capabilities: what Berto can do, and the projects that prove
+  // each one (lib/portfolio.ts). The join row carries the evidence — how that
+  // project shows that capability — so the claim is specific, not a tag (2026-10-01).
+  await sql`
+    CREATE TABLE IF NOT EXISTS capabilities (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS portfolio_projects (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      year TEXT,
+      live_url TEXT,
+      repo_url TEXT,
+      work_slug TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS project_capabilities (
+      project_id INTEGER NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE,
+      capability_id INTEGER NOT NULL REFERENCES capabilities(id) ON DELETE CASCADE,
+      evidence TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (project_id, capability_id)
     )
   `;
 }

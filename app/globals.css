@@ -1,6 +1,29 @@
 @import "tailwindcss";
+/* Konsta UI (mobile iOS/Material components). Imported *before* our own @theme so
+   the app's tokens (--color-primary etc.) win where the two overlap. */
+@import "konsta/theme.css";
 @import "../node_modules/tw-shimmer/src/index.css";
 @source "../node_modules/streamdown/dist/*.js";
+
+/*
+ * A laptop-height viewport. The homepage hero card is pinned to the viewport
+ * height on every desktop screen, so on a short one its contents have to give a
+ * little — smaller headline, tighter gaps — rather than the card giving up its
+ * pin. Height-based, so it fires on a 1440x800 laptop but not a 1440x1000 one.
+ */
+@custom-variant short (@media (min-width: 1024px) and (max-height: 880px));
+
+/*
+ * A device that can't hover. Row controls all over this app are `opacity-0
+ * group-hover:opacity-100` — a pattern with no touch equivalent, so on a phone
+ * they were invisible *and* still tappable-if-you-guessed. Pair every one of
+ * them with `touch:opacity-100`.
+ *
+ * Keyed on the capability, not the width, on purpose: a narrow window on the Mac
+ * still has a pointer and should keep the clean reveal-on-hover behaviour, while
+ * an iPad in landscape is 1024px wide and still has no hover at all.
+ */
+@custom-variant touch (@media (hover: none));
 
 @theme inline {
   --color-background: var(--background);
@@ -33,6 +56,22 @@
 
 :root {
   color-scheme: light;
+  /*
+   * The mobile bottom nav is `position: fixed`, so it doesn't reserve any space —
+   * every scroll container has to end above it or its last row hides underneath.
+   * One variable is the single source of truth: the bar's own 4rem plus whatever
+   * the iPhone home indicator claims. `lg:` layouts zero their padding instead.
+   */
+  /* Two steps on purpose: lightningcss tries to fold `calc()` at build time and
+     silently drops the whole declaration when it meets a bare `env()` inside one.
+     Behind a `var()` it leaves the calc alone. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The status bar's height in the installed iPhone app, which draws under it. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  /* The floating pill tab bar: 4.25rem of bar, 0.75rem of air under it, plus the
+     home indicator. Content scrolls up to here, then stops. */
+  --mobile-nav-h: calc(5rem + var(--safe-bottom));
+  --mobile-nav-gap: 0.75rem;
   /* ElevenLabs-inspired: near-white page, white cards, neutral grays, vibrant orange accent. */
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.09 0 0);
@@ -40,7 +79,10 @@
   --card-foreground: oklch(0.09 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.09 0 0);
-  --primary: oklch(0.68 0.22 37);
+  /* Deep forest green (2026-09-27), replacing the terracotta. Muted chroma so
+     it sits with the concrete and neutral grays rather than shouting; white
+     text on it clears AA comfortably. */
+  --primary: oklch(0.48 0.1 150);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.96 0 0);
   --secondary-foreground: oklch(0.2 0 0);
@@ -51,10 +93,25 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.68 0.22 37);
+  --ring: oklch(0.48 0.1 150);
   --priority-high: oklch(0.58 0.22 27);
   --priority-urgent: oklch(0.55 0.25 15);
-  --radius: 0.5rem;
+  /* 0.875rem, up from 0.5rem — his call (2026-09-05): "more generously round at the
+     corners". Every shadcn control and card inherits it: rounded-lg is 14px,
+     rounded-xl 18px. */
+  --radius: 0.875rem;
+  /* Measures chart palette — CVD-validated categorical pair + neutrals */
+  --chart-essential: #2a78d6;
+  --chart-discretionary: #1baf7a;
+  --chart-neutral: #e1e0d9;
+  --chart-track: #cde2fb;
+  --chart-spark: #898781;
+  /* Workout chart — first 5 slots of the CVD-validated categorical order */
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
+  --chart-series-3: #1baf7a;
+  --chart-series-4: #eda100;
+  --chart-series-5: #e87ba4;
 }
 
 .dark {
@@ -65,7 +122,9 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.15 0 0);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.72 0.22 37);
+  /* Forest green again, lifted for a dark ground. Kept brighter than the
+     light-mode value so it still carries against near-black. */
+  --primary: oklch(0.72 0.11 150);
   --primary-foreground: oklch(0.1 0 0);
   --secondary: oklch(0.22 0 0);
   --secondary-foreground: oklch(0.97 0 0);
@@ -76,14 +135,30 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.97 0 0 / 10%);
   --input: oklch(0.97 0 0 / 12%);
-  --ring: oklch(0.72 0.22 37);
+  --ring: oklch(0.72 0.11 150);
   --priority-high: oklch(0.68 0.22 27);
   --priority-urgent: oklch(0.7 0.24 15);
+  --chart-essential: #3987e5;
+  --chart-discretionary: #199e70;
+  --chart-neutral: #383835;
+  --chart-track: #104281;
+  --chart-spark: #898781;
+  --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
+  --chart-series-4: #c98500;
+  --chart-series-5: #d55181;
 }
 
 @layer base {
   * {
     border-color: var(--border);
+  }
+
+  /* Konsta's base paints `.dark` pure black/white; this app has its own palette. */
+  .dark {
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
   html {
@@ -107,5 +182,633 @@
   input,
   textarea {
     font: inherit;
+  }
+}
+
+/*
+ * A thumb-sized hit area on a pixel-sized control (app-wide).
+ *
+ * These rows are dense on purpose — a 10px priority dot and a 14px trash icon
+ * read correctly next to 15px text, and growing them to Apple's 44pt minimum
+ * would wreck the layout that makes the list scannable. So the *target* grows
+ * and the *art* doesn't: a centred pseudo-element stretches the touch region,
+ * out of flow, painting nothing.
+ *
+ * The two axes get different budgets, and that asymmetry is the whole trick.
+ * Vertically there is nothing to collide with — a row's own padding is dead space —
+ * so height goes to the full 44px. Horizontally these controls sit shoulder to
+ * shoulder: an edit/delete pair is about 22px centre to centre, so two 44px boxes
+ * would each cover the *other* icon, and since the later one paints on top, aiming
+ * at Edit would have hit Delete. Width therefore grows only to 24px — WCAG 2.5.8's
+ * AA minimum — which for a 14px icon is five pixels a side, less than the gap it
+ * sits in. Wider than its neighbour is close is not a bigger target, it's a wrong one.
+ *
+ * Touch only. A mouse is already precise enough to hit the art itself.
+ */
+@media (hover: none) {
+  .tap-target {
+    position: relative;
+  }
+
+  .tap-target::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 24px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    /* Above the row's own click handler, below anything it opens. */
+    z-index: 1;
+  }
+}
+
+/*
+ * A row that scrolls sideways without advertising it. Used by filter strips that
+ * are one tall wrapped block on desktop and a single swipeable line on a phone —
+ * a visible scrollbar there costs real height and iOS hides its own anyway.
+ */
+.scroll-row-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-row-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal/panel entrance animations (celebration overlays) */
+@keyframes chat-modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+@keyframes chat-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.chat-modal-panel {
+  animation: chat-modal-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-modal-backdrop {
+  animation: chat-modal-backdrop-in 180ms ease-out;
+}
+
+/* Goal-hit celebration confetti (app/_components/goal-celebration.tsx) */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rotate, 180deg));
+    opacity: 0.9;
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  border-radius: 1px;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  animation-fill-mode: forwards;
+}
+
+/* Points burst + streak flame (app/_components/streak-provider.tsx, streak-chip.tsx) */
+@keyframes points-burst-rise {
+  0% {
+    transform: translateY(6px) scale(0.9);
+    opacity: 0;
+  }
+  15% {
+    transform: translateY(0) scale(1.06);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-34px) scale(1);
+    opacity: 0;
+  }
+}
+
+.points-burst {
+  animation: points-burst-rise 1400ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes streak-flame-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+}
+
+.streak-flame-pop {
+  animation: streak-flame-pulse 620ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .points-burst,
+  .streak-flame-pop {
+    animation-duration: 1ms;
+  }
+}
+
+/* FullCalendar theming (app/_components/calendar-panel.tsx) — map fc vars to the app theme */
+.fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 8%, transparent);
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: var(--primary);
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: var(--muted);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--border);
+  --fc-highlight-color: color-mix(in oklch, var(--primary) 15%, transparent);
+  font-size: 0.875rem;
+}
+.fc .fc-toolbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.fc .fc-button {
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  box-shadow: none !important;
+}
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.fc .fc-event {
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.fc .fc-timegrid-slot-label,
+.fc .fc-timegrid-axis-cushion {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+/* The agenda view a phone gets instead of the month grid (see calendar-panel). */
+.fc .fc-list {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.fc .fc-list-day-cushion {
+  background: var(--muted);
+  font-size: 0.75rem;
+}
+
+.fc .fc-list-event-title,
+.fc .fc-list-event-time {
+  font-size: 0.8125rem;
+}
+
+.fc .fc-list-empty {
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/*
+ * FullCalendar draws its own toolbar, so the `.tap-target` utility can't reach it.
+ * On touch its buttons and event rows get sized up directly instead — 31px-tall
+ * prev/next/today buttons are a miss waiting to happen, and an agenda row is the
+ * one thing on the screen you're aiming for.
+ */
+@media (hover: none) {
+  .fc .fc-button {
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .fc .fc-toolbar {
+    gap: 0.5rem;
+  }
+
+  /* Wraps rather than squeezing the title to nothing on a narrow phone. */
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+
+  .fc .fc-list-event th,
+  .fc .fc-list-event td {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+/* The strategy board draws on a transparent canvas so the amber → violet →
+   emerald gradient behind it reads through. Excalidraw paints its own container
+   and the static canvas with the app background, so both have to be cleared —
+   the scene's viewBackgroundColor alone isn't enough. */
+.strategy-board .excalidraw,
+.strategy-board .excalidraw .excalidraw__canvas,
+.strategy-board .excalidraw .excalidraw-canvas-buttons {
+  background: transparent !important;
+}
+
+/*
+ * The daily journal editor (app/_components/daily-journal.tsx). Tiptap renders
+ * plain semantic HTML, and the Tailwind reset strips headings and lists back to
+ * body text — so the document has to be styled here or a heading looks like a
+ * paragraph. Deliberately restrained: this is a page in a notebook, not an
+ * article, so the scale between H1 and body is small.
+ */
+.journal-prose {
+  /* 16px, not 14: this is written on a phone with thumbs. Under 16px iOS also zooms
+     the page on focus, which is its own kind of tight. */
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.journal-prose > * + * {
+  margin-top: 0.6em;
+}
+.journal-prose h1 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.2em;
+}
+.journal-prose h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1.1em;
+}
+.journal-prose h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 1em;
+}
+.journal-prose > :first-child {
+  margin-top: 0;
+}
+.journal-prose strong {
+  font-weight: 600;
+}
+.journal-prose em {
+  font-style: italic;
+}
+.journal-prose s {
+  text-decoration: line-through;
+}
+.journal-prose ul,
+.journal-prose ol {
+  padding-left: 1.25rem;
+}
+.journal-prose ul {
+  list-style: disc;
+}
+.journal-prose ol {
+  list-style: decimal;
+}
+.journal-prose li::marker {
+  color: var(--muted-foreground);
+}
+.journal-prose li > * + * {
+  margin-top: 0.3em;
+}
+.journal-prose li p {
+  margin: 0;
+}
+.journal-prose blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.85rem;
+  color: var(--muted-foreground);
+}
+.journal-prose code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+}
+.journal-prose pre {
+  background: var(--muted);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+}
+.journal-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.journal-prose hr {
+  border-top: 1px solid var(--border);
+}
+.journal-prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Checklists: the marker is the checkbox itself, so drop the disc. */
+.journal-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.journal-prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.journal-prose ul[data-type="taskList"] li > label {
+  margin-top: 0.28em;
+  flex-shrink: 0;
+  user-select: none;
+}
+.journal-prose ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.journal-prose ul[data-type="taskList"] input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.journal-prose ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* Tiptap's placeholder: only on the first empty block, so it isn't repeated. */
+.journal-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/*
+ * The Notion-style editor (app/_components/notion-editor.tsx), layered on
+ * .journal-prose. Headings get a real scale here because this is a page you
+ * read back, not a notebook; toggles are Tiptap's details node view.
+ */
+.notion-prose h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 1.4em;
+}
+.notion-prose h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.2em;
+}
+.notion-prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 1em;
+}
+.notion-prose > :first-child {
+  margin-top: 0;
+}
+.notion-prose blockquote {
+  border-left: 3px solid var(--foreground);
+  color: inherit;
+}
+.notion-prose hr {
+  margin: 1.1em 0;
+}
+.notion-prose a {
+  color: var(--primary);
+  cursor: pointer;
+}
+.notion-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.2em 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+.notion-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Notes (app/_components/notes-view.tsx): phone-sized text, and the first line
+   as a title the way Apple Notes does it — unless the note opened as one long
+   paragraph, where a title would be a wall of bold. */
+.note-editor .notion-prose {
+  font-size: 17px;
+}
+.note-titled .notion-prose > p:first-child {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+/* Placeholders: on the line you're on (only while typing), and on an empty page. */
+.notion-prose.ProseMirror-focused :is(p, h1, h2, h3, summary).is-empty::before,
+.notion-prose :is(p, h1, h2, h3).is-editor-empty:first-child::before,
+.notion-prose summary.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  opacity: 0.65;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.notion-prose.ProseMirror-focused li > p.is-empty::before {
+  content: "List";
+}
+.notion-prose.ProseMirror-focused li[data-checked] > div > p.is-empty::before {
+  content: "To-do";
+}
+.notion-prose p.is-editor-empty:first-child::before {
+  content: var(--notion-empty-placeholder);
+}
+/* Toggles: a triangle button beside the summary line, content folds below. */
+.notion-prose [data-type="details"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.2rem;
+  margin-left: -0.2rem;
+}
+.notion-prose [data-type="details"] > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.75em;
+  border-radius: 0.25rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.notion-prose [data-type="details"] > button:hover {
+  background: var(--muted);
+}
+.notion-prose [data-type="details"] > button::before {
+  content: "";
+  border-style: solid;
+  border-width: 0.3rem 0 0.3rem 0.45rem;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform 0.15s ease;
+}
+.notion-prose [data-type="details"].is-open > button::before {
+  transform: rotate(90deg);
+}
+.notion-prose [data-type="details"] > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.notion-prose [data-type="details"] summary {
+  display: block;
+  list-style: none;
+  font-weight: 500;
+  cursor: text;
+}
+.notion-prose [data-type="details"] summary::-webkit-details-marker {
+  display: none;
+}
+.notion-prose [data-type="detailsContent"] > * + * {
+  margin-top: 0.4em;
+}
+/* Toggle headings: the summary takes the heading scale and spacing, and the
+   triangle grows to sit on that taller line. */
+.notion-prose summary[data-level="1"] {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.notion-prose summary[data-level="2"] {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.notion-prose summary:is([data-level="3"], [data-level="4"], [data-level="5"], [data-level="6"]) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level="1"]) {
+  --toggle-line: 2.1875rem;
+  margin-top: 2.45rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level="2"]) {
+  --toggle-line: 1.7875rem;
+  margin-top: 1.65rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary:is([data-level="3"], [data-level="4"], [data-level="5"], [data-level="6"])) {
+  --toggle-line: 1.52rem;
+  margin-top: 1.125rem;
+}
+.notion-prose [data-type="details"]:has(> div > summary[data-level]) > button {
+  height: var(--toggle-line);
+}
+.notion-prose > [data-type="details"]:first-child {
+  margin-top: 0;
+}
+
+/* bertomill.com homepage desk scene (app/site/_components/concrete-wall/desk-scene.tsx):
+   the plant's little sway after a drink, the water running from the jar, and the
+   ripple where it lands. */
+@keyframes plant-drink {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-1.4deg) scale(1.015); }
+  55% { transform: rotate(1.1deg) scale(1.02); }
+  80% { transform: rotate(-0.5deg) scale(1.01); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes water-flow {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 14px, 0 0; }
+}
+@keyframes water-ripple {
+  from { transform: translate(-50%, -50%) scale(0.3); opacity: 0.8; }
+  to { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+}
+
+/* The corner chat bubble (app/(app)/layout.tsx): a drop of liquid glass in the
+   brand green. Layered highlights over a translucent fill, a soft coloured
+   glow underneath, and a slow wobble so it reads as liquid, not a flat dot. */
+/* Positioned by its utilities (fixed): no `position` here, which would beat them. */
+.liquid-bubble {
+  isolation: isolate;
+  color: var(--primary-foreground);
+  background:
+    radial-gradient(120% 90% at 30% 18%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 42%),
+    radial-gradient(90% 70% at 70% 95%, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 60%),
+    linear-gradient(160deg, color-mix(in oklab, var(--primary) 70%, white) 0%, var(--primary) 55%, color-mix(in oklab, var(--primary) 80%, black) 100%);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgb(255 255 255 / 0.45);
+  box-shadow:
+    inset 0 1.5px 1px rgb(255 255 255 / 0.7),
+    inset 0 -6px 12px color-mix(in oklab, var(--primary) 60%, black),
+    0 14px 30px -8px color-mix(in oklab, var(--primary) 70%, transparent),
+    0 4px 10px -2px rgb(0 0 0 / 0.18);
+  border-radius: 50%;
+  animation: liquid-wobble 7s ease-in-out infinite;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 260ms ease;
+}
+
+/* A specular streak that drifts across the glass. */
+.liquid-bubble::after {
+  content: "";
+  position: absolute;
+  inset: 6% 18% 52% 14%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.65), rgb(255 255 255 / 0));
+  filter: blur(1px);
+  opacity: 0.8;
+  z-index: -1;
+  animation: liquid-sheen 7s ease-in-out infinite;
+}
+
+.liquid-bubble:hover {
+  transform: scale(1.08);
+  box-shadow:
+    inset 0 1.5px 1px rgb(255 255 255 / 0.75),
+    inset 0 -6px 12px color-mix(in oklab, var(--primary) 60%, black),
+    0 18px 38px -8px color-mix(in oklab, var(--primary) 80%, transparent),
+    0 6px 14px -2px rgb(0 0 0 / 0.2);
+}
+
+.liquid-bubble:active {
+  transform: scale(0.94);
+}
+
+@keyframes liquid-wobble {
+  0%, 100% { border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%; }
+  25% { border-radius: 54% 46% 52% 48% / 48% 54% 46% 52%; }
+  50% { border-radius: 47% 53% 46% 54% / 53% 47% 54% 46%; }
+  75% { border-radius: 52% 48% 55% 45% / 46% 52% 48% 54%; }
+}
+
+@keyframes liquid-sheen {
+  0%, 100% { transform: translate(0, 0) rotate(-8deg); }
+  50% { transform: translate(6%, 4%) rotate(6deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-bubble,
+  .liquid-bubble::after {
+    animation: none;
   }
 }

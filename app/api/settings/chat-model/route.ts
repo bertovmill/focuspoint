@@ -1,0 +1,54 @@
+import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
+import {
+  CHAT_MODEL_DEFAULT,
+  CHAT_MODEL_DEFAULT_PINS,
+  CHAT_MODEL_FALLBACK,
+  getChatModel,
+  getPinnedModels,
+  setChatModel,
+  setPinnedModels,
+} from "@/lib/chat-model";
+import { listChatModels } from "@/lib/gateway-catalog";
+
+// Which model Cael runs on, plus which models are pinned to the top of the
+// picker. Both are one global setting: agent/agent.ts re-reads the selection
+// at the start of every turn. `models` is the live AI Gateway catalog, with the
+// gateway's own per-1M-token prices.
+
+export async function GET() {
+  const models = await listChatModels();
+  try {
+    const sql = getDb();
+    const [model, pinned] = await Promise.all([getChatModel(sql), getPinnedModels(sql)]);
+    // Pins saved before the price ceiling can point at models no longer offered.
+    const offered = new Set(models.map((m) => m.id));
+    return NextResponse.json({ model, pinned: pinned.filter((id) => offered.has(id)), models });
+  } catch {
+    return NextResponse.json({
+      model: CHAT_MODEL_DEFAULT,
+      pinned: CHAT_MODEL_DEFAULT_PINS,
+      models: models.length ? models : CHAT_MODEL_FALLBACK,
+    });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    // Only models the picker offers (i.e. under the price ceiling) can be selected.
+    if ("model" in body) {
+      const offered = await listChatModels();
+      if (!offered.some((m) => m.id === body.model)) {
+        return NextResponse.json({ error: "That model is over the price ceiling" }, { status: 400 });
+      }
+    }
+    const sql = getDb();
+    // A PUT carries the model, the pins, or both — the picker sends only what changed.
+    const model = "model" in body ? await setChatModel(sql, body.model) : await getChatModel(sql);
+    const pinned = "pinned" in body ? await setPinnedModels(sql, body.pinned) : await getPinnedModels(sql);
+    return NextResponse.json({ model, pinned });
+  } catch {
+    return NextResponse.json({ error: "Failed to save the model" }, { status: 500 });
+  }
+}

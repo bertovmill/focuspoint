@@ -1,0 +1,28 @@
+# Two-way sync, GitHub → GitLab half. GitLab is the source of truth (Vercel deploys from
+# it) and push-mirrors to this repo. Claude Code mobile/cloud sessions can only push here,
+# so this pushes their work on to GitLab. Fast-forward only: if GitLab's main has moved
+# on, the job fails and a desktop session merges by hand (the mirror would otherwise
+# force-push GitLab's main back over this one).
+name: Sync to GitLab
+
+on:
+  push:
+    branches: ["**"]
+
+concurrency:
+  group: sync-to-gitlab-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to GitLab (fast-forward only)
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/bertmill191/cael.git"
+          git push gitlab "HEAD:refs/heads/${GITHUB_REF_NAME}"

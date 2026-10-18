@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatContextWindow } from "@/lib/chat-model";
 import { cn } from "@/lib/utils";
 import {
   buildToolCallMap,
@@ -47,6 +48,14 @@ function formatRelativeTime(iso: string) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** "54,000 · 27% of 200k" — the biggest single call against the model's window. */
+function formatPeakContext(peak: number, window: number | undefined) {
+  if (peak === 0) return "—";
+  if (!window) return peak.toLocaleString();
+  const pct = Math.round((peak / window) * 100);
+  return `${peak.toLocaleString()} · ${pct}% of ${formatContextWindow(window)}`;
 }
 
 function formatDuration(ms: number | null) {
@@ -86,9 +95,17 @@ export function TracesView() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [windows, setWindows] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    fetch("/api/threads")
+    fetch("/api/models/context-windows")
+      .then((res) => (res.ok ? res.json() : { windows: {} }))
+      .then((body: { windows?: Record<string, number> }) => setWindows(body.windows ?? {}))
+      .catch(() => setWindows({}));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/threads?include=events")
       .then((res) => (res.ok ? res.json() : []))
       .then((rows: ThreadRow[]) => {
         setThreads(rows);
@@ -181,7 +198,7 @@ export function TracesView() {
                         <p className="truncate text-sm font-medium leading-snug">
                           {thread.title || "Untitled session"}
                         </p>
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                           <span className={statusColor(stats.status)}>●</span>
                           <span>{formatRelativeTime(thread.updated_at)}</span>
                           <span>·</span>
@@ -234,10 +251,18 @@ export function TracesView() {
                   />
                   <Stat label="Output tokens" value={selected.stats.totalOutputTokens.toLocaleString()} />
                   <Stat label="Cache read" value={selected.stats.totalCacheReadTokens.toLocaleString()} />
+                  <Stat
+                    label="Peak context"
+                    value={formatPeakContext(
+                      selected.stats.peakContextTokens,
+                      selected.stats.model ? windows[selected.stats.model] : undefined,
+                    )}
+                  />
+                  <Stat label="Compactions" value={String(selected.stats.compactionCount)} />
                   <Stat label="eve" value={selected.stats.eveVersion ?? "—"} />
                 </div>
                 {selected.stats.gitSha && (
-                  <p className="mt-3 text-[11px] text-muted-foreground">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     Built from <code>{selected.stats.gitBranch}</code>@<code>{selected.stats.gitSha.slice(0, 7)}</code>
                   </p>
                 )}
@@ -263,11 +288,11 @@ export function TracesView() {
                           <span className="min-w-0 flex-1 leading-snug">
                             {summarizeEvent(event, toolCalls)}
                           </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
                             {event.meta?.at ? new Date(event.meta.at).toLocaleTimeString() : ""}
                           </span>
                         </summary>
-                        <pre className="overflow-x-auto whitespace-pre-wrap break-all border-t border-border/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-all border-t border-border/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                           {JSON.stringify(event, null, 2)}
                         </pre>
                       </details>
@@ -293,7 +318,7 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+      <p className="flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
         {Icon && <Icon className="size-3" />}
         {label}
       </p>

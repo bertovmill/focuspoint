@@ -8,9 +8,12 @@ import { defineState } from "eve/context";
 export interface SessionMemory {
   focus: string | null;
   thoughtsCaptured: number;
+  /** Toolsets loaded this session (agent/lib/toolsets) — they stay loaded once in. */
+  toolsets: string[];
 }
 
 export const sessionMemory = defineState<SessionMemory>("cael.session", () => ({
   focus: null,
   thoughtsCaptured: 0,
+  toolsets: [],
 }));

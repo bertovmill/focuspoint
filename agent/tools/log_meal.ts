@@ -1,0 +1,44 @@
+import { defineTool } from "eve/tools";
+import { z } from "zod";
+import { getDb } from "../../lib/db";
+import { jsonSafe } from "../../lib/json-safe";
+
+export default defineTool({
+  description:
+    "Log a meal the user ate onto the Nutrition screen. Use this whenever they mention something they ate — especially when it left them with good energy, since this log is the record of meals worth repeating. Set felt_good to false only if they say it made them feel sluggish or foggy.",
+  inputSchema: z.object({
+    name: z.string().min(1).describe("Short name of the meal, e.g. 'Beans, brown rice and avocado'"),
+    notes: z.string().optional().describe("How it made them feel, or anything worth remembering about it"),
+    slot: z
+      .enum(["meal1", "meal2", "meal3", "snack"])
+      .optional()
+      .describe("Which of the day's meals it was — Meal 1, 2 or 3 in the order he ate them, or the optional snack. Set it when it's clear; it ticks that meal on the /meals grid."),
+    felt_good: z.boolean().optional().describe("Defaults to true"),
+    protein_g: z.number().optional().describe("Grams of protein in the meal, if known or estimable — this feeds the daily protein ring on /nutrition/plan"),
+    kcal: z.number().int().optional().describe("Calories, if known or estimable"),
+    date: z.string().optional().describe("ISO date string, e.g. '2026-08-22'. Defaults to today."),
+  }),
+  async execute({ name, notes, slot, felt_good, date, protein_g, kcal }) {
+    const sql = getDb();
+    const [row] = await sql`
+      INSERT INTO nutrition_meals (name, notes, slot, felt_good, eaten_date, protein_g, kcal)
+      VALUES (
+        ${name},
+        ${notes ?? null},
+        ${slot ?? null},
+        ${felt_good ?? true},
+        ${date ?? new Date().toISOString().slice(0, 10)},
+        ${protein_g ?? null},
+        ${kcal ?? null}
+      )
+      RETURNING id, name, slot, felt_good, eaten_date, protein_g
+    `;
+    return jsonSafe(row);
+  },
+  toModelOutput(output) {
+    return {
+      type: "text",
+      value: `Logged "${output.name}" on ${String(output.eaten_date).slice(0, 10)}${output.protein_g ? ` (${output.protein_g} g protein)` : ""}${output.felt_good ? "" : " (felt off)"}.`,
+    };
+  },
+});

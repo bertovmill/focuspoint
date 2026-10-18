@@ -8,5 +8,5 @@ import { defineAgent } from "eve";
 export default defineAgent({
   description:
     "Deep planning and decision specialist. Delegate when the user faces an open-ended decision, wants to prioritize a busy week, or needs a project broken into steps. Pass the relevant todos, goals, and constraints in the message.",
-  model: "anthropic/claude-opus-4.8",
+  model: "deepseek/deepseek-v4-flash",
 });

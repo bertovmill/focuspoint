@@ -1,0 +1,27 @@
+import type { MetadataRoute } from "next";
+import { PUBLIC_HOST } from "@/lib/public-site";
+import { listContent } from "@/lib/content";
+import { listPublishedPosts } from "@/lib/posts";
+
+const BASE = `https://${PUBLIC_HOST}`;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [writing, podcast] = await Promise.all([listPublishedPosts(), listContent("podcast")]);
+
+  const staticPages: MetadataRoute.Sitemap = [
+    { url: BASE, changeFrequency: "weekly", priority: 1 },
+    { url: `${BASE}/about`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/capabilities`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/writing`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/podcast`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${BASE}/fitness`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/building`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${BASE}/newsletter`, changeFrequency: "monthly", priority: 0.7 },
+  ];
+
+  return [
+    ...staticPages,
+    ...writing.map((p) => ({ url: `${BASE}/writing/${p.slug}`, lastModified: p.updatedAt, priority: 0.6 })),
+    ...podcast.map((e) => ({ url: `${BASE}/podcast/${e.slug}`, lastModified: e.date, priority: 0.6 })),
+  ];
+}

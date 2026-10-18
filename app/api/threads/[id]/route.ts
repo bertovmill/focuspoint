@@ -47,7 +47,7 @@ export async function PATCH(
         events = ${events}::jsonb,
         updated_at = NOW()
     WHERE id = ${id}
-    RETURNING id, title, session, events, created_at, updated_at
+    RETURNING id, title, created_at, updated_at
   `;
   return NextResponse.json(row);
 }

@@ -1,0 +1,162 @@
+// Reads and writes for strength_logs — the reps typed into a structured workout
+// at /training/workouts/<template>/<date>. Templates and progression rules live in
+// lib/workout-templates.ts; this file only touches the database.
+import { getDb } from "./db";
+import { num } from "./nutrition";
+import { getWorkout } from "./workout-bank";
+import { nextPrescription, templateExercises, type Prescription, type StrengthLog } from "./workout-templates";
+
+let tableReady = false;
+async function ensureTable() {
+  if (tableReady) return;
+  // Same DDL as lib/db.ts ensureSchema(), run on its own so a write doesn't walk every table.
+  await getDb()`
+    CREATE TABLE IF NOT EXISTS strength_logs (
+      id SERIAL PRIMARY KEY,
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      exercise TEXT NOT NULL,
+      weight NUMERIC,
+      target_reps INTEGER NOT NULL,
+      reps INTEGER[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(template, log_date, exercise)
+    )
+  `;
+  // How many reps / metres a timed set was (100 wall balls, later 120) — the
+  // time only means something next to it.
+  await getDb()`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS amount NUMERIC`;
+  // Next session's target when he sets it by hand (10 → 12) instead of the ladder's next rung.
+  await getDb()`ALTER TABLE strength_logs ADD COLUMN IF NOT EXISTS next_target INTEGER`;
+  // Warm-up / cool-down ticks: one boolean per part ("15 min easy", "4 × 20 s strides").
+  await getDb()`
+    CREATE TABLE IF NOT EXISTS workout_checks (
+      template TEXT NOT NULL,
+      log_date DATE NOT NULL,
+      part TEXT NOT NULL,
+      done BOOLEAN[] NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template, log_date, part)
+    )
+  `;
+  tableReady = true;
+}
+
+function shape(r: Record<string, unknown>): StrengthLog {
+  return {
+    template: String(r.template),
+    log_date: String(r.log_date),
+    exercise: String(r.exercise),
+    weight: num(r.weight),
+    amount: num(r.amount),
+    target_reps: Number(r.target_reps),
+    next_target: r.next_target == null ? null : Number(r.next_target),
+    // Postgres arrays can't hold a gap cleanly, so a skipped set is stored as -1.
+    reps: ((r.reps as number[] | null) ?? []).map((n) => (Number(n) < 0 ? null : Number(n))),
+  };
+}
+
+export async function getStrengthLogs(template: string): Promise<StrengthLog[]> {
+  await ensureTable();
+  const rows = await getDb()`
+    SELECT template, to_char(log_date, 'YYYY-MM-DD') AS log_date, exercise, weight, amount, target_reps, next_target, reps
+    FROM strength_logs WHERE template = ${template} ORDER BY log_date ASC, exercise ASC
+  `;
+  return rows.map((r) => shape(r as Record<string, unknown>));
+}
+
+/** Every logged set across all workouts, oldest first — for the weekly progress line. */
+export async function getAllStrengthLogs(): Promise<StrengthLog[]> {
+  await ensureTable();
+  const rows = await getDb()`
+    SELECT template, to_char(log_date, 'YYYY-MM-DD') AS log_date, exercise, weight, amount, target_reps, next_target, reps
+    FROM strength_logs ORDER BY log_date ASC, template ASC, exercise ASC
+  `;
+  return rows.map((r) => shape(r as Record<string, unknown>));
+}
+
+/**
+ * Everything the session page needs: the day's logged rows, what each exercise
+ * should aim for (from the last session before this date), and the full history
+ * for the charts.
+ */
+export async function getWorkoutDay(requested: string, date: string) {
+  const t = await getWorkout(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  const slug = t.slug;
+  const history = await getStrengthLogs(slug);
+  const prescriptions: Record<string, Prescription & { last: StrengthLog | null }> = {};
+  for (const ex of templateExercises(t)) {
+    const before = history.filter((l) => l.exercise === ex.key && l.log_date < date);
+    const last = before[before.length - 1] ?? null;
+    prescriptions[ex.key] = { ...nextPrescription(ex, last), last };
+  }
+  const checkRows = await getDb()`SELECT part, done FROM workout_checks WHERE template = ${slug} AND log_date = ${date}`;
+  const checks: Record<string, boolean[]> = {};
+  for (const r of checkRows) checks[String(r.part)] = (r.done as boolean[]) ?? [];
+  return { template: t, date, logs: history.filter((l) => l.log_date === date), prescriptions, history, checks };
+}
+
+export type CheckPart = "warmup" | "cooldown";
+
+/** Tick or untick the parts of a session's warm-up or cool-down. */
+export async function saveWorkoutCheck(requested: string, date: string, part: CheckPart, done: boolean[]) {
+  const t = await getWorkout(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  await ensureTable();
+  await getDb()`
+    INSERT INTO workout_checks (template, log_date, part, done, updated_at)
+    VALUES (${t.slug}, ${date}, ${part}, ${done}, NOW())
+    ON CONFLICT (template, log_date, part) DO UPDATE SET done = EXCLUDED.done, updated_at = NOW()
+  `;
+  return { part, done };
+}
+
+export interface StrengthEntry {
+  exercise: string;
+  weight: number | null;
+  amount?: number | null;
+  target_reps: number;
+  next_target?: number | null;
+  reps: (number | null)[];
+}
+
+/** Upserts the day's rows; an exercise with no reps typed is removed. */
+export async function saveWorkoutDay(requested: string, date: string, entries: StrengthEntry[]) {
+  const t = await getWorkout(requested);
+  if (!t) throw new Error(`Unknown workout: ${requested}`);
+  const slug = t.slug;
+  const keys = new Set(templateExercises(t).map((e) => e.key));
+  await ensureTable();
+  const sql = getDb();
+  for (const e of entries) {
+    if (!keys.has(e.exercise)) continue;
+    const reps = e.reps.map((r) => (r === null || !Number.isFinite(r) ? -1 : Math.max(0, Math.round(r))));
+    while (reps.length && reps[reps.length - 1] === -1) reps.pop();
+    if (reps.length === 0) {
+      await sql`DELETE FROM strength_logs WHERE template = ${slug} AND log_date = ${date} AND exercise = ${e.exercise}`;
+      continue;
+    }
+    await sql`
+      INSERT INTO strength_logs (template, log_date, exercise, weight, amount, target_reps, next_target, reps, updated_at)
+      VALUES (${slug}, ${date}, ${e.exercise}, ${e.weight}, ${e.amount ?? null}, ${Math.round(e.target_reps)}, ${e.next_target ? Math.round(e.next_target) : null}, ${reps}, NOW())
+      ON CONFLICT (template, log_date, exercise) DO UPDATE SET
+        weight = EXCLUDED.weight, amount = EXCLUDED.amount, target_reps = EXCLUDED.target_reps, next_target = EXCLUDED.next_target, reps = EXCLUDED.reps, updated_at = NOW()
+    `;
+  }
+  // Logging the workout counts as doing it: tick the matching planned session —
+  // and clearing every number untick it again (unless a Fitbit workout marked it done).
+  const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM strength_logs WHERE template = ${slug} AND log_date = ${date}`;
+  if (n > 0) {
+    await sql`
+      UPDATE training_sessions SET done = TRUE, done_at = COALESCE(done_at, NOW()), updated_at = NOW()
+      WHERE session_date = ${date} AND workout_slug = ${slug} AND done = FALSE
+    `;
+  } else {
+    await sql`
+      UPDATE training_sessions SET done = FALSE, done_at = NULL, updated_at = NOW()
+      WHERE session_date = ${date} AND workout_slug = ${slug} AND done = TRUE AND activity_id IS NULL
+    `;
+  }
+  return getWorkoutDay(slug, date);
+}

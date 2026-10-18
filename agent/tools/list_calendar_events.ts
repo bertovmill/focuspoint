@@ -5,8 +5,8 @@ import {
   CALENDAR_NOT_CONNECTED,
   listCalendarEvents,
   resolveGoogleToken,
-} from "../lib/google-calendar.js";
-import { todayISO, zonedDayBounds } from "../lib/now.js";
+} from "../lib/google-calendar";
+import { todayISO, zonedDayBounds } from "../lib/now";
 
 export default defineTool({
   description:

@@ -33,6 +33,14 @@ export interface ThreadStats {
   totalOutputTokens: number;
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
+  /**
+   * The largest single model call's input — how full the context window got.
+   * Totals add up every step, so a long chat looks huge there even when no
+   * single call came near the window; this is the number compaction cares about.
+   */
+  peakContextTokens: number;
+  /** How many times eve compacted this session. */
+  compactionCount: number;
   durationMs: number | null;
   status: "completed" | "waiting" | "failed" | "in-progress";
 }
@@ -71,6 +79,8 @@ export function computeThreadStats(events: TraceEvent[]): ThreadStats {
     totalOutputTokens: 0,
     totalCacheReadTokens: 0,
     totalCacheWriteTokens: 0,
+    peakContextTokens: 0,
+    compactionCount: 0,
     durationMs: null,
     status: "in-progress",
   };
@@ -89,7 +99,7 @@ export function computeThreadStats(events: TraceEvent[]): ThreadStats {
     switch (event.type) {
       case "session.started": {
         const runtime = asRecord(data.runtime);
-        stats.model = typeof runtime.modelId === "string" ? runtime.modelId : null;
+        if (typeof runtime.modelId === "string") stats.model = runtime.modelId;
         stats.eveVersion = typeof runtime.eveVersion === "string" ? runtime.eveVersion : null;
         const build = asRecord(runtime.build);
         stats.gitBranch = typeof build.gitBranch === "string" ? build.gitBranch : null;
@@ -98,6 +108,14 @@ export function computeThreadStats(events: TraceEvent[]): ThreadStats {
       }
       case "turn.started":
         stats.turnCount += 1;
+        break;
+      case "step.started":
+        // A dynamic model has no id at session start; each step names the
+        // model that actually answered (as "gateway/<provider>/<model>").
+        if (typeof data.modelId === "string") stats.model = data.modelId.replace(/^gateway\//, "");
+        break;
+      case "compaction.completed":
+        stats.compactionCount += 1;
         break;
       case "actions.requested": {
         const actions = data.actions;
@@ -108,7 +126,9 @@ export function computeThreadStats(events: TraceEvent[]): ThreadStats {
       }
       case "step.completed": {
         const usage = asRecord(data.usage);
-        stats.totalInputTokens += Number(usage.inputTokens ?? 0);
+        const input = Number(usage.inputTokens ?? 0);
+        stats.totalInputTokens += input;
+        if (input > stats.peakContextTokens) stats.peakContextTokens = input;
         stats.totalOutputTokens += Number(usage.outputTokens ?? 0);
         stats.totalCacheReadTokens += Number(usage.cacheReadTokens ?? 0);
         stats.totalCacheWriteTokens += Number(usage.cacheWriteTokens ?? 0);
@@ -193,10 +213,27 @@ export function summarizeEvent(event: TraceEvent, toolCalls: Map<string, ToolCal
       return `Cael: ${truncate(String(data.message ?? ""), 140)}`;
     case "turn.completed":
       return `Turn ${data.sequence ?? "?"} completed`;
+    // eve ≤0.68 wrote subagent.called / subagent.completed; since 0.69 a
+    // delegation is a task whose agent session is announced separately.
     case "subagent.called":
       return `Delegated to subagent (child session ${truncate(String(data.childSessionId ?? ""), 20)})`;
     case "subagent.completed":
       return "Subagent completed";
+    case "task.started":
+      return data.kind === "agent"
+        ? `Delegated to ${data.name ?? "a subagent"}`
+        : `Task started: ${data.name ?? "tool"}`;
+    case "task.settled":
+      return `Task ${data.status ?? "settled"}${data.name ? `: ${data.name}` : ""}`;
+    case "agent.started":
+      return `Subagent session opened: ${data.name ?? "?"} (${truncate(String(data.sessionId ?? ""), 20)})`;
+    case "turn.waiting":
+      return data.on === "input" ? "Turn parked — waiting on a person" : "Turn parked — waiting on its tasks";
+    case "input.resolved": {
+      const resolutions = Array.isArray(data.resolutions) ? data.resolutions : [];
+      const outcomes = resolutions.map((r) => String(asRecord(r).outcome ?? "resolved"));
+      return `Input ${outcomes.join(", ") || "resolved"}`;
+    }
     case "input.requested":
       return "Waiting on human input (approval or question)";
     case "compaction.requested":

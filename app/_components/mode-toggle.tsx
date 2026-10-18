@@ -3,8 +3,9 @@
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function ModeToggle() {
+export function ModeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
@@ -12,7 +13,7 @@ export function ModeToggle() {
       variant="ghost"
       size="icon-sm"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="text-muted-foreground hover:text-foreground"
+      className={cn("text-muted-foreground hover:text-foreground", className)}
       aria-label="Toggle theme"
     >
       <SunIcon className="size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />

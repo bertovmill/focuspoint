@@ -1,0 +1,623 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Code2Icon,
+  FilmIcon,
+  HandshakeIcon,
+  LayersIcon,
+  PlusIcon,
+  TargetIcon,
+  TrashIcon,
+  UsersIcon,
+  XIcon,
+  type LucideIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Checkbox } from "@/components/ui/checkbox";
+import { NutritionToday } from "@/app/_components/nutrition-today";
+import { Input } from "@/components/ui/input";
+import { LANE_CATEGORIES, TASK_CATEGORY_LABELS, type LaneCategory } from "@/lib/task-categories";
+import { isDoneToday, isLanePiece, type Todo } from "@/lib/todo";
+import { TaskLatestUpdate } from "@/app/_components/task-update-line";
+import { cn } from "@/lib/utils";
+
+// Child tasks are created from a one-line composer, so there's nowhere to pick an
+// estimate — everything the canvas does with timers needs one, so give it a sane
+// default. It's editable afterwards from the card's context menu on the canvas.
+const CHILD_DEFAULT_ESTIMATE = 30;
+
+// Per-lane identity. The accent is only ever the header icon and the piece's left
+// rule — enough to tell the lanes apart at a glance without four competing colours.
+const LANE_META: Record<LaneCategory, { icon: LucideIcon; accent: string; rule: string; placeholder: string }> = {
+  content: {
+    icon: FilmIcon,
+    accent: "text-amber-500",
+    rule: "border-l-amber-500/50",
+    placeholder: "e.g. YouTube: building an eve agent",
+  },
+  code: {
+    icon: Code2Icon,
+    accent: "text-indigo-500",
+    rule: "border-l-indigo-500/50",
+    placeholder: "e.g. Ship the pipeline lanes",
+  },
+  community: {
+    icon: UsersIcon,
+    accent: "text-rose-500",
+    rule: "border-l-rose-500/50",
+    placeholder: "e.g. Toronto AI meetup in October",
+  },
+  sales: {
+    icon: HandshakeIcon,
+    accent: "text-green-600 dark:text-green-500",
+    rule: "border-l-green-600/50",
+    placeholder: "e.g. GlassDollar pilot",
+  },
+};
+
+// The floating panel's width. Berto drags the right edge to widen it — a lane full
+// of "Post the talk to linkedin and add your comments - link to the talk" is
+// unreadable at 248px, and how much room that needs changes with what's in it.
+// The canvas owns the number (it has to slide its own toolbar clear of the panel)
+// and hands it back down here.
+export const LANE_MIN_WIDTH = 200;
+export const LANE_MAX_WIDTH = 720;
+export const LANE_DEFAULT_WIDTH = 248;
+
+export function clampLaneWidth(width: number, viewportWidth?: number) {
+  // Never let the panel eat more than half the window, however wide the screen is.
+  const ceiling = Math.min(LANE_MAX_WIDTH, Math.max(LANE_MIN_WIDTH, (viewportWidth ?? Infinity) * 0.5));
+  return Math.round(Math.min(ceiling, Math.max(LANE_MIN_WIDTH, width)));
+}
+
+export interface PipelineLanesProps {
+  /** Every visible task — the panel picks out its own pieces and their children. */
+  todos: Todo[];
+  /** Owned by the canvas, which also shifts its own toolbar out of the panel's way. */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  /**
+   * Render as a plain block in the page flow instead of a panel floating over the
+   * canvas. The mobile Tasks list has no canvas to float over — the lanes are just
+   * the next section down the page, and the page itself does the scrolling.
+   */
+  inline?: boolean;
+  /** Panel width in px when floating. Ignored inline, where the page sets the width. */
+  width?: number;
+  /** Called while the right edge is dragged. Omit to make the panel a fixed width. */
+  onResizeWidth?: (width: number) => void;
+  completingIds: Set<number>;
+  onComplete: (id: number) => void;
+  onUncomplete: (id: number) => void;
+  onToggleInProgress: (id: number, in_progress: boolean) => void;
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, patch: Partial<Todo>) => void;
+  onCreated: (todo: Todo) => void;
+}
+
+export function PipelineLanes({
+  todos,
+  collapsed,
+  onToggleCollapsed,
+  inline = false,
+  width = LANE_DEFAULT_WIDTH,
+  onResizeWidth,
+  completingIds,
+  onComplete,
+  onUncomplete,
+  onToggleInProgress,
+  onDelete,
+  onUpdate,
+  onCreated,
+}: PipelineLanesProps) {
+  // Lanes and pieces both start open — a collapsed everything is just a list of
+  // headings, and the checklists are the whole point of the panel.
+  const [closedLanes, setClosedLanes] = useState<Set<LaneCategory>>(new Set());
+  const [closedIds, setClosedIds] = useState<Set<number>>(new Set());
+  // Lanes whose finished pieces/tasks are being shown again.
+  const [showDoneLanes, setShowDoneLanes] = useState<Set<LaneCategory>>(new Set());
+  // Which lane's "add a piece" input is open, and which piece's "add a task" input is.
+  const [pieceComposerFor, setPieceComposerFor] = useState<LaneCategory | null>(null);
+  const [newPiece, setNewPiece] = useState("");
+  const [taskComposerFor, setTaskComposerFor] = useState<number | null>(null);
+  const [newTask, setNewTask] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  // True while the right edge is being dragged, so the handle can stay lit and the
+  // panel can drop its width transition.
+  const [resizing, setResizing] = useState(false);
+
+  const resizable = !inline && Boolean(onResizeWidth);
+
+  // Pointer capture rather than window listeners: the drag keeps tracking even when
+  // the cursor crosses onto the Excalidraw canvas, which otherwise swallows it.
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onResizeWidth) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = width;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    setResizing(true);
+
+    const onMove = (ev: PointerEvent) => {
+      onResizeWidth(clampLaneWidth(startWidth + (ev.clientX - startX), window.innerWidth));
+    };
+    const onUp = () => {
+      setResizing(false);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+    };
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  };
+
+  const { piecesByLane, childrenOf } = useMemo(() => {
+    const piecesByLane = new Map<LaneCategory, Todo[]>();
+    const childrenOf = new Map<number, Todo[]>();
+    for (const t of todos) {
+      if (t.parent_id != null) {
+        const list = childrenOf.get(t.parent_id);
+        if (list) list.push(t);
+        else childrenOf.set(t.parent_id, [t]);
+      } else if (isLanePiece(t)) {
+        const lane = t.category as LaneCategory;
+        const list = piecesByLane.get(lane);
+        if (list) list.push(t);
+        else piecesByLane.set(lane, [t]);
+      }
+    }
+    for (const list of piecesByLane.values()) list.sort((a, b) => a.id - b.id);
+    for (const list of childrenOf.values()) list.sort((a, b) => a.id - b.id);
+    return { piecesByLane, childrenOf };
+  }, [todos]);
+
+  const isDone = useCallback(
+    (t: Todo) => isDoneToday(t) || completingIds.has(t.id),
+    [completingIds],
+  );
+
+  // A checked-off piece or task drops out of its lane the same way a checked-off card
+  // leaves the canvas: it stays put while it's in `completingIds` so you see the tick
+  // land, then it's gone. The lane's "N done" toggle brings them back when you want the
+  // record (or need to uncheck something).
+  const isHidden = useCallback(
+    (t: Todo) => (t.completed || isDoneToday(t)) && !completingIds.has(t.id),
+    [completingIds],
+  );
+
+  const create = useCallback(
+    async (body: Record<string, unknown>) => {
+      if (busy) return null;
+      setBusy(true);
+      try {
+        const res = await fetch("/api/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error();
+        const todo: Todo = await res.json();
+        onCreated(todo);
+        return todo;
+      } catch {
+        toast.error("Couldn't add that.");
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, onCreated],
+  );
+
+  const addPiece = useCallback(
+    async (e: React.FormEvent, lane: LaneCategory) => {
+      e.preventDefault();
+      const title = newPiece.trim();
+      if (!title) return;
+      const todo = await create({ title, category: lane });
+      if (!todo) return;
+      setNewPiece("");
+      // Straight into "what does this need?" — a piece is only useful once it has
+      // steps under it.
+      setTaskComposerFor(todo.id);
+    },
+    [create, newPiece],
+  );
+
+  const addTask = useCallback(
+    async (e: React.FormEvent, parentId: number) => {
+      e.preventDefault();
+      const title = newTask.trim();
+      if (!title) return;
+      const todo = await create({ title, parent_id: parentId, estimated_minutes: CHILD_DEFAULT_ESTIMATE });
+      if (!todo) return;
+      setNewTask("");
+    },
+    [create, newTask],
+  );
+
+  function startEditing(t: Todo) {
+    setEditingId(t.id);
+    setEditTitle(t.title);
+  }
+
+  function commitEdit(t: Todo) {
+    const title = editTitle.trim();
+    if (title && title !== t.title) onUpdate(t.id, { title });
+    setEditingId(null);
+  }
+
+  // Titles wrap rather than truncate — a piece called "YouTube: how the goal hero
+  // works" is unreadable clipped, and the panel has the vertical room.
+  const titleField = (t: Todo, className: string) =>
+    editingId === t.id ? (
+      <Input
+        autoFocus
+        value={editTitle}
+        onChange={(e) => setEditTitle(e.target.value)}
+        onBlur={() => commitEdit(t)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") setEditingId(null);
+        }}
+        className="h-6 px-1 text-[12px]"
+      />
+    ) : (
+      <span
+        role="button"
+        tabIndex={0}
+        title="Double-click to rename"
+        onDoubleClick={() => startEditing(t)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            startEditing(t);
+          }
+        }}
+        className={cn("block break-words", className)}
+      >
+        {t.title}
+      </span>
+    );
+
+  if (collapsed && !inline) {
+    return (
+      <button
+        type="button"
+        onClick={onToggleCollapsed}
+        title="Show the pipelines"
+        className="pointer-events-auto absolute left-3 top-12 z-[6] flex items-center gap-1.5 rounded-xl border bg-card/95 px-2 py-2 shadow-lg backdrop-blur-sm hover:bg-muted"
+        style={{ writingMode: "vertical-rl" }}
+      >
+        <LayersIcon className="size-3.5 rotate-90 text-muted-foreground" />
+        <span className="text-xs font-medium tracking-wide">Pipelines</span>
+      </button>
+    );
+  }
+
+  return (
+    // Two shapes, one panel. Floating: pinned over the canvas, so it keeps its place
+    // while the notebook pans and zooms underneath, clear of the canvas toolbar above
+    // and Excalidraw's zoom controls below. Inline: a plain section in the page flow,
+    // scrolled by the page rather than scrolling itself.
+    <div
+      className={cn(
+        "flex flex-col rounded-xl border bg-card/95 backdrop-blur-sm",
+        // `overflow-hidden` would clip the resize handle sitting on the edge, so the
+        // rounding is clipped by the scrolling body below instead.
+        inline ? "overflow-hidden shadow-none" : "pointer-events-auto absolute bottom-14 left-3 top-12 z-[6] shadow-lg",
+      )}
+      style={inline ? undefined : { width }}
+    >
+      {/* Drag the right edge to widen. Double-click snaps back to the default. */}
+      {resizable && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the pipelines panel"
+          onPointerDown={startResize}
+          onDoubleClick={() => onResizeWidth?.(LANE_DEFAULT_WIDTH)}
+          title="Drag to resize · double-click to reset"
+          className="group absolute inset-y-0 -right-1.5 z-10 flex w-3 cursor-col-resize items-center justify-center"
+        >
+          <span
+            className={cn(
+              "h-10 w-1 rounded-full bg-border transition-colors group-hover:bg-primary/60",
+              resizing && "bg-primary",
+            )}
+          />
+        </div>
+      )}
+      <div className="flex items-center gap-1.5 rounded-t-xl border-b px-2.5 py-1.5">
+        <LayersIcon className="size-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wide">Pipelines</span>
+        {!inline && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label="Hide the pipelines"
+            className="ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div className={cn(inline ? "" : "min-h-0 flex-1 overflow-y-auto rounded-b-xl")}>
+        {/* Today's food sits above the work: the three sittings and the four
+            protocol rules, tickable without leaving the board. These aren't tasks
+            — they're the nutrition tables, and the Nutrition screen shows the
+            same rows. */}
+        <NutritionToday />
+
+        {LANE_CATEGORIES.map((lane) => {
+          const meta = LANE_META[lane];
+          const LaneIcon = meta.icon;
+          const allPieces = piecesByLane.get(lane) ?? [];
+          const showDone = showDoneLanes.has(lane);
+          const pieces = showDone ? allPieces : allPieces.filter((p) => !isHidden(p));
+          // Finished work still hiding in this lane: whole pieces, plus tasks under the
+          // pieces that are still in flight.
+          const hiddenCount = showDone
+            ? 0
+            : allPieces.reduce(
+                (n, p) =>
+                  n +
+                  (isHidden(p)
+                    ? 1
+                    : (childrenOf.get(p.id) ?? []).filter(isHidden).length),
+                0,
+              );
+          const laneOpen = !closedLanes.has(lane);
+          return (
+            <section key={lane} className="border-b last:border-b-0">
+              <button
+                type="button"
+                onClick={() =>
+                  setClosedLanes((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(lane)) next.delete(lane);
+                    else next.add(lane);
+                    return next;
+                  })
+                }
+                aria-expanded={laneOpen}
+                className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left hover:bg-muted/60"
+              >
+                {laneOpen ? (
+                  <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
+                )}
+                <LaneIcon className={cn("size-3.5 shrink-0", meta.accent)} />
+                <span className="text-xs font-semibold uppercase tracking-wide">
+                  {TASK_CATEGORY_LABELS[lane]}
+                </span>
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">{pieces.length}</span>
+              </button>
+
+              {laneOpen && (
+                <div className="px-1.5 pb-1.5">
+                  {pieces.map((piece) => {
+                    const kids = childrenOf.get(piece.id) ?? [];
+                    const doneKids = kids.filter(isDone).length;
+                    // The x/y counter still counts every task — it's the record of how
+                    // far the piece has come — but only the unfinished ones are listed.
+                    const visibleKids = showDone ? kids : kids.filter((k) => !isHidden(k));
+                    const open = !closedIds.has(piece.id);
+                    const pieceDone = isDone(piece);
+                    return (
+                      <div key={piece.id} className="mb-0.5 rounded-lg border border-transparent hover:border-border/60">
+                        <div className="group flex items-start gap-1 px-1 py-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setClosedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(piece.id)) next.delete(piece.id);
+                                else next.add(piece.id);
+                                return next;
+                              })
+                            }
+                            aria-label={open ? `Collapse ${piece.title}` : `Expand ${piece.title}`}
+                            className="mt-px shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            {open ? <ChevronDownIcon className="size-3.5" /> : <ChevronRightIcon className="size-3.5" />}
+                          </button>
+                          {/* A piece is checkable in its own right: some pieces never get
+                              broken into tasks, and the ones that do still need a "this
+                              whole thing is shipped" moment. Checking it leaves the
+                              children alone — they're their own record of what got done. */}
+                          <Checkbox
+                            checked={pieceDone}
+                            className="mt-0.5 size-3.5 shrink-0"
+                            aria-label={pieceDone ? `Uncheck ${piece.title}` : `Check off ${piece.title}`}
+                            onCheckedChange={(checked) =>
+                              checked ? onComplete(piece.id) : onUncomplete(piece.id)
+                            }
+                          />
+                          <div className="min-w-0 flex-1">
+                            {titleField(
+                              piece,
+                              cn(
+                                "text-[12px] font-medium leading-snug",
+                                pieceDone && "text-muted-foreground line-through",
+                              ),
+                            )}
+                            <TaskLatestUpdate todo={piece} className="mt-1" />
+                          </div>
+                          {kids.length > 0 && (
+                            <span className="mt-px shrink-0 text-xs tabular-nums text-muted-foreground">
+                              {doneKids}/{kids.length}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => onDelete(piece.id)}
+                            aria-label={`Delete ${piece.title} and its tasks`}
+                            title="Delete this piece and everything under it"
+                            className="tap-target mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100"
+                          >
+                            <TrashIcon className="size-3" />
+                          </button>
+                        </div>
+
+                        {open && (
+                          <div className={cn("ml-4 border-l pl-1.5", meta.rule)}>
+                            {visibleKids.map((kid) => {
+                              const done = isDone(kid);
+                              return (
+                                <div key={kid.id} className="group flex items-start gap-1.5 py-0.5 pl-1 pr-0.5">
+                                  <Checkbox
+                                    checked={done}
+                                    className="mt-0.5 size-3.5 shrink-0"
+                                    aria-label={done ? `Uncheck ${kid.title}` : `Check off ${kid.title}`}
+                                    onCheckedChange={(checked) =>
+                                      checked ? onComplete(kid.id) : onUncomplete(kid.id)
+                                    }
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    {titleField(
+                                      kid,
+                                      cn(
+                                        "text-xs leading-snug",
+                                        done && "text-muted-foreground line-through",
+                                      ),
+                                    )}
+                                    <TaskLatestUpdate todo={kid} className="mt-1" />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleInProgress(kid.id, !kid.in_progress)}
+                                    aria-label={
+                                      kid.in_progress ? `Stop working on ${kid.title}` : `Work on ${kid.title} now`
+                                    }
+                                    title="Working on now"
+                                    className={cn(
+                                      "mt-px shrink-0 rounded p-0.5 transition-opacity hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100",
+                                      kid.in_progress
+                                        ? "text-primary opacity-100"
+                                        : "text-muted-foreground opacity-0 hover:text-foreground",
+                                    )}
+                                  >
+                                    <TargetIcon className="size-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onDelete(kid.id)}
+                                    aria-label={`Delete ${kid.title}`}
+                                    className="tap-target mt-px shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-priority-urgent focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100"
+                                  >
+                                    <TrashIcon className="size-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+
+                            {taskComposerFor === piece.id ? (
+                              <form onSubmit={(e) => addTask(e, piece.id)} className="py-1 pl-1 pr-0.5">
+                                <Input
+                                  autoFocus
+                                  value={newTask}
+                                  onChange={(e) => setNewTask(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Escape") {
+                                      setTaskComposerFor(null);
+                                      setNewTask("");
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (!newTask.trim()) setTaskComposerFor(null);
+                                  }}
+                                  placeholder="Add a task…"
+                                  className="h-6 px-1.5 text-xs"
+                                />
+                              </form>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewTask("");
+                                  setTaskComposerFor(piece.id);
+                                }}
+                                className="flex w-full items-center gap-1 rounded px-1 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                              >
+                                <PlusIcon className="size-3" />
+                                Add task
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {(hiddenCount > 0 || showDone) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowDoneLanes((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(lane)) next.delete(lane);
+                          else next.add(lane);
+                          return next;
+                        })
+                      }
+                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      {showDone ? "Hide done" : `Show ${hiddenCount} done`}
+                    </button>
+                  )}
+
+                  {pieceComposerFor === lane ? (
+                    <form onSubmit={(e) => addPiece(e, lane)} className="px-1 pt-0.5">
+                      <Input
+                        autoFocus
+                        value={newPiece}
+                        onChange={(e) => setNewPiece(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setPieceComposerFor(null);
+                            setNewPiece("");
+                          }
+                        }}
+                        onBlur={() => {
+                          if (!newPiece.trim()) setPieceComposerFor(null);
+                        }}
+                        placeholder={meta.placeholder}
+                        className="h-6 px-1.5 text-xs"
+                      />
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPiece("");
+                        setPieceComposerFor(lane);
+                      }}
+                      className="flex w-full items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <PlusIcon className="size-3" />
+                      {allPieces.length === 0
+                        ? `Add your first ${TASK_CATEGORY_LABELS[lane].toLowerCase()} piece`
+                        : "Add piece"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

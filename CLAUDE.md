@@ -12,6 +12,7 @@ Read `WORKLOG.md` in the project root first. It contains a timestamped log of ev
 
 1. **Update `WORKLOG.md`** with a timestamped entry: what was built, decisions made, files changed, and any next steps.
 2. **Commit all changes to `main`** and push to origin. Do not leave work on a branch or worktree without merging.
+3. **If the work happened in a git worktree, merge it into the local `main` checkout right after finishing** — don't leave it sitting unmerged in the worktree. This keeps every checkout of this repo on the same page.
 
 This is non-negotiable. Every session ends with WORKLOG.md updated and main pushed.
 
@@ -64,6 +65,26 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
 - Eve-specific vars are pulled via `vercel env pull` or set in `.env.local`.
 - `BASIC_AUTH_PASSWORD` — protects the app (cookie-based login page at `/login`). Set in `.env.local` and Vercel production.
 - `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice.
+- The daily scorecard's steps and sleep come from the watch via the **Google Health
+  API**, on the *existing* `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — there is no
+  separate Fitbit app or secret. (The legacy Fitbit Web API is turned down in September
+  2026; its successor authenticates with Google OAuth.) It needs, one time: the Google
+  Health API enabled in the same Cloud project, the two `googlehealth.*.readonly` scopes
+  added on the OAuth consent screen, and a re-consent via `/api/google/connect` — the
+  stored refresh token only carries the scopes it was granted, which is why
+  `hasHealthScope()` gates the UI. Without it the scorecard still works; steps and sleep
+  are just typed or told to Cael.
+- `MCP_TOKEN` — shared secret for the MCP server at `/api/mcp`, which exposes the task
+  list **and every tool in `agent/tools/`** (bridged via `lib/agent-tool-registry.ts`) to
+  any MCP client — Claude Code, claude.ai, the desktop app, Codex. Clients send it as
+  `Authorization: Bearer <token>`. Must be set in `.env.local` **and** in Vercel
+  production, or the endpoint 401s. Connect with:
+  - Claude Code: `claude mcp add --transport http --scope user cael https://cael.bertomill.com/api/mcp --header "Authorization: Bearer $MCP_TOKEN"`
+  - Codex: `codex mcp add cael --url https://cael.bertomill.com/api/mcp --bearer-token-env-var CAEL_MCP_TOKEN` (with `CAEL_MCP_TOKEN` exported in the shell)
+  - Adding a tool file to `agent/tools/` exposes it over MCP automatically; add its name
+    to `SKIPPED_AGENT_TOOLS` in `app/api/mcp/route.ts` only if it duplicates a task tool
+    or needs eve session state. Relative imports inside `agent/` must be extensionless
+    (no `.js`) — Turbopack can't remap `.js` → `.ts` and the MCP route bundles them.
 
 ## Content / podcast workflow
 

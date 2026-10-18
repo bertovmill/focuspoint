@@ -6,3 +6,6 @@ node_modules
 .output
 .nitro
 dist
+.next-*
+*.mp4
+GMT*

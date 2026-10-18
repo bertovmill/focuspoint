@@ -1,33 +1,32 @@
 "use client";
 
 import { useEveAgent, type EveMessagePart } from "eve/react";
-import { ActivityIcon, AlertCircleIcon, DatabaseIcon, HistoryIcon, InfoIcon, PanelLeftIcon, PlusIcon, XIcon } from "lucide-react";
+import { ActivityIcon, AlertCircleIcon, ChevronLeftIcon, DatabaseIcon, HistoryIcon, InfoIcon, Maximize2Icon, MinusIcon, PanelLeftIcon, PlusIcon, SquarePenIcon, XIcon } from "lucide-react";
+import { PushBell } from "@/app/_components/push-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatSidebar } from "@/app/_components/chat-sidebar";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { requestNewChat } from "@/app/_components/new-chat-event";
 import { TracePanel } from "@/app/_components/trace-panel";
-import { deriveTitle, useThreads } from "@/app/_components/threads-provider";
-import { CalendarToolUI } from "@/components/assistant-ui/calendar-tool-ui";
-import { Thread } from "@/components/assistant-ui/thread";
-import { useEveRuntime } from "@/hooks/use-eve-runtime";
-import { CaelAvatar } from "@/app/_components/cael-avatar";
+import { EveComposer } from "@/components/chat/eve-composer";
+import { EveThread, type EveAgent, type SentFile } from "@/components/chat/eve-thread";
+import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
+import { useThreadAgent } from "@/hooks/use-thread-agent";
+import { PinButton } from "@/app/_components/pin-button";
+import { useThreadLoaded, useThreads } from "@/app/_components/threads-provider";
+import { Skeleton } from "@/components/ui/skeleton";
+import { readPageText } from "@/app/_components/page-context";
+import { withChatContext } from "@/lib/chat-context";
 import { cn } from "@/lib/utils";
 
-type AgentStatus = ReturnType<typeof useEveAgent>["status"];
+export type AgentStatus = ReturnType<typeof useEveAgent>["status"];
 
-export function AgentChat({
-  hasMobileNav,
-  threadId,
-  sidebarOpen,
-  onToggleSidebar,
-  chatSidebarOpen,
-  onToggleChatSidebar,
-  initialMessage,
-  onInitialMessageSent,
-}: {
+type AgentChatProps = {
   hasMobileNav?: boolean;
+  /** Phone only: the way back out of a full-screen conversation. */
+  onGoHome?: () => void;
   threadId: string;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
@@ -35,37 +34,133 @@ export function AgentChat({
   onToggleChatSidebar?: () => void;
   initialMessage?: string;
   onInitialMessageSent?: () => void;
+  /**
+   * "corner": the floating chat in the bottom-right of every other page. Same
+   * thread as the Chat page, a compact header, and `pageContext` plus the text
+   * on screen sent (hidden) with every message so Cael sees what Berto sees.
+   */
+  variant?: "page" | "corner";
+  pageContext?: string | null;
+  /** Corner only: a short label for the header, e.g. "on Notes". */
+  pageLabel?: string;
+  onClose?: () => void;
+  /** Corner only: open this conversation on the full Chat page. */
+  onExpand?: () => void;
+};
+
+/**
+ * If the thread was left mid-answer, reattach to the run and collect the rest
+ * before handing it to the agent. `generation` ticks once when that lands, which
+ * remounts the session on the recovered transcript.
+ */
+export function AgentChat(props: AgentChatProps) {
+  // Past threads arrive as titles only; the transcript comes down on open.
+  const { ready, failed, retry } = useThreadLoaded(props.threadId);
+  if (!ready) return <ThreadLoading failed={failed} onRetry={retry} />;
+  return <LoadedAgentChat {...props} />;
+}
+
+export function ThreadLoading({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  if (failed) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-sm text-muted-foreground">
+        <p>Couldn&apos;t load this chat.</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-lg border px-3 py-1.5 text-foreground transition-colors hover:bg-muted"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-full flex-col gap-3 p-4" aria-busy="true">
+      <Skeleton className="h-16 w-3/4" />
+      <Skeleton className="ml-auto h-10 w-1/2" />
+      <Skeleton className="h-24 w-2/3" />
+    </div>
+  );
+}
+
+function LoadedAgentChat(props: AgentChatProps) {
+  const { busy, generation, resuming } = useResumeInterruptedTurn(props.threadId);
+  // Ticks when the thread's saved session turns out to be dead on the server
+  // (expired or from another deployment). The remount starts a fresh session on
+  // the same transcript and resends the message that hit the wall.
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  return (
+    <ChatSession
+      key={`${props.threadId}:${generation}:${sessionEpoch}`}
+      busyRef={busy}
+      resuming={resuming}
+      onSessionLost={() => setSessionEpoch((n) => n + 1)}
+      {...props}
+    />
+  );
+}
+
+function ChatSession({
+  busyRef,
+  resuming,
+  hasMobileNav,
+  onGoHome,
+  threadId,
+  sidebarOpen,
+  onToggleSidebar,
+  chatSidebarOpen,
+  onToggleChatSidebar,
+  initialMessage,
+  onInitialMessageSent,
+  onSessionLost,
+  variant = "page",
+  pageContext,
+  pageLabel,
+  onClose,
+  onExpand,
+}: AgentChatProps & {
+  busyRef: MutableRefObject<boolean>;
+  resuming: boolean;
+  onSessionLost: () => void;
 }) {
-  const { getThread, saveSnapshot, rename, newThread, setRunning } = useThreads();
-  const thread = getThread(threadId);
+  const { setRunning } = useThreads();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
 
-  const agent = useEveAgent({
-    initialSession: thread?.session,
-    initialEvents: thread?.events,
-    onFinish: (snapshot) => {
-      const firstUser = snapshot.data.messages.find((m) => m.role === "user");
-      const textPart = firstUser?.parts.find((p) => p.type === "text");
-      saveSnapshot(threadId, {
-        session: snapshot.session,
-        events: snapshot.events,
-        firstUserText:
-          textPart && "text" in textPart ? textPart.text : undefined,
-      });
-    },
-  });
+  const rawAgent = useThreadAgent(threadId, { onSessionLost });
+  const corner = variant === "corner";
 
-  // Set the sidebar title as soon as the first user message appears (optimistic,
-  // happens instantly on send) rather than waiting for onFinish after the full response.
-  useEffect(() => {
-    if (thread?.title) return;
-    const firstUser = agent.data.messages.find((m) => m.role === "user");
-    const textPart = firstUser?.parts.find((p) => p.type === "text");
-    if (textPart && "text" in textPart && textPart.text) {
-      rename(threadId, deriveTitle(textPart.text));
-    }
-  }, [agent.data.messages, thread?.title, threadId, rename]);
+  // In the corner, every send carries a hidden line about the page Berto is on
+  // (lib/chat-context strips it from the bubble). Read through a ref so the
+  // line is the page at send time, not when the chat mounted.
+  const contextRef = useRef<string | null>(null);
+  contextRef.current = corner ? pageContext ?? null : null;
+  const agent = useMemo(
+    () =>
+      new Proxy(rawAgent, {
+        get(target, prop, receiver) {
+          if (prop !== "send") return Reflect.get(target, prop, receiver);
+          return (content: Parameters<EveAgent["send"]>[0], ...rest: unknown[]) => {
+            // The page's own line, then the text on screen at the moment of sending.
+            const screen = contextRef.current ? readPageText() : null;
+            const context = contextRef.current && screen ? `${contextRef.current}\n\nOn his screen:\n"""\n${screen}\n"""` : contextRef.current;
+            const next = !context
+              ? content
+              : typeof content === "string"
+                ? withChatContext(context, content)
+                : Array.isArray(content)
+                  ? [{ type: "text" as const, text: withChatContext(context, "") }, ...content]
+                  : content;
+            return (target.send as (...a: unknown[]) => unknown)(next, ...rest);
+          };
+        },
+      }) as typeof rawAgent,
+    [rawAgent],
+  );
+
+  // A resume that lands mid-answer must not remount us out from under a live turn.
+  busyRef.current = agent.status === "submitted" || agent.status === "streaming";
 
   // Auto-send initialMessage once on mount (used by "Run now" in Scheduled Tasks).
   const hasSentInitial = useRef(false);
@@ -76,10 +171,13 @@ export function AgentChat({
 
   useEffect(() => {
     if (!initialMessage || hasSentInitial.current) return;
-    hasSentInitial.current = true;
-    // Brief delay lets the eve transport initialize before the first send.
+    // Brief delay lets the eve transport initialize before the first send. The
+    // "sent" mark must wait for the timer to actually fire: StrictMode's dev
+    // double-invoke clears the first timer on cleanup, and marking eagerly made
+    // the second invocation bail — the message was never sent at all.
     const timer = setTimeout(() => {
-      agentSendRef.current({ message: initialMessage });
+      hasSentInitial.current = true;
+      agentSendRef.current(initialMessage);
       onInitialMessageSentRef.current?.();
     }, 100);
     return () => clearTimeout(timer);
@@ -94,7 +192,16 @@ export function AgentChat({
     return () => setRunning(threadId, false);
   }, [isRunning, threadId, setRunning]);
 
-  const runtime = useEveRuntime(agent);
+  // Files attached to outgoing messages, by message index. eve keeps only a
+  // text summary of attachments, so previews in the thread come from here for
+  // the life of this chat session.
+  const sentFilesRef = useRef(new Map<number, readonly SentFile[]>());
+  const [, bumpSentFiles] = useState(0);
+  const rememberSentFiles = useCallback((index: number, files: readonly SentFile[]) => {
+    if (files.length === 0) return;
+    sentFilesRef.current.set(index, files);
+    bumpSentFiles((n) => n + 1);
+  }, []);
 
   const lastMsg = agent.data.messages.at(-1);
   const stoppedAfterTools =
@@ -107,12 +214,60 @@ export function AgentChat({
   return (
     <main
       className={cn(
-        "relative flex h-dvh flex-col overflow-hidden bg-background text-foreground",
-        hasMobileNav && "pb-16 lg:pb-0",
+        // Fills the shell rather than the viewport: the shell gives the status bar
+        // its strip on a phone, and a full h-dvh here would push the composer off the bottom.
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground",
+        corner ? "pb-[var(--safe-bottom)] lg:pb-0" : hasMobileNav ? "pb-[var(--mobile-nav-h)] lg:pb-0" : "pb-[var(--safe-bottom)] lg:pb-0",
       )}
     >
+      {corner ? (
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border pl-3 pr-1.5">
+          <span className="text-sm font-medium">Cael</span>
+          <StatusDot status={agent.status} />
+          {pageLabel ? <span className="ml-1 truncate text-xs text-muted-foreground">{pageLabel}</span> : null}
+          <span className="ml-auto flex items-center">
+            <button
+              onClick={() => requestNewChat({ stay: true })}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="New chat"
+              aria-label="New chat"
+            >
+              <SquarePenIcon className="size-4" />
+            </button>
+            {onExpand ? (
+              <button
+                onClick={onExpand}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Open in Chat"
+                aria-label="Open in Chat"
+              >
+                <Maximize2Icon className="size-4" />
+              </button>
+            ) : null}
+            {onClose ? (
+              <button
+                onClick={onClose}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Minimize"
+                aria-label="Minimize chat"
+              >
+                <MinusIcon className="size-4" />
+              </button>
+            ) : null}
+          </span>
+        </header>
+      ) : (
       <header className="flex h-14 shrink-0 items-center justify-between pl-2 pr-3 border-b border-border">
         <span className="flex min-w-0 items-center gap-1">
+          {onGoHome && !hasMobileNav ? (
+            <button
+              onClick={onGoHome}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
+              aria-label="Back to Home"
+            >
+              <ChevronLeftIcon className="size-5" />
+            </button>
+          ) : null}
           <button
             onClick={() => setHistoryOpen(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
@@ -153,11 +308,19 @@ export function AgentChat({
               </Tooltip>
             </TooltipProvider>
           )}
-          <CaelAvatar size={40} active={agent.status === "submitted" || agent.status === "streaming"} />
-          <span className="truncate text-muted-foreground text-sm">Cael</span>
+          <span className="truncate pl-1 text-sm font-medium">Cael</span>
           <StatusDot status={agent.status} />
         </span>
         <span className="flex items-center gap-1">
+          <button
+            onClick={() => requestNewChat()}
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground lg:hidden"
+            aria-label="New chat"
+          >
+            <SquarePenIcon className="size-4" />
+          </button>
+          <PushBell />
+          <PinButton className="p-2" />
           <button
             onClick={() => setTraceOpen(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
@@ -175,6 +338,16 @@ export function AgentChat({
           </Link>
         </span>
       </header>
+      )}
+
+      {resuming ? (
+        <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">
+            <ActivityIcon className="size-4 shrink-0 animate-pulse" />
+            <p>Picking up where this chat left off…</p>
+          </div>
+        </div>
+      ) : null}
 
       {agent.error ? (
         <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pt-2 sm:px-6">
@@ -200,48 +373,61 @@ export function AgentChat({
         </div>
       ) : null}
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <AssistantRuntimeProvider runtime={runtime}>
-          {/* Registers the in-chat calendar widget for list_calendar_events. */}
-          <CalendarToolUI />
-          <Thread components={{ Welcome: PersonalizedWelcome }} />
-        </AssistantRuntimeProvider>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1">
+          <EveThread
+            agent={agent}
+            sentFiles={sentFilesRef.current}
+            welcome={
+              corner ? (
+                <p className="max-w-64 text-center text-sm text-muted-foreground">
+                  Ask Cael anything. It can see the page you&apos;re on.
+                </p>
+              ) : (
+                <PersonalizedWelcome />
+              )
+            }
+            {...(corner ? { suggestions: [], className: "gap-5 px-3 pt-3 pb-4" } : {})}
+          />
+        </div>
+        <div className={cn("mx-auto w-full shrink-0 px-3 pb-3 pt-1", corner ? "" : "max-w-3xl sm:px-4 sm:pb-4")}>
+          <EveComposer
+            agent={agent}
+            onSend={rememberSentFiles}
+            {...(corner ? { placeholder: "Ask Cael about this page…", autoFocus: false, globalDrop: false } : {})}
+          />
+        </div>
       </div>
 
       {/* Mobile chat-history overlay */}
-      {historyOpen ? (
-        <div className="absolute inset-0 z-50 flex lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setHistoryOpen(false)}
-          />
-          <div className="relative flex w-72 max-w-[80%] flex-col border-r border-border bg-background">
-            <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
-              <span className="text-muted-foreground text-sm">Chats</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    newThread();
-                    setHistoryOpen(false);
-                  }}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                  aria-label="New chat"
-                >
-                  <PlusIcon className="size-4" />
-                </button>
-                <button
-                  onClick={() => setHistoryOpen(false)}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
-                  aria-label="Close chat history"
-                >
-                  <XIcon className="size-4" />
-                </button>
-              </div>
+      {/* Mobile chat history rides in a swipeable side drawer (vaul). */}
+      <Drawer direction="left" open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DrawerContent aria-describedby={undefined} className="lg:hidden">
+          <div className="flex h-14 shrink-0 items-center justify-between px-3 border-b border-border">
+            <DrawerTitle className="font-normal text-muted-foreground text-sm">Chats</DrawerTitle>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  requestNewChat();
+                  setHistoryOpen(false);
+                }}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                aria-label="New chat"
+              >
+                <PlusIcon className="size-4" />
+              </button>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                aria-label="Close chat history"
+              >
+                <XIcon className="size-4" />
+              </button>
             </div>
-            <ChatSidebar className="flex-1" onNavigate={() => setHistoryOpen(false)} />
           </div>
-        </div>
-      ) : null}
+          <ChatSidebar className="min-h-0 flex-1" onNavigate={() => setHistoryOpen(false)} />
+        </DrawerContent>
+      </Drawer>
 
       {traceOpen ? (
         <TracePanel events={agent.events} onClose={() => setTraceOpen(false)} />
@@ -272,7 +458,7 @@ function PersonalizedWelcome() {
   );
 }
 
-function StatusDot({ status }: { readonly status: AgentStatus }) {
+export function StatusDot({ status }: { readonly status: AgentStatus }) {
   const isLive = status === "submitted" || status === "streaming";
   const tone =
     status === "error"

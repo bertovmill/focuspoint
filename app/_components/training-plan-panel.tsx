@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
+  ArrowLeftRightIcon,
   CalendarRangeIcon,
   FileTextIcon,
   DumbbellIcon,
@@ -57,6 +58,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { SessionPage, newSessionHref, sessionHref } from "@/app/_components/session-editor";
+import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { WorkoutLog } from "@/app/_components/workout-log";
 import { WorkoutBank, WorkoutEditor } from "@/app/_components/workout-bank";
@@ -139,6 +141,7 @@ function TrainingWeek() {
   // Kept after close so the title doesn't blank out during the exit animation.
   const [removing, setRemoving] = useState<TrainingSession | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [swapping, setSwapping] = useState<TrainingSession | null>(null);
   const askRemove = (s: TrainingSession) => { setRemoving(s); setRemoveOpen(true); };
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
@@ -490,7 +493,7 @@ function TrainingWeek() {
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
+                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} onSwap={() => setSwapping(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -572,7 +575,7 @@ function TrainingWeek() {
                 )}
                 {selectedList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
+                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} onSwap={() => setSwapping(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -643,7 +646,7 @@ function TrainingWeek() {
                 <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {list.map((s) => (
                     <DragSession key={s.id} id={s.id}>
-                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
+                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} onSwap={() => setSwapping(s)} />
                     </DragSession>
                   ))}
                 </SortableContext>
@@ -667,6 +670,8 @@ function TrainingWeek() {
       {/* How much better this week's sets are than last time (Berto, 2026-10-17). Under the workouts on both sizes. */}
       <WeeklyProgressLine />
 
+
+      {swapping && <SwapWorkoutDialog session={swapping} open onOpenChange={(o) => !o && setSwapping(null)} onSwapped={load} />}
 
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent>
@@ -765,7 +770,7 @@ function SortableSession({ id, children }: { id: number; children: React.ReactNo
   );
 }
 
-function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void }) {
+function SessionCard({ s, past, big, onToggle, onEdit, onDelete, onSwap }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void; onSwap?: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   const template = s.workout_slug ? { slug: s.workout_slug } : null;
@@ -825,6 +830,11 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
             {logLabel}
           </Link>
         )}
+        {onSwap && !rest && !s.done && (
+          <button type="button" onClick={onSwap} className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeftRightIcon className="size-4" /> Swap workout
+          </button>
+        )}
       </div>
     );
   }
@@ -867,6 +877,17 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
           </Link>
         ) : (
           <span />
+        )}
+        {onSwap && !rest && !s.done && (
+          <button
+            type="button"
+            onClick={onSwap}
+            aria-label={`Swap ${s.title}`}
+            title="Swap workout"
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <ArrowLeftRightIcon className="size-3.5" />
+          </button>
         )}
         {onDelete && (
           <button

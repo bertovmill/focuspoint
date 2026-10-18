@@ -12002,3 +12002,12 @@ Decisions: done sessions never change; if the new workout already had a default 
 existing future sessions are left alone (only its default day moves).
 Verified: `npm install` + `tsc --noEmit` clean. Not clicked through in a browser.
 Next: offer the swap from the session edit page and the training week view too.
+
+## 2026-10-18 — Swap workout on /training
+
+Berto couldn't find the swap from /training (it was only on the home dashboard card).
+`SessionCard` in `training-plan-panel.tsx` now takes `onSwap`: the day's hero card shows a
+"Swap workout" link under the log button, and each week-grid card has a hover swap icon
+beside the trash. Both open `SwapWorkoutDialog` (one dialog in `TrainingWeek`, reloads the
+week on swap). Not shown for rest or done sessions.
+Verified: `tsc --noEmit` clean. Not clicked through in a browser.

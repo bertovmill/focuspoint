@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FlagIcon, MountainIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FlagIcon, InfoIcon, MountainIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CareerAction, CareerActionTick, CareerCheckpoint, CareerDestination, CareerPlan as Plan } from "@/lib/career-plan";
+import { CAREER_ACTION_WHY } from "@/lib/career-action-why";
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -439,7 +441,22 @@ function ActionCard({ a, tick, onSet }: { a: CareerAction; tick: CareerActionTic
           {done && <CheckIcon className="size-6" />}
         </button>
         <div className="min-w-0 flex-1">
-          <p className={cn("text-xl font-medium leading-snug", done && "text-muted-foreground line-through")}>{a.title}</p>
+          <div className="flex items-start gap-2">
+            <p className={cn("min-w-0 flex-1 text-xl font-medium leading-snug", done && "text-muted-foreground line-through")}>{a.title}</p>
+            {CAREER_ACTION_WHY[a.key] && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" aria-label={`Why "${a.title}" works`} className="tap-target mt-0.5 shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                    <InfoIcon className="size-5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 text-sm leading-relaxed">
+                  <p className="mb-1 font-medium">Why this helps</p>
+                  <p className="text-muted-foreground">{CAREER_ACTION_WHY[a.key]}</p>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
           {a.detail && <p className="text-base text-muted-foreground">{a.detail}</p>}
           {a.principles && <p className="text-xs text-muted-foreground/80">Principles {a.principles}</p>}
           {noting ? (

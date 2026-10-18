@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-18 — Career: info button on each daily action
+
+Each card in Today on /career now has an info (i) button that opens a popover
+explaining why that action moves Berto toward the destination.
+
+- `lib/career-action-why.ts`: the "why" text, keyed by `actionKey(title)` so it
+  survives edits to the daily-actions doc. An action added later has no button
+  until it gets an entry here.
+- `app/_components/career-plan.tsx`: Popover + InfoIcon in `ActionCard`.
+- Not clicked through live (app is behind auth); typecheck clean for source files.
+
+---
+
 ## 2026-10-17 — Notes editor: Shift+Tab steps a block out of a toggle
 
 A block inside a toggle's body (e.g. a nested toggle under "What goals am I

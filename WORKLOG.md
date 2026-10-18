@@ -12018,6 +12018,6 @@ Berto: a workout of a 10 min run, then 8 dynamic mobility exercises, 10 yards an
 3 sets. Added `RUN_MOBILITY` (slug `run-and-mobility`, type easy, no default day) to
 `lib/workout-templates.ts`; `ensureBank` inserts it if absent (so existing databases get it,
 and later edits/archives stick). Run block (timed) + mobility block, 8 drills x 3 sets.
-The 8 drills are my pick (walking lunge w/ rotation, high knees, butt kicks, leg swings,
-inchworm, carioca, A-skips, lateral shuffle) — Berto to rename in /training/workouts.
+His 8 drills: deep lunges, hamstring sweeps, side lunges, quad stretches, lizard lunges,
+standing glute stretch, inchworms, lunging spine rotations (replaced my first guess; ensureBank swaps it only while the guess is untouched).
 Use it via Swap workout. Verified: tsc clean; not run against the DB.

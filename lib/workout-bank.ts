@@ -35,6 +35,15 @@ async function ensureBank() {
   // Run + dynamic mobility joins the bank (Berto, 2026-10-18). Insert-if-absent, so an
   // edit or an archive from the editor sticks.
   await sql`INSERT INTO workout_bank (slug, position, definition) VALUES (${RUN_MOBILITY.slug}, (SELECT COALESCE(MAX(position), -1) + 1 FROM workout_bank), ${JSON.stringify(RUN_MOBILITY)}) ON CONFLICT DO NOTHING`;
+  // His own 8 drills replace the ones first guessed (Berto, 2026-10-18); only while the
+  // first guess is still in, so editor changes stick.
+  const [mob] = await sql`SELECT definition FROM workout_bank WHERE slug = ${RUN_MOBILITY.slug}`;
+  if (mob) {
+    const def = (typeof mob.definition === "string" ? JSON.parse(mob.definition) : mob.definition) as WorkoutTemplate;
+    if (def.blocks.some((b) => b.exercises.some((e) => e.key === "high_knees"))) {
+      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(RUN_MOBILITY)}, updated_at = NOW() WHERE slug = ${RUN_MOBILITY.slug}`;
+    }
+  }
   // One-time: rear-foot elevated split squats replace the wall balls on lower body
   // (Berto, 2026-10-06). Skipped once the split squat is in, so wall balls added
   // back from the editor stay.

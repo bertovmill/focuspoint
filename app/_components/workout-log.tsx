@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, GripVerticalIcon, InfoIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RestTimer, WorkoutTimer, selfTimedRest, useSegments, type Segment } from "@/app/_components/workout-timer";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
@@ -20,6 +23,7 @@ import {
   workoutHref,
   type Prescription,
   type StrengthLog,
+  type TemplateBlock,
   type TemplateExercise,
   type WorkoutTemplate,
 } from "@/lib/workout-templates";
@@ -197,6 +201,46 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
     setData((cur) => (cur ? { ...cur, template: { ...cur.template, blocks: saved.blocks } } : cur));
   };
   const renameExercise = (key: string, name: string) => updateExercise(key, { name });
+
+  // Dragging an exercise by its grip reorders it within its superset / round, and the
+  // new order is saved to the bank so every later session (and the lap timer) follows
+  // it (Berto, 2026-10-19). Timed rows and rep rows each reorder among themselves.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 6 } }),
+  );
+  const reorder = async (blockKey: string, e: DragEndEvent) => {
+    if (!data || !e.over || e.active.id === e.over.id) return;
+    const block = data.template.blocks.find((b) => b.key === blockKey);
+    if (!block) return;
+    const order = (exercises: TemplateExercise[]) => {
+      const keys = exercises.map((x) => x.key);
+      const from = keys.indexOf(String(e.active.id));
+      const to = keys.indexOf(String(e.over!.id));
+      if (from < 0 || to < 0) return null;
+      // Only the dragged exercise's group (timed or reps) moves; the other stays in its slots.
+      const group = keys.filter((k) => isTime(exercises[keys.indexOf(k)]) === isTime(exercises[from]));
+      const moved = arrayMove(group, group.indexOf(keys[from]), group.indexOf(keys[to]));
+      let gi = 0;
+      return keys.map((k) => (group.includes(k) ? moved[gi++] : k));
+    };
+    const keys = order(block.exercises);
+    if (!keys) return;
+    const sortBlock = (b: TemplateBlock) => ({ ...b, exercises: keys.map((k) => b.exercises.find((x) => x.key === k)).filter((x): x is TemplateExercise => !!x).concat(b.exercises.filter((x) => !keys.includes(x.key))) });
+    const before = data.template;
+    setData((cur) => (cur ? { ...cur, template: { ...cur.template, blocks: cur.template.blocks.map((b) => (b.key === blockKey ? sortBlock(b) : b)) } } : cur));
+    try {
+      const res = await fetch(`/api/training/bank/${slug}`);
+      if (!res.ok) throw new Error("Couldn't load the workout");
+      const def = (await res.json()) as WorkoutTemplate;
+      def.blocks = def.blocks.map((b) => (b.key === blockKey ? sortBlock(b) : b));
+      const put = await fetch(`/api/training/bank/${slug}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(def) });
+      if (!put.ok) throw new Error((await put.json().catch(() => ({})))?.error ?? "Couldn't save");
+    } catch (err) {
+      setData((cur) => (cur ? { ...cur, template: before } : cur));
+      toast.error(err instanceof Error ? err.message : "Couldn't save the new order");
+    }
+  };
   const saveCues = (key: string, cues: string) => updateExercise(key, { cues });
 
   if (missing) {
@@ -257,10 +301,12 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         const timed = b.exercises.filter(isTime);
         const reps = b.exercises.filter((e) => !isTime(e));
         return (
-          <section key={b.key} id={b.key} className="overflow-hidden rounded-xl border">
+          <DndContext key={b.key} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => reorder(b.key, e)}>
+          <SortableContext items={b.exercises.map((e) => e.key)} strategy={verticalListSortingStrategy}>
+          <section id={b.key} className="overflow-hidden rounded-xl border">
             <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
             {timed.map((ex) => (
-              <TimeRow key={ex.key} ex={ex} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
+              <TimeRow key={ex.key} ex={ex} draggable={b.exercises.length > 1} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
             ))}
             {reps.length > 0 && (
             <div className={cn("overflow-x-auto", timed.length > 0 && "border-t")}>
@@ -279,6 +325,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
                     <ExerciseRow
                       key={ex.key}
                       ex={ex}
+                      draggable={b.exercises.length > 1}
                       row={rows[ex.key]}
                       p={data.prescriptions[ex.key]}
                       columns={maxSets}
@@ -292,6 +339,8 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
             </div>
             )}
           </section>
+          </SortableContext>
+          </DndContext>
         );
       })}
 
@@ -335,9 +384,10 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
   );
 }
 
-function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+function ExerciseRow({ ex, draggable, row, p, columns, onChange, onRename, onSaveCues }: { ex: TemplateExercise; draggable: boolean; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; columns: number; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
   const [showCues, setShowCues] = useState(false);
   const [showNext, setShowNext] = useState(false);
+  const sort = useSortable({ id: ex.key, disabled: !draggable });
   if (!row) return null;
   const reps = row.reps.map(parseNum);
   const total = totalReps(reps);
@@ -360,8 +410,11 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
 
   return (
     <>
-    <tr className="border-t align-middle">
-      <td className="px-3 py-2.5 sm:px-4">
+    <tr ref={sort.setNodeRef} style={sortStyle(sort)} className={cn("border-t align-middle", sort.isDragging && "relative z-10 bg-background shadow-lg")}>
+      <td className={cn("px-3 py-2.5 sm:px-4", draggable && "pl-1 sm:pl-1.5")}>
+        <div className="flex items-start gap-0.5">
+        {draggable && <DragHandle name={ex.name} sort={sort} />}
+        <div className="min-w-0 flex-1">
         {/* Inline, so the ⓘ follows the name and pencil instead of narrowing the column. */}
         <span className="block">
           <ExerciseName name={ex.name} onRename={onRename} className="inline" />
@@ -375,6 +428,8 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
         {p?.bumpSuggested && sameWeightAsLast && (
           <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-400">All sets hit {p.target} last time. Add weight?</p>
         )}
+        </div>
+        </div>
       </td>
       {row.reps.map((v, i) => {
         const n = parseNum(v);
@@ -466,6 +521,27 @@ function ExerciseRow({ ex, row, p, columns, onChange, onRename, onSaveCues }: { 
       </tr>
     )}
     </>
+  );
+}
+
+function sortStyle(sort: ReturnType<typeof useSortable>): React.CSSProperties {
+  return { transform: CSS.Translate.toString(sort.transform), transition: sort.transition };
+}
+
+/** The grip an exercise is dragged by — only the grip, so the set boxes stay tappable. */
+function DragHandle({ name, sort }: { name: string; sort: ReturnType<typeof useSortable> }) {
+  return (
+    <button
+      type="button"
+      ref={sort.setActivatorNodeRef}
+      {...sort.attributes}
+      {...sort.listeners}
+      aria-label={`Drag to reorder ${name}`}
+      title="Drag to reorder"
+      className="-my-1 flex h-10 w-6 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded text-muted-foreground/50 hover:text-foreground active:cursor-grabbing [-webkit-touch-callout:none]"
+    >
+      <GripVerticalIcon className="size-4" />
+    </button>
   );
 }
 
@@ -721,8 +797,9 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, row, p, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+function TimeRow({ ex, draggable, row, p, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; draggable: boolean; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
   const [showCues, setShowCues] = useState(false);
+  const sort = useSortable({ id: ex.key, disabled: !draggable });
   if (!row) return null;
   const values = row.reps.map((v) => parseTime(v));
   const done = values.filter((v): v is number => v !== null);
@@ -757,9 +834,10 @@ function TimeRow({ ex, row, p, activeSet, onChange, onRename, onSaveCues }: { ex
     />
   );
   return (
-    <div className="border-t px-3 py-3 first:border-t-0 sm:px-4">
+    <div ref={sort.setNodeRef} style={sortStyle(sort)} className={cn("border-t px-3 py-3 first:border-t-0 sm:px-4", draggable && "pl-1 sm:pl-1.5", sort.isDragging && "relative z-10 bg-background shadow-lg")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        {draggable && <DragHandle name={ex.name} sort={sort} />}
+        <div className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-1.5 font-medium leading-snug">
             <ExerciseName name={ex.name} onRename={onRename} />
             <CuesButton name={ex.name} open={showCues} onClick={() => setShowCues((o) => !o)} />

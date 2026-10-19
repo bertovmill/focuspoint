@@ -4,6 +4,28 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-19 — Workout log: drag exercises to reorder within a superset
+
+Berto wanted to drag the exercises in a superset (or a round of Stations) into a
+new order. Each exercise on the log page (/training/workouts/<slug>/<date>) now
+has a grip on its left. Dragging the grip moves it within its block, and the new
+order is saved to the bank, so later sessions and the lap timer follow it.
+
+- `app/_components/workout-log.tsx`: one `DndContext` + `SortableContext` per block
+  (@dnd-kit, as in training-plan-panel). `useSortable` sits in `TimeRow` / `ExerciseRow`,
+  and only the `DragHandle` grip starts a drag, so the set boxes stay tappable. Mouse:
+  4 px; touch: 120 ms hold. `reorder()` updates the page right away, then GETs the bank
+  definition, reorders that block by key and PUTs it back. It rolls back with a toast if
+  the save fails.
+- In a block that has both timed rows and rep rows (threshold: 1 km reps + Rockies),
+  each group reorders among itself and keeps its slots in the stored order. No grip
+  on a block with one exercise.
+- Verified on a local `next dev` without `withEve` (eve needs network, so the config
+  change was temporary and not committed), with mocked workout/bank APIs: mouse and
+  touch drags at 1280 px and 390 px, PUT carries the new key order, no page errors.
+
+---
+
 ## 2026-10-19 — Monday Stations: sled push, wall balls, farmers carry (no SkiErg / sled pull)
 
 Berto: Monday's Hyrox intervals are sled push, wall balls and farmers carry. The

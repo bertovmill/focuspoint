@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, RUN_MOBILITY, SEED_WORKOUTS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, RUN_MOBILITY, SEED_WORKOUTS, STATIONS_BLOCKS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -42,6 +42,16 @@ async function ensureBank() {
     const def = (typeof mob.definition === "string" ? JSON.parse(mob.definition) : mob.definition) as WorkoutTemplate;
     if (def.blocks.some((b) => b.exercises.some((e) => e.key === "high_knees"))) {
       await sql`UPDATE workout_bank SET definition = ${JSON.stringify(RUN_MOBILITY)}, updated_at = NOW() WHERE slug = ${RUN_MOBILITY.slug}`;
+    }
+  }
+  // One-time: Monday's Stations is sled push, wall balls and farmers carry — no SkiErg or
+  // sled pull (Berto, 2026-10-19). Only while one of those is still in, so editor changes stick.
+  const [stations] = await sql`SELECT definition FROM workout_bank WHERE slug = 'stations'`;
+  if (stations) {
+    const def = (typeof stations.definition === "string" ? JSON.parse(stations.definition) : stations.definition) as WorkoutTemplate;
+    if (def.blocks.some((b) => b.exercises.some((e) => /^(ski|sled_pull)(_\d+)?$/.test(e.key)))) {
+      def.blocks = STATIONS_BLOCKS;
+      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'stations'`;
     }
   }
   // One-time: rear-foot elevated split squats replace the wall balls on lower body

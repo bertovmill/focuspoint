@@ -239,6 +239,23 @@ const station = (key: string, name: string): TemplateExercise => ({
   key, name, sets: 1, ladder: [], weight: null, measure: "time",
 });
 
+// Monday's Stations: three rounds of run 1 km → sled push → wall balls → farmers carry,
+// 2 min rest before rounds 2 and 3 (Berto, 2026-10-05; sled push first, 2026-10-19).
+// No SkiErg or sled pull. Round 1's keys are bare, later rounds suffixed like saveWorkout does.
+export const STATIONS_BLOCKS: TemplateBlock[] = [1, 2, 3].map((n) => {
+  const k = (key: string) => (n === 1 ? key : `${key}_${n}`);
+  return {
+    key: `round-${n}`,
+    label: `Round ${n}`,
+    exercises: [
+      { ...run(`run_${n}`, "Run 1 km", 240), ...(n > 1 ? { note: "2 min rest first" } : {}) },
+      { ...station(k("sled_push"), "Sled push"), ladder: [180], loaded: true, amount: 50, amountUnit: "m", tracked: n === 1 },
+      { ...station(k("wall_balls"), "Wall balls"), ladder: [300], weight: 9, weightUnit: "kg", amount: 100, amountUnit: "reps", tracked: true },
+      { ...station(k("farmers"), "Farmers carry"), ladder: [120], loaded: true, amount: 200, amountUnit: "m", tracked: n === 1 },
+    ],
+  };
+});
+
 // The rest of the week (Berto, 2026-10-03/04). Station times have no targets yet:
 // both raced splits (Ottawa 2026, Toronto 2025) were mixed doubles, so the
 // station times were shared. Run targets use his own 1 km splits (3:54 avg).
@@ -268,7 +285,7 @@ WORKOUT_TEMPLATES.push(
     name: "Stations",
     session_type: "hyrox",
     default_day: 0,
-    plan: { minutes: 60, intensity: "moderate" },
+    plan: { minutes: 65, intensity: "hard" },
     warmup: "10 min easy jog + drills",
     cooldown: "5 min walk + stretch",
     blocks: [

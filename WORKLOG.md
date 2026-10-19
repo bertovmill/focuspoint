@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-19 — Monday Stations: sled push, wall balls, farmers carry (no SkiErg / sled pull)
+
+Berto: Monday's Hyrox intervals are sled push, wall balls and farmers carry. The
+SkiErg and sled pull he was seeing are gone. Now 3 rounds of run 1 km (≤ 4:00) →
+sled push 50 m (≤ 3:00) → wall balls × 100 (9 kg, ≤ 5:00) → farmers carry 200 m
+(≤ 2:00), with 2 min rest before rounds 2 and 3. That's the 2026-10-05 shape, with
+sled push moved to the front of each round.
+
+- `lib/workout-templates.ts`: `STATIONS_BLOCKS` is the seed's Stations (plan 65 min, hard).
+  Round 1 keeps the bare keys (`sled_push`, `wall_balls`, `farmers`) and rounds 2–3
+  use `_2`/`_3`, the same way `saveWorkout` dedupes keys.
+- `lib/workout-bank.ts`: a one-time fix in `ensureBank` swaps the live Stations blocks
+  for `STATIONS_BLOCKS`, but only while a `ski` or `sled_pull` exercise is still in it,
+  so later edits from the editor stick.
+- Not run against the live DB (no DATABASE_URL in this session). It applies on the
+  next bank read after deploy. Typecheck clean.
+
+---
+
 ## 2026-10-18 — Career: info button on each daily action
 
 Each card in Today on /career now has an info (i) button that opens a popover

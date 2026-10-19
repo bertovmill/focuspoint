@@ -1,5 +1,5 @@
-import { put } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
+import { storeMedia } from "@/lib/image-upload";
 
 // iPhone photos arrive as HEIC, which only Safari can display (and the browser
 // can't shrink first), so they're converted to a JPEG no bigger than 2000px
@@ -46,9 +46,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Image must be under 5 MB" }, { status: 400 });
   }
 
-  const blob = await put(`uploads/${Date.now()}-${file.name}`, file, {
-    access: "public",
-  });
+  const safeName = file.name.replace(/[^\w.-]+/g, "-");
+  const url = await storeMedia(`uploads/${Date.now()}-${safeName}`, Buffer.from(await file.arrayBuffer()), file.type);
 
-  return NextResponse.json({ url: blob.url, name: file.name, size: file.size });
+  return NextResponse.json({ url, name: file.name, size: file.size });
 }

@@ -50,7 +50,7 @@ export function isPublicHost(host: string | null | undefined): boolean {
  * Deliberately tiny: framework assets and the one API the public site calls.
  * Everything else — /api/todos, /eve/*, /traces — is Cael's, and 404s here.
  */
-const PUBLIC_PASSTHROUGH = ["/_next", "/api/site", "/favicon.ico", "/icon.svg", "/robots.txt", "/sitemap.xml"];
+const PUBLIC_PASSTHROUGH = ["/_next", "/api/site", "/media", "/favicon.ico", "/icon.svg", "/robots.txt", "/sitemap.xml"];
 
 /**
  * Static files served straight out of `public/` — images and fonts only, at the

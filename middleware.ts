@@ -48,6 +48,8 @@ function isAlwaysAllowed(pathname: string): boolean {
     // source over HTTP without a session cookie, so gating these would 307 it to
     // the sign-in page and it would report "the requested resource isn't a valid image".
     isPublicAsset(pathname) ||
+    // Images stored in the database (app/media), same reason as above.
+    pathname.startsWith("/media/") ||
     pathname === "/eve/v1/health" ||
     pathname.startsWith("/eve/v1/twilio/")
   );

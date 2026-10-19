@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
       // Medium post covers on the writing index.
       { protocol: "https", hostname: "cdn-images-1.medium.com" },
       { protocol: "https", hostname: "miro.medium.com" },
+      // Images stored in the database since 2026-10-19 (app/media).
+      { protocol: "https", hostname: "bertomill.com", pathname: "/media/**" },
     ],
   },
 };

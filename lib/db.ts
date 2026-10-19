@@ -818,6 +818,18 @@ async function applySchema() {
     )
   `;
 
+  // Generated and uploaded images (lib/image-upload.ts), served publicly at
+  // /media/<key> by app/media/[...key]/route.ts. Replaced Vercel Blob on
+  // 2026-10-19, when the Blob store was lost in the Vercel team move.
+  await sql`
+    CREATE TABLE IF NOT EXISTS media (
+      key TEXT PRIMARY KEY,
+      content_type TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   // Articles for bertomill.com/writing that Cael drafts and edits (lib/posts.ts).
   // They sit alongside the Substack feed on the Writing index. A draft is only
   // reachable with its preview_token; `published_at` is the visible dateline.

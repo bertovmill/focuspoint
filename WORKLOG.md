@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-19 — Homepage headline in watercolor ink
+
+The bertomill.com hero headline is now painted, not printed: a deep blue-to-violet
+wash with pale blooms, darker pigment pools and paper grain, after the watercolor
+squares on Anthropic's econ-scenarios research page.
+
+- `app/globals.css`: `.watercolor-ink [data-word]`, three inline-SVG turbulence
+  layers over a gradient, clipped to the text. Per word because AnimatedHeading
+  transforms each word span; each word gets a different texture offset.
+  Lighter wash under `.dark`.
+- `app/site/page.tsx`: `watercolor-ink` on the hero `AnimatedHeading`.
+- Checked live at 1:1 in light and dark on site.localhost.
+
+---
+
 ## 2026-10-19 — Workout log: drag exercises to reorder within a superset
 
 Berto wanted to drag the exercises in a superset (or a round of Stations) into a

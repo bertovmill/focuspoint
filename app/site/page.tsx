@@ -165,7 +165,7 @@ export default async function SiteHomePage() {
             />
             <WallClock className="mb-5" />
             <AnimatedHeading
-              className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
+              className={`${display} watercolor-ink text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
               lines={[
                 "I lead go-to-market for Aucctus,",
                 "a fast-scaling AI startup.",

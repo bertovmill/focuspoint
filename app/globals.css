@@ -812,3 +812,38 @@
     animation: none;
   }
 }
+
+/* Watercolor ink for the homepage headline, after the washes on Anthropic's
+   research pages. A blue-to-violet wash per word, lifted by pale blooms where
+   the water pushed pigment away, darkened by pools where it settled, and
+   speckled with paper grain. All three textures are inline SVG turbulence.
+   Applied per word because AnimatedHeading transforms each word's span, and
+   background-clip: text on the parent doesn't paint through those layers.
+   Each word gets a different slice of the textures so nothing repeats. */
+.watercolor-ink [data-word] {
+  --wc-a: #2558ac;
+  --wc-b: #3b52bd;
+  --wc-c: #5641b4;
+  color: transparent;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.2 -0.62'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23g%29'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='460' height='320'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.018 0.026' numOctaves='4' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.08 0 0 0 0 0.3 0 0 0 2.4 -1.05'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23p%29'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='360'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.014' numOctaves='3' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.78 0 0 0 0 0.84 0 0 0 0 1 0 0 0 1.5 -0.82'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23b%29'/%3E%3C/svg%3E"),
+    linear-gradient(110deg, var(--wc-a) 0%, var(--wc-b) 50%, var(--wc-c) 100%);
+  background-size: 240px 240px, 460px 320px, 520px 360px, 100% 100%;
+  background-repeat: repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* A faint darker rim, like pigment drying at the edge of a wash. */
+  -webkit-text-stroke: 0.5px rgb(25 30 110 / 0.3);
+}
+.watercolor-ink [data-word]:nth-of-type(3n + 1) { background-position: 0 0, 40px 30px, 0 0, 0 0; }
+.watercolor-ink [data-word]:nth-of-type(3n + 2) { background-position: 90px 30px, 210px 140px, 300px 120px, 0 0; }
+.watercolor-ink [data-word]:nth-of-type(3n) { background-position: 170px 110px, 330px 60px, 140px 250px, 0 0; }
+
+.dark .watercolor-ink [data-word] {
+  --wc-a: #79aaf0;
+  --wc-b: #8d9af2;
+  --wc-c: #a990f0;
+  -webkit-text-stroke: 0.5px rgb(200 210 255 / 0.2);
+}

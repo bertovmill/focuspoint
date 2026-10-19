@@ -57,7 +57,7 @@ const SECTIONS: { href: string; label: string; icon: Icon; keywords?: string[] }
   { href: "/nutrition/plan", label: "Nutrition plan", icon: AppleIcon },
   { href: "/career", label: "Career", icon: BriefcaseIcon, keywords: ["work", "aucctus"] },
   { href: "/persona", label: "Persona", icon: UserRoundIcon, keywords: ["public", "values", "voice", "site chat"] },
-  { href: "/tasks", label: "Tasks", icon: ListTodoIcon, keywords: ["todos", "board", "canvas"] },
+  { href: "/tasks", label: "To-dos", icon: ListTodoIcon, keywords: ["todos", "tasks", "board", "canvas"] },
   { href: "/lists", label: "Lists", icon: ListChecksIcon },
   { href: "/calendar", label: "Calendar", icon: CalendarDaysIcon, keywords: ["events"] },
   { href: "/journal", label: "Journal", icon: BookOpenIcon, keywords: ["templates"] },

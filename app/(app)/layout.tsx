@@ -78,7 +78,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
 const SECTION_LABELS: Record<MobileTab, string> = {
   home: "Home",
   chat: "Chat",
-  tasks: "Tasks",
+  tasks: "To-dos",
   notes: "Notes",
   lists: "Lists",
   calendar: "Calendar",
@@ -103,12 +103,13 @@ const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat, Notes, Writing, Sketches, Training, Meals, Career and Persona (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30; Persona 2026-10-17). Every other
+// The nav shows only Home, Chat, To-dos, Notes, Writing, Sketches, Training, Meals, Career and Persona (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30; Persona 2026-10-17; To-dos, his life to-dos outside Venice, 2026-10-19). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more. On the phone the bar holds five slots
 // (Berto, 2026-09-30): the first four tabs plus "More", which opens the rest.
 // Training sits on the bar and Writing behind More (Berto, 2026-10-03).
 const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
+  { tab: "tasks", label: "To-dos", icon: ListTodoIcon },
   { tab: "writing", label: "Writing", icon: PenLineIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
@@ -125,6 +126,7 @@ const NAV_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass:
 const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
   { tab: "home", label: "Home", icon: HomeIcon },
   { tab: "chat", label: "Chat", icon: MessageCircleIcon },
+  { tab: "tasks", label: "To-dos", icon: ListTodoIcon },
   { tab: "notes", label: "Notes", icon: FileTextIcon },
   { tab: "writing", label: "Writing", icon: PenLineIcon },
   { tab: "sketches", label: "Sketches", icon: BrushIcon },

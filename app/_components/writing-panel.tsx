@@ -6,6 +6,7 @@ import {
   ExternalLinkIcon,
   ImagePlusIcon,
   Loader2Icon,
+  SaveIcon,
   PenLineIcon,
   PlusIcon,
   SendIcon,
@@ -264,6 +265,8 @@ type TweetRow = {
   createdAt: string;
 };
 
+type TweetDraftRow = { id: number; text: string; updatedAt: string };
+
 /**
  * /writing?tab=tweets — write a tweet and post it as @bert_mill_, and every
  * tweet Cael has posted (from here, a post's Tweet button, the agent, or the
@@ -271,7 +274,11 @@ type TweetRow = {
  */
 function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [tweets, setTweets] = useState<TweetRow[] | null>(null);
+  const [drafts, setDrafts] = useState<TweetDraftRow[]>([]);
   const [text, setText] = useState("");
+  // The draft open in the composer: saving updates it, posting removes it.
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [posting, setPosting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
@@ -279,16 +286,24 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [balance, setBalance] = useState<number | null | undefined>(undefined);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const loadDrafts = useCallback(() => {
+    fetch("/api/tweets/drafts")
+      .then((r) => r.json())
+      .then((rows) => setDrafts(Array.isArray(rows) ? rows : []))
+      .catch(() => setDrafts([]));
+  }, []);
+
   const load = useCallback(() => {
     fetch("/api/tweets")
       .then((r) => r.json())
       .then((rows) => setTweets(Array.isArray(rows) ? rows : []))
       .catch(() => setTweets([]));
+    loadDrafts();
     fetch("/api/tweets/credits")
       .then((r) => r.json())
       .then((d) => setBalance(typeof d.balance === "number" ? d.balance : null))
       .catch(() => setBalance(null));
-  }, []);
+  }, [loadDrafts]);
   useEffect(load, [load]);
 
   const addImages = (files: FileList | File[]) => {
@@ -318,6 +333,41 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const length = tweetLength(text);
   const cost = estimateTweetCost(text);
   const canPost = !posting && (text.trim().length > 0 || images.length > 0) && length <= TWEET_LIMIT;
+  const saveDraft = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/tweets/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, id: draftId ?? undefined }),
+      });
+      const draft = await res.json();
+      if (!res.ok) throw new Error(draft.error);
+      clearComposer();
+      loadDrafts();
+      toast.success(images.length > 0 ? "Draft saved. Images aren't kept in drafts." : "Draft saved.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't save the draft.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const openDraft = (d: TweetDraftRow) => {
+    setText(d.text);
+    setDraftId(d.id);
+  };
+  const deleteDraft = async (id: number) => {
+    setDrafts((cur) => cur.filter((d) => d.id !== id));
+    if (draftId === id) setDraftId(null);
+    await fetch(`/api/tweets/drafts/${id}`, { method: "DELETE" }).catch(() => {});
+  };
+  const clearComposer = () => {
+    setText("");
+    setDraftId(null);
+    images.forEach((img) => URL.revokeObjectURL(img.preview));
+    setImages([]);
+  };
+
   const post = async () => {
     setPosting(true);
     try {
@@ -327,9 +377,8 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       const res = await fetch("/api/tweets", { method: "POST", body: form });
       const tweet = await res.json();
       if (!res.ok) throw new Error(tweet.error);
-      setText("");
-      images.forEach((img) => URL.revokeObjectURL(img.preview));
-      setImages([]);
+      if (draftId !== null) await fetch(`/api/tweets/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
+      clearComposer();
       load();
       toast.success("Posted to X.", {
         action: { label: "View", onClick: () => window.open(tweet.url, "_blank", "noreferrer") },
@@ -433,12 +482,50 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                 </span>
               )}
             </div>
-            <Button size="sm" onClick={() => setConfirming(true)} disabled={!canPost}>
-              {posting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
-              Post to X
-            </Button>
+            <div className="flex items-center gap-2">
+              {draftId !== null && (
+                <Button variant="ghost" size="sm" onClick={clearComposer} disabled={posting || saving}>
+                  New
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={() => void saveDraft()} disabled={posting || saving || !text.trim()}>
+                {saving ? <Loader2Icon className="animate-spin" /> : <SaveIcon />}
+                {draftId !== null ? "Update draft" : "Save draft"}
+              </Button>
+              <Button size="sm" onClick={() => setConfirming(true)} disabled={!canPost}>
+                {posting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
+                Post to X
+              </Button>
+            </div>
           </div>
         </div>
+
+        {drafts.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Drafts</h2>
+            <ul className="divide-y divide-border rounded-lg border">
+              {drafts.map((d) => (
+                <li key={d.id} className={cn("group flex items-start gap-2 px-3 py-3", draftId === d.id && "bg-muted/50")}>
+                  <button type="button" onClick={() => openDraft(d)} className="flex min-w-0 flex-1 flex-col gap-1.5 text-left">
+                    <p className="whitespace-pre-wrap break-words text-sm">{d.text}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {draftId === d.id ? "Editing" : `Saved ${formatMoment(d.updatedAt)}`}
+                    </p>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground"
+                    onClick={() => void deleteDraft(d.id)}
+                    aria-label="Delete draft"
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {tweets === null ? (
           <div className="flex flex-col gap-3">

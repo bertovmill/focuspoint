@@ -42,3 +42,36 @@ export async function listTweets(limit = 100): Promise<Tweet[]> {
   `;
   return rows.map(toTweet);
 }
+
+/** A tweet saved from the Tweets tab to post later (text only). */
+export interface TweetDraft {
+  id: number;
+  text: string;
+  updatedAt: string;
+}
+
+function toDraft(row: Record<string, unknown>): TweetDraft {
+  return {
+    id: Number(row.id),
+    text: String(row.text),
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  };
+}
+
+/** Most recently edited first. */
+export async function listTweetDrafts(): Promise<TweetDraft[]> {
+  const rows = await getDb()`SELECT * FROM tweet_drafts ORDER BY updated_at DESC`;
+  return rows.map(toDraft);
+}
+
+/** Creates a draft, or updates draft `id` when given. Null when `id` doesn't exist. */
+export async function saveTweetDraft(text: string, id?: number): Promise<TweetDraft | null> {
+  const rows = id
+    ? await getDb()`UPDATE tweet_drafts SET text = ${text}, updated_at = NOW() WHERE id = ${id} RETURNING *`
+    : await getDb()`INSERT INTO tweet_drafts (text) VALUES (${text}) RETURNING *`;
+  return rows[0] ? toDraft(rows[0]) : null;
+}
+
+export async function deleteTweetDraft(id: number): Promise<void> {
+  await getDb()`DELETE FROM tweet_drafts WHERE id = ${id}`;
+}

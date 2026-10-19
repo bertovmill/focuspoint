@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-19 — Tweet drafts
+
+The Tweets tab (/writing?tab=tweets) can save a tweet as a draft instead of posting.
+
+- `lib/db.ts`: `tweet_drafts` table (text only; Berto chose not to keep images).
+- `lib/tweets.ts`: list/save/delete drafts. `app/api/tweets/drafts` (GET, POST
+  `{ text, id? }`) and `app/api/tweets/drafts/[id]` (DELETE).
+- `app/_components/writing-panel.tsx`: "Save draft" beside Post to X; a Drafts list
+  under the composer. Clicking a draft loads it (button becomes "Update draft",
+  plus "New" to clear); posting a loaded draft deletes it.
+
+---
+
 ## 2026-10-19 — Homepage headline in watercolor ink
 
 The bertomill.com hero headline is now painted, not printed: a deep blue-to-violet

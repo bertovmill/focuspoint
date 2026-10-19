@@ -857,6 +857,15 @@ async function applySchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // Tweets saved from the composer to finish later, text only (2026-10-19).
+  await sql`
+    CREATE TABLE IF NOT EXISTS tweet_drafts (
+      id SERIAL PRIMARY KEY,
+      text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 
   // bertomill.com/capabilities: what Berto can do, and the projects that prove
   // each one (lib/portfolio.ts). The join row carries the evidence — how that

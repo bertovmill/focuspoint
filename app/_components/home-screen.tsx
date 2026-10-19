@@ -33,7 +33,6 @@ import type { WorkoutLog } from "@/app/_components/workout-chart";
 import { TodaySnapshot } from "@/app/_components/today-snapshot";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
-import { DayPlanCard } from "@/app/_components/day-plan-card";
 import { HomeSections } from "@/app/_components/home-sections";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -460,11 +459,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         <div ref={dayScope}>
           {/* What's on the day — sessions from /training and the sittings from /meals */}
           <TodaySnapshot date={date} />
-
-          {/* Daily habits from Principles, slotted around today's calendar. Also the
-              habit checklist since the scorecard row came off. Today only: it's
-              built from the live calendar and has no other day to show. */}
-          {isToday && <DayPlanCard />}
         </div>
 
       </div>

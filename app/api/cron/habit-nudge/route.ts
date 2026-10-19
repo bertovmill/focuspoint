@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     await sendPush({
       title: "Your daily habits",
       body: habits.map((h) => h.name).join(" · "),
-      url: "/#today-plan",
+      url: "/",
       tag: "habit-nudge",
     });
     return NextResponse.json({ sent: true, habits: habits.map((h) => h.name) });

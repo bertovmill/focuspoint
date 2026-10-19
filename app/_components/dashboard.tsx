@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronDownIcon, TagIcon, CheckIcon, PlusIcon, BrainIcon, ClockIcon, PencilIcon, TrashIcon, SparklesIcon, XIcon, UploadIcon, CopyIcon, CheckCheck, RepeatIcon, GaugeIcon, PiggyBankIcon, WalletIcon, HourglassIcon } from "lucide-react";
-import { StrategyBoard } from "@/app/_components/strategy-board";
-import { TaskCanvas } from "@/app/_components/task-canvas";
+import { TaskTable } from "@/app/_components/task-table";
 import { TaskListMobile } from "@/app/_components/task-list-mobile";
 import { useIsDesktop } from "@/hooks/use-is-desktop";
 import { VisionPanel } from "@/app/_components/vision-panel";
@@ -861,32 +860,26 @@ export function Dashboard({ activeTab: controlledTab, onTabChange, focusNewTaskS
             />
           </div>
           ) : (
-          // The Tasks screen is an infinite Excalidraw notebook: today's tasks ride on
-          // it as real checkbox cards (positioned by canvas_x/canvas_y), and everything
-          // around them — arrows, headings, scribbles — is freeform drawing. h-full so
-          // the canvas claims the whole panel instead of a fixed box.
-          <div className="flex h-full flex-col">
-            {/* The strategy sits above everything else: every task should ladder up
-                to it. Its own Excalidraw scene, separate from the notebook below. */}
-            <StrategyBoard />
-            <div className="min-h-0 flex-1">
-              <TaskCanvas
-                todos={visibleTodos}
-                loading={loading}
-                nowTick={nowTick}
-                completingIds={completingIds}
-                onComplete={handleComplete}
-                onUncomplete={handleUncomplete}
-                onToggleTimer={handleToggleTimer}
-                onToggleInProgress={handleToggleInProgress}
-                onToggleWaiting={handleToggleWaiting}
-                onDelete={handleDeleteTodo}
-                onUpdate={handleUpdateTodo}
-                onCreated={handleTodoCreated}
-                onLocalPatch={handleLocalTodoPatch}
-                onSetPinned={handleSetPinned}
-              />
-            </div>
+          // Desktop Tasks is a shadcn + TanStack data table (2026-10-19). It replaced
+          // the Excalidraw notebook and the strategy board above it; pipeline pieces
+          // are rows with their steps as expandable sub-rows. See <TaskTable>.
+          <div className="h-full">
+            <TaskTable
+              todos={visibleTodos}
+              loading={loading}
+              nowTick={nowTick}
+              completingIds={completingIds}
+              onComplete={handleComplete}
+              onUncomplete={handleUncomplete}
+              onToggleTimer={handleToggleTimer}
+              onToggleInProgress={handleToggleInProgress}
+              onToggleWaiting={handleToggleWaiting}
+              onDelete={handleDeleteTodo}
+              onUpdate={handleUpdateTodo}
+              onCreated={handleTodoCreated}
+              onLocalPatch={handleLocalTodoPatch}
+              onSetPinned={handleSetPinned}
+            />
           </div>
           )
         )}

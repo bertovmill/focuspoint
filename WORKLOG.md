@@ -12090,3 +12090,35 @@ and later edits/archives stick). Run block (timed) + mobility block, 8 drills x 
 His 8 drills: deep lunges, hamstring sweeps, side lunges, quad stretches, lizard lunges,
 standing glute stretch, inchworms, lunging spine rotations (replaced my first guess; ensureBank swaps it only while the guess is untouched).
 Use it via Swap workout. Verified: tsc clean; not run against the DB.
+
+## 2026-10-19 — To-dos: TanStack data table replaces the Excalidraw boards
+
+Berto wanted a traditional shadcn / TanStack table instead of the canvas. Decided
+with him: the table replaces both the strategy board and the task canvas on desktop,
+and pipeline pieces become ordinary rows (not a side panel).
+
+- `app/_components/task-table.tsx` (new), `components/ui/table.tsx` (shadcn Table),
+  `@tanstack/react-table` added. `dashboard.tsx` renders `<TaskTable>` on desktop;
+  phones still get `<TaskListMobile>`. `task-canvas.tsx` / `strategy-board.tsx` are
+  left in the repo, unused.
+- Columns: done checkbox, Task (click to rename, latest update under it), Status
+  (Not started / Working now / Waiting), Priority, Category, Time (estimate +
+  countdown + play/pause), Due (native date picker), plus Repeats and Created
+  (hidden by default, toggled from Columns). Sortable headers; default order is
+  working → queue number → priority → oldest.
+- Row ⋯ menu: done & repeat, complete & follow up, add a step (pieces), add an
+  update, show in pinned window, duplicate, delete.
+- Pipeline pieces show a chevron and a done/total count; steps are expandable
+  sub-rows. Pieces have no estimate or timer. The Nutrition lane isn't in the table
+  (meals live on /meals).
+- Toolbar: + Task (N), search (/), status filter, category filter, reset, open/done
+  counts, StreakChip, column visibility. Filters sync to the URL:
+  `/tasks?status=waiting&category=sales&q=…`.
+- Gotcha: column defs must stay referentially stable. Depending on `nowTick` rebuilt
+  them every second, TanStack remounted every cell, and open dropdowns snapped shut.
+  Cells read live values from a ref instead. Inputs opened from the ⋯ menu focus on
+  the next tick, after Radix hands focus back.
+
+Verified on :3017 (local DB): create via N, status → Working now, priority → High,
+add-step on a Content piece, sub-rows + 0/2 count, delete from the menu, URL
+filter `?status=all`. Test rows deleted. tsc clean.

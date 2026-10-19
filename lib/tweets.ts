@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { ensureSchema, getDb } from "./db";
 
 /** A tweet Cael posted to X (lib/x-api.ts saves every one). */
 export interface Tweet {
@@ -60,12 +60,14 @@ function toDraft(row: Record<string, unknown>): TweetDraft {
 
 /** Most recently edited first. */
 export async function listTweetDrafts(): Promise<TweetDraft[]> {
+  await ensureSchema();
   const rows = await getDb()`SELECT * FROM tweet_drafts ORDER BY updated_at DESC`;
   return rows.map(toDraft);
 }
 
 /** Creates a draft, or updates draft `id` when given. Null when `id` doesn't exist. */
 export async function saveTweetDraft(text: string, id?: number): Promise<TweetDraft | null> {
+  await ensureSchema();
   const rows = id
     ? await getDb()`UPDATE tweet_drafts SET text = ${text}, updated_at = NOW() WHERE id = ${id} RETURNING *`
     : await getDb()`INSERT INTO tweet_drafts (text) VALUES (${text}) RETURNING *`;

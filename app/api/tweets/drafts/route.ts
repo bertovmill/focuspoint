@@ -5,7 +5,8 @@ import { listTweetDrafts, saveTweetDraft } from "@/lib/tweets";
 export async function GET() {
   try {
     return NextResponse.json(await listTweetDrafts());
-  } catch {
+  } catch (err) {
+    console.error("[tweet drafts] list failed:", err);
     return NextResponse.json({ error: "Couldn't load drafts" }, { status: 500 });
   }
 }
@@ -20,7 +21,8 @@ export async function POST(req: Request) {
     const draft = await saveTweetDraft(text, id);
     if (!draft) return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     return NextResponse.json(draft);
-  } catch {
+  } catch (err) {
+    console.error("[tweet drafts] save failed:", err);
     return NextResponse.json({ error: "Couldn't save the draft" }, { status: 500 });
   }
 }

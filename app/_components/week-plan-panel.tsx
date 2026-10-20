@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { MarkdownDoc } from "@/app/_components/markdown-doc";
+import { MealWeekTable } from "@/app/_components/meal-week-table";
 import { ProteinRing } from "@/app/_components/protein-ring";
 import { RecipePicker, type CustomMeal } from "@/app/_components/recipe-picker";
 import type { GroceryItem, GroceryListEntry, PlannedMeal, Recipe } from "@/lib/nutrition-plan";
@@ -457,6 +458,41 @@ export function WeekPlanPanel() {
     }
   };
 
+  /**
+   * From the table's ingredient multi-select. A bank meal's list lives on the
+   * bank entry (the grocery list reads it from there), so that's what changes;
+   * a meal that isn't in the bank keeps its own copy on the cell.
+   */
+  const setIngredients = async (cell: PlannedMeal, next: string[]) => {
+    if (cell.recipe_id === null) {
+      await setCell(cell.meal_date, cell.slot, {
+        name: cell.name,
+        description: cell.description,
+        protein_g: cell.protein_g,
+        kcal: cell.kcal,
+        image_url: cell.image_url,
+        ingredients: next,
+      });
+      return;
+    }
+    const id = cell.recipe_id;
+    const prev = recipes;
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, ingredients: next } : r)));
+    try {
+      const res = await fetch(`/api/nutrition/recipes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredients: next }),
+      });
+      if (!res.ok) throw new Error();
+      const saved = (await res.json()) as Recipe;
+      setRecipes((rs) => rs.map((r) => (r.id === id ? saved : r)));
+    } catch {
+      setRecipes(prev);
+      toast.error("Couldn't save the ingredients.");
+    }
+  };
+
   // ── week actions ──────────────────────────────────────────────────────
 
   /** Every empty cell from today forward, filled by rotating through the bank. */
@@ -676,56 +712,26 @@ export function WeekPlanPanel() {
         </div>
       </section>
 
-      {/* Week grid — days across on wide screens. Meals drag between any two cells. */}
-      <DndContext {...dndProps}>
-      <section className="hidden md:block">
-        <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-1.5">
-          <div />
-          {days.map((d) => (
-            <div
-              key={d}
-              className={cn(
-                "rounded-md px-1 py-1 text-center text-xs font-semibold uppercase tracking-wide",
-                d === today ? "bg-foreground text-background" : d < today ? "text-muted-foreground/60" : "text-muted-foreground",
-              )}
-            >
-              {shortDayLabel(d)}
-            </div>
-          ))}
-          {ALL_SLOTS.map((slot) => (
-            <div key={slot.key} className="contents">
-              <div className="flex items-start pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {slot.label}
-              </div>
-              {days.map((d) => (
-                <MealDnd key={key(d, slot.key)} date={d} slot={slot.key} filled={cells.has(key(d, slot.key))}>
-                  <PlanCell
-                    date={d}
-                    slot={slot.key}
-                    compact={slot.key === "snack"}
-                    cell={cells.get(key(d, slot.key))}
-                    busy={busy.has(key(d, slot.key))}
-                    past={d < today}
-                    today={d === today}
-                    eaten={ate.has(key(d, slot.key))}
-                    onPick={() => setPicker({ date: d, slot: slot.key })}
-                    onRotate={() => rotate(d, slot.key)}
-                    onToggleEaten={() => toggleEaten(d, slot.key)}
-                    onClear={() => clearCell(d, slot.key)}
-                    onSave={saveToLibrary}
-                  />
-                </MealDnd>
-              ))}
-            </div>
-          ))}
-          <div className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Protein</div>
-          {days.map((d) => (
-            <DayTotal key={d} total={plannedByDay.get(d)} target={target} past={d < today} />
-          ))}
-        </div>
-      </section>
-      {overlay}
-      </DndContext>
+      {/* Wide screens — the week as a table, one row per sitting. */}
+      <div className="hidden md:block">
+        <MealWeekTable
+          days={days}
+          cells={cells}
+          recipes={recipes}
+          snackOpen={snackOpen}
+          today={today}
+          target={target}
+          ate={new Set(ate.keys())}
+          busy={busy}
+          dayTotals={plannedByDay}
+          onPick={(date, slot) => setPicker({ date, slot })}
+          onRotate={rotate}
+          onToggleEaten={toggleEaten}
+          onClear={clearCell}
+          onIngredients={setIngredients}
+          onAddSnack={(d) => setSnackOpen((prev) => new Set(prev).add(d))}
+        />
+      </div>
 
       {/* Phones — one day at a time: tap a day, or swipe left/right. Hold a meal
           to drag it to another sitting, or onto a day in the strip. */}

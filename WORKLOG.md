@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-20 — Meals: week table with ingredient multi-select
+
+On desktop, /meals now shows the week as a shadcn + TanStack table instead of the
+7-column card grid (Berto asked for a "really nice and functional" table).
+
+- `app/_components/meal-week-table.tsx`: one row per sitting, grouped by day (day
+  label, protein/kcal total, "+ Snack"). Columns: Day, Sitting, Meal (click to swap
+  via the picker), Protein, kcal, Ingredients, Ate tick, rotate/remove on hover.
+  Search filters by meal name or ingredient. Column defs are stable and read live
+  values from a ref, so an open picker doesn't remount on save.
+- `app/_components/ingredient-multi-select.tsx`: Popover + Command multi-select over
+  every ingredient in the bank; type to add a new one.
+- `week-plan-panel.tsx`: `setIngredients` PATCHes the bank recipe when the cell has
+  a recipe_id (grocery list reads ingredients from the bank), otherwise rewrites the
+  cell. Phone day view unchanged.
+- Dropped: drag-to-rearrange on desktop (still on phones). Not previewed locally
+  (no DB access in the session); verify on prod.
+
+---
+
 ## 2026-10-19 — Tweet drafts
 
 The Tweets tab (/writing?tab=tweets) can save a tweet as a draft instead of posting.

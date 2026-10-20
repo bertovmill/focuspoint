@@ -1,0 +1,52 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cael-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "cael-dev-3001",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:3001"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "window-load-3002",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/bertomill/focuspoint-window-load",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "3002"
+      ],
+      "port": 3002
+    },
+    {
+      "name": "cael-chat-speed",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "dev",
+        "--port",
+        "3024"
+      ],
+      "cwd": "/Users/bertomill/focuspoint-chat-speed",
+      "env": {
+        "NEXT_DIST_DIR": ".next-3024"
+      },
+      "port": 3024
+    }
+  ]
+}

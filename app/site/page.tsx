@@ -107,6 +107,17 @@ export default async function SiteHomePage() {
               className={`${display} text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-8xl`}
               lines={["I lead go-to-market for Aucctus,", "a fast-scaling AI startup."]}
             />
+            <p className="mt-6 max-w-2xl text-lg text-foreground/75 sm:text-xl">
+              Previously AI consulting at KPMG and innovation strategy at CIBC. Founder of
+              MakersLounge, 1,000+ builders in Toronto.
+            </p>
+            <SiteLink
+              href="/chat"
+              className="mt-4 inline-flex items-center gap-1.5 font-mono text-sm uppercase tracking-[0.14em] text-primary transition-colors hover:text-foreground"
+            >
+              I build AI agents in public. Ask Cael about my work
+              <ArrowRightIcon className="size-4" />
+            </SiteLink>
           </div>
         </RevealOnView>
       </div>

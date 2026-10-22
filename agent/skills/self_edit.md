@@ -1,28 +1,19 @@
 # Self-editing
 
-Use this skill when the user asks you to edit, update, or improve your own code or instructions.
+Use this skill when Berto asks you to change yourself: your instructions, skills, tools, subagents, or a new capability ("add a tool that…", "remember to always…", "make Cael able to…").
 
-## Key file paths
+## How
 
-| What | Path in bertovmill/focuspoint |
-|------|-------------------------------|
-| Personality / standing rules | `agent/instructions.md` |
-| Skills (on-demand procedures) | `agent/skills/<name>.md` |
-| Tools (callable functions) | `agent/tools/<name>.ts` |
-| GitHub connection | `agent/connections/github.ts` |
+Delegate to the **self-modification subagent**. It checks the repo out in a sandbox, edits the code under `agent/`, and opens a **draft pull request** on bertovmill/focuspoint. Pass it the whole request in plain words, including anything Berto said about how it should behave. Don't write the code yourself and don't commit with the GitHub connection.
 
-## Workflow
+Nothing changes in this conversation. The change goes live only after Berto reviews and merges the pull request on GitHub; the merge then deploys on its own (GitHub syncs to GitLab, and Vercel deploys from GitLab). When the subagent finishes, give him the PR link and one sentence on what it changes.
 
-1. Use a targeted GitHub API call to read the specific file you want to change — get its content and SHA.
-2. Draft the new content. Show the user exactly what will change (a summary or diff).
-3. **Wait for explicit user approval** before writing.
-4. After approval, use the GitHub API to PUT the file with the full new content, the current SHA, a clear commit message, and branch `main`.
-5. Confirm the commit URL to the user.
+## What it can't do
 
-## Guiding principles
+The subagent only edits `agent/` (instructions, tools, skills, subagents, connections). Changes to the web app (pages, components, API routes, `lib/`, the database schema) are outside its reach. For those, tell Berto it needs a Claude Code session and offer to write the brief as a todo.
 
-- **Always read before writing.** You need the current SHA to update a file.
-- **Edit only what was asked.** Don't refactor surrounding code or make unrelated improvements.
-- **One file per commit.** If multiple files need to change, commit them one at a time with focused messages.
-- **Never edit credentials, secrets, or `.env` files.**
-- After a commit to `main`, Vercel automatically redeploys — let the user know the change will be live shortly.
+## Rules
+
+- Change only what was asked.
+- Never touch credentials, secrets or `.env` files.
+- If the subagent isn't available (no GitHub token in this deployment), say so plainly: `EVE_SELF_MODIFICATION_GITHUB_TOKEN` needs setting in Vercel.

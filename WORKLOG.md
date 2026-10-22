@@ -4,6 +4,49 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-22 — Cael can propose changes to its own code, and query its database
+
+Berto: give Cael the ability to edit its GitHub repo (so he can ask it to add features
+to itself) and access to the Neon database.
+
+- **Self-editing → draft PRs.** `agent/extensions/self-modification-remote/extension.ts`
+  mounts eve's `eve/self-modification/remote`: a subagent that checks
+  github.com/bertovmill/focuspoint out in a Vercel Sandbox, edits `agent/` and opens a
+  **draft PR** against main. Nothing changes until Berto merges on GitHub; the merge
+  deploys via the sync-to-gitlab action → GitLab main → Vercel. Coding model
+  `anthropic/claude-sonnet-4.6`. Authorized for `principalType === "user"` (the eve
+  channel only admits the owner); OIDC/cron callers can't use it.
+  **Needs `EVE_SELF_MODIFICATION_GITHUB_TOKEN` in Vercel production** (fine-grained PAT
+  on bertovmill/focuspoint, Contents + Pull requests read/write). Without it the
+  subagent is just not offered.
+- `self_edit` skill rewritten: delegate to that subagent, never commit with the GitHub
+  connection. The old flow PUT single files straight onto `main` with no typecheck.
+  Instructions' GitHub line no longer says "create commits, push to main".
+- **Limit:** eve's subagent only edits `agent/` (instructions, tools, skills,
+  subagents). App/UI features (app/, components/, lib/) still need Claude Code.
+  Proposed but **not committed**, pending Berto's OK because it grants a CI agent write
+  access: a `request_feature` tool that opens a GitHub issue mentioning @claude, plus
+  `.github/workflows/claude.yml` running `anthropics/claude-code-action@v1` (needs the
+  Claude GitHub app + a `CLAUDE_CODE_OAUTH_TOKEN` secret).
+- **Database.** `query_database` (deferred): read-only SQL inside a `READ ONLY`
+  transaction with a 15s statement timeout, so Postgres refuses writes whatever the SQL
+  says. `describe: true` lists tables/columns. Returns ≤200 rows. Also exposed over MCP
+  (read-only hint). `write_database` (deferred): SQL statements in one transaction,
+  `always()` approval showing the SQL. Deliberately **not** in the MCP bridge, which
+  calls `execute()` directly and would skip the approval.
+
+Files: `agent/extensions/self-modification-remote/extension.ts`,
+`agent/tools/query_database.ts`, `agent/tools/write_database.ts`,
+`agent/skills/self_edit.md`, `agent/instructions.md`, `lib/agent-tool-registry.ts`,
+`app/api/mcp/route.ts`.
+Verified: `tsc --noEmit` clean. Not verified: `eve build` (needs the AI Gateway, which
+this cloud sandbox can't reach), and nothing has run against the real DB or GitHub yet.
+The first production build will prepare a Vercel Sandbox snapshot for the subagent; if
+that fails the deploy fails and the previous one stays live.
+Next: set the token in Vercel; decide on the Claude Code workflow for app features.
+
+---
+
 ## 2026-10-22 — Home: tasks column on the right
 
 Berto: "add the tasks on the right side of the home page because tasks are really

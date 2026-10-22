@@ -117,7 +117,7 @@ type BridgedTool = {
 /** Task tools the hand-written six above already cover, and eve-session-only state. */
 const SKIPPED_AGENT_TOOLS = new Set(["list_todos", "add_todo", "complete_todo", "post_task_update", "set_focus"]);
 
-const READ_ONLY_PREFIXES = ["list_", "get_", "read_", "search_", "latest_", "ai_reading_list"];
+const READ_ONLY_PREFIXES = ["list_", "get_", "read_", "search_", "latest_", "ai_reading_list", "query_database"];
 
 /**
  * An eve tool's return value as an MCP result: its own `toModelOutput` text when it

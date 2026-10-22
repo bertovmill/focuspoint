@@ -39,6 +39,7 @@ import log_workout_note from "@/agent/tools/log_workout_note";
 import meals_doc from "@/agent/tools/meals_doc";
 import post_linkedin from "@/agent/lib/toolsets/publishing/post_linkedin";
 import post_task_update from "@/agent/tools/post_task_update";
+import query_database from "@/agent/tools/query_database";
 import post_tweet from "@/agent/lib/toolsets/publishing/post_tweet";
 import principles_doc from "@/agent/tools/principles_doc";
 import home_sections from "@/agent/tools/home_sections";
@@ -66,6 +67,8 @@ import list_portfolio from "@/agent/lib/toolsets/publishing/list_portfolio";
 import save_capability from "@/agent/lib/toolsets/publishing/save_capability";
 import save_portfolio_project from "@/agent/lib/toolsets/publishing/save_portfolio_project";
 
+// write_database is left out on purpose: its in-app approval (Berto sees the SQL
+// before it runs) doesn't survive the bridge, which calls execute() directly.
 export const agentTools = {
   add_calendar_event,
   add_family_memory,
@@ -106,6 +109,7 @@ export const agentTools = {
   post_task_update,
   post_tweet,
   principles_doc,
+  query_database,
   home_sections,
   career_relationships_doc,
   career_principles_doc,

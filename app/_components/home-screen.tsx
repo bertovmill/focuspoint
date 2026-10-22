@@ -34,6 +34,7 @@ import { TodaySnapshot } from "@/app/_components/today-snapshot";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { HomeSections } from "@/app/_components/home-sections";
+import { HomeTasks } from "@/app/_components/home-tasks";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -450,15 +451,23 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
-        {/* His own sections — 5-year review, 5-year plan, whatever he adds. Top of
-            the page by his choice (2026-10-10), and outside the day swipe: they
-            don't change with the day. */}
-        <HomeSections />
+        {/* Two columns on desktop: his page on the left, open tasks pinned on the
+            right. On a phone the tasks come first, above Vision. */}
+        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start">
+          <HomeTasks className="lg:sticky lg:top-6 lg:w-80 lg:shrink-0" />
 
-        {/* Everything in here follows the day swipe. */}
-        <div ref={dayScope}>
-          {/* What's on the day — sessions from /training and the sittings from /meals */}
-          <TodaySnapshot date={date} />
+          <div className="min-w-0 flex-1">
+            {/* His own sections — 5-year review, 5-year plan, whatever he adds. Top of
+                the page by his choice (2026-10-10), and outside the day swipe: they
+                don't change with the day. */}
+            <HomeSections />
+
+            {/* Everything in here follows the day swipe. */}
+            <div ref={dayScope}>
+              {/* What's on the day — sessions from /training and the sittings from /meals */}
+              <TodaySnapshot date={date} />
+            </div>
+          </div>
         </div>
 
       </div>

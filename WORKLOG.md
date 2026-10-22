@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-22 — Home: tasks column on the right
+
+Berto: "add the tasks on the right side of the home page because tasks are really
+important in cael."
+
+- `app/_components/home-tasks.tsx`: open to-dos (API order: working-now, waiting,
+  priority), tick to complete (scores the streak via `award`), quick-add box
+  (30 min default estimate), heading links to /tasks. Pipeline pieces are hidden.
+- `home-screen.tsx`: desktop is now two columns, Vision + today's training/meals on
+  the left, tasks sticky in a 20rem right column. On a phone tasks sit at the top,
+  above Vision.
+
+---
+
 ## 2026-10-20 — Meals: week table with ingredient multi-select
 
 On desktop, /meals now shows the week as a shadcn + TanStack table instead of the

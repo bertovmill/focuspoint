@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStreak } from "@/app/_components/streak-provider";
+import { isLaneCategory } from "@/lib/task-categories";
 import type { Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,7 @@ export function HomeTasks({ className }: { className?: string }) {
       const res = await fetch("/api/todos?limit=50");
       // Pipeline pieces (Content, Code…) are containers, not work to tick off.
       const rows = res.ok ? ((await res.json()) as Todo[]) : [];
-      setTodos(rows.filter((t) => t.estimated_minutes != null || t.parent_id != null));
+      setTodos(rows.filter((t) => t.parent_id != null || !isLaneCategory(t.category ?? null)));
     } catch {
       setTodos([]);
     }

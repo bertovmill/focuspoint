@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { preload } from "react-dom";
 import Image from "next/image";
 import { PaperTexture } from "@paper-design/shaders-react";
@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { blindStore } from "./blind-store";
 import { createWallRenderer } from "./renderer";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
-import { CITY_VIEWS, DESK_ART, WINDOW_GRID, windowRect } from "./scene";
+import { CITY_VIEWS, DESK_ART, windowRect, type WindowStyle } from "./scene";
+import { windowStyleStore } from "./window-style-store";
 
 /**
  * A lit plaster wall behind the hero, after the backdrop on vgpu.sh, and on
@@ -44,6 +45,9 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
   const [live, setLive] = useState(false);
   // The wall's shape, for placing the CSS window where the shader would.
   const [shape, setShape] = useState({ aspect: 16 / 9, width: 1440 });
+  // Which window is in the wall; the shader reads the store itself each frame.
+  const windowStyle = useSyncExternalStore(windowStyleStore.subscribe, windowStyleStore.get, windowStyleStore.getServer);
+  useEffect(() => windowStyleStore.hydrate(), []);
 
   // The views go in the document head as preloads, so the browser has them
   // before the shader (or the CSS window) asks. Both read the same URLs, so
@@ -117,6 +121,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
       reducedMotion: () => motion.matches,
       sky: () => skyRef.current,
       blind: blindStore.getLower,
+      windowStyle: windowStyleStore.get,
       scene,
       onFail: (error) => {
         console.warn("Concrete wall stopped", error);
@@ -187,47 +192,7 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
 
       {/* The window on the CSS wall: the same opening, as a framed picture
           that cross-fades through the day. Only while the shader isn't up. */}
-      {scene && !live && (
-        <div
-          className="absolute overflow-hidden bg-[#9fb3c8] [--frame:#161617]"
-          style={{
-            left: `${(rect.x - rect.hw) * 100}%`,
-            top: `${(rect.y - rect.hh) * 100}%`,
-            width: `${rect.hw * 200}%`,
-            height: `${rect.hh * 200}%`,
-            boxShadow:
-              "0 0 0 6px var(--frame), 0 4px 10px 4px rgba(30,25,20,0.12)",
-          }}
-        >
-          <Image src={CITY_VIEWS[0]} alt="" fill unoptimized className="object-cover" />
-          <Image
-            src={CITY_VIEWS[3]}
-            alt=""
-            fill
-            unoptimized
-            className="object-cover transition-opacity duration-1000"
-            style={{ opacity: overcast }}
-          />
-          <Image
-            src={CITY_VIEWS[2]}
-            alt=""
-            fill
-            unoptimized
-            className="object-cover transition-opacity duration-1000"
-            style={{ opacity: sky.night }}
-          />
-          {/* The mullions, as the shader draws them. */}
-          {Array.from({ length: WINDOW_GRID.cols - 1 }, (_, i) => (
-            <div
-              key={`col-${i}`}
-              className="absolute inset-y-0 w-[4px] -translate-x-1/2 bg-[var(--frame)]"
-              style={{ left: `${((i + 1) / WINDOW_GRID.cols) * 100}%` }}
-            />
-          ))}
-          {/* A faint inner shadow against the frame. */}
-          <div className="absolute inset-0 shadow-[inset_0_0_10px_rgba(0,0,0,0.18)]" />
-        </div>
-      )}
+      {scene && !live && <CssWindow rect={rect} style={windowStyle} overcast={overcast} night={sky.night} />}
 
       {/* WebGPU wall, fading in over the CSS one once it has drawn. */}
       {supported && (
@@ -291,6 +256,103 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
 
       {/* The fade into the page below. */}
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
+    </div>
+  );
+}
+
+/**
+ * The CSS wall's window: the photographs in a frame drawn with box-shadow,
+ * and the glazing bars as thin divs, following the same style the shader
+ * draws. The arch is an elliptical top, close enough to the shader's
+ * segmental one at this size.
+ */
+function CssWindow({
+  rect,
+  style,
+  overcast,
+  night,
+}: {
+  rect: ReturnType<typeof windowRect>;
+  style: WindowStyle;
+  overcast: number;
+  night: number;
+}) {
+  // The shader's frame of 0.0085 wall units is about 6px on a laptop.
+  const framePx = (style.frame / 0.0085) * 6;
+  const barPx = Math.max(2, (style.bar / 0.003) * 4);
+  const rise = style.kind === 1 ? style.rise : 0;
+  const radius = rise > 0 ? `50% ${(rise * 100).toFixed(2)}%` : undefined;
+  const bar = "absolute bg-[var(--frame)]";
+  const bodyTop = rise * 100;
+  const rowH = (100 - bodyTop) / style.rows;
+  return (
+    <div
+      className="absolute overflow-hidden bg-[#9fb3c8]"
+      style={
+        {
+          "--frame": style.css,
+          left: `${(rect.x - rect.hw) * 100}%`,
+          top: `${(rect.y - rect.hh) * 100}%`,
+          width: `${rect.hw * 200}%`,
+          height: `${rect.hh * 200}%`,
+          borderTopLeftRadius: radius,
+          borderTopRightRadius: radius,
+          boxShadow: `0 0 0 ${framePx.toFixed(1)}px var(--frame), 0 4px 10px 4px rgba(30,25,20,0.12)`,
+        } as CSSProperties
+      }
+    >
+      <Image src={CITY_VIEWS[0]} alt="" fill unoptimized className="object-cover" />
+      <Image
+        src={CITY_VIEWS[3]}
+        alt=""
+        fill
+        unoptimized
+        className="object-cover transition-opacity duration-1000"
+        style={{ opacity: overcast }}
+      />
+      <Image
+        src={CITY_VIEWS[2]}
+        alt=""
+        fill
+        unoptimized
+        className="object-cover transition-opacity duration-1000"
+        style={{ opacity: night }}
+      />
+      {/* The glazing bars, as the shader draws them. */}
+      {Array.from({ length: style.cols - 1 }, (_, i) => (
+        <div
+          key={`col-${i}`}
+          className={`${bar} bottom-0 -translate-x-1/2`}
+          style={{ left: `${((i + 1) / style.cols) * 100}%`, top: `${bodyTop}%`, width: barPx }}
+        />
+      ))}
+      {Array.from({ length: style.rows - 1 + (rise > 0 ? 1 : 0) }, (_, i) => (
+        <div
+          key={`row-${i}`}
+          className={`${bar} inset-x-0 -translate-y-1/2`}
+          style={{ top: `${bodyTop + (rise > 0 ? i : i + 1) * rowH}%`, height: barPx }}
+        />
+      ))}
+      {/* The fanlight's spokes, from a hub on the springing line. */}
+      {rise > 0 &&
+        Array.from({ length: style.fan }, (_, i) => (
+          <div
+            key={`spoke-${i}`}
+            className={`${bar} bottom-[var(--spring)] left-1/2 h-[120%] origin-bottom`}
+            style={
+              {
+                "--spring": `${100 - bodyTop}%`,
+                width: barPx,
+                transform: `translateX(-50%) rotate(${(-90 + (180 * (i + 1)) / (style.fan + 1)).toFixed(2)}deg)`,
+              } as CSSProperties
+            }
+          />
+        ))}
+      {/* A faint inner shadow against the frame. */}
+      <div
+        className="absolute inset-0 shadow-[inset_0_0_10px_rgba(0,0,0,0.18)]"
+        style={{ borderTopLeftRadius: radius, borderTopRightRadius: radius }}
+      />
     </div>
   );
 }

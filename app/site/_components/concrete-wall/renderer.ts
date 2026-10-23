@@ -1,7 +1,7 @@
 import { clock, effect, frameLoop, init, sampler, surface, texture, type Gpu, type Texture } from "vgpu";
 import wallWgsl from "./wall.wgsl";
 import type { Sky } from "./sky";
-import { CITY_SIZE, CITY_VIEWS, windowRect } from "./scene";
+import { CITY_SIZE, CITY_VIEWS, windowRect, type WindowStyle } from "./scene";
 
 export interface WallRendererOptions {
   /** Read each frame: 1 in dark mode, 0 in light. */
@@ -14,6 +14,8 @@ export interface WallRendererOptions {
   readonly sky: () => Sky;
   /** Read each frame: how far down the glass the roller shade's hem hangs, 0 to 1. */
   readonly blind: () => number;
+  /** Read each frame: which window is in the wall. */
+  readonly windowStyle: () => WindowStyle;
   /** Cut the window into the wall and load the view through it. */
   readonly scene: boolean;
   /**
@@ -141,6 +143,7 @@ export function createWallRenderer(
 
         const [width, height] = output.size;
         const window = options.scene ? windowRect(width / Math.max(1, height), width / output.dpr) : null;
+        const style = options.windowStyle();
 
         wall.set({
           params: {
@@ -150,6 +153,9 @@ export function createWallRenderer(
             weather: [sky.cloudCover, sky.rain, cityBlend, 0],
             window: window ? [window.x, window.y, window.hw, window.hh] : [0, 0, 0, 0],
             blind: [options.blind(), window ? 1 : 0, 0, 0],
+            design: [style.kind, style.cols, style.rows, style.rise],
+            dims: [style.frame, style.bar, style.ledgeH, style.ledgeOver],
+            paint: [style.paint[0], style.paint[1], style.paint[2], style.fan],
           },
         });
         frame.pass(output, wall);

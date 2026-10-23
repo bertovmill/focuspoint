@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
 import { JAR_ART, PLANT_ART, sillAnchor, windowRect } from "./scene";
 import { WindowBlind } from "./window-blind";
+import { windowStyleStore } from "./window-style-store";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -129,7 +130,8 @@ export function DeskScene() {
   );
 
   const rect = windowRect(shape.width / shape.height, shape.width);
-  const sill = sillAnchor(rect);
+  const windowStyle = useSyncExternalStore(windowStyleStore.subscribe, windowStyleStore.get, windowStyleStore.getServer);
+  const sill = sillAnchor(rect, windowStyle);
   // The jar's box: tall enough for the upright jar, wide enough for the
   // tipped one, standing on the sill's front edge with the upright jar
   // centred on its spot.

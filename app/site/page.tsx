@@ -11,6 +11,7 @@ import { AnimatedHeading } from "./_components/animated-heading";
 import { ConcreteWall } from "./_components/concrete-wall/concrete-wall";
 import { deskLayoutVars } from "./_components/concrete-wall/scene";
 import { DeskScene } from "./_components/concrete-wall/desk-scene";
+import { WindowStylePicker } from "./_components/concrete-wall/window-style-picker";
 import { HeroAgents } from "./_components/hero-agents/hero-agents";
 import { WallClock } from "./_components/concrete-wall/wall-clock";
 import { SubscribeForm } from "./_components/subscribe-form";
@@ -183,6 +184,8 @@ export default async function SiteHomePage() {
         {/* The money tree and the jar on the sill, over the text, touchable. */}
         <DeskScene />
         <HeroAgents />
+        {/* The pill on the glass that swaps the window's style. */}
+        <WindowStylePicker />
       </div>
 
       {/* In the room: photos from my LinkedIn posts as a big swipeable row. Each opens the post behind it. */}

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon, UserRoundIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon, UserRoundIcon, LightbulbIcon } from "lucide-react";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
@@ -41,11 +41,12 @@ const WeekPlanPanel = dynamic(() => import("@/app/_components/week-plan-panel").
 const TrainingPlanPanel = dynamic(() => import("@/app/_components/training-plan-panel").then((m) => m.TrainingPlanPanel), { ssr: false });
 const CareerPanel = dynamic(() => import("@/app/_components/career-panel").then((m) => m.CareerPanel), { ssr: false });
 const PersonaPanel = dynamic(() => import("@/app/_components/persona-panel").then((m) => m.PersonaPanel), { ssr: false });
+const GreatThinkersPanel = dynamic(() => import("@/app/_components/great-thinkers-panel").then((m) => m.GreatThinkersPanel), { ssr: false });
 const WritingPanel = dynamic(() => import("@/app/_components/writing-panel").then((m) => m.WritingPanel), { ssr: false });
 const Dashboard = dynamic(() => import("@/app/_components/dashboard").then((m) => m.Dashboard), { ssr: false });
 const PinView = dynamic(() => import("@/app/_components/pin-view").then((m) => m.PinView), { ssr: false });
 
-type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing" | "persona";
+type MobileTab = "home" | "chat" | "tasks" | "notes" | "lists" | "calendar" | "journal-templates" | "schedule" | "media" | "sketches" | "measures" | "vision" | "family" | "manual" | "newsletter" | "nutrition" | "meals" | "training" | "career" | "writing" | "persona" | "great-thinkers";
 
 // Every section is a real URL. The shell below lives in this layout (not in the
 // page files) so it survives navigation between sections — the tab is derived
@@ -72,6 +73,7 @@ const TAB_PATHS: Record<MobileTab, string> = {
   career: "/career",
   writing: "/writing",
   persona: "/persona",
+  "great-thinkers": "/great-thinkers",
 };
 
 // How the corner chat names the page Berto is on, in its header and to Cael.
@@ -97,6 +99,7 @@ const SECTION_LABELS: Record<MobileTab, string> = {
   career: "Career",
   writing: "Writing",
   persona: "Persona",
+  "great-thinkers": "Great Thinkers",
 };
 
 const PATH_TABS = Object.fromEntries(
@@ -115,6 +118,7 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
   { tab: "career", label: "Career", icon: BriefcaseIcon },
   { tab: "persona", label: "Persona", icon: UserRoundIcon },
+  { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
 ];
 
 // The selected state is one element that travels between items rather than a
@@ -134,6 +138,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "meals", label: "Meals", icon: UtensilsIcon },
   { tab: "career", label: "Career", icon: BriefcaseIcon },
   { tab: "persona", label: "Persona", icon: UserRoundIcon },
+  { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -563,6 +568,10 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           ) : mobileTab === "persona" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
               <PersonaPanel />
+            </div>
+          ) : mobileTab === "great-thinkers" ? (
+            <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
+              <GreatThinkersPanel />
             </div>
           ) : mobileTab === "career" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">

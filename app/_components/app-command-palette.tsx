@@ -32,6 +32,7 @@ import {
   TelescopeIcon,
   UserRoundIcon,
   UtensilsIcon,
+  LightbulbIcon,
 } from "lucide-react";
 import { CommandPalette, type PaletteGroup, type PaletteItem } from "@/app/_components/command-palette";
 import { usePaletteHotkey } from "@/app/_components/use-palette-hotkey";
@@ -57,6 +58,7 @@ const SECTIONS: { href: string; label: string; icon: Icon; keywords?: string[] }
   { href: "/nutrition/plan", label: "Nutrition plan", icon: AppleIcon },
   { href: "/career", label: "Career", icon: BriefcaseIcon, keywords: ["work", "aucctus"] },
   { href: "/persona", label: "Persona", icon: UserRoundIcon, keywords: ["public", "values", "voice", "site chat"] },
+  { href: "/great-thinkers/naval", label: "Great Thinkers: Naval", icon: LightbulbIcon, keywords: ["naval", "rich", "wealth", "leverage"] },
   { href: "/tasks", label: "To-dos", icon: ListTodoIcon, keywords: ["todos", "tasks", "board", "canvas"] },
   { href: "/lists", label: "Lists", icon: ListChecksIcon },
   { href: "/calendar", label: "Calendar", icon: CalendarDaysIcon, keywords: ["events"] },

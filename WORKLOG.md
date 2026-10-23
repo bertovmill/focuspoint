@@ -4,6 +4,33 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — Great Thinkers page, starting with Naval
+
+Berto: add a "Great Thinkers" page, first Naval's "How to Get Rich" (nav.al/rich), and
+systematize following it so he actually does it ("motivated, but it can't be too hard").
+He said what works for him: things that pop up on his computer, tasks on his task list,
+and calendar events.
+
+- **/great-thinkers** (list) and **/great-thinkers/naval** — `app/_components/great-thinkers-panel.tsx`,
+  wired into the nav rail, the More sheet and the command palette. Naval page: principle of
+  the day, today's three moves (tick to complete), streak + this week's count, the Sunday
+  review questions, and 12 paraphrased principles (`lib/naval-content.ts`, client-safe).
+- **The system (`lib/naval.ts`)**: three weekday moves — Leverage (ship/publish one thing,
+  30 min), Specific knowledge (20 min deep on GTM eng / AI), Long game (one real touch with a
+  long-term person, 10 min).
+  - Tasks: cron `/api/cron/naval-moves` (`0 12 * * 1-5`, ~8am Toronto) puts the three on the
+    board as tasks titled `Naval · …` due today (deduped by title + date) and sends a push
+    with the principle of the day. Tasks are found again by exact title, so don't rename them.
+  - Streak = weekdays in a row with all three done (weekends skipped).
+  - Calendar: recurring weekday 12:30–1:00 "Naval block" and Sunday 7:00pm "Naval review
+    (15 min)", both with pop-up reminders, on **rmill@aucctus.com** (the Google Calendar
+    connector can't write to bertmill19@gmail.com). Made once; not in code.
+  - `/api/great-thinkers/naval` GET status; POST `{action:"add"}` adds today's moves by hand,
+    `{taskId, done}` ticks/unticks (via `completeTask`).
+- Next: more thinkers; maybe let Cael's chat know about the moves.
+
+---
+
 ## 2026-10-22 — Cael can propose changes to its own code, and query its database
 
 Berto: give Cael the ability to edit its GitHub repo (so he can ask it to add features

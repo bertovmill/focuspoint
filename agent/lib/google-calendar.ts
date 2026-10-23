@@ -88,6 +88,17 @@ export interface CalendarEventInput {
   time?: string;
   durationMinutes?: number;
   description?: string;
+  /** RFC 5545 lines, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"]. */
+  recurrence?: string[];
+  /** Pop-up reminders, minutes before the start. Omit for the calendar's defaults. */
+  popupMinutes?: number[];
+}
+
+/** Adds minutes to a wall-clock "YYYY-MM-DDTHH:MM:SS" without passing through the server's time zone. */
+function addMinutesToWallClock(local: string, minutes: number): string {
+  const d = new Date(`${local}Z`);
+  d.setUTCMinutes(d.getUTCMinutes() + minutes);
+  return d.toISOString().slice(0, 19);
 }
 
 export async function createCalendarEvent(token: string, ev: CalendarEventInput) {
@@ -97,17 +108,21 @@ export async function createCalendarEvent(token: string, ev: CalendarEventInput)
     : { dateTime: `${ev.date}T${ev.time}:00`, timeZone: TIME_ZONE };
   const end = isAllDay
     ? { date: ev.date }
-    : {
-        dateTime: new Date(
-          new Date(`${ev.date}T${ev.time}:00`).getTime() + (ev.durationMinutes ?? 30) * 60000,
-        ).toISOString(),
-        timeZone: TIME_ZONE,
-      };
+    : { dateTime: addMinutesToWallClock(`${ev.date}T${ev.time}:00`, ev.durationMinutes ?? 30), timeZone: TIME_ZONE };
 
   const res = await fetch(CAL_BASE, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ summary: ev.title, description: ev.description, start, end }),
+    body: JSON.stringify({
+      summary: ev.title,
+      description: ev.description,
+      start,
+      end,
+      ...(ev.recurrence?.length ? { recurrence: ev.recurrence } : {}),
+      ...(ev.popupMinutes?.length
+        ? { reminders: { useDefault: false, overrides: ev.popupMinutes.map((minutes) => ({ method: "popup", minutes })) } }
+        : {}),
+    }),
   });
 
   if (!res.ok) {

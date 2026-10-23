@@ -17,10 +17,18 @@ export default defineTool({
     time: z.string().optional().describe("24h time string, e.g. '14:30'. Omit for all-day events."),
     duration_minutes: z.number().int().default(30).describe("Duration in minutes (ignored for all-day events)"),
     description: z.string().optional().describe("Optional event description or notes"),
+    recurrence: z
+      .array(z.string())
+      .optional()
+      .describe("Optional RFC 5545 rules to make it repeat, e.g. ['RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'] for every weekday"),
+    popup_minutes: z
+      .array(z.number().int().min(0))
+      .optional()
+      .describe("Optional pop-up reminders in minutes before the start, e.g. [5, 0]. Omit for the calendar's defaults."),
   }),
   // Writing to the real calendar is an outward action — confirm once per session.
   approval: once(),
-  async execute({ title, date, time, duration_minutes, description }) {
+  async execute({ title, date, time, duration_minutes, description, recurrence, popup_minutes }) {
     const token = await resolveGoogleToken();
     if (!token) return { success: false, message: CALENDAR_NOT_CONNECTED };
 
@@ -30,6 +38,8 @@ export default defineTool({
       time,
       durationMinutes: duration_minutes,
       description,
+      recurrence,
+      popupMinutes: popup_minutes,
     });
 
     if (!result.success) return { success: false, message: `Calendar API error: ${result.message}` };

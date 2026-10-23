@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — Calendar tool can make repeating events; Naval blocks moved to personal calendar
+
+- `add_calendar_event` (agent tool, also over MCP) takes optional `recurrence` (RRULE lines)
+  and `popup_minutes`. `createCalendarEvent` also no longer computes the end time through the
+  server's UTC clock (it was returning a UTC end for a Toronto start).
+- The Naval weekday 12:30 block and Sunday 7pm review now live on Cael's own calendar
+  (bertmill19@gmail.com); the rmill@aucctus.com copies were deleted.
+
+---
+
 ## 2026-10-23 — Great Thinkers page, starting with Naval
 
 Berto: add a "Great Thinkers" page, first Naval's "How to Get Rich" (nav.al/rich), and

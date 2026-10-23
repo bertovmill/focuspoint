@@ -59,6 +59,7 @@ const SECTIONS: { href: string; label: string; icon: Icon; keywords?: string[] }
   { href: "/career", label: "Career", icon: BriefcaseIcon, keywords: ["work", "aucctus"] },
   { href: "/persona", label: "Persona", icon: UserRoundIcon, keywords: ["public", "values", "voice", "site chat"] },
   { href: "/great-thinkers/naval", label: "Great Thinkers: Naval", icon: LightbulbIcon, keywords: ["naval", "rich", "wealth", "leverage"] },
+  { href: "/great-thinkers/tony-robbins", label: "Great Thinkers: Tony Robbins", icon: LightbulbIcon, keywords: ["tony", "robbins", "energy", "state"] },
   { href: "/tasks", label: "To-dos", icon: ListTodoIcon, keywords: ["todos", "tasks", "board", "canvas"] },
   { href: "/lists", label: "Lists", icon: ListChecksIcon },
   { href: "/calendar", label: "Calendar", icon: CalendarDaysIcon, keywords: ["events"] },

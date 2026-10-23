@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — Great Thinkers: Tony Robbins
+
+Berto: add Tony Robbins and his energy lesson (seminar clip youtube.com/watch?v=N00EDWWiIUA)
+to Great Thinkers, then work out how to systematize it.
+
+- **/great-thinkers/tony-robbins** — `TonyRobbinsPage` in `app/_components/great-thinkers-panel.tsx`,
+  9 paraphrased principles in `lib/tony-robbins-content.ts` (client-safe), listed on
+  /great-thinkers and in the command palette.
+- Lesson only for now: no daily moves, cron or calendar yet.
+- Next: decide the follow-through system with Berto (Naval-style daily moves, or something lighter
+  like an energy check-in / movement reset).
+
+---
+
 ## 2026-10-23 — Calendar tool can make repeating events; Naval blocks moved to personal calendar
 
 - `add_calendar_event` (agent tool, also over MCP) takes optional `recurrence` (RRULE lines)

@@ -7,18 +7,22 @@ import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FlameIcon } from "lucide-
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NAVAL_PRINCIPLES, NAVAL_SOURCE } from "@/lib/naval-content";
+import { TONY_PRINCIPLES, TONY_SOURCE } from "@/lib/tony-robbins-content";
 import type { NavalStatus } from "@/lib/naval";
 
 // Thinkers whose lessons Berto is putting into practice. Each gets a page at
-// /great-thinkers/<slug>; Naval first (2026-10-23).
+// /great-thinkers/<slug>; Naval first, then Tony Robbins (2026-10-23).
 const THINKERS = [
   { slug: "naval", name: "Naval Ravikant", lesson: "How to get rich without getting lucky" },
+  { slug: "tony-robbins", name: "Tony Robbins", lesson: "Energy is everything" },
 ];
 
 /** /great-thinkers and its per-thinker pages. */
 export function GreatThinkersPanel() {
   const pathname = usePathname();
-  return pathname.startsWith("/great-thinkers/naval") ? <NavalPage /> : <ThinkersList />;
+  if (pathname.startsWith("/great-thinkers/naval")) return <NavalPage />;
+  if (pathname.startsWith("/great-thinkers/tony-robbins")) return <TonyRobbinsPage />;
+  return <ThinkersList />;
 }
 
 function ThinkersList() {
@@ -171,6 +175,41 @@ function NavalPage() {
         </div>
         <a href={NAVAL_SOURCE} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
           Read the original at nav.al/rich
+        </a>
+      </section>
+    </div>
+  );
+}
+
+// The lesson only for now; a daily follow-through system like Naval's is still to be decided.
+function TonyRobbinsPage() {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+      <header className="flex flex-col gap-1">
+        <Link href="/great-thinkers" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ChevronLeftIcon className="size-3" /> Great Thinkers
+        </Link>
+        <h1 className="text-2xl font-semibold">Tony Robbins: Energy is everything</h1>
+        <p className="text-sm text-muted-foreground">
+          Energy comes mostly from your mind, your habits and how you move, not just food and sleep.
+        </p>
+      </header>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">The lesson</h2>
+        <div className="flex flex-col gap-4">
+          {TONY_PRINCIPLES.map((p, i) => (
+            <div key={p.title} className="flex gap-3">
+              <span className="w-5 shrink-0 text-right text-sm text-muted-foreground">{i + 1}</span>
+              <div className="flex flex-col">
+                <span className="font-medium">{p.title}</span>
+                <span className="text-sm text-muted-foreground">{p.meaning}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <a href={TONY_SOURCE} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+          Watch the original clip
         </a>
       </section>
     </div>

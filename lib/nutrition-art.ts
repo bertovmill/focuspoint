@@ -6,16 +6,12 @@ import { RULE_IMAGE_PROMPTS } from "./nutrition";
 // One model and one photographic language for every picture in the Nutrition
 // section, so it reads as one set rather than three.
 //
-// gpt-image-1 through the AI Gateway is the path known to work on this project
-// (scripts/generate-site-art.mjs has been using it since 2026-08-16). The
-// earlier `google/imagen-4.0-generate-001` in set_daily_meal errored on every
-// call, which is why meal_recommendations sat empty for weeks — don't go back to
-// it without checking a real response first. It takes `size`, not `aspectRatio`.
-export const FOOD_IMAGE_MODEL = "openai/gpt-image-1";
-
-// These render at 44px on the page and 24px in the Tasks strip, so medium quality
-// is already more than anyone sees.
-const OPENAI_OPTIONS = { openai: { quality: "medium", output_format: "webp" } } as const;
+// gpt-image-1 was the first model here, until the AI Gateway dropped it
+// (model_not_found, seen 2026-10-23). FLUX.3 klein is photoreal and about
+// $0.009 a picture. The earlier `google/imagen-4.0-generate-001` errored on
+// every call too — check a real response before switching models again.
+// BFL takes `aspectRatio`, not OpenAI's `size`.
+export const FOOD_IMAGE_MODEL = "bfl/flux-3-image-klein";
 
 const PHOTO_STYLE =
   "Professional food photography, natural window light, shallow depth of field, " +
@@ -33,8 +29,7 @@ export async function generateStapleImage(name: string, why?: string | null) {
     prompt:
       `${PHOTO_STYLE}. A close-up hero shot of ${name} as a raw whole-food ingredient, ` +
       `beautifully arranged, appetising and fresh.${why ? ` Mood: ${why}` : ""}`,
-    size: "1024x1024",
-    providerOptions: OPENAI_OPTIONS,
+    aspectRatio: "1:1",
   });
   return upload(`nutrition/staples/${slug(name)}`, image, 512);
 }
@@ -49,8 +44,7 @@ export async function generateRuleImage(key: string) {
   const { image } = await generateImage({
     model: FOOD_IMAGE_MODEL,
     prompt: `${PHOTO_STYLE}. ${prompt}`,
-    size: "1024x1024",
-    providerOptions: OPENAI_OPTIONS,
+    aspectRatio: "1:1",
   });
   return upload(`nutrition/rules/${key}`, image, 512);
 }
@@ -67,8 +61,7 @@ export async function generateRecipeImage(recipe: { id: number; name: string; de
     prompt:
       `${PHOTO_STYLE}. Overhead or 45-degree shot of one plated serving of ${recipe.name}, home-cooked and simple.` +
       `${recipe.description ? ` ${recipe.description}` : ""}${made}`,
-    size: "1024x1024",
-    providerOptions: OPENAI_OPTIONS,
+    aspectRatio: "1:1",
   });
   return upload(`nutrition/recipes/${recipe.id}-${Date.now()}`, image, 512);
 }

@@ -269,7 +269,7 @@ export function MealsToday({ today }: { today: string }) {
   };
 
   // A bank meal without a photo gets one the first time it's shown (one
-  // gpt-image-1 call, then stored on the meal and every cell made from it).
+  // FLUX call, then stored on the meal and every cell made from it).
   const painting = useRef(new Set<number>());
   useEffect(() => {
     for (const m of meals ?? []) {

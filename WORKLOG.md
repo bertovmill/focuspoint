@@ -15,7 +15,7 @@ to go all in on Tony Robbins' discipline of eating.
   `lib/robbins-meals.ts` holds 24 hand-written Robbins meals (Meal 1 = fruit only), seeded
   once by `applySchema` (guarded on their names), which also clears coming plan cells on
   archived meals. A seed script couldn't work: the sandbox masks `.env` secrets. Photos are
-  made on Home the first time a meal shows (gpt-image-1, ~$0.04 each, stored once).
+  made on Home the first time a meal shows (FLUX.3 klein, ~$0.009 each, stored once; gpt-image-1 is gone from the Gateway).
   Rule art for the new rules is asked for by `RuleImage` the first time any is missing.
 - `fillFromBank` now puts a meal in its own sitting when the bank has one for it.
   Archived meals are hidden from the bank list, picker and name lookup.

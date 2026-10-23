@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { generateRecipeImage } from "@/lib/nutrition-art";
 import { shapeRecipe } from "@/lib/nutrition-plan";
 
-// One gpt-image-1 call plus the upload — well past the Next.js dev default.
+// One image-model call plus the upload — well past the Next.js dev default.
 export const maxDuration = 120;
 
 type Params = { params: Promise<{ id: string }> };

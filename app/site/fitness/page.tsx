@@ -4,6 +4,7 @@ import { AnimatedHeading } from "../_components/animated-heading";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 import { SubscribeForm } from "../_components/subscribe-form";
 import { RacePicker } from "./race-picker";
+import { RacePhotos } from "./race-photos";
 import {
   HYROX_RESULTS,
   HYROX_UPCOMING,
@@ -42,6 +43,7 @@ export default function FitnessPage() {
   const wins = HYROX_RESULTS.filter((r) => r.rank === 1).length;
 
   const jumpTo = [
+    { id: "hyrox-photos", label: "Photos" },
     ...(upcoming.length > 0 ? [{ id: "up-next", label: "Up next" }] : []),
     ...HYROX_RESULTS.map((r) => ({ id: r.slug, label: r.event.replace(/^HYROX /, "") })),
   ];
@@ -94,6 +96,14 @@ export default function FitnessPage() {
       </div>
 
       <div className="mx-auto max-w-6xl">
+        <section id="hyrox-photos" className="scroll-mt-24 border-t border-border/60 py-14">
+          <RevealOnView>
+            <RacePhotos>
+              <h2 className={`${LABEL} text-muted-foreground`}>HYROX Ottawa</h2>
+            </RacePhotos>
+          </RevealOnView>
+        </section>
+
         {upcoming.length > 0 && (
           <section id="up-next" className="scroll-mt-24 border-t border-border/60">
             <RevealOnView className="py-14 lg:grid lg:grid-cols-2 lg:gap-14">

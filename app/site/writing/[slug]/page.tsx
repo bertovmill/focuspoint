@@ -46,7 +46,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     },
     twitter: {
       card: post.coverUrl ? "summary_large_image" : "summary",
-      creator: "@bert_mill_",
+      creator: "@robrt_mill",
       images: post.coverUrl ? [post.coverUrl] : undefined,
     },
   };

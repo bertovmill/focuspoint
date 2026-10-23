@@ -62,7 +62,13 @@ export default defineTool({
       }
     }
 
-    const renamed = new_slug ? slugify(new_slug) : undefined;
+    // Like the editor, a draft's URL follows its title until it's first
+    // published, so a post started as "Untitled" doesn't go live at /untitled.
+    const followTitle = !new_slug && title && !current.publishedAt ? slugify(title) : undefined;
+    const renamed = new_slug ? slugify(new_slug) : followTitle && followTitle !== slug ? followTitle : undefined;
+    if (followTitle && renamed && (await getPost(renamed))) {
+      return { ok: false as const, error: `The slug "${renamed}" is already taken — pass new_slug.` };
+    }
     if (renamed && renamed !== slug && (await getPost(renamed))) {
       return { ok: false as const, error: `The slug "${renamed}" is already taken.` };
     }

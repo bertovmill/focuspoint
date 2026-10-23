@@ -12250,3 +12250,8 @@ and pipeline pieces become ordinary rows (not a side panel).
 Verified on :3017 (local DB): create via N, status → Working now, priority → High,
 add-step on a Content piece, sub-rows + 0/2 count, delete from the menu, URL
 filter `?status=all`. Test rows deleted. tsc clean.
+
+## 2026-10-23 — Writing: no more /untitled URLs; X handle → @robrt_mill
+- `save_post`: a draft's slug now follows its title when the title changes (until first publish), matching the editor. A post started as "Untitled" and filled in by Cael had gone live at /writing/untitled.
+- Renamed the live "Where should context live?" post to /writing/where-should-context-live.
+- X handle changed to @robrt_mill in the tweet dialog, Writing tweets tab, public-site X link and post twitter:creator.

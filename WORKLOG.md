@@ -12,9 +12,11 @@ to go all in on Tony Robbins' discipline of eating.
   no protein with starch, alkaline/greens first, fruit alone in the mornings. Old
   `nutrition_days` keys are dropped by `normalizeRules`, so earlier days read as off-protocol.
 - Bank: `nutrition_recipes.archived_at`. The 17 old meals are archived, not deleted.
-  `scripts/robbins-meal-bank.mjs` adds 24 hand-written Robbins meals (Meal 1 = fruit only),
-  makes their photos via the deployed app (gpt-image-1, ~$0.04 each, made once), re-plans
-  today +6 days and fills the new rule art.
+  `lib/robbins-meals.ts` holds 24 hand-written Robbins meals (Meal 1 = fruit only), seeded
+  once by `applySchema` (guarded on their names), which also clears coming plan cells on
+  archived meals. A seed script couldn't work: the sandbox masks `.env` secrets. Photos are
+  made on Home the first time a meal shows (gpt-image-1, ~$0.04 each, stored once).
+  Rule art for the new rules is asked for by `RuleImage` the first time any is missing.
 - `fillFromBank` now puts a meal in its own sitting when the bank has one for it.
   Archived meals are hidden from the bank list, picker and name lookup.
 - Home `MealsToday`: three big photo cards (Morning / Midday / Evening) with a shuffle

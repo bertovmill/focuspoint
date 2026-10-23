@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
+import { ROBBINS_MEALS } from "./robbins-meals";
 
 export function getDb() {
   const url = process.env.DATABASE_URL;
@@ -613,6 +614,26 @@ async function applySchema() {
   // Old bank meals are archived rather than deleted when the bank is replaced
   // (the Robbins bank, 2026-10-23): planned cells and history still point at them.
   await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`;
+  // One time: archive the old bank, seed the Robbins bank and clear the
+  // coming plan cells that still point at archived meals (Home refills them).
+  // Guarded on the Robbins meals not being there yet, so meals added later are
+  // never archived by a re-run.
+  const robbinsNames = ROBBINS_MEALS.map((m) => m.name);
+  const [seeded] = await sql`SELECT 1 FROM nutrition_recipes WHERE name = ANY(${robbinsNames}) LIMIT 1`;
+  if (!seeded) {
+    await sql`UPDATE nutrition_recipes SET archived_at = NOW() WHERE archived_at IS NULL`;
+    for (const m of ROBBINS_MEALS) {
+      await sql`
+        INSERT INTO nutrition_recipes (name, description, slot, ingredients)
+        VALUES (${m.name}, ${m.description}, ${m.slot}, ${m.ingredients})
+      `;
+    }
+    await sql`
+      DELETE FROM meal_recommendations
+      WHERE meal_date >= (NOW() AT TIME ZONE 'America/Toronto')::date
+        AND (recipe_id IS NULL OR recipe_id IN (SELECT id FROM nutrition_recipes WHERE archived_at IS NOT NULL))
+    `;
+  }
 
   // ── Training plan (2026-09-26) ───────────────────────────────────────────
   // /training: the week's sessions, the races they build toward, and a cache of

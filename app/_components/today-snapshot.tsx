@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, ShuffleIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -267,6 +267,24 @@ export function MealsToday({ today }: { today: string }) {
       setSwapping(null);
     }
   };
+
+  // A bank meal without a photo gets one the first time it's shown (one
+  // gpt-image-1 call, then stored on the meal and every cell made from it).
+  const painting = useRef(new Set<number>());
+  useEffect(() => {
+    for (const m of meals ?? []) {
+      const id = m.recipe_id;
+      if (m.image_url || !id || painting.current.has(id)) continue;
+      painting.current.add(id);
+      fetch(`/api/nutrition/recipes/${id}/image`, { method: "POST" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((recipe: { image_url: string | null } | null) => {
+          if (!recipe?.image_url) return;
+          setMeals((ms) => ms?.map((x) => (x.recipe_id === id ? { ...x, image_url: recipe.image_url } : x)) ?? ms);
+        })
+        .catch(() => {});
+    }
+  }, [meals]);
 
   const bySlot = new Map((meals ?? []).map((m) => [m.slot, m]));
 

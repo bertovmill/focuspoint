@@ -1,23 +1,9 @@
-/**
- * Replaces the meal bank with Tony Robbins–style meals (2026-10-23) and gives
- * each one a photo, then re-plans the coming week from the new bank.
- *
- *   node --env-file=.env.local scripts/robbins-meal-bank.mjs [https://cael.bertomill.com]
- *
- * Every meal keeps the four rules in lib/nutrition.ts: mostly water-rich food,
- * never animal protein with starch, greens first, and fruit alone (Meal 1 is
- * always fruit). Old bank meals are archived, not deleted. Photos go through
- * the deployed app, which holds the AI Gateway credentials (see
- * backfill-nutrition-art.mjs). Idempotent: meals already in the bank by name
- * are left alone, and only missing photos are generated.
- */
-import { neon } from "@neondatabase/serverless";
-
-const BASE = process.argv[2] ?? "https://cael.bertomill.com";
-const cookie = `cael_session=${process.env.BASIC_AUTH_PASSWORD}`;
-const sql = neon(process.env.DATABASE_URL);
-
-const MEALS = [
+// The meal bank Berto switched to on 2026-10-23: Tony Robbins' discipline of
+// eating. Every meal keeps the four rules in lib/nutrition.ts — mostly
+// water-rich food, never animal protein with starch, greens first, and fruit
+// alone (Meal 1 is always fruit). Seeded once by applySchema in lib/db.ts;
+// photos are made the first time a meal shows up on Home.
+export const ROBBINS_MEALS: { slot: string; name: string; description: string; ingredients: string[] }[] = [
   // Meal 1 — fruit alone, on an empty stomach
   { slot: "meal1", name: "Mango, papaya & lime plate", description: "Ripe mango and papaya, sliced and squeezed with lime. Nothing else.", ingredients: ["Mango", "Papaya", "Lime"] },
   { slot: "meal1", name: "Watermelon & mint", description: "Big chilled wedges of watermelon torn with fresh mint — the most water-rich start there is.", ingredients: ["Watermelon", "Mint"] },
@@ -48,67 +34,3 @@ const MEALS = [
   { slot: "meal3", name: "Steak salad with chimichurri", description: "Sliced grilled flank steak over romaine, tomatoes and cucumber with chimichurri. No potatoes.", ingredients: ["Flank steak", "Romaine", "Tomatoes", "Cucumber", "Parsley", "Garlic", "Red wine vinegar", "Olive oil"] },
   { slot: "meal3", name: "Minestrone verde", description: "Brothy spring vegetable soup — zucchini, leeks, peas, white beans and kale with pesto.", ingredients: ["Zucchini", "Leeks", "Peas", "Cannellini beans", "Kale", "Basil", "Vegetable broth"] },
 ];
-
-async function api(path, init) {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { cookie, "content-type": "application/json", ...(init?.headers ?? {}) },
-  });
-  if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status} ${(await res.text()).slice(0, 300)}`);
-  return res.json();
-}
-
-await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`;
-
-const names = MEALS.map((m) => m.name);
-const archived = await sql`
-  UPDATE nutrition_recipes SET archived_at = NOW()
-  WHERE archived_at IS NULL AND NOT (name = ANY(${names})) RETURNING id
-`;
-console.log(`archived ${archived.length} old bank meals`);
-
-const have = new Set((await sql`SELECT name FROM nutrition_recipes WHERE archived_at IS NULL`).map((r) => r.name));
-let added = 0;
-for (const m of MEALS) {
-  if (have.has(m.name)) continue;
-  await sql`
-    INSERT INTO nutrition_recipes (name, description, slot, ingredients)
-    VALUES (${m.name}, ${m.description}, ${m.slot}, ${m.ingredients})
-  `;
-  added++;
-}
-console.log(`added ${added} Robbins meals`);
-
-const missing = await sql`SELECT id, name FROM nutrition_recipes WHERE archived_at IS NULL AND image_url IS NULL ORDER BY id`;
-console.log(`${missing.length} need a photo (→ ${BASE})`);
-for (const r of missing) {
-  process.stdout.write(`  ${r.name} … `);
-  try {
-    await api(`/api/nutrition/recipes/${r.id}/image`, { method: "POST" });
-    console.log("ok");
-  } catch (err) {
-    console.log(`FAILED — ${err.message}`);
-  }
-}
-
-// Re-plan today and the next six days from the new bank. Only the plan cells
-// are replaced; anything already logged as eaten stays.
-const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-await sql`DELETE FROM meal_recommendations WHERE meal_date >= ${today}`;
-const cells = [];
-for (let i = 0; i < 7; i++) {
-  const d = new Date(`${today}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + i);
-  const date = d.toISOString().slice(0, 10);
-  for (const slot of ["meal1", "meal2", "meal3"]) cells.push({ date, slot });
-}
-const out = await api("/api/nutrition/plan/fill", { method: "POST", body: JSON.stringify({ cells }) });
-console.log(`planned ${out.filled.length} sittings from ${today}`);
-
-process.stdout.write("rule art … ");
-try {
-  const r = await api("/api/nutrition/rule-art", { method: "POST", body: "{}" });
-  console.log(`generated ${r.generated.join(", ") || "nothing"}`);
-} catch (err) {
-  console.log(`FAILED — ${err.message}`);
-}

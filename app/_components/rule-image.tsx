@@ -2,15 +2,24 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { PROTOCOL_RULE_KEYS } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 // The four rule images change once in the app's life, so every instance shares
 // one in-flight request and the answer is kept for the session.
+// When the rules change (Robbins rules, 2026-10-23) the first view with art
+// missing asks for it, then reads again.
 let cache: Promise<Record<string, string>> | null = null;
 function ruleArt() {
-  cache ??= fetch("/api/nutrition/rule-art")
-    .then((r) => (r.ok ? r.json() : {}))
-    .catch(() => ({}));
+  const read = (): Promise<Record<string, string>> =>
+    fetch("/api/nutrition/rule-art")
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+  cache ??= read().then(async (map) => {
+    if (PROTOCOL_RULE_KEYS.every((k) => map[k])) return map;
+    await fetch("/api/nutrition/rule-art", { method: "POST", body: "{}" }).catch(() => {});
+    return read();
+  });
   return cache;
 }
 

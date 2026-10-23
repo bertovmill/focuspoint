@@ -1,6 +1,7 @@
 import { getDb } from "./db";
 import { todayISO } from "@/agent/lib/now";
 import { completeTask, createTask } from "./tasks";
+import { removeCompletedTaskFromCalendar } from "./task-calendar";
 
 /**
  * Great Thinkers → Naval (2026-10-23). Berto's call: "How to Get Rich (without
@@ -145,8 +146,13 @@ export async function getNavalStatus(): Promise<NavalStatus> {
 export async function setNavalMoveDone(taskId: number, done: boolean): Promise<void> {
   const sql = getDb();
   const titles = NAVAL_MOVES.map((m) => m.taskTitle);
-  const [row] = await sql`SELECT id FROM todos WHERE id = ${taskId} AND title = ANY(${titles})`;
+  const [row] = await sql`SELECT id, calendar_event_id FROM todos WHERE id = ${taskId} AND title = ANY(${titles})`;
   if (!row) throw new Error("Not a Naval move.");
-  if (done) await completeTask(taskId);
-  else await sql`UPDATE todos SET completed = FALSE, completed_at = NULL WHERE id = ${taskId}`;
+  if (done) {
+    await completeTask(taskId);
+    return;
+  }
+  // Same as the board's uncomplete: take the done-block back off the calendar.
+  await removeCompletedTaskFromCalendar(row.calendar_event_id as string | null);
+  await sql`UPDATE todos SET completed = FALSE, completed_at = NULL, calendar_event_id = NULL WHERE id = ${taskId}`;
 }

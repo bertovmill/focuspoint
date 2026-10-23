@@ -23,6 +23,14 @@ struct WallParams {
   // rolled up, 1 closed), y 1 when the shader draws it (0 leaves it to the
   // page). zw unused.
   blind: vec4f,
+  // Which window (WINDOW_STYLES in scene.ts): x kind (0 square, 1 arched), y
+  // panes across, z panes down, w the arch's rise as a fraction of the glass height.
+  design: vec4f,
+  // Its joinery at full size, in wall units: x frame width, y glazing bar half
+  // width, z the ledge's height, w how far the ledge runs past the frame.
+  dims: vec4f,
+  // xyz the frame's paint, w spokes in the arch's fanlight.
+  paint: vec4f,
 }
 
 @group(0) @binding(0) var<uniform> params: WallParams;
@@ -34,8 +42,7 @@ struct WallParams {
 
 // The city textures' aspect ratio; the glass shows a cover-fit crop of them.
 const CITY_ASPECT: f32 = 1.5;
-// The glazing, matching WINDOW_GRID in scene.ts: panes across.
-const PANE_COLS: f32 = 2.0;
+const PI: f32 = 3.14159265;
 
 fn hash(p: vec2f) -> f32 {
   let h = dot(p, vec2f(127.1, 311.7));
@@ -87,6 +94,18 @@ fn city_view_diffused(tuv: vec2f, warmth: f32, cloud: f32, night: f32, radius: f
     acc += city_view_at(tap, warmth, cloud, night);
   }
   return acc / 15.0;
+}
+
+// Signed distance to the window's opening (negative inside): a box, or for an
+// arched window the box capped by a segmental arch that rises `rise` from the
+// top corners to the crown.
+fn opening_sd(p: vec2f, c: vec2f, h: vec2f, arched: f32, rise: f32) -> f32 {
+  let r = abs(p - c) - h;
+  let box_d = max(r.x, r.y);
+  let safe_rise = max(rise, 0.0001);
+  let radius = (h.x * h.x + safe_rise * safe_rise) / (2.0 * safe_rise);
+  let arc_d = length(p - vec2f(c.x, c.y - h.y + radius)) - radius;
+  return mix(box_d, max(box_d, arc_d), arched);
 }
 
 // A soft-edged rectangle of window light, rotated slightly so it reads as
@@ -239,11 +258,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   // ---- The window in the wall -------------------------------------------
   //
-  // A modern steel window set flush into the plaster: a slim matte-black
-  // frame around the glass, one black mullion down the middle, and a thin
-  // black ledge floating just under it (the jar stands on it). No trim and
-  // no deep reveal; the only depth is a soft contact shadow where the frame
-  // meets the wall, the ledge's shadow, and a faint inner shadow on the glass.
+  // A window set flush into the plaster, in whichever style the visitor
+  // picked: a frame around the glass, glazing bars splitting it into panes,
+  // and a ledge just under it (the jar stands on it). Black steel, a bronze
+  // arch with a sunburst fanlight, or painted white timber with a deeper
+  // sill. The only depth is a soft contact shadow where the frame meets the
+  // wall, the ledge's shadow, and a faint inner shadow on each pane.
 
   let has_window = step(0.0001, params.window.z);
   let wc = vec2f(params.window.x * aspect, params.window.y);
@@ -252,66 +272,100 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Sized to the window, so a phone's small window gets a slimmer frame.
   // Keep these in step with sillAnchor in scene.ts.
   let joinery = clamp(safe_wh.y / 0.24, 0.5, 1.0);
-  let frame_w = 0.0085 * joinery;   // the black frame around the glass
-  let mullion_w = 0.0030 * joinery; // half width of the mullion
-  let ledge_top = 0.0040 * joinery; // the ledge's top face, seen from just above
-  let ledge_h = 0.0105 * joinery;   // the ledge's full height, top face and front
-  let ledge_over = 0.010 * joinery; // how far the ledge runs past the frame each side
+  let arched = step(0.5, params.design.x);
+  let cols = max(params.design.y, 1.0);
+  let rows = max(params.design.z, 1.0);
+  let rise = params.design.w * 2.0 * safe_wh.y * arched;
+  let fan = max(params.paint.w, 1.0);
+  let frame_w = params.dims.x * joinery;    // the frame around the glass
+  let mullion_w = params.dims.y * joinery;  // half width of a glazing bar
+  let ledge_h = params.dims.z * joinery;    // the ledge's full height, top face and front
+  let ledge_top = ledge_h * 0.38;           // the ledge's top face, seen from just above
+  let ledge_over = params.dims.w * joinery; // how far the ledge runs past the frame each side
 
-  // Per-axis signed distance to the glass; the largest is the distance to the
-  // (square-cornered) opening, negative inside it.
-  let r = abs(q - wc) - wh;
-  let ring = max(r.x, r.y);
+  // How light the paint is: black steel and bronze catch sharp highlights,
+  // white timber reads by its shadows instead.
+  let paint = params.paint.rgb;
+  let bright = smoothstep(0.3, 0.8, dot(paint, vec3f(0.3333)));
+
+  // Signed distance to the opening; negative inside it.
+  let ring = opening_sd(q, wc, safe_wh, arched, rise);
   let glass = (1.0 - smoothstep(-px, px, ring)) * has_window;
   let frame = (1.0 - smoothstep(frame_w - px, frame_w + px, ring)) * (1.0 - glass) * has_window;
 
-  // The ledge: a thin black bar right under the frame, a little wider than it.
+  // The ledge: a bar right under the frame, a little wider than it.
   let ledge_y0 = wc.y + wh.y + frame_w;
   let ledge_dx = abs(q.x - wc.x) - (wh.x + frame_w + ledge_over);
   let ledge_dy = q.y - ledge_y0;
   let in_ledge_x = 1.0 - smoothstep(-px, px, ledge_dx);
   let ledge = in_ledge_x * smoothstep(-px, px, ledge_dy) * (1.0 - smoothstep(ledge_h - px, ledge_h + px, ledge_dy)) * has_window;
   let ledge_face = smoothstep(ledge_top - px, ledge_top + px, ledge_dy);
-  // Its shadow on the wall below, softening as it falls.
+  // Its shadow on the wall below, softening as it falls; a deeper sill throws a longer one.
   let below_ledge = ledge_dy - ledge_h;
   let ledge_shadow = (1.0 - smoothstep(-0.004 * joinery, 0.004 * joinery, ledge_dx)) * step(0.0, below_ledge)
-    * smoothstep(0.035 * joinery, 0.0, below_ledge) * has_window;
+    * smoothstep(ledge_h * 3.3, 0.0, below_ledge) * has_window;
 
   // A soft contact shadow around the frame, dropped a touch, so it sits in
   // the wall rather than on it.
-  let rs = abs(q - wc - vec2f(0.0, 0.003 * joinery)) - wh;
-  let ring_s = max(rs.x, rs.y);
+  let ring_s = opening_sd(q - vec2f(0.0, 0.003 * joinery), wc, safe_wh, arched, rise);
   let contact = smoothstep(frame_w + 0.012 * joinery, frame_w, ring_s) * has_window;
   // Distance out from the frame, for the daylight it spills on the wall.
   let outside = max(ring - frame_w, 0.0);
   let halo = exp(-outside * 24.0) * daylight * 0.06 * has_window;
 
   let wall_lit = base * ambient_tint * (ambient + key * key_strength * key_color)
-    * (1.0 - contact * 0.10) * (1.0 - ledge_shadow * 0.22 * (0.4 + 0.6 * daylight))
+    * (1.0 - contact * mix(0.10, 0.16, bright)) * (1.0 - ledge_shadow * 0.22 * (0.4 + 0.6 * daylight))
     + window_color * windows * window_shade * window_strength
     + window_color * halo;
 
-  // Matte black steel: barely lit by the room, with a fine highlight along
-  // the frame's outer edge and on the ledge's top face.
-  let steel = mix(vec3f(0.085, 0.085, 0.09), vec3f(0.06, 0.06, 0.065), dark);
-  let steel_room = steel * ambient_tint * (ambient + key * key_strength * 0.9);
+  // The frame, lit by the room. Dark metal gets a fine highlight along its
+  // outer edge; painted timber gets a soft bevel instead (a lit outer
+  // edge, a shadowed rebate against the glass) and a faint brushed grain.
+  let paint_room = paint * ambient_tint * (ambient + key * key_strength * 0.9);
   let fd = clamp(ring / frame_w, 0.0, 1.0);
   let frame_edge = smoothstep(0.75, 0.95, fd) * (1.0 - smoothstep(0.95, 1.0, fd));
-  let frame_lit = steel_room * (1.0 + frame_edge * 0.9) + window_color * daylight * 0.015;
-  let ledge_lit = steel_room * mix(2.2, 1.0, ledge_face) + window_color * daylight * mix(0.05, 0.0, ledge_face);
+  let rebate = 1.0 - smoothstep(0.0, 0.35, fd);
+  let brush = (value_noise(q * vec2f(900.0, 60.0)) - 0.5) * 0.035 * bright;
+  let frame_lit = paint_room * (1.0 + frame_edge * mix(0.9, 0.07, bright) - rebate * 0.16 * bright + brush)
+    + window_color * daylight * mix(0.015, 0.03, bright);
+  let ledge_lit = paint_room * mix(mix(2.2, 1.07, bright), mix(1.0, 0.84, bright), ledge_face)
+    + window_color * daylight * mix(0.05, 0.03, bright) * (1.0 - ledge_face);
 
-  // The mullion splits the glass into PANE_COLS.
+  // The glazing bars. Below the arch (or everywhere, on a square window) a
+  // grid of `cols` by `rows`; in the arch, a transom along its springing line,
+  // a little semicircular hub, and spokes fanning out from it.
   let gx = q.x - wc.x;
-  let gy = q.y - wc.y;
-  let cell_x = 2.0 * safe_wh.x / PANE_COLS;
-  let bar_x = (0.5 - abs(fract((gx + safe_wh.x) / cell_x) - 0.5)) * cell_x;
-  let mullion = (1.0 - smoothstep(mullion_w - px, mullion_w + px, bar_x)) * glass;
-  let mullion_lit = steel_room * (1.0 + 0.5 * smoothstep(0.4, 0.0, bar_x / mullion_w));
-  // A faint inner shadow on each pane against the frame and the mullion.
-  let pane_edge = max(min(bar_x - mullion_w, min(safe_wh.x - abs(gx), safe_wh.y - abs(gy))), 0.0);
-  let pane_inset = smoothstep(0.0, 0.006 * joinery, pane_edge);
+  let top_y = wc.y - safe_wh.y;
+  let spring_y = top_y + rise;
+  let cell_x = 2.0 * safe_wh.x / cols;
+  let cell_y = (2.0 * safe_wh.y - rise) / rows;
+  let fx = (gx + safe_wh.x) / cell_x;
+  let fy = (q.y - spring_y) / cell_y;
+  let bar_x = (0.5 - abs(fract(fx) - 0.5)) * cell_x;
+  let bar_y = (0.5 - abs(fract(fy) - 0.5)) * cell_y;
+  let grid_d = min(bar_x, bar_y);
+
+  let hub = vec2f(wc.x, spring_y);
+  let hub_r = rise * 0.3;
+  let to_hub = q - hub;
+  let hub_dist = length(to_hub);
+  let theta = atan2(to_hub.x, -to_hub.y);
+  let spoke_step = PI / (fan + 1.0);
+  let spoke_k = clamp(round((theta + PI * 0.5) / spoke_step), 1.0, fan);
+  let spoke_d = mix(1.0, hub_dist * abs(sin(theta - (spoke_k * spoke_step - PI * 0.5))), step(hub_r, hub_dist));
+  let arch_d = min(min(spoke_d, abs(hub_dist - hub_r)), abs(q.y - spring_y));
+  let in_arch = arched * (1.0 - step(spring_y, q.y));
+  let bar_d = mix(grid_d, arch_d, in_arch);
+
+  let mullion = (1.0 - smoothstep(mullion_w - px, mullion_w + px, bar_d)) * glass;
+  let bar_profile = smoothstep(0.4, 0.0, bar_d / mullion_w);
+  let mullion_lit = paint_room * (1.0 + bar_profile * mix(0.5, 0.06, bright) + brush);
+  // A faint inner shadow on each pane against the frame and the bars.
+  let pane_edge = max(min(bar_d - mullion_w, -ring), 0.0);
+  let pane_inset = smoothstep(0.0, mix(0.006, 0.009, bright) * joinery, pane_edge);
   // Each pane is its own sheet of glass, with a touch of its own tilt and tint.
-  let pane_id = vec2f(floor((gx + safe_wh.x) / cell_x), 0.0);
+  let sector = select(floor((theta + PI * 0.5) / spoke_step), -1.0, hub_dist < hub_r);
+  let pane_id = mix(vec2f(floor(fx), floor(fy)), vec2f(sector + 40.0, -3.0), in_arch);
   let pane_rand = hash(pane_id + vec2f(0.5, 0.5));
   let pane_tilt = (vec2f(hash(pane_id + vec2f(1.3, 1.3)), hash(pane_id + vec2f(2.7, 2.7))) - vec2f(0.5)) * 0.004;
 
@@ -390,9 +444,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   if (shade_cov > 0.001) {
     let diffused = city_view_diffused(tuv, warmth, cloud, night, 0.024);
     var behind = mix(fallback, diffused * mix(1.06, 1.0, night), city_ready);
-    // The mullion, softened, behind the fabric.
-    let mull_soft = (1.0 - smoothstep(0.0, mullion_w * 3.5, bar_x)) * 0.75;
-    behind = mix(behind, steel_room, mull_soft);
+    // The glazing bars, softened, behind the fabric.
+    let mull_soft = (1.0 - smoothstep(0.0, mullion_w * 3.5, bar_d)) * 0.75;
+    behind = mix(behind, paint_room, mull_soft);
 
     let linen = vec3f(0.93, 0.90, 0.83);
     // Light scattered in the weave (the day coming through it), plus what gets

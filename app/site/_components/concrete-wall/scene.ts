@@ -11,16 +11,106 @@ export type WindowRect = { x: number; y: number; hw: number; hh: number };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /**
- * The glazing: how many panes across, split by black mullions. The shader
- * has the same number as a constant; keep them together.
+ * The windows a visitor can choose between, cycled by the pill on the glass.
+ * Everything the shader needs to draw one is here, so the WebGPU wall, the
+ * CSS fallback and the sill anchor all agree on it.
+ *
+ * - `kind`: 0 square-cornered, 1 a segmental arch over the top.
+ * - `cols` / `rows`: panes across and down, split by glazing bars.
+ * - `frame`, `bar`, `ledgeH`, `ledgeOver`: in wall units at full size (the
+ *   shader scales them down for a phone's small window). `bar` is half width.
+ * - `paint`: the frame's colour (linear-ish rgb, 0 to 1), and `css` the same
+ *   for the fallback.
+ * - `rise`: for the arch, its height as a fraction of the glass's height.
+ * - `fan`: spokes in the arch's fanlight.
  */
-export const WINDOW_GRID = { cols: 2 } as const;
+export type WindowStyle = {
+  id: string;
+  label: string;
+  kind: 0 | 1;
+  cols: number;
+  rows: number;
+  frame: number;
+  bar: number;
+  ledgeH: number;
+  ledgeOver: number;
+  paint: readonly [number, number, number];
+  css: string;
+  rise: number;
+  fan: number;
+};
+
+export const WINDOW_STYLES = [
+  {
+    id: "steel",
+    label: "Modern steel",
+    kind: 0,
+    cols: 2,
+    rows: 1,
+    frame: 0.0085,
+    bar: 0.003,
+    ledgeH: 0.0105,
+    ledgeOver: 0.01,
+    paint: [0.085, 0.085, 0.09],
+    css: "#161617",
+    rise: 0,
+    fan: 0,
+  },
+  {
+    id: "factory",
+    label: "Factory grid",
+    kind: 0,
+    cols: 5,
+    rows: 3,
+    frame: 0.0095,
+    bar: 0.0019,
+    ledgeH: 0.0105,
+    ledgeOver: 0.01,
+    paint: [0.07, 0.072, 0.075],
+    css: "#141516",
+    rise: 0,
+    fan: 0,
+  },
+  {
+    id: "arched",
+    label: "Arched",
+    kind: 1,
+    cols: 3,
+    rows: 1,
+    frame: 0.0095,
+    bar: 0.0022,
+    ledgeH: 0.0105,
+    ledgeOver: 0.012,
+    paint: [0.12, 0.1, 0.085],
+    css: "#2a241f",
+    rise: 0.3,
+    fan: 7,
+  },
+  {
+    id: "cottage",
+    label: "Classic white wood",
+    kind: 0,
+    cols: 3,
+    rows: 2,
+    frame: 0.016,
+    bar: 0.0034,
+    ledgeH: 0.02,
+    ledgeOver: 0.022,
+    paint: [0.93, 0.925, 0.9],
+    css: "#efede6",
+    rise: 0,
+    fan: 0,
+  },
+] as const satisfies readonly WindowStyle[];
+
+export type WindowStyleId = (typeof WINDOW_STYLES)[number]["id"];
 
 /**
  * Where the window's glass goes for a wall of this aspect ratio (width /
  * height) and width in pixels. Wide screens get a big window on the upper
  * right, behind the desk and the money tree, clear of the headline in the
- * bottom left. Phones get a smaller one beside the headshot, above the desk.
+ * bottom left, and wide: it runs from just past the headline's end to near
+ * the wall's right edge. Phones get a smaller one beside the headshot, above the desk.
  *
  * The frame adds under 0.01 of the height around the glass, so the top
  * stays well clear of the nav (64px). On narrow laptops
@@ -30,8 +120,8 @@ export const WINDOW_GRID = { cols: 2 } as const;
 export function windowRect(aspect: number, width = 1440): WindowRect {
   const t = Math.min(1, Math.max(0, (aspect - 0.7) / (1.3 - 0.7)));
   const wide = Math.min(1, Math.max(0, (width - 1024) / (1440 - 1024)));
-  const left = lerp(0.50, lerp(0.72, 0.655, wide), t);
-  const right = lerp(0.88, 0.935, t);
+  const left = lerp(0.45, lerp(0.70, 0.575, wide), t);
+  const right = lerp(0.92, 0.965, t);
   const top = lerp(0.16, 0.16, t);
   const bottom = lerp(0.31, 0.70, t);
   return {
@@ -121,14 +211,14 @@ export const JAR_ART = {
  * on the ledge's top face as a fraction of the wall's height, and a spot on
  * its left as a fraction of the wall's width. `joinery` is the frame scale
  * the shader uses (1 on wide screens, down to 0.5 for a phone's small
- * window). The frame (0.0085) and the ledge's top face (0.004) match the
- * shader's `frame_w` and `ledge_top`.
+ * window). The frame and the ledge come from the style; the ledge's top face
+ * (0.38 of its height) matches the shader's `ledge_top`.
  */
-export function sillAnchor(rect: WindowRect) {
+export function sillAnchor(rect: WindowRect, style: WindowStyle = WINDOW_STYLES[0]) {
   const joinery = Math.min(1, Math.max(0.5, rect.hh / 0.24));
   return {
-    x: rect.x - rect.hw + rect.hw * 2 * 0.14,
-    y: rect.y + rect.hh + (0.0085 + 0.004 * 0.7) * joinery,
+    x: rect.x - rect.hw + rect.hw * 2 * 0.1,
+    y: rect.y + rect.hh + (style.frame + style.ledgeH * 0.38 * 0.7) * joinery,
     joinery,
   };
 }

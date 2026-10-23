@@ -12,14 +12,14 @@ import { cn } from "@/lib/utils";
 
 const TRACKS: { id: CareerRole["track"] | "all"; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "gtm-strategy", label: "GTM Strategy" },
-  { id: "revops", label: "RevOps" },
-  { id: "marketing-ops", label: "Marketing Ops" },
+  { id: "events", label: "Events" },
+  { id: "field-marketing", label: "Field Marketing" },
+  { id: "community", label: "Community" },
 ];
 
 /**
  * /career — the career plan up top (destination, checkpoints, today's actions,
- * trajectory), then the principles and docs behind it, then what AI companies want from GTM strategy, RevOps and marketing-ops
+ * trajectory), then the principles and docs behind it, then what AI companies want from events, field marketing and community
  * hires, triangulated across real postings. Static research in lib/career-research.ts.
  */
 export function CareerPanel() {

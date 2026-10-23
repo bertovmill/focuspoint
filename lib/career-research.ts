@@ -1,7 +1,8 @@
-// GTM roles at AI companies, read and triangulated on 2026-09-27. A snapshot, not
-// a live feed: postings close, so re-run the research when this gets stale.
+// Events, field marketing and community roles at AI companies, pulled from each
+// company's own job board and read in full on 2026-10-23. A snapshot, not a live
+// feed: postings close, so re-run the research when this gets stale.
 
-export const RESEARCHED_ON = "2026-09-27";
+export const RESEARCHED_ON = "2026-10-23";
 
 export interface CareerRole {
   company: string;
@@ -10,76 +11,70 @@ export interface CareerRole {
   location: string;
   comp: string | null;
   yearsExp: string | null;
-  track: "gtm-strategy" | "revops" | "marketing-ops";
+  track: "events" | "field-marketing" | "community";
   mustHaves: string[];
 }
 
 export const ARCHETYPE =
-  "A player-coach operator with a consulting mind and a builder's hands: 5–10+ years across consulting, banking or strategic finance, then in-house GTM S&O or RevOps at a hypergrowth SaaS or consumption-priced company. Writes their own SQL, builds auditable planning and forecast models, owns the Salesforce and warehouse data layer, runs the weekly pipeline and forecast cadence, and writes the one-page readout the CRO, CFO or board acts on. The 2026 AI-lab twist is being AI-native: using Claude, Cursor or v0 to automate their own work, prototype internal tools, and turn one-off heroics into durable systems.";
+  "These postings want a commercially minded operator, not a party planner. They want someone who can run a 12-person CISO dinner and a 1,000-person booth in the same month. Then they want that person to prove the pipeline with Salesforce data. This person co-owns account lists with AEs and follows up hard. They build repeatable playbooks and can talk with engineers and founders. AI shows up more and more as a work requirement: 'power user of AI tools,' 'built AI into marketing workflows' for account research and event ops, or an AI exercise in the interview.";
 
 export const THEMES: { theme: string; description: string; frequency: number }[] = [
-  { theme: "Hands-on SQL", description: "Pulls their own data and builds their own models, even at director level.", frequency: 14 },
-  { theme: "Executive narrative", description: "Turns analysis into C-suite and board readouts and holds the room.", frequency: 13 },
-  { theme: "Extreme ownership", description: "Fills gaps regardless of org lines and builds from zero.", frequency: 12 },
-  { theme: "AI-native operator", description: "Ships automations, internal tools and agent workflows with Claude, Cursor or v0. Several postings call this core.", frequency: 9 },
-  { theme: "Operating cadence", description: "Runs pipeline reviews, forecast calls and QBRs, and owns both the data and the story.", frequency: 9 },
-  { theme: "Heroics into systems", description: "Replaces one-off analyses with repeatable mechanisms and fixes root causes.", frequency: 8 },
-  { theme: "Planning: territory, quota, comp", description: "Annual and quarterly planning, capacity models and comp design.", frequency: 8 },
-  { theme: "Consulting pedigree + in-house ops", description: "Consulting, IB or PE background combined with owning live GTM ops.", frequency: 8 },
-  { theme: "Attribution & data hygiene", description: "Multi-touch attribution tied to pipeline, plus routing, enrichment and dedupe.", frequency: 6 },
-  { theme: "Consumption-model fluency", description: "Forecasting usage and API pricing, not just seats.", frequency: 5 },
+  { theme: "Executive audiences", description: "Programs target C-level, VP and CISO/CIO buyers with white-glove experiences.", frequency: 17 },
+  { theme: "Budget and vendor ownership", description: "You own budgets, contracts, agencies, venues and AV end to end.", frequency: 17 },
+  { theme: "Measurement and ROI", description: "You track KPIs, attribution and ROI, and drop events that don't pay off.", frequency: 16 },
+  { theme: "Pipeline accountability", description: "Events are judged on sourced and influenced pipeline, not on attendance.", frequency: 14 },
+  { theme: "Sponsorships and third-party conferences", description: "You decide which conferences to sponsor, negotiate the deals and run the presence.", frequency: 14 },
+  { theme: "Sales partnership", description: "You work hands-on with AEs and sales leaders on target accounts and follow-up.", frequency: 13 },
+  { theme: "Playbooks and repeatability", description: "You turn one-off events into tiers, playbooks and an operating system that scales.", frequency: 12 },
+  { theme: "Building from zero", description: "Many roles are founding roles, or you build the function in ambiguity.", frequency: 11 },
+  { theme: "Exec dinners and roundtables", description: "Small, intimate dinners and roundtables are the core format.", frequency: 10 },
+  { theme: "AI in your own work", description: "You're expected to use AI tools daily to plan, research and report.", frequency: 7 },
 ];
 
 export const TOOLS: { tool: string; frequency: number }[] = [
-  { tool: "SQL", frequency: 14 },
-  { tool: "Salesforce", frequency: 13 },
-  { tool: "Excel / Sheets", frequency: 7 },
-  { tool: "Snowflake", frequency: 4 },
-  { tool: "HubSpot", frequency: 4 },
-  { tool: "BigQuery", frequency: 3 },
-  { tool: "Claude / Claude Code", frequency: 3 },
-  { tool: "Python / R", frequency: 3 },
-  { tool: "Looker", frequency: 2 },
-  { tool: "Tableau", frequency: 2 },
+  { tool: "AI tools (required or expected)", frequency: 7 },
+  { tool: "Salesforce", frequency: 6 },
+  { tool: "HubSpot", frequency: 3 },
   { tool: "Marketo", frequency: 2 },
-  { tool: "Zapier / n8n / Tray.io", frequency: 2 },
-  { tool: "v0 / Cursor", frequency: 2 },
-  { tool: "Clay", frequency: 1 },
-  { tool: "Clari", frequency: 1 },
+  { tool: "6sense", frequency: 1 },
+  { tool: "Demandbase", frequency: 1 },
+  { tool: "Splash", frequency: 1 },
+  { tool: "Cvent", frequency: 1 },
+  { tool: "Notion", frequency: 1 },
 ];
 
 export const GAPS: string[] = [
-  "Can't write SQL independently. That disqualifies you at nearly every lab.",
-  "Has analyzed pipeline but never owned a live forecast or pipeline cadence with senior sales leaders.",
-  "Decks without outcomes: no evidence a recommendation was implemented and measured.",
-  "Seat-based SaaS only, with no consumption or usage forecasting.",
-  "Claims AI use but has never shipped an automation, agent workflow or internal tool.",
-  "All strategy with no hands-on systems work, or all admin with no executive exposure.",
-  "No board or C-suite writing samples.",
-  "No territory, quota or comp design, which senior S&O roles expect.",
+  "You can't show pipeline or revenue numbers from past events, only headcount.",
+  "You have no real track record with C-level or VP buyers in the room.",
+  "You've never owned a budget, agency contract or sponsorship negotiation.",
+  "Your experience is pure logistics with no view on which events to fund or cut.",
+  "You can't work CRM data or explain attribution to sales ops.",
+  "You can't speak credibly to engineers, founders or security buyers.",
+  "You show no daily AI use, which now fails interviews at Glean, Perplexity, Modal and Baseten.",
+  "You can't travel 25–50% or work onsite in SF.",
 ];
 
 export const ROLES: CareerRole[] = [
-  { company: "Anthropic", title: "GTM Strategy & Operations, Frontier", url: "https://job-boards.greenhouse.io/anthropic/jobs/5390952008", location: "San Francisco", comp: "$190K–$270K", yearsExp: null, track: "gtm-strategy", mustHaves: ["Product ops, PMM ops, consulting or GTM S&O background", "Has turned one-off heroics into a repeatable method", "Writes for and presents to senior execs", "Designs the metrics that make a program legible"] },
-  { company: "Anthropic", title: "GTM Strategy & Operations – AMER Enterprise Tech", url: "https://job-boards.greenhouse.io/anthropic/jobs/5390956008", location: "SF / NYC", comp: null, yearsExp: "10+ preferred", track: "gtm-strategy", mustHaves: ["Sales strategy, RevOps or consulting background", "Writes SQL or R independently", "Salesforce plus Looker or Tableau", "Uses Claude to the fullest"] },
-  { company: "Anthropic", title: "Strategy & Operations, Office of the CCO", url: "https://job-boards.greenhouse.io/anthropic/jobs/5432995008", location: "SF / NYC", comp: "$190K–$270K", yearsExp: "4+", track: "gtm-strategy", mustHaves: ["Consulting, S&O or chief-of-staff background", "Gets to a number and verifies it", "Brief, clear executive writing", "AI tools as core to how they work"] },
-  { company: "Vercel", title: "Marketing Operations Manager", url: "https://vercel.com/careers/marketing-operations-manager-6144467004", location: "SF/Austin hybrid or US remote", comp: null, yearsExp: "5+", track: "marketing-ops", mustHaves: ["Marketing ops in SaaS or high-growth", "Customer.io/Marketo + Salesforce", "Tray.io, RudderStack, Segment", "Hands-on with v0, Cursor, Claude Code; reads code, basic SQL"] },
-  { company: "OpenAI", title: "GTM Strategy & Operations, Professional Services", url: "https://jobs.ashbyhq.com/openai/08e8d03a-df94-46af-8664-cd9aab1af445", location: "San Francisco", comp: "$293K–$325K + equity", yearsExp: null, track: "gtm-strategy", mustHaves: ["Auditable demand, staffing and revenue models", "Commercial judgment on pricing and forecasting", "Turns ambiguity into repeatable mechanisms", "Has led cross-functional programs"] },
-  { company: "OpenAI", title: "Pricing Strategist, GTM", url: "https://jobs.ashbyhq.com/openai/5ce0931f-aba7-4c7d-9fca-1e278bf75473", location: "San Francisco", comp: "$234K–$260K + equity", yearsExp: null, track: "gtm-strategy", mustHaves: ["First-principles root-cause analysis", "Understands how sales orgs operate", "Consulting, S&O or pricing background"] },
-  { company: "Perplexity", title: "GTM Strategy & Operations Lead", url: "https://jobs.ashbyhq.com/perplexity/b75db90b-ca13-4a2f-aac4-c7764b631540", location: "San Francisco", comp: "$210K–$240K + equity", yearsExp: null, track: "gtm-strategy", mustHaves: ["Has fixed what breaks at scale", "Strong SQL; builds own models", "Salesforce + Snowflake", "Owns forecasting and the operating cadence"] },
-  { company: "Perplexity", title: "Revenue Operations Analyst", url: "https://jobs.ashbyhq.com/perplexity/03f8f956-1cb3-4945-81d1-73b7ff048d4e", location: "San Francisco", comp: "$160K–$200K + equity", yearsExp: null, track: "revops", mustHaves: ["Lead, account and opportunity routing and territories", "Attribution across inbound, outbound, PLG and events", "Salesforce flows and dashboards", "Uses AI to kill manual work"] },
-  { company: "Cursor", title: "Full Stack Analyst, GTM", url: "https://jobs.ashbyhq.com/cursor/7bc441a4-9bb6-45cb-a9e0-5ae1b9c7ac5b", location: "San Francisco", comp: null, yearsExp: null, track: "revops", mustHaves: ["Builds GTM data models and pipelines", "Measures GTM health down to the segment", "Pushes back on senior leaders", "Durable systems over one-off decks"] },
-  { company: "Cursor", title: "GTM Strategy & Ops Lead – APJ", url: "https://jobs.ashbyhq.com/cursor/7e1d8e07-c87b-4388-892a-6b138bebf665", location: "Singapore", comp: null, yearsExp: "15+", track: "gtm-strategy", mustHaves: ["Deep RevOps or GTM strategy", "Built ops infrastructure from zero", "Territories, comp and quotas", "Salesforce"] },
-  { company: "Harvey", title: "Head of GTM Strategy & Operations, AMER", url: "https://jobs.ashbyhq.com/harvey/b85907be-9937-4bf1-91a0-4474c35e4402", location: "NY / SF", comp: "$212K–$290K + equity", yearsExp: "10+", track: "gtm-strategy", mustHaves: ["RevOps or sales S&O", "3+ years managing people", "Influences without authority", "Annual and quarterly GTM planning"] },
-  { company: "Harvey", title: "Head of Marketing Operations & Analytics", url: "https://jobs.ashbyhq.com/harvey/139f48db-e090-4716-9939-c48e5a04eaa2", location: "NY / SF", comp: "$207K–$310K + equity", yearsExp: "10+", track: "marketing-ops", mustHaves: ["Modern B2B martech stack", "SQL and marketing data pipelines", "Has shipped production AI and agent workflows", "Attribution tied to revenue"] },
-  { company: "ElevenLabs", title: "Marketing Operations", url: "https://jobs.ashbyhq.com/elevenlabs/1c1f4cc9-08f7-4fbb-867f-7e87e7fa19d9", location: "US remote", comp: null, yearsExp: null, track: "marketing-ops", mustHaves: ["MQL/PQL and funnel stages", "HubSpot + Salesforce", "Clay, Zapier, n8n", "Vibe-codes internal tools; AI-first"] },
-  { company: "ElevenLabs", title: "Revenue Strategy & Operations – NA", url: "https://jobs.ashbyhq.com/elevenlabs/b28719ff-833d-49b4-8286-f59082732186", location: "United States", comp: null, yearsExp: "4+", track: "revops", mustHaves: ["RevOps at high-growth tech", "SQL + Sigma", "End-to-end, data to execution"] },
-  { company: "Sierra", title: "Marketing Operations & Analytics Lead", url: "https://jobs.ashbyhq.com/sierra/8a906ec6-5ec5-4619-82de-7a3c665998f5", location: "San Francisco", comp: "$215K–$265K + equity", yearsExp: null, track: "marketing-ops", mustHaves: ["Multi-touch attribution across long enterprise cycles", "Marketo/HubSpot + Salesforce", "SQL on Snowflake/BigQuery", "C-suite narratives"] },
-  { company: "Sierra", title: "GTM Strategy & Operations, Industry Lead", url: "https://jobs.ashbyhq.com/sierra/6b5027e7-6498-45d6-8548-371eda8e5a81", location: "San Francisco", comp: "$210K–$255K + equity", yearsExp: null, track: "gtm-strategy", mustHaves: ["Industry and account prioritization", "Territory carving", "Pipeline and forecasting"] },
-  { company: "Scale AI", title: "Head of GTM Strategy & Operations, Enterprise", url: "https://job-boards.greenhouse.io/scaleai/jobs/4662232005", location: "SF / NY", comp: null, yearsExp: "8–12+", track: "gtm-strategy", mustHaves: ["Consulting background plus in-house S&O", "Sizing, unit economics, capacity and quota models", "Owns forecasting and comp", "Holds up in front of a board"] },
-  { company: "Scale AI", title: "Growth Strategy & Operations Lead", url: "https://job-boards.greenhouse.io/scaleai/jobs/4701543005", location: "SF / NY", comp: null, yearsExp: "5+", track: "gtm-strategy", mustHaves: ["Growth, product, ops or engineering background", "SQL or Python", "Has shipped something with AI tools"] },
-  { company: "Databricks", title: "Manager, Strategy & Operations (Field Eng)", url: "https://databricks.com/company/careers/open-positions/job?gh_jid=8482368002", location: "India", comp: null, yearsExp: "7+", track: "gtm-strategy", mustHaves: ["Annual, headcount and capacity planning", "Board and QBR materials", "SQL, Excel, dashboards"] },
-  { company: "Cohere", title: "Senior Sales Operations Specialist", url: "https://jobs.ashbyhq.com/cohere/e49063ea-b829-4718-be74-02f36fa3d983", location: "New York", comp: "$135K–$250K", yearsExp: "8+", track: "revops", mustHaves: ["Sales ops in AI or SaaS", "Salesforce and process optimization", "Board-level decks"] },
+  { company: "Anthropic", title: "Head of Community, Enterprise Marketing", url: "https://job-boards.greenhouse.io/anthropic/jobs/5388719008", location: "San Francisco / New York", comp: "$400K", yearsExp: null, track: "community", mustHaves: ["Built a community function that drove retention or expansion", "Led a distributed team of regional leads", "Ties community to metrics in QBRs", "Ran both developer and enterprise-buyer communities"] },
+  { company: "Anthropic", title: "Field Marketing Lead, Cybersecurity", url: "https://job-boards.greenhouse.io/anthropic/jobs/5444773008", location: "San Francisco / New York", comp: "$320K–$400K", yearsExp: "8+", track: "field-marketing", mustHaves: ["CISO dinners, roundtables, RSAC/Black Hat presence", "Partners with sales on pipeline and expansion", "Fluent in pipeline attribution", "Leads without authority across regions"] },
+  { company: "OpenAI", title: "Global Head of Events", url: "https://jobs.ashbyhq.com/openai/60be7108-c540-4839-87a8-41f19a75c1ce", location: "San Francisco", comp: "$361K–$401K + equity", yearsExp: "14+", track: "events", mustHaves: ["Global events and large-scale production leadership", "Distinctive flagship experiences", "Manages agencies and big budgets", "Uses AI firsthand to improve own work"] },
+  { company: "OpenAI", title: "Events Manager, Business", url: "https://jobs.ashbyhq.com/openai/744844e1-f426-463c-b615-91823f0cd867", location: "San Francisco / New York", comp: "$240K–$266K + equity", yearsExp: "7+", track: "events", mustHaves: ["B2B conferences and customer programs", "Venue, AV and vendor negotiation", "Owns registration and guest comms", "Budget tracking and ROI reporting"] },
+  { company: "OpenAI", title: "Enterprise Field Marketer", url: "https://jobs.ashbyhq.com/openai/89b0bd3b-52ef-42c1-9a58-08ce4eb7428d", location: "San Francisco / New York", comp: "$227K–$252K + equity", yearsExp: "8+", track: "field-marketing", mustHaves: ["Exec dinners, roundtables, roadshows", "Measurable pipeline from field programs", "Territory planning with enterprise sellers", "Repeatable field playbooks"] },
+  { company: "Perplexity", title: "Director of Events and Experiences", url: "https://jobs.ashbyhq.com/perplexity/4d8f7e23-8c80-4bd8-ad27-3f40cf17197b", location: "San Francisco / New York", comp: "$185K–$240K + equity", yearsExp: "12+", track: "events", mustHaves: ["Hosted, speaking and sponsored events", "Negotiates sponsorships", "Built event attribution", "Power user of AI tools"] },
+  { company: "Perplexity", title: "Field Marketing Manager", url: "https://jobs.ashbyhq.com/perplexity/d7e05546-4d42-4f1a-8ccd-c95d2519f5f6", location: "San Francisco", comp: "$130K–$165K + equity", yearsExp: "5+", track: "field-marketing", mustHaves: ["Sponsorships plus owned field events", "Exec dinners, roadshows, hackathons", "Reports sourced and influenced pipeline from CRM", "Builds the field operating system"] },
+  { company: "Cursor", title: "Startup Events & Community", url: "https://jobs.ashbyhq.com/cursor/8acfb92a-eb71-4159-acef-a988eac40fcb", location: "San Francisco (in-office)", comp: null, yearsExp: "4–7+", track: "community", mustHaves: ["Founder dinners and hackathons", "VC and accelerator partnerships", "Measures activation and usage, not vanity metrics", "Credible with technical founders"] },
+  { company: "Cursor", title: "Head of Americas Field Marketing", url: "https://jobs.ashbyhq.com/cursor/d225fc95-a56f-466a-9588-d75a7f38c426", location: "San Francisco", comp: null, yearsExp: "10+", track: "field-marketing", mustHaves: ["Player-coach for a remote field team", "Tracks touchpoint to closed-won", "Executive dashboards and KPIs", "Owns the Americas budget"] },
+  { company: "Cognition", title: "Event Marketer", url: "https://jobs.ashbyhq.com/cognition/5fcd7140-e519-4465-b2a4-9902886f3cc8", location: "San Francisco / Austin / NYC", comp: null, yearsExp: "3–5", track: "events", mustHaves: ["End-to-end events for 10 to 1,000+ people", "C-level and VP Eng audiences", "Salesforce and HubSpot", "Travel up to 40%"] },
+  { company: "Sierra", title: "Event Marketer", url: "https://jobs.ashbyhq.com/sierra/6c3fb4c1-e6ba-4e47-8d02-93ea89e75619", location: "San Francisco", comp: "$170K–$200K + equity", yearsExp: "5+", track: "events", mustHaves: ["Event programs that drive measurable pipeline", "Designs roundtables and fireside chats", "Directs agencies and producers", "Builds targeting and follow-up with sales"] },
+  { company: "ElevenLabs", title: "Global Events Lead", url: "https://jobs.ashbyhq.com/elevenlabs/e815e2a8-e3bd-4e41-bbc3-ebe57277927b", location: "Remote (US; NYC/SF preferred)", comp: null, yearsExp: "8+", track: "events", mustHaves: ["Flagship summits and marquee sponsorships", "3+ years tech/enterprise flagship events", "Premium agency partners", "Pipeline with GTM teams"] },
+  { company: "Decagon", title: "Field Marketing Manager", url: "https://jobs.ashbyhq.com/decagon/a39c6519-3347-4562-8c5c-533cee4224e4", location: "San Francisco (in-office)", comp: "$160K–$210K + equity", yearsExp: "3–5 events; 1–2+ field", track: "field-marketing", mustHaves: ["Sponsored events and tradeshows", "Exec dinners and webinars", "Owns lead follow-up and ROI", "Travel up to 40%"] },
+  { company: "Netic", title: "Founding Field & Event Marketer", url: "https://jobs.ashbyhq.com/netic/47034e2d-279a-41f7-ae4d-43c4c5da3787", location: "San Francisco", comp: "$100K–$225K", yearsExp: null, track: "field-marketing", mustHaves: ["Builds field and events from scratch", "Tradeshows and regional meetups", "AE playbooks by territory", "Post-event retros and ROI"] },
+  { company: "Notion", title: "Field Marketer", url: "https://jobs.ashbyhq.com/notion/42279d85-cf60-4c3c-bf82-92b9e215f3c7", location: "San Francisco / New York", comp: "$135K–$160K", yearsExp: "4–5+", track: "field-marketing", mustHaves: ["Hosted and third-party field events", "Pipeline-obsessed", "Bias for testing", "Adopts AI tools to work smarter"] },
+  { company: "Vercel", title: "Community Manager, Experiential Marketing", url: "https://job-boards.greenhouse.io/vercel/jobs/6231540004", location: "San Francisco (hybrid)", comp: "$118K–$163K", yearsExp: "3+", track: "community", mustHaves: ["Developer meetups and hackathons", "Zero-to-one community programs", "Event budgets, logistics, reporting", "DevRel or community background"] },
+  { company: "Scale AI", title: "Field Marketing & Events Manager, Frontier Data", url: "https://job-boards.greenhouse.io/scaleai/jobs/4741462005", location: "San Francisco / New York", comp: "$128K–$160K", yearsExp: "5+", track: "events", mustHaves: ["Exec gatherings to 1,000+ conferences", "Booth logistics and vendors", "White-glove service", "Travel up to 50%"] },
+  { company: "Glean", title: "Senior Field Marketing Manager, West", url: "https://job-boards.greenhouse.io/gleanwork/jobs/4727092005", location: "SF / Mountain View / Remote West US", comp: "$163K–$187K", yearsExp: "7+", track: "field-marketing", mustHaves: ["White-glove exec programs for named accounts", "Accelerates $500K+ ACV deals", "Salesforce, Marketo, 6sense/Demandbase, Splash/Cvent", "AI exercise in the interview"] },
+  { company: "Modal", title: "Field Marketing Manager", url: "https://jobs.ashbyhq.com/modal/ebce1f95-fcb3-4cfc-9bcd-34da7a1461bf", location: "San Francisco", comp: "$150K–$200K", yearsExp: null, track: "field-marketing", mustHaves: ["Field programs at a technical company", "Shares a number with AEs", "CRM, attribution, ABM, intent data", "Has built AI into marketing workflows"] },
+  { company: "Baseten", title: "Field Marketing Manager (SF)", url: "https://jobs.ashbyhq.com/baseten/2c7a4042-6c6b-4059-bfdb-7fa987326edb", location: "San Francisco", comp: "$150K–$175K + equity", yearsExp: "5–7", track: "field-marketing", mustHaves: ["Demand gen that hits pipeline goals", "Salesforce and HubSpot", "Uses AI tools for own productivity", "Travel up to 25%"] },
 ];
 
 // GTM / RevOps leaders at target companies, from an Apollo people search on

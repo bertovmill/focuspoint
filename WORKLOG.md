@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — About page: hover-to-reveal photo grid
+
+Berto liked netic.ai/company's photo grid. Added `app/site/_components/photo-reveal-grid.tsx`
+as `#in-the-room` on /about, between the hero and "My story": 36 square tiles (12×3
+desktop, 6 cols on phones) of the `MOMENTS` photos, each under a `bg-background` cover.
+- Mouse: pure CSS, Netic's exact timing. Hover drops the cover in 0.1s; on leave it holds
+  3s, then fades back over 0.3s, so a sweep leaves a trail that closes.
+- Touch (`hover: none`): covers lift one by one in random order, 120ms apart, the first
+  time the grid scrolls into view (IntersectionObserver; motion's `inView` didn't fire).
+Verified: tsc clean; desktop computed transitions match Netic (hover 0s/0.1s, idle
+3s/0.3s). Phone reveal not seen live: the hidden browser pane gave no IO callbacks at all.
+Check it on a phone.
+
+---
+
 ## 2026-10-23 — Cael can hand app features to Claude Code
 
 Berto approved the Claude Code workflow (held back yesterday). Yesterday's deploy with

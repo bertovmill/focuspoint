@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { RevealOnView } from "../_components/reveal-on-view";
 import { AnimatedHeading } from "../_components/animated-heading";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
+import { PhotoRevealGrid } from "../_components/photo-reveal-grid";
 
 /** The line beside "About". Berto's words, verbatim. */
 const TAGLINE = ["Community builder, system implementer,", "innovation driver."];
@@ -108,6 +109,11 @@ export default function AboutPage() {
           )}
         </RevealOnView>
       </div>
+
+      {/* Photos from the moments, each hidden until hovered (after netic.ai/company). */}
+      <section id="in-the-room" aria-label="Photos" className="mx-auto mb-14 max-w-6xl">
+        <PhotoRevealGrid />
+      </section>
 
       {SECTIONS.length > 0 && (
         <div className="mx-auto max-w-6xl">

@@ -882,6 +882,22 @@ async function applySchema() {
     )
   `;
 
+  // Tweets queued from the composer to post at a set time (2026-10-23). Each row
+  // has a durable workflow sleeping until `scheduled_at` (workflows/scheduled-tweet.ts);
+  // images wait in `media` under `media_keys`.
+  await sql`
+    CREATE TABLE IF NOT EXISTS scheduled_tweets (
+      id SERIAL PRIMARY KEY,
+      text TEXT NOT NULL DEFAULT '',
+      media_keys TEXT[] NOT NULL DEFAULT '{}',
+      scheduled_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      tweet_url TEXT,
+      error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   // bertomill.com/capabilities: what Berto can do, and the projects that prove
   // each one (lib/portfolio.ts). The join row carries the evidence — how that
   // project shows that capability — so the claim is specific, not a tag (2026-10-01).

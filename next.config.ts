@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withEve } from "eve/next";
+import { withWorkflow } from "workflow/next";
 
 // Next 16 allows one dev server per build directory — a second `next dev` in
 // this folder is refused because both would fight over `.next` and its lock.
@@ -39,4 +40,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withEve(nextConfig);
+// withWorkflow compiles "use workflow"/"use step" (scheduled tweets, workflows/).
+export default withEve(withWorkflow(nextConfig));

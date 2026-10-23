@@ -77,3 +77,82 @@ export async function saveTweetDraft(text: string, id?: number): Promise<TweetDr
 export async function deleteTweetDraft(id: number): Promise<void> {
   await getDb()`DELETE FROM tweet_drafts WHERE id = ${id}`;
 }
+
+/** A tweet queued to post at `scheduledAt` (workflows/scheduled-tweet.ts posts it). */
+export interface ScheduledTweet {
+  id: number;
+  text: string;
+  /** Public URLs of the attached images, from the `media` table. */
+  imageUrls: string[];
+  scheduledAt: string;
+  status: "scheduled" | "posting" | "posted" | "failed" | "cancelled";
+  tweetUrl: string | null;
+  error: string | null;
+}
+
+function toScheduled(row: Record<string, unknown>): ScheduledTweet {
+  const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v));
+  return {
+    id: Number(row.id),
+    text: String(row.text),
+    imageUrls: ((row.media_keys as string[] | null) ?? []).map(
+      (k) => `/media/${k.split("/").map(encodeURIComponent).join("/")}`,
+    ),
+    scheduledAt: iso(row.scheduled_at),
+    status: row.status as ScheduledTweet["status"],
+    tweetUrl: (row.tweet_url as string | null) ?? null,
+    error: (row.error as string | null) ?? null,
+  };
+}
+
+/** Queued and failed tweets, soonest first. Posted ones show in `listTweets`. */
+export async function listScheduledTweets(): Promise<ScheduledTweet[]> {
+  await ensureSchema();
+  const rows = await getDb()`
+    SELECT * FROM scheduled_tweets
+    WHERE status IN ('scheduled', 'posting', 'failed')
+    ORDER BY scheduled_at ASC
+  `;
+  return rows.map(toScheduled);
+}
+
+export async function createScheduledTweet(t: { text: string; mediaKeys: string[]; scheduledAt: Date }): Promise<ScheduledTweet> {
+  await ensureSchema();
+  const rows = await getDb()`
+    INSERT INTO scheduled_tweets (text, media_keys, scheduled_at)
+    VALUES (${t.text}, ${t.mediaKeys}, ${t.scheduledAt.toISOString()})
+    RETURNING *
+  `;
+  return toScheduled(rows[0]);
+}
+
+/** Cancel a queued tweet (or dismiss a failed one). Its workflow wakes, finds it cancelled, and stops. */
+export async function cancelScheduledTweet(id: number): Promise<boolean> {
+  const rows = await getDb()`
+    UPDATE scheduled_tweets SET status = 'cancelled'
+    WHERE id = ${id} AND status IN ('scheduled', 'failed')
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/**
+ * Claim a due tweet for posting. Returns null when it was cancelled meanwhile,
+ * or already claimed, so a retried step can never post it twice.
+ */
+export async function claimScheduledTweet(id: number): Promise<{ text: string; mediaKeys: string[] } | null> {
+  const rows = await getDb()`
+    UPDATE scheduled_tweets SET status = 'posting'
+    WHERE id = ${id} AND status = 'scheduled'
+    RETURNING text, media_keys
+  `;
+  return rows[0] ? { text: String(rows[0].text), mediaKeys: (rows[0].media_keys as string[]) ?? [] } : null;
+}
+
+export async function finishScheduledTweet(id: number, result: { tweetUrl: string } | { error: string }): Promise<void> {
+  if ("tweetUrl" in result) {
+    await getDb()`UPDATE scheduled_tweets SET status = 'posted', tweet_url = ${result.tweetUrl}, error = NULL WHERE id = ${id}`;
+  } else {
+    await getDb()`UPDATE scheduled_tweets SET status = 'failed', error = ${result.error} WHERE id = ${id}`;
+  }
+}

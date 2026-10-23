@@ -167,7 +167,8 @@ const middleware = CLERK_SERVER_ENABLED
 export default middleware;
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image).*)"],
+  // Workflow's internal queue calls (scheduled tweets) must reach its handler untouched.
+  matcher: ["/((?!_next/static|_next/image|.well-known/workflow/).*)"],
   // Vercel services (which is how eve co-deploys alongside Next.js) reject Edge
   // Function output, and middleware defaults to the Edge runtime. Middleware runs
   // on Node.js now, so this is a runtime switch rather than a rewrite — and it's

@@ -12326,3 +12326,21 @@ grid (drag + resize), Home first, other pages later.
   swipe animates `[data-day-block]` elements.
 - Verified: tsc clean. Not tested in a browser (local sign-in); he chose to ship.
 - Next: roll blocks out to other pages; maybe let blocks be added/removed.
+
+## 2026-10-23 — Writing: schedule tweets from the composer
+Berto wanted to schedule X posts from the Writing section. eve schedules are Vercel
+crons, and Hobby fires those once a day, so exact-time posting uses **Vercel Workflow**
+(`workflow@5`): one durable run per tweet that `sleep(at)`s (no CPU while waiting) then posts.
+- `/writing?tab=tweets`: a **Schedule** button next to Post opens a date/time picker
+  (local time). A **Scheduled** list (`#scheduled-tweets`) shows queued and failed
+  tweets with Unschedule-and-edit and Cancel.
+- `scheduled_tweets` table (`lib/db.ts`); helpers in `lib/tweets.ts`. Images are stored
+  in `media` under `scheduled-tweets/<ts>-<i>.<ext>` and re-read at post time.
+- `workflows/scheduled-tweet.ts`: the step claims the row (`scheduled` → `posting`)
+  atomically, so a cancelled tweet is skipped and a retry can never double-post.
+  Failures mark the row `failed` with the X error and are not retried.
+- `app/api/tweets/scheduled` (GET list, POST multipart schedule) and `[id]` (DELETE cancel).
+- `next.config.ts` wraps with `withEve(withWorkflow(...))`; middleware matcher skips
+  `.well-known/workflow/`.
+- Not verified locally: `.env.local` DATABASE_URL is stale and the neonctl token expired.
+  Verified on production by scheduling then cancelling a test tweet (nothing posted).

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
+  CalendarClockIcon,
   ExternalLinkIcon,
   ImagePlusIcon,
   Loader2Icon,
@@ -267,6 +268,21 @@ type TweetRow = {
 
 type TweetDraftRow = { id: number; text: string; updatedAt: string };
 
+type ScheduledTweetRow = {
+  id: number;
+  text: string;
+  imageUrls: string[];
+  scheduledAt: string;
+  status: "scheduled" | "posting" | "failed";
+  error: string | null;
+};
+
+/** A `datetime-local` value (local time, minute precision) for `d`. */
+function toLocalInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /**
  * /writing?tab=tweets — write a tweet and post it as @robrt_mill, and every
  * tweet Cael has posted (from here, a post's Tweet button, the agent, or the
@@ -275,6 +291,10 @@ type TweetDraftRow = { id: number; text: string; updatedAt: string };
 function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [tweets, setTweets] = useState<TweetRow[] | null>(null);
   const [drafts, setDrafts] = useState<TweetDraftRow[]>([]);
+  const [scheduled, setScheduled] = useState<ScheduledTweetRow[]>([]);
+  // The Schedule dialog's picked time, as a `datetime-local` value; null when closed.
+  const [scheduleAt, setScheduleAt] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
   const [text, setText] = useState("");
   // The draft open in the composer: saving updates it, posting removes it.
   const [draftId, setDraftId] = useState<number | null>(null);
@@ -293,17 +313,25 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       .catch(() => setDrafts([]));
   }, []);
 
+  const loadScheduled = useCallback(() => {
+    fetch("/api/tweets/scheduled")
+      .then((r) => r.json())
+      .then((rows) => setScheduled(Array.isArray(rows) ? rows : []))
+      .catch(() => setScheduled([]));
+  }, []);
+
   const load = useCallback(() => {
     fetch("/api/tweets")
       .then((r) => r.json())
       .then((rows) => setTweets(Array.isArray(rows) ? rows : []))
       .catch(() => setTweets([]));
     loadDrafts();
+    loadScheduled();
     fetch("/api/tweets/credits")
       .then((r) => r.json())
       .then((d) => setBalance(typeof d.balance === "number" ? d.balance : null))
       .catch(() => setBalance(null));
-  }, [loadDrafts]);
+  }, [loadDrafts, loadScheduled]);
   useEffect(load, [load]);
 
   const addImages = (files: FileList | File[]) => {
@@ -387,6 +415,44 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       toast.error(err instanceof Error ? err.message : "Couldn't post to X.");
     } finally {
       setPosting(false);
+    }
+  };
+
+  const schedule = async () => {
+    if (!scheduleAt) return;
+    setScheduling(true);
+    try {
+      const form = new FormData();
+      form.append("text", text);
+      form.append("scheduledAt", new Date(scheduleAt).toISOString());
+      images.forEach((img) => form.append("images", img.file));
+      const res = await fetch("/api/tweets/scheduled", { method: "POST", body: form });
+      const row = await res.json();
+      if (!res.ok) throw new Error(row.error);
+      if (draftId !== null) await fetch(`/api/tweets/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
+      setScheduleAt(null);
+      clearComposer();
+      loadDrafts();
+      loadScheduled();
+      toast.success(`Scheduled for ${new Date(row.scheduledAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't schedule the tweet.");
+    } finally {
+      setScheduling(false);
+    }
+  };
+  const cancelScheduled = async (t: ScheduledTweetRow, edit: boolean) => {
+    const res = await fetch(`/api/tweets/scheduled/${t.id}`, { method: "DELETE" }).catch(() => null);
+    if (!res?.ok) {
+      toast.error("Couldn't cancel it. It may have just posted.");
+      load();
+      return;
+    }
+    setScheduled((cur) => cur.filter((s) => s.id !== t.id));
+    if (edit) {
+      clearComposer();
+      setText(t.text);
+      if (t.imageUrls.length) toast.message("Re-add the images before scheduling again.");
     }
   };
 
@@ -492,6 +558,15 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                 {saving ? <Loader2Icon className="animate-spin" /> : <SaveIcon />}
                 {draftId !== null ? "Update draft" : "Save draft"}
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setScheduleAt(toLocalInput(new Date(Date.now() + 60 * 60_000)))}
+                disabled={!canPost || scheduling}
+              >
+                {scheduling ? <Loader2Icon className="animate-spin" /> : <CalendarClockIcon />}
+                Schedule
+              </Button>
               <Button size="sm" onClick={() => setConfirming(true)} disabled={!canPost}>
                 {posting ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
                 Post to X
@@ -499,6 +574,60 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
             </div>
           </div>
         </div>
+
+        {scheduled.length > 0 && (
+          <section id="scheduled-tweets" className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Scheduled</h2>
+            <ul className="divide-y divide-border rounded-lg border">
+              {scheduled.map((t) => (
+                <li key={t.id} className="flex items-start gap-2 px-3 py-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    {t.text && <p className="whitespace-pre-wrap break-words text-sm">{t.text}</p>}
+                    {t.imageUrls.length > 0 && (
+                      <div className="flex gap-2">
+                        {t.imageUrls.map((url) => (
+                          // eslint-disable-next-line @next/next/no-img-element -- small thumbnail from /media
+                          <img key={url} src={url} alt="" className="size-12 rounded-md border object-cover" />
+                        ))}
+                      </div>
+                    )}
+                    <p className={cn("text-xs text-muted-foreground", t.status === "failed" && "text-destructive")}>
+                      {t.status === "failed"
+                        ? `Failed: ${t.error ?? "unknown error"}`
+                        : t.status === "posting"
+                          ? "Posting now…"
+                          : `Posts ${new Date(t.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+                    </p>
+                  </div>
+                  {t.status !== "posting" && (
+                    <div className="flex shrink-0 items-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-muted-foreground"
+                        onClick={() => void cancelScheduled(t, true)}
+                        aria-label="Unschedule and edit"
+                        title="Unschedule and edit"
+                      >
+                        <PenLineIcon className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 text-muted-foreground"
+                        onClick={() => void cancelScheduled(t, false)}
+                        aria-label={t.status === "failed" ? "Dismiss" : "Cancel scheduled tweet"}
+                        title={t.status === "failed" ? "Dismiss" : "Cancel"}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {drafts.length > 0 && (
           <section className="flex flex-col gap-2">
@@ -552,6 +681,37 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           </ul>
         )}
       </div>
+
+      <Dialog open={scheduleAt !== null} onOpenChange={(open) => !open && setScheduleAt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule this tweet</DialogTitle>
+            <DialogDescription className="whitespace-pre-wrap break-words">{text}</DialogDescription>
+          </DialogHeader>
+          <label className="flex flex-col gap-1.5 text-sm">
+            Post at
+            <input
+              type="datetime-local"
+              value={scheduleAt ?? ""}
+              min={toLocalInput(new Date())}
+              onChange={(e) => setScheduleAt(e.target.value)}
+              className="rounded-md border bg-transparent px-3 py-2 text-base"
+            />
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Cael posts it publicly at that time ({Intl.DateTimeFormat().resolvedOptions().timeZone}), about {formatUsd(cost)} in X API credit.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setScheduleAt(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void schedule()} disabled={!scheduleAt || scheduling}>
+              {scheduling ? <Loader2Icon className="animate-spin" /> : <CalendarClockIcon />}
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>

@@ -40,6 +40,7 @@ import meals_doc from "@/agent/tools/meals_doc";
 import post_linkedin from "@/agent/lib/toolsets/publishing/post_linkedin";
 import post_task_update from "@/agent/tools/post_task_update";
 import query_database from "@/agent/tools/query_database";
+import request_feature from "@/agent/tools/request_feature";
 import post_tweet from "@/agent/lib/toolsets/publishing/post_tweet";
 import principles_doc from "@/agent/tools/principles_doc";
 import home_sections from "@/agent/tools/home_sections";
@@ -110,6 +111,7 @@ export const agentTools = {
   post_tweet,
   principles_doc,
   query_database,
+  request_feature,
   home_sections,
   career_relationships_doc,
   career_principles_doc,

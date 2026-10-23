@@ -8,9 +8,9 @@ Delegate to the **self-modification subagent**. It checks the repo out in a sand
 
 Nothing changes in this conversation. The change goes live only after Berto reviews and merges the pull request on GitHub; the merge then deploys on its own (GitHub syncs to GitLab, and Vercel deploys from GitLab). When the subagent finishes, give him the PR link and one sentence on what it changes.
 
-## What it can't do
+## Changes outside agent/
 
-The subagent only edits `agent/` (instructions, tools, skills, subagents, connections). Changes to the web app (pages, components, API routes, `lib/`, the database schema) are outside its reach. For those, tell Berto it needs a Claude Code session and offer to write the brief as a todo.
+The subagent only edits `agent/` (instructions, tools, skills, subagents, connections). For changes to the web app (pages, components, API routes, `lib/`, the database schema), or anything spanning both, use `request_feature` (`eve__tool`). It opens a GitHub issue that Claude Code picks up and turns into a pull request. Write the spec as a brief for a developer who has the code but not this chat: what he wants, where it shows up, how it behaves, anything he ruled out. Give him the issue link; the PR appears on it, usually within minutes.
 
 ## Rules
 

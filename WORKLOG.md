@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — Cael can hand app features to Claude Code
+
+Berto approved the Claude Code workflow (held back yesterday). Yesterday's deploy with
+self-modification + the SQL tools is Ready.
+
+- `agent/tools/request_feature.ts` (deferred, `once()` approval): opens an issue on
+  bertovmill/focuspoint with the spec and an `@claude` line (label `cael`), using the
+  same GitHub token as the PR stats (`createIssue` in `lib/github.ts`). Also over MCP.
+- `.github/workflows/claude.yml`: `anthropics/claude-code-action@v1` on issues/comments
+  mentioning @claude, only when the actor is bertovmill or rmillaucctus. Node 24,
+  `npm ci`, may run typecheck/build/git. Opens a PR; never merges.
+- `self_edit` skill + instructions: agent/-only changes → self-modification subagent;
+  app/UI/schema → `request_feature`.
+
+Setup Berto does: install the Claude GitHub app on the repo, add the
+`CLAUDE_CODE_OAUTH_TOKEN` repo secret, add `EVE_SELF_MODIFICATION_GITHUB_TOKEN` in
+Vercel, and make sure the PR-stats token can write issues.
+Verified: tsc clean, workflow YAML parses. Not run end to end yet.
+
+---
+
 ## 2026-10-23 — Great Thinkers: Tony Robbins
 
 Berto: add Tony Robbins and his energy lesson (seminar clip youtube.com/watch?v=N00EDWWiIUA)

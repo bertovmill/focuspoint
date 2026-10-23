@@ -192,3 +192,30 @@ export function monthsBetween(start: string, through: Date): string[] {
   }
   return months;
 }
+
+/** The repo Cael's own code lives in (GitHub mirror of GitLab; PRs merge here). */
+export const CAEL_REPO = "bertovmill/focuspoint";
+
+/**
+ * Open an issue. Needs a token with Issues write on the repo — the same token
+ * the PR stats use, so a read-only one fails here with GitHub's own message.
+ */
+export async function createIssue(
+  repo: string,
+  issue: { title: string; body: string; labels?: string[] },
+): Promise<{ number: number; url: string }> {
+  const res = await fetch(`${API}/repos/${repo}/issues`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(issue),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`GitHub ${res.status} opening an issue on ${repo}: ${await res.text()}`);
+  const body = (await res.json()) as { number: number; html_url: string };
+  return { number: body.number, url: body.html_url };
+}

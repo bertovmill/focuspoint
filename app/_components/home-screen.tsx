@@ -30,7 +30,8 @@ import {
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { PinButton } from "@/app/_components/pin-button";
 import type { WorkoutLog } from "@/app/_components/workout-chart";
-import { TodaySnapshot } from "@/app/_components/today-snapshot";
+import { MealsToday, TrainingToday } from "@/app/_components/today-snapshot";
+import { HomeGrid } from "@/app/_components/home-grid";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
 import { HomeSections } from "@/app/_components/home-sections";
@@ -172,7 +173,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
     setDayOffset((o) => o + n);
     // The new day slides in from the side it came from.
     if (!reduceMotion && dayScope.current) {
-      void animateDay(dayScope.current, { x: [Math.sign(n) * 48, 0], opacity: [0, 1] }, { duration: 0.22, ease: "easeOut" });
+      void animateDay("[data-day-block]", { x: [Math.sign(n) * 48, 0], opacity: [0, 1] }, { duration: 0.22, ease: "easeOut" });
     }
   };
 
@@ -451,31 +452,19 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
-        {/* Two columns on desktop: his page on the left, open tasks pinned on the
-            right. On a phone the tasks come first, above Vision. */}
-        <div className="flex flex-col gap-8 lg:flex-row-reverse lg:items-start">
-          <HomeTasks className="lg:sticky lg:top-6 lg:w-80 lg:shrink-0" />
-
-          <div className="min-w-0 flex-1">
-            {/* His own sections — 5-year review, 5-year plan, whatever he adds. Top of
-                the page by his choice (2026-10-10), and outside the day swipe: they
-                don't change with the day. */}
-            <HomeSections />
-
-            {/* Everything in here follows the day swipe. */}
-            <div ref={dayScope}>
-              {/* What's on the day — sessions from /training and the sittings from /meals */}
-              <TodaySnapshot date={date} />
-            </div>
-          </div>
+        {/* Every block on Home moves and resizes (his ask, 2026-10-23). Vision is
+            his own sections; training and meals follow the day swipe. */}
+        <div ref={dayScope}>
+          <HomeGrid
+            blocks={[
+              { id: "vision", label: "Vision", node: <HomeSections /> },
+              { id: "training", label: "Training", daily: true, node: <TrainingToday today={date} /> },
+              { id: "meals", label: "Meals", daily: true, node: <MealsToday today={date} /> },
+              { id: "tasks", label: "Tasks", node: <HomeTasks /> },
+              { id: "principles", label: "Principles", node: <PrinciplesDoc /> },
+            ]}
+          />
         </div>
-
-      </div>
-
-      <div className="mx-auto max-w-6xl px-6">
-        {/* Principles — his own Notion-style page under the dashboard. It opens
-            on the four behaviours that used to be a hardcoded mantra line here. */}
-        <PrinciplesDoc />
       </div>
       </div>
     </div>

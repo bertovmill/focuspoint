@@ -52,7 +52,7 @@ function Heading({ href, children }: { href: string; children: string }) {
   );
 }
 
-function TrainingToday({ today }: { today: string }) {
+export function TrainingToday({ today }: { today: string }) {
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
@@ -211,7 +211,7 @@ function TrainingToday({ today }: { today: string }) {
   );
 }
 
-function MealsToday({ today }: { today: string }) {
+export function MealsToday({ today }: { today: string }) {
   const [meals, setMeals] = useState<PlannedMeal[] | null>(null);
   const [protein, setProtein] = useState({ target: DEFAULT_PROTEIN_TARGET_G, eaten: 0 });
 

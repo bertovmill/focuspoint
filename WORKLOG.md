@@ -12291,3 +12291,18 @@ filter `?status=all`. Test rows deleted. tsc clean.
 - `save_post`: a draft's slug now follows its title when the title changes (until first publish), matching the editor. A post started as "Untitled" and filled in by Cael had gone live at /writing/untitled.
 - Renamed the live "Where should context live?" post to /writing/where-should-context-live.
 - X handle changed to @robrt_mill in the tweet dialog, Writing tweets tab, public-site X link and post twitter:creator.
+
+## 2026-10-23 — Home: every block moves and resizes (building blocks)
+Berto wanted everything on Cael movable like building blocks. Decided with him: a free
+grid (drag + resize), Home first, other pages later.
+- `app/_components/home-grid.tsx` (new): react-grid-layout 2.2.4, 12 cols. Blocks:
+  Vision (HomeSections), Training, Meals, Tasks, Principles. Drag by the grip at a block's
+  top-left (shows on hover), resize from the bottom-right corner; overflow scrolls inside.
+  "Reset layout" appears once customised. Under 900px container width the blocks stack
+  in the layout's reading order (y, then x), so the phone follows the desktop arrangement.
+- Layout saved in `app_settings` key `home_layout` (`lib/home-layout.ts`,
+  `app/api/settings/home-layout/route.ts`, GET/PUT; PUT null = reset).
+- `today-snapshot.tsx` now exports TrainingToday / MealsToday as separate blocks; the day
+  swipe animates `[data-day-block]` elements.
+- Verified: tsc clean. Not tested in a browser (local sign-in); he chose to ship.
+- Next: roll blocks out to other pages; maybe let blocks be added/removed.

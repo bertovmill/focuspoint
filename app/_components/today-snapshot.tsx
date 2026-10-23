@@ -2,28 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, ShuffleIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProteinRing } from "@/app/_components/protein-ring";
 import { sessionHref } from "@/app/_components/session-editor";
 import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
-import { DEFAULT_PROTEIN_TARGET_G, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
+import { MEAL_SLOTS, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 /**
  * The home screen's "what's on today" pair: today's sessions from /training and
- * today's three sittings from /meals, side by side on desktop. Each heading links
- * through to the full page; the only action here is ticking a session done.
+ * today's three meal picks from /meals as photos. Each heading links through to
+ * the full page; the actions here are ticking a session done and swapping a pick.
  * `date` follows the home screen's day swipe; it defaults to today.
  */
 export function TodaySnapshot({ date }: { date?: string } = {}) {
   const day = date ?? todayISO();
   return (
-    <section id="today-snapshot" className="mb-6 grid gap-6 md:grid-cols-2">
+    // Meals take the full width under training so the photos can be big.
+    <section id="today-snapshot" className="mb-6 grid gap-6">
       <TrainingToday today={day} />
       <MealsToday today={day} />
     </section>
@@ -211,24 +211,36 @@ export function TrainingToday({ today }: { today: string }) {
   );
 }
 
+// Friendlier names than Meal 1/2/3 for the picks, following the Robbins day:
+// fruit alone in the morning, then two water-rich meals.
+const PICK_LABELS: Record<string, string> = { meal1: "Morning", meal2: "Midday", meal3: "Evening", snack: "Snack" };
+
+/**
+ * Today's three picks from the meal bank, shown as photos to get excited about
+ * rather than a log to fill in — no protein ring, no ticking (Berto's call,
+ * 2026-10-23). Each pick can be swapped for another bank meal for that sitting.
+ * A day from today on with nothing planned is filled on first view.
+ */
 export function MealsToday({ today }: { today: string }) {
   const [meals, setMeals] = useState<PlannedMeal[] | null>(null);
-  const [protein, setProtein] = useState({ target: DEFAULT_PROTEIN_TARGET_G, eaten: 0 });
+  const [swapping, setSwapping] = useState<string | null>(null);
 
   useEffect(() => {
     let stale = false;
     (async () => {
       try {
-        const [p, t] = await Promise.all([
-          fetch(`/api/nutrition/plan?date=${today}`),
-          fetch(`/api/nutrition/target?date=${today}`),
-        ]);
-        if (stale) return;
-        setMeals(p.ok ? await p.json() : []);
-        if (t.ok) {
-          const data = (await t.json()) as { target_g: number; eaten_g: number };
-          setProtein({ target: data.target_g, eaten: data.eaten_g });
+        let p = await fetch(`/api/nutrition/plan?date=${today}`);
+        let rows: PlannedMeal[] = p.ok ? await p.json() : [];
+        if (rows.length < MEAL_SLOTS.length && today >= todayISO()) {
+          await fetch("/api/nutrition/plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: today }),
+          });
+          p = await fetch(`/api/nutrition/plan?date=${today}`);
+          if (p.ok) rows = await p.json();
         }
+        if (!stale) setMeals(rows);
       } catch {
         if (!stale) setMeals([]);
       }
@@ -238,59 +250,77 @@ export function MealsToday({ today }: { today: string }) {
     };
   }, [today]);
 
+  const swap = async (slot: string) => {
+    setSwapping(slot);
+    try {
+      const res = await fetch("/api/nutrition/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, slot }),
+      });
+      if (!res.ok) throw new Error();
+      const row = (await res.json()) as PlannedMeal;
+      setMeals((ms) => [...(ms ?? []).filter((m) => m.slot !== slot), row]);
+    } catch {
+      toast.error("Couldn't find another meal.");
+    } finally {
+      setSwapping(null);
+    }
+  };
+
   const bySlot = new Map((meals ?? []).map((m) => [m.slot, m]));
-  // The first meal still to plan — no clock: his meal times move around.
-  const live = today === todayISO() ? slotsShown(false).find((s) => !bySlot.has(s.key))?.key : undefined;
 
   return (
     <div>
       <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
-      <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
-        {meals === null ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : (
-          <div className="flex items-start gap-4">
-            <ul className="min-w-0 flex-1 space-y-3">
-              {slotsShown(bySlot.has("snack")).map(({ key, label }) => {
-                const m = bySlot.get(key);
-                return (
-                  <li key={key} className="flex items-center gap-3">
-                    {m?.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.image_url} alt={m.name} className="size-11 shrink-0 rounded-md object-cover" />
-                    ) : (
-                      <span className="size-11 shrink-0 rounded-md bg-muted" />
-                    )}
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "text-xs font-semibold uppercase tracking-wide",
-                          key === live ? "text-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        {label}
-                        {key === live && <span className="ml-1.5 font-normal normal-case tracking-normal text-emerald-600 dark:text-emerald-400">next</span>}
-                      </p>
-                      <p className={cn("line-clamp-2 text-sm leading-snug", m ? "font-medium" : "text-muted-foreground")}>
-                        {m?.name ?? "Not planned"}
-                      </p>
-                      {m?.protein_g != null && <p className="text-xs tabular-nums text-muted-foreground">{m.protein_g} g protein</p>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="flex shrink-0 flex-col items-center gap-1">
-              <ProteinRing eaten={protein.eaten} target={protein.target} size={72} />
-              <p className="text-xs text-muted-foreground">protein</p>
-            </div>
-          </div>
-        )}
-      </Card>
+      {meals === null ? (
+        <div className="grid grid-cols-3 gap-3">
+          {MEAL_SLOTS.map((s) => (
+            <Skeleton key={s.key} className="aspect-[4/5] w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {slotsShown(bySlot.has("snack")).map(({ key }) => {
+            const m = bySlot.get(key);
+            return (
+              <figure key={key} className="group/pick min-w-0">
+                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-muted">
+                  {m?.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.image_url}
+                      alt={m.name}
+                      className="size-full object-cover transition-transform duration-500 group-hover/pick:scale-105"
+                    />
+                  )}
+                  {m && (
+                    <button
+                      type="button"
+                      onClick={() => swap(key)}
+                      disabled={swapping === key}
+                      aria-label={`Swap ${PICK_LABELS[key]} pick`}
+                      title="Show me something else"
+                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-opacity hover:bg-background md:opacity-0 md:group-hover/pick:opacity-100"
+                    >
+                      <ShuffleIcon className={cn("size-4", swapping === key && "animate-spin")} />
+                    </button>
+                  )}
+                </div>
+                <figcaption className="mt-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{PICK_LABELS[key]}</p>
+                  <p className={cn("line-clamp-2 text-sm leading-snug", m ? "font-medium" : "text-muted-foreground")}>
+                    {m?.name ?? "Not planned"}
+                  </p>
+                  {m?.description && (
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{m.description}</p>
+                  )}
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

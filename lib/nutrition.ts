@@ -1,42 +1,43 @@
-// The nutrition protocol — the four rules Berto has already written down for
-// himself (captured as thoughts tagged nutrition/energy over July–August 2026).
-// A day counts as "on protocol" only when all four were kept; the headline
-// number on the Nutrition screen is the share of days that cleared that bar.
+// The nutrition protocol — Tony Robbins' discipline of eating, which Berto
+// chose to go all in on (2026-10-23), replacing the four rules he'd written
+// down over July–August. A day counts as "on protocol" only when all four were
+// kept. Older nutrition_days rows still carry the old keys; normalizeRules
+// drops them, so those days simply read as off-protocol.
 
 export const PROTOCOL_RULES = [
   {
-    key: "whole_food",
-    label: "Whole food only",
-    detail: "Vegetarian whole food — no dairy, no sugar. Dairy and sugar cause the brain fog.",
+    key: "water_rich",
+    label: "70% water-rich food",
+    detail: "Most of every plate is fresh vegetables, greens and fruit — food that's ~70% water, like the body.",
   },
   {
-    key: "fasted",
-    label: "Fasted until afternoon",
-    detail: "Nothing until late afternoon. The mental dial-in is the whole point.",
+    key: "combining",
+    label: "No protein with starch",
+    detail: "Never pair animal protein with starch in one meal. Protein + vegetables, or starch + vegetables.",
   },
   {
-    key: "snack_light",
-    label: "Snacked light, real dinner",
-    detail: "Never eat meals during the day — snack. Avocado and dark chocolate. Full dinner in the evening.",
+    key: "alkaline",
+    label: "Alkaline, greens first",
+    detail: "Lean on greens, sprouts and vegetables. Go light on meat, dairy, sugar, coffee and alcohol.",
   },
   {
-    key: "pff",
-    label: "Protein + fat + fibre",
-    detail: "The formula for stable energy: protein blunts the glucose response, fat slows digestion, fibre slows absorption.",
+    key: "fruit_alone",
+    label: "Fruit alone, mornings",
+    detail: "Fruit on its own on an empty stomach — ideally the whole morning — never after a meal.",
   },
 ] as const;
 
 // Photoreal art for the four rules, generated once into Vercel Blob and cached
-// by rule_key in nutrition_rule_art (the rules themselves never change).
+// by rule_key in nutrition_rule_art (the rules themselves rarely change).
 export const RULE_IMAGE_PROMPTS: Record<string, string> = {
-  whole_food:
-    "a generous wooden board of raw whole foods — leafy greens, broccoli, sweet potato, lentils, avocado, brown rice in a small bowl — no dairy, no packaging, no sweets",
-  fasted:
-    "an empty clean ceramic plate with a single glass of water beside it on a bare table, early morning light raking across the surface, nothing else",
-  snack_light:
-    "a small plate holding half an avocado, three squares of very dark chocolate and a scattering of almonds, mid-afternoon light",
-  pff:
-    "a shallow bowl showing three clear components side by side — a portion of plant protein, sliced avocado for fat, and leafy greens with lentils for fibre",
+  water_rich:
+    "a big bright bowl of crisp water-rich vegetables — cucumber, romaine, tomato, celery, watermelon radish — glistening with droplets",
+  combining:
+    "two separate plates side by side: grilled salmon on a bed of greens, and roasted sweet potato with broccoli — clearly kept apart",
+  alkaline:
+    "a vivid spread of dark leafy greens, sprouts, avocado, lemon halves and a tall glass of green juice",
+  fruit_alone:
+    "a simple morning plate of fresh sliced fruit — mango, papaya, berries and melon — on its own, soft early sunlight",
 };
 
 export type ProtocolRuleKey = (typeof PROTOCOL_RULES)[number]["key"];

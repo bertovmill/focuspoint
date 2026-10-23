@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-23 — Meals: Robbins picks with photos, no tracking
+
+Berto doesn't want to track meals. He wants to be excited by them (like NYT Cooking) and
+to go all in on Tony Robbins' discipline of eating.
+- Protocol rules (`lib/nutrition.ts`) are now the four Robbins rules: 70% water-rich,
+  no protein with starch, alkaline/greens first, fruit alone in the mornings. Old
+  `nutrition_days` keys are dropped by `normalizeRules`, so earlier days read as off-protocol.
+- Bank: `nutrition_recipes.archived_at`. The 17 old meals are archived, not deleted.
+  `scripts/robbins-meal-bank.mjs` adds 24 hand-written Robbins meals (Meal 1 = fruit only),
+  makes their photos via the deployed app (gpt-image-1, ~$0.04 each, made once), re-plans
+  today +6 days and fills the new rule art.
+- `fillFromBank` now puts a meal in its own sitting when the bank has one for it.
+  Archived meals are hidden from the bank list, picker and name lookup.
+- Home `MealsToday`: three big photo cards (Morning / Midday / Evening) with a shuffle
+  button per pick; no protein ring, no ticking. An empty day from today on fills itself on view.
+Next: tap a pick to open a full recipe with steps (NYT-style), and maybe hide the
+protein ring on /meals too.
+
+---
+
 ## 2026-10-23 — About page: hover-to-reveal photo grid
 
 Berto liked netic.ai/company's photo grid. Added `app/site/_components/photo-reveal-grid.tsx`

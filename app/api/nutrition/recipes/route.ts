@@ -9,6 +9,7 @@ export async function GET() {
     const rows = await sql`
       SELECT id, name, description, slot, protein_g, kcal, ingredients, image_url, created_at
       FROM nutrition_recipes
+      WHERE archived_at IS NULL
       ORDER BY name ASC
     `;
     return NextResponse.json(rows.map((r) => shapeRecipe(r as Record<string, unknown>)));

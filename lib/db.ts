@@ -610,6 +610,9 @@ async function applySchema() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  // Old bank meals are archived rather than deleted when the bank is replaced
+  // (the Robbins bank, 2026-10-23): planned cells and history still point at them.
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`;
 
   // ── Training plan (2026-09-26) ───────────────────────────────────────────
   // /training: the week's sessions, the races they build toward, and a cache of

@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BUDDY } from "./cast";
 import { useAskAi } from "../ask-ai-context";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow } from "../concrete-wall/sky";
 import type { AgentStage, Pose, RoomLayout } from "./stage";
@@ -27,6 +29,11 @@ const AgentCard = dynamic(() => import("./agent-card").then((m) => m.AgentCard),
  * jar back. The jar and the plant live in DeskScene; the two talk through
  * window events (`desk:water`, `desk:jar`, `buddy:hold`) since they share the
  * same full-bleed box and so the same pixel coordinates.
+ *
+ * It says hello first, too: a moment after it is on the desk and on screen
+ * it waves, "types" for a beat, and a small bubble over its head offers a
+ * quick tour (see `BUDDY.nudge`). Once per visit; a tap on a reply opens the
+ * chat and asks it.
  */
 export function HeroAgents() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -43,6 +50,10 @@ export function HeroAgents() {
   // Mid-errand with the jar in its arms: report where its hands are every frame.
   const carryingRef = useRef(false);
   const wateringRef = useRef(false);
+  // The hello bubble: typing dots, then the line. Follows the buddy like the button.
+  const [nudge, setNudge] = useState<"typing" | "said" | null>(null);
+  const nudgeRef = useRef<HTMLDivElement>(null);
+  const [firstQuestion, setFirstQuestion] = useState<string | null>(null);
 
   // Where the desk is, remeasured when the hero changes size.
   const layoutRef = useRef<RoomLayout>({ width: 0, height: 0, desk: null });
@@ -90,6 +101,16 @@ export function HeroAgents() {
       // The jar's base sits in its raised hands, just over the top of its head.
       const detail: JarHoldEvent = { x: pose.x, y: pose.y - pose.height * 0.9 };
       window.dispatchEvent(new CustomEvent("buddy:hold", { detail }));
+    }
+    const bubble = nudgeRef.current;
+    if (bubble) {
+      bubble.style.display = pose.visible ? "" : "none";
+      const bw = bubble.offsetWidth;
+      const maxX = layoutRef.current.width - bw - 12;
+      const x = Math.min(Math.max(12, pose.x - bw / 2), maxX);
+      bubble.style.transform = `translate(${x}px, ${pose.y - pose.height * 1.2 - bubble.offsetHeight}px)`;
+      // The tail points at its head even when the bubble is pushed in from an edge.
+      bubble.style.setProperty("--tail", `${Math.min(Math.max(18, pose.x - x), bw - 18)}px`);
     }
     const el = buttonRef.current;
     if (!el) return;
@@ -173,11 +194,13 @@ export function HeroAgents() {
       return;
     }
     setAnchor(pose);
+    setNudge(null);
     setOpen(true);
     stageRef.current?.setTalking(true);
   }, []);
   const close = useCallback(() => {
     setOpen(false);
+    setFirstQuestion(null);
     stageRef.current?.setTalking(false);
     stageRef.current?.setThinking(false);
   }, []);
@@ -194,6 +217,44 @@ export function HeroAgents() {
     }, 100);
     return () => window.clearInterval(id);
   }, [ready, show]);
+
+  // Say hello once per visit: wait until it's on the desk, on screen and idle,
+  // then wave, type for a beat, and say the line.
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      if (sessionStorage.getItem(NUDGE_KEY)) return;
+    } catch {
+      // No storage: greet anyway.
+    }
+    let stage = 0;
+    let timer: number | undefined;
+    const id = window.setInterval(() => {
+      const pose = poseRef.current;
+      const root = rootRef.current;
+      if (!pose?.visible || !root || openRef.current || wateringRef.current) return;
+      const top = root.getBoundingClientRect().top + pose.y - pose.height;
+      if (top < 64 || top > window.innerHeight - 40 || document.visibilityState !== "visible") {
+        stage = 0;
+        return;
+      }
+      // On screen for a couple of seconds before it speaks up.
+      if (++stage < 8) return;
+      window.clearInterval(id);
+      try {
+        sessionStorage.setItem(NUDGE_KEY, "1");
+      } catch {
+        // Fine: it may say hello again next page load.
+      }
+      stageRef.current?.react("wave");
+      setNudge("typing");
+      timer = window.setTimeout(() => setNudge((n) => (n === "typing" ? "said" : n)), 1300);
+    }, 250);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(timer);
+    };
+  }, [ready]);
 
   // Water the plant: fetch the jar, carry it over, pour, put it back.
   const water = useCallback(async () => {
@@ -325,12 +386,98 @@ export function HeroAgents() {
           </button>
         )}
       </div>
+      {/* The hello bubble over its head. Placed by onPose each frame. */}
+      {nudge && !open && (
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 w-screen -translate-x-1/2 overflow-hidden">
+          <div
+            ref={nudgeRef}
+            role="status"
+            aria-live="polite"
+            className="pointer-events-auto absolute left-0 top-0 w-[min(17rem,calc(100vw-1.5rem))] [--tail:50%]"
+          >
+            <div
+              className={cn(
+                "relative rounded-2xl bg-background/95 text-sm/5 text-foreground shadow-[0_10px_30px_rgba(20,16,10,0.18)] ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10",
+                "animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-300",
+                nudge === "typing" ? "w-fit px-3.5 py-3" : "px-4 pb-3 pt-3",
+              )}
+            >
+              {nudge === "typing" ? (
+                <span className="flex gap-1" aria-label="Berto's helper is typing">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="size-1.5 animate-bounce rounded-full bg-foreground/40"
+                      style={{ animationDelay: `${i * 140}ms`, animationDuration: "900ms" }}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setNudge(null)}
+                    aria-label="Dismiss"
+                    className="absolute right-1.5 top-1.5 rounded-full p-1 text-foreground/40 transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                  <button type="button" onClick={show} data-chat-toggle className="block pr-4 text-left">
+                    {BUDDY.nudge.text.replace("{greeting}", greeting())}
+                  </button>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {BUDDY.nudge.replies.map((r, i) => (
+                      <button
+                        key={r.label}
+                        type="button"
+                        data-chat-toggle
+                        onClick={() => {
+                          setFirstQuestion(r.ask);
+                          show();
+                        }}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                          i === 0
+                            ? "bg-foreground text-background hover:bg-foreground/85"
+                            : "bg-muted text-foreground hover:bg-muted/70",
+                        )}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {/* The tail, toward its head. */}
+              <span
+                aria-hidden
+                className="absolute -bottom-1.5 left-[var(--tail)] size-3 -translate-x-1/2 rotate-45 rounded-[2px] bg-background/95"
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* The chat sits over everything, on the same full-bleed box. */}
       {open && anchor && (
         <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 w-screen -translate-x-1/2">
-          <AgentCard anchor={anchor} bounds={layoutRef.current} onClose={close} stage={stageRef.current} />
+          <AgentCard
+            anchor={anchor}
+            bounds={layoutRef.current}
+            onClose={close}
+            stage={stageRef.current}
+            firstQuestion={firstQuestion}
+          />
         </div>
       )}
     </>
   );
+}
+
+/** Set once the buddy has said hello this visit. */
+const NUDGE_KEY = "buddy-nudged";
+
+/** Good morning, afternoon or evening, by the visitor's own clock. */
+function greeting() {
+  const hour = new Date().getHours();
+  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 }

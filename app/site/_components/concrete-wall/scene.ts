@@ -122,8 +122,11 @@ export function windowRect(aspect: number, width = 1440): WindowRect {
   const wide = Math.min(1, Math.max(0, (width - 1024) / (1440 - 1024)));
   const left = lerp(0.45, lerp(0.70, 0.575, wide), t);
   const right = lerp(0.92, 0.965, t);
-  const top = lerp(0.16, 0.16, t);
-  const bottom = lerp(0.31, 0.70, t);
+  // On phones the glass lines up with the headshot beside it (about 0.155 to
+  // 0.28 of the hero from 360 to 430px wide), so the sill ends above the
+  // clock line under the photo instead of sitting on it.
+  const top = lerp(0.155, 0.16, t);
+  const bottom = lerp(0.27, 0.70, t);
   return {
     x: (left + right) / 2,
     y: (top + bottom) / 2,

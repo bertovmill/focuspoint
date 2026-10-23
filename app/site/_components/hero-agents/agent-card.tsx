@@ -186,11 +186,14 @@ export function AgentCard({
   bounds,
   onClose,
   stage,
+  firstQuestion,
 }: {
   anchor: Pose;
   bounds: RoomLayout;
   onClose: () => void;
   stage: AgentStage | null;
+  /** Asked straight away when the chat opens, as if typed (a tap on a greeting reply). */
+  firstQuestion?: string | null;
 }) {
   const agent = useEveAgent({
     host: `${AGENTS_HOST}/eve/${BUDDY.agent}`,
@@ -288,6 +291,16 @@ export function AgentCard({
     setInput("");
     void agent.send(message);
   };
+
+  // A question the greeting bubble handed over, sent once the session can take it.
+  const askedFirst = useRef(false);
+  useEffect(() => {
+    if (!firstQuestion || askedFirst.current || agent.status === "resuming") return;
+    askedFirst.current = true;
+    submit(firstQuestion);
+    // `submit` is recreated every render; this should run once per question.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstQuestion, agent.status]);
 
   // Above its head like a speech bubble, kept inside the hero and clear of
   // the nav. It's anchored at the bottom, so it grows upward (and out from

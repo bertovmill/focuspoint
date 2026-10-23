@@ -13,6 +13,19 @@ export const BUDDY = {
   agent: "guide",
   /** The first line in its chat, before anyone has said anything. */
   hello: "Hi! I'm Berto's little helper. Ask me about his work, what he writes and records, or his HYROX training.",
+  /**
+   * What it says unprompted, in a little bubble over its head, a moment after
+   * it lands on the desk: one short line and two one-tap answers, each of
+   * which opens the chat and asks it for you. `{greeting}` becomes good
+   * morning / afternoon / evening in the visitor's own time.
+   */
+  nudge: {
+    text: "{greeting}! I'm Berto's helper. Want the 30-second version of what he does?",
+    replies: [
+      { label: "Yes, quick tour", ask: "Give me the 30-second version of what Berto does." },
+      { label: "Book a meeting", ask: "How do I book a meeting with Berto?" },
+    ],
+  },
   starters: ["What does Berto do?", "What's the podcast?", "How's his HYROX going?", "How do I book a meeting?"],
   /** Faint ghost questions that rotate in the empty input; Tab fills one in. */
   suggestions: [

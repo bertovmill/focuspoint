@@ -47,8 +47,8 @@ and calendar events.
     with the principle of the day. Tasks are found again by exact title, so don't rename them.
   - Streak = weekdays in a row with all three done (weekends skipped).
   - Calendar: recurring weekday 12:30–1:00 "Naval block" and Sunday 7:00pm "Naval review
-    (15 min)", both with pop-up reminders, on **rmill@aucctus.com** (the Google Calendar
-    connector can't write to bertmill19@gmail.com). Made once; not in code.
+    (15 min)", both with pop-up reminders, on **bertmill19@gmail.com** (moved there the same
+    day; see the entry above). Made once; not in code.
   - `/api/great-thinkers/naval` GET status; POST `{action:"add"}` adds today's moves by hand,
     `{taskId, done}` ticks/unticks (via `completeTask`).
 - Next: more thinkers; maybe let Cael's chat know about the moves.

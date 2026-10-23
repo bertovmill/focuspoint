@@ -9,8 +9,8 @@ import { removeCompletedTaskFromCalendar } from "./task-calendar";
  * it's turned into three small weekday moves that reach him the ways that work
  * for him — tasks on the board (made here each weekday by the naval-moves cron,
  * which also sends a push), and a recurring 12:30 calendar block plus a Sunday
- * review on his rmill@aucctus.com calendar (made once on 2026-10-23 via the
- * Google Calendar connector; his personal calendar wasn't writable from it).
+ * review on his personal calendar, bertmill19@gmail.com (made once on 2026-10-23
+ * with Cael's add_calendar_event).
  *
  * The principles are paraphrased, not quoted.
  */

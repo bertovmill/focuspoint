@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   type ColumnDef,
+  type ColumnOrderState,
   type ExpandedState,
   type SortingState,
   type VisibilityState,
@@ -18,6 +29,7 @@ import {
   ArrowUpDownIcon,
   ArrowUpIcon,
   CalendarClockIcon,
+  CheckIcon,
   ChevronRightIcon,
   Columns3Icon,
   CopyIcon,
@@ -25,9 +37,7 @@ import {
   ListPlusIcon,
   MessageSquarePlusIcon,
   MoreHorizontalIcon,
-  PauseIcon,
   PinIcon,
-  PlayIcon,
   PlusIcon,
   RepeatIcon,
   SearchIcon,
@@ -67,14 +77,10 @@ import {
   type TaskCategory,
 } from "@/lib/task-categories";
 import {
-  ESTIMATE_OPTIONS,
   FOLLOW_UP_OPTIONS,
   PRIORITIES,
-  formatCountdown,
-  formatEstimateLabel,
   isDoneToday,
   isLanePiece,
-  remainingSeconds,
   type Todo,
 } from "@/lib/todo";
 import { cn } from "@/lib/utils";
@@ -138,6 +144,40 @@ function statusOf(t: Todo): Status {
   if (t.waiting) return "waiting";
   return "todo";
 }
+// Same words as the home list's status pill (home-tasks.tsx).
+const STATUS_LABEL: Record<Status | "done", string> = {
+  todo: "To do",
+  working: "In progress",
+  waiting: "Waiting",
+  done: "Done",
+};
+
+// Column order is dragged by header and remembered per browser. The checkbox and ⋯
+// columns stay pinned to the ends; only the ones between them move.
+const COLUMN_ORDER_KEY = "cael.tasks.columnOrder";
+const PINNED_COLUMNS = new Set(["done", "actions"]);
+
+function pinEnds(order: string[]): string[] {
+  return ["done", ...order.filter((id) => !PINNED_COLUMNS.has(id)), "actions"];
+}
+
+function DraggableHead({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  // Drop dnd-kit's role="button" so the <th> keeps its columnheader role.
+  const { role: _role, ...dragAttributes } = attributes;
+  return (
+    <TableHead
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform && { ...transform, y: 0 }), transition }}
+      className={cn(className, "cursor-grab touch-none select-none active:cursor-grabbing", isDragging && "relative z-20 bg-muted")}
+      {...dragAttributes}
+      {...listeners}
+    >
+      {children}
+    </TableHead>
+  );
+}
+
 const STATUS_RANK: Record<Status, number> = { working: 2, waiting: 1, todo: 0 };
 
 function isDone(t: Todo, completingIds: Set<number>) {
@@ -410,12 +450,21 @@ export function TaskTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>(true);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({ created_at: false, recurrence: false });
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY) ?? "null");
+      if (Array.isArray(saved)) setColumnOrder(pinEnds(saved.filter((id) => typeof id === "string")));
+    } catch {}
+  }, []);
   const [composingId, setComposingId] = useState<number | null>(null);
   const [stepFor, setStepFor] = useState<number | null>(null);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newEstimate, setNewEstimate] = useState<number>(30);
+  // Every task needs an estimate; the Time column is gone (Berto, 2026-10-24), so new
+  // ones get the 30 min quick-add default.
+  const newEstimate = 30;
   const [newCategory, setNewCategory] = useState<TaskCategory | "none">("none");
   const [creating, setCreating] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
@@ -649,10 +698,7 @@ export function TaskTable({
         cell: ({ row }) => {
           const { childCounts, completingIds, composingId, stepFor, duplicateTask, onCreated, nowTick, onComplete, onDelete, onLocalPatch, onSetPinned, onToggleInProgress, onToggleTimer, onToggleWaiting, onUncomplete, onUpdate } = live.current;
           const t = row.original;
-          if (isDone(t, completingIds)) {
-            return <span className="text-xs text-muted-foreground">Done</span>;
-          }
-          const s = statusOf(t);
+          const s = isDone(t, completingIds) ? "done" : statusOf(t);
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -663,14 +709,17 @@ export function TaskTable({
                     s === "working" && "border-primary/50 bg-primary/10 text-primary",
                     s === "waiting" && "border-slate-400/60 bg-slate-500/10 text-slate-600 dark:text-slate-300",
                     s === "todo" && "text-muted-foreground hover:text-foreground",
+                    s === "done" && "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {s === "working" ? (
                     <TargetIcon className="size-3" />
                   ) : s === "waiting" ? (
                     <HourglassIcon className="size-3" />
+                  ) : s === "done" ? (
+                    <CheckIcon className="size-3" />
                   ) : null}
-                  {s === "working" ? "Working now" : s === "waiting" ? "Waiting" : "Not started"}
+                  {STATUS_LABEL[s]}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-40">
@@ -678,6 +727,9 @@ export function TaskTable({
                   value={s}
                   onValueChange={(v) => {
                     if (v === s) return;
+                    if (v === "done") return onComplete(t.id);
+                    // Reopening: uncheck first, then fall through to set the new status.
+                    if (s === "done") onUncomplete(t.id);
                     if (v === "working") onToggleInProgress(t.id, true);
                     else if (v === "waiting") {
                       if (t.in_progress) onToggleInProgress(t.id, false);
@@ -688,9 +740,11 @@ export function TaskTable({
                     }
                   }}
                 >
-                  <DropdownMenuRadioItem value="todo" className="text-xs">Not started</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="working" className="text-xs">Working now</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="waiting" className="text-xs">Waiting</DropdownMenuRadioItem>
+                  {(["todo", "working", "waiting", "done"] as const).map((v) => (
+                    <DropdownMenuRadioItem key={v} value={v} className="text-xs">
+                      {STATUS_LABEL[v]}
+                    </DropdownMenuRadioItem>
+                  ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -770,71 +824,6 @@ export function TaskTable({
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          );
-        },
-      },
-      {
-        id: "estimate",
-        accessorFn: (t) => t.estimated_minutes ?? 0,
-        header: ({ column }) => (
-          <SortHeader label="Time" sorted={column.getIsSorted()} onToggle={column.getToggleSortingHandler()!} />
-        ),
-        cell: ({ row }) => {
-          const { childCounts, completingIds, composingId, stepFor, duplicateTask, onCreated, nowTick, onComplete, onDelete, onLocalPatch, onSetPinned, onToggleInProgress, onToggleTimer, onToggleWaiting, onUncomplete, onUpdate } = live.current;
-          const t = row.original;
-          if (isLanePiece(t)) return <span className="px-1.5 text-xs text-muted-foreground/60">—</span>;
-          const done = isDone(t, completingIds);
-          const running = Boolean(t.timer_started_at);
-          const remaining = remainingSeconds(t, nowTick);
-          const overdue = remaining !== null && remaining < 0;
-          const label =
-            t.estimated_minutes && remaining !== null && (running || (t.time_spent_seconds ?? 0) > 0)
-              ? `${overdue ? "-" : ""}${formatCountdown(Math.abs(remaining))}`
-              : t.estimated_minutes
-                ? formatEstimateLabel(t.estimated_minutes)
-                : "—";
-          return (
-            <div className="flex items-center gap-0.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "inline-flex h-6 min-w-12 items-center rounded-md px-1.5 text-xs tabular-nums hover:bg-muted",
-                      running ? (overdue ? "text-priority-urgent" : "text-primary") : "text-muted-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-32">
-                  <DropdownMenuLabel className="text-xs">Estimate</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={String(t.estimated_minutes ?? "")}
-                    onValueChange={(v) => onUpdate(t.id, { estimated_minutes: Number(v) })}
-                  >
-                    {ESTIMATE_OPTIONS.map((m) => (
-                      <DropdownMenuRadioItem key={m} value={String(m)} className="text-xs">
-                        {formatEstimateLabel(m)}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {!done && t.estimated_minutes ? (
-                <button
-                  type="button"
-                  onClick={() => onToggleTimer(t)}
-                  aria-label={running ? `Pause timer for ${t.title}` : `Start timer for ${t.title}`}
-                  className={cn(
-                    "rounded p-1 hover:bg-muted",
-                    running ? "text-primary" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {running ? <PauseIcon className="size-3" /> : <PlayIcon className="size-3" />}
-                </button>
-              ) : null}
-            </div>
           );
         },
       },
@@ -997,10 +986,11 @@ export function TaskTable({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, expanded, columnVisibility, globalFilter: search },
+    state: { sorting, expanded, columnVisibility, columnOrder, globalFilter: search },
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     onGlobalFilterChange: setSearch,
     getSubRows: (r) => r.subRows,
     getRowId: (r) => String(r.id),
@@ -1024,6 +1014,18 @@ export function TaskTable({
   const openCount = todos.filter((t) => !isDone(t, new Set())).length;
   const doneTodayCount = todos.filter(isDoneToday).length;
   const filtered = statusFilter !== "open" || categoryFilter !== "all" || search.trim() !== "";
+
+  // A small drag threshold keeps a plain click on a header sorting, not dragging.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const onColumnDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const ids = table.getAllLeafColumns().map((c) => c.id);
+    const next = pinEnds(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+    setColumnOrder(next);
+    try {
+      localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(next));
+    } catch {}
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -1132,7 +1134,6 @@ export function TaskTable({
                         status: "Status",
                         priority: "Priority",
                         category: "Category",
-                        estimate: "Time",
                         due_date: "Due",
                         recurrence: "Repeats",
                         created_at: "Created",
@@ -1156,18 +1157,6 @@ export function TaskTable({
               placeholder="What needs doing?"
               className="h-8 max-w-md text-sm"
             />
-            <Select value={String(newEstimate)} onValueChange={(v) => setNewEstimate(Number(v))}>
-              <SelectTrigger size="sm" className="h-8 w-20 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTIMATE_OPTIONS.map((m) => (
-                  <SelectItem key={m} value={String(m)} className="text-xs">
-                    {formatEstimateLabel(m)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={newCategory} onValueChange={(v) => setNewCategory(v as TaskCategory | "none")}>
               <SelectTrigger size="sm" className="h-8 w-32 text-xs">
                 <SelectValue />
@@ -1188,26 +1177,37 @@ export function TaskTable({
         )}
       </div>
 
-      {/* Table */}
+      {/* Table — drag a header sideways to reorder columns */}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
         <div className="rounded-lg border">
+          <DndContext id="task-table-columns" sensors={sensors} collisionDetection={closestCenter} onDragEnd={onColumnDragEnd}>
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-background">
               {table.getHeaderGroups().map((hg) => (
                 <TableRow key={hg.id} className="hover:bg-transparent">
-                  {hg.headers.map((h) => (
-                    <TableHead
-                      key={h.id}
-                      className={cn(
+                  <SortableContext
+                    items={hg.headers.map((h) => h.column.id).filter((id) => !PINNED_COLUMNS.has(id))}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {hg.headers.map((h) => {
+                      const className = cn(
                         "text-xs text-muted-foreground",
                         h.column.id === "done" && "w-9 pl-3",
                         h.column.id === "title" && "w-full",
                         h.column.id === "actions" && "w-10",
-                      )}
-                    >
-                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
-                    </TableHead>
-                  ))}
+                      );
+                      const content = h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext());
+                      return PINNED_COLUMNS.has(h.column.id) ? (
+                        <TableHead key={h.id} className={className}>
+                          {content}
+                        </TableHead>
+                      ) : (
+                        <DraggableHead key={h.id} id={h.column.id} className={className}>
+                          {content}
+                        </DraggableHead>
+                      );
+                    })}
+                  </SortableContext>
                 </TableRow>
               ))}
             </TableHeader>
@@ -1261,6 +1261,7 @@ export function TaskTable({
               )}
             </TableBody>
           </Table>
+          </DndContext>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Press <kbd className="rounded border px-1">N</kbd> for a new task, <kbd className="rounded border px-1">/</kbd> to search.

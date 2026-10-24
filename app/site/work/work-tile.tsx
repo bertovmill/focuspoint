@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
  * card that follows the site's theme instead of the brand colour: the
  * dark-type file on an off-white card in light mode, and `logoDark` (white
  * type) on a near-black card in dark mode. See `ThemedLogo` for the swap.
+ *
+ * With both, the photo fills the tile and the logo (the brand mark) sits
+ * beside the name in the top corner, so the subject of the photo stays clear.
  */
 export function WorkTile({
   project,
@@ -22,7 +25,8 @@ export function WorkTile({
   featured?: boolean;
 }) {
   const name = project.org ?? project.title;
-  const logo = project.logo;
+  const logo = project.image ? undefined : project.logo;
+  const photoLogo = project.image ? project.logo : undefined;
 
   return (
     <div
@@ -64,6 +68,26 @@ export function WorkTile({
               featured
                 ? "text-4xl sm:text-6xl lg:text-7xl"
                 : "text-3xl sm:text-4xl",
+            )}
+          >
+            {name}
+          </span>
+        </div>
+      )}
+
+      {photoLogo && (
+        <div className="absolute inset-x-0 top-0 flex items-center gap-2.5 bg-gradient-to-b from-black/60 to-transparent p-5 pb-12 sm:gap-3">
+          <Image
+            src={photoLogo}
+            alt=""
+            width={246}
+            height={258}
+            className={cn("w-auto", featured ? "h-9 sm:h-11" : "h-7 sm:h-8")}
+          />
+          <span
+            className={cn(
+              "font-black leading-none tracking-tight text-white",
+              featured ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl",
             )}
           >
             {name}

@@ -6,6 +6,9 @@ url: https://www.makerslounge.ca
 previewImage: /site-art/makerslounge-site.webp
 outcome: A 1,500-person community of builders in Toronto, and hundreds of deep connections made in a room.
 color: "#2f4a3a"
+# Photo fills the tile; the blue mark and name sit in its top corner.
+image: /site-art/makerslounge-speaking.jpg
+logo: /site-art/logo-makerslounge-mark-blue.svg
 tags: [community, events, toronto, ai]
 # Order on /work only; not shown on the site.
 date: 2026-01-01

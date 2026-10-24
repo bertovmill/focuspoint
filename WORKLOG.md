@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-24 — Work: MakersLounge is now an events program case study
+
+The MakersLounge card on /work opens `/work/makerslounge` directly (dropped
+`previewImage`, so no makerslounge.ca popup) and the page is rewritten as an events
+program case study for events/field-marketing hiring managers: four formats (meetups,
+workshops, hackathons, Maker Mondays), how it's run (AI intake form for teams, matching
+tool, Luma synced into Cael), a per-format funnel table and what it taught him.
+- Numbers come from the Luma mirror (`luma_events`, `luma_guests`), past events through
+  Oct 2026: workshops 82/103 checked in (80%), meetups 192/552 (35%), hackathons 46/218
+  (21%), 9 online sessions with 167 approved; 320 in-person check-ins from 263 people,
+  47 came 2+ times. Community size kept at 1,500 (matches the homepage), Berto's call.
+- Watch out: Luma's `guest_count` totals (~7,800) are mostly calendar **invites**
+  (6,464 rows with `approval_status = 'invited'`), not signups. Real registrations are
+  ~1,370. Don't quote "7,800 signups" anywhere public.
+Next: redeploy the bertomill-agents guide so the homepage chat knows the new page.
+
+---
+
 ## 2026-10-24 — Work tiles: real photos with the logo
 
 The MakersLounge and Aucctus tiles on /work now show Berto in the room (speaking at a

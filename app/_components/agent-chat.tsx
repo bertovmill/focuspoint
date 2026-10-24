@@ -1,6 +1,6 @@
 "use client";
 
-import { useEveAgent, type EveMessagePart } from "eve/react";
+import { openConversationInputs, useEveAgent, type EveMessagePart } from "eve/react";
 import { ActivityIcon, AlertCircleIcon, ChevronLeftIcon, DatabaseIcon, HistoryIcon, InfoIcon, Maximize2Icon, MinusIcon, PanelLeftIcon, PlusIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { PushBell } from "@/app/_components/push-bell";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -207,6 +207,8 @@ function ChatSession({
   const stoppedAfterTools =
     agent.status === "ready" &&
     !agent.error &&
+    // Parked on an approval or question, not stopped: the card for it is in the thread.
+    openConversationInputs(agent.conversation).length === 0 &&
     lastMsg?.role === "assistant" &&
     lastMsg.parts.some((p: EveMessagePart) => p.type === "dynamic-tool") &&
     !lastMsg.parts.some((p: EveMessagePart) => p.type === "text" && "text" in p && (p as { text: string }).text.trim());

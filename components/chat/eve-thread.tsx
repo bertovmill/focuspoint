@@ -1,14 +1,17 @@
 "use client";
 
 import type { FileUIPart } from "ai";
-import type {
-  EveDynamicToolPart,
-  EveMessage,
-  EveMessageData,
-  EveMessagePart,
-  UseEveAgentHelpers,
+import {
+  openConversationInputs,
+  type ConversationInput,
+  type EveDynamicToolPart,
+  type EveMessage,
+  type EveMessageData,
+  type EveMessagePart,
+  type UseEveAgentHelpers,
 } from "eve/react";
-import { AlertCircleIcon, CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon } from "lucide-react";
+import { AlertCircleIcon, CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon, ShieldQuestionIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useCallback, useState } from "react";
 import {
   Attachment,
@@ -119,9 +122,12 @@ export function EveThread({
   const messages = agent.data.messages;
   const isRunning = agent.status === "submitted" || agent.status === "streaming";
   const last = messages.at(-1);
+  // Tool approvals and questions the turn is parked on. Without these on screen
+  // an approval-gated tool (add_calendar_event, write_database…) waits forever.
+  const pendingInputs = openConversationInputs(agent.conversation);
   // Cael has been asked and hasn't put anything on screen yet.
   const waiting =
-    isRunning && (last?.role !== "assistant" || !hasVisibleContent(last));
+    isRunning && pendingInputs.length === 0 && (last?.role !== "assistant" || !hasVisibleContent(last));
 
   if (messages.length === 0) {
     return (
@@ -162,6 +168,9 @@ export function EveThread({
             />
           ),
         )}
+        {pendingInputs.map((input) => (
+          <InputRequestCard key={input.request.requestId} input={input} agent={agent} />
+        ))}
         {waiting ? (
           <Message from="assistant">
             <MessageContent>
@@ -429,6 +438,57 @@ function ToolResult({ value }: { value: unknown }) {
     return <MessageResponse className="text-sm">{value}</MessageResponse>;
   }
   return <CodeBlock code={JSON.stringify(value, null, 2)} language="json" />;
+}
+
+/** Fallback buttons for an approval that arrives without its own options. */
+const DEFAULT_APPROVAL_OPTIONS = [
+  { id: "approve", label: "Approve", style: "primary" },
+  { id: "cancel", label: "Deny", style: "default" },
+] as const;
+
+function InputRequestCard({ input, agent }: { input: ConversationInput; agent: EveAgent }) {
+  const { request } = input;
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const options = request.options?.length
+    ? request.options
+    : request.kind === "tool-approval"
+      ? DEFAULT_APPROVAL_OPTIONS
+      : [];
+
+  const answer = (optionId: string) => {
+    setSending(true);
+    setError(null);
+    agent
+      .respond([{ requestId: request.requestId, optionId }])
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setSending(false));
+  };
+
+  return (
+    <div className="flex w-full max-w-md items-start gap-3 rounded-xl border border-border bg-card px-3.5 py-3 text-sm">
+      <ShieldQuestionIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{request.prompt}</p>
+        {options.length ? (
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {options.map((option, i) => (
+              <Button
+                key={option.id}
+                size="sm"
+                disabled={sending || agent.status === "resuming"}
+                variant={option.style === "danger" ? "destructive" : i === 0 || option.style === "primary" ? "default" : "outline"}
+                onClick={() => answer(option.id)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        {error ? <p className="mt-1.5 text-destructive">{error}</p> : null}
+      </div>
+    </div>
+  );
 }
 
 function AuthorizationCard({

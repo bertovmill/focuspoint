@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-24 — Chat: Approve/Deny cards for approval-gated tools (calendar add fixed)
+
+Adding a calendar event from chat hung forever. `add_calendar_event` is gated with
+`approval: once()`, and the AI Elements rewrite (ec7bcaf, 2026-09-05) dropped the old
+assistant-ui approval buttons, so the turn parked on an approval no one could see or answer.
+Same for `write_database` and `request_feature`.
+- `components/chat/eve-thread.tsx`: `InputRequestCard` renders every open request from
+  `openConversationInputs(agent.conversation)` (prompt + eve's own options, `approve` /
+  `cancel`) and answers with `agent.respond()`. The "thinking" shimmer hides while one waits.
+- `app/_components/agent-chat.tsx`: the "Stopped after tool calls" banner no longer shows
+  while a turn is parked on an approval.
+- Local chat can't be tested with plain `next dev` (eve routes 404), so it was checked in production.
+
+---
+
 ## 2026-10-24 — Work: MakersLounge is now an events program case study
 
 The MakersLounge card on /work opens `/work/makerslounge` directly (dropped

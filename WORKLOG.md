@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-24 — Meals: tap a pick for the full NYT-style recipe
+
+Each Home pick (photo or name) opens `/meals/recipes/<id>-<slug>`, rendered by
+`app/_components/recipe-view.tsx` inside the Meals section (the layout reads the id from
+the pathname, like training sessions). Big photo, sitting + Robbins rule eyebrow, serif
+title and story line, time, then ingredients (tick off while cooking, not saved) beside
+numbered steps.
+- `nutrition_recipes` gains `minutes`, `ingredient_lines` (amounts, one serving) and
+  `steps`. `lib/robbins-meals.ts` now holds a full recipe for all 24 meals; `applySchema`
+  fills them in only where a meal has no steps, so later edits stick.
+- `GET /api/nutrition/recipes/[id]` returns one meal, archived or not.
+- `recipeHref` lives in `lib/nutrition.ts` (client-safe; `nutrition-plan.ts` pulls in the DB).
+Next: an editor for steps on /meals, and steps for meals Berto adds himself.
+
+---
+
 ## 2026-10-23 — Meals: Robbins picks with photos, no tracking
 
 Berto doesn't want to track meals. He wants to be excited by them (like NYT Cooking) and

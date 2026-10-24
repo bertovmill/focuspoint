@@ -10,7 +10,7 @@ import { sessionHref } from "@/app/_components/session-editor";
 import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
-import { MEAL_SLOTS, addDaysISO, slotsShown, todayISO } from "@/lib/nutrition";
+import { MEAL_SLOTS, addDaysISO, recipeHref, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
 /**
@@ -218,7 +218,8 @@ const PICK_LABELS: Record<string, string> = { meal1: "Morning", meal2: "Midday",
 /**
  * Today's three picks from the meal bank, shown as photos to get excited about
  * rather than a log to fill in — no protein ring, no ticking (Berto's call,
- * 2026-10-23). Each pick can be swapped for another bank meal for that sitting.
+ * 2026-10-23). Tapping a pick opens its full recipe; each can be swapped for
+ * another bank meal for that sitting.
  * A day from today on with nothing planned is filled on first view.
  */
 export function MealsToday({ today }: { today: string }) {
@@ -304,13 +305,22 @@ export function MealsToday({ today }: { today: string }) {
             return (
               <figure key={key} className="group/pick min-w-0">
                 <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-muted">
-                  {m?.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={m.image_url}
-                      alt={m.name}
-                      className="size-full object-cover transition-transform duration-500 group-hover/pick:scale-105"
-                    />
+                  {m?.recipe_id ? (
+                    <Link href={recipeHref({ id: m.recipe_id, name: m.name })} aria-label={`Open the ${m.name} recipe`} className="block size-full">
+                      {m.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.image_url}
+                          alt={m.name}
+                          className="size-full object-cover transition-transform duration-500 group-hover/pick:scale-105"
+                        />
+                      )}
+                    </Link>
+                  ) : (
+                    m?.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.image_url} alt={m.name} className="size-full object-cover" />
+                    )
                   )}
                   {m && (
                     <button
@@ -327,9 +337,18 @@ export function MealsToday({ today }: { today: string }) {
                 </div>
                 <figcaption className="mt-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{PICK_LABELS[key]}</p>
-                  <p className={cn("line-clamp-2 text-sm leading-snug", m ? "font-medium" : "text-muted-foreground")}>
-                    {m?.name ?? "Not planned"}
-                  </p>
+                  {m?.recipe_id ? (
+                    <Link
+                      href={recipeHref({ id: m.recipe_id, name: m.name })}
+                      className="line-clamp-2 text-sm font-medium leading-snug hover:underline"
+                    >
+                      {m.name}
+                    </Link>
+                  ) : (
+                    <p className={cn("line-clamp-2 text-sm leading-snug", m ? "font-medium" : "text-muted-foreground")}>
+                      {m?.name ?? "Not planned"}
+                    </p>
+                  )}
                   {m?.description && (
                     <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{m.description}</p>
                   )}

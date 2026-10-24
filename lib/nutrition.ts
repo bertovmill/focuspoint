@@ -176,3 +176,9 @@ export function num(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+
+/** /meals/recipes/<id>-<slug> — the id is what's read; the slug is for people. */
+export function recipeHref(recipe: { id: number; name: string }) {
+  const slug = recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return `/meals/recipes/${recipe.id}-${slug}`;
+}

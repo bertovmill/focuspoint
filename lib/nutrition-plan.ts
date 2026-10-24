@@ -37,6 +37,9 @@ export interface Recipe {
   kcal: number | null;
   ingredients: string[];
   image_url: string | null;
+  minutes: number | null;
+  ingredient_lines: string[];
+  steps: string[];
   created_at: string;
 }
 
@@ -72,6 +75,9 @@ export function shapeRecipe(row: Record<string, unknown>): Recipe {
     kcal: num(row.kcal),
     ingredients: Array.isArray(row.ingredients) ? row.ingredients.map(String) : [],
     image_url: (row.image_url as string | null) ?? null,
+    minutes: num(row.minutes),
+    ingredient_lines: Array.isArray(row.ingredient_lines) ? row.ingredient_lines.map(String) : [],
+    steps: Array.isArray(row.steps) ? row.steps.map(String) : [],
     created_at: String(row.created_at),
   };
 }
@@ -425,3 +431,4 @@ export async function listRecipes(): Promise<Recipe[]> {
   const rows = await sql`SELECT * FROM nutrition_recipes WHERE archived_at IS NULL ORDER BY name ASC`;
   return rows.map((r) => shapeRecipe(r as Record<string, unknown>));
 }
+

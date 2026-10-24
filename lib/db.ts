@@ -614,6 +614,13 @@ async function applySchema() {
   // Old bank meals are archived rather than deleted when the bank is replaced
   // (the Robbins bank, 2026-10-23): planned cells and history still point at them.
   await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`;
+  // The full recipe behind a bank meal (2026-10-24): one serving's ingredient
+  // lines with amounts, the method, and roughly how long it takes. Opened from
+  // Home at /meals/recipes/<id>-<slug>. Robbins meals get theirs filled in
+  // below wherever a meal has no steps yet, so his own edits are never overwritten.
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS minutes INTEGER`;
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS ingredient_lines TEXT[] NOT NULL DEFAULT '{}'`;
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS steps TEXT[] NOT NULL DEFAULT '{}'`;
   // One time: archive the old bank, seed the Robbins bank and clear the
   // coming plan cells that still point at archived meals (Home refills them).
   // Guarded on the Robbins meals not being there yet, so meals added later are
@@ -632,6 +639,12 @@ async function applySchema() {
       DELETE FROM meal_recommendations
       WHERE meal_date >= (NOW() AT TIME ZONE 'America/Toronto')::date
         AND (recipe_id IS NULL OR recipe_id IN (SELECT id FROM nutrition_recipes WHERE archived_at IS NOT NULL))
+    `;
+  }
+  for (const m of ROBBINS_MEALS) {
+    await sql`
+      UPDATE nutrition_recipes SET minutes = ${m.minutes}, ingredient_lines = ${m.lines}, steps = ${m.steps}
+      WHERE name = ${m.name} AND cardinality(steps) = 0
     `;
   }
 

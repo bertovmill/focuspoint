@@ -6,6 +6,16 @@ import { shapeRecipe } from "@/lib/nutrition-plan";
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH any subset of { name, description, slot, protein_g, kcal, ingredients }
+// GET  one bank meal with its full recipe, archived or not (a planned cell may
+// still point at an archived one).
+export async function GET(_req: Request, { params }: Params) {
+  const { id } = await params;
+  const sql = getDb();
+  const [row] = await sql`SELECT * FROM nutrition_recipes WHERE id = ${id}`;
+  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(shapeRecipe(row as Record<string, unknown>));
+}
+
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const { id } = await params;

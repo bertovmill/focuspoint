@@ -31,12 +31,37 @@ const MARGIN: [number, number] = [32, 16];
 const GRID_MIN_WIDTH = 900;
 
 export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
-  { i: "vision", x: 0, y: 0, w: 8, h: 10 },
-  { i: "training", x: 0, y: 10, w: 4, h: 8 },
-  { i: "meals", x: 4, y: 10, w: 4, h: 8 },
-  { i: "tasks", x: 8, y: 0, w: 4, h: 28 },
-  { i: "principles", x: 0, y: 18, w: 8, h: 10 },
+  { i: "vision", x: 0, y: 0, w: 7, h: 10 },
+  { i: "training", x: 0, y: 10, w: 3, h: 8 },
+  { i: "meals", x: 3, y: 10, w: 4, h: 8 },
+  { i: "tasks", x: 7, y: 0, w: 5, h: 28 },
+  { i: "principles", x: 0, y: 18, w: 7, h: 10 },
 ];
+
+/** Narrowest a block may be. Tasks needs room for its Due and Priority columns (2026-10-24). */
+const MIN_W: Record<string, number> = { tasks: 5 };
+
+/**
+ * Widens any block narrower than its minimum, leftwards, and trims the blocks
+ * beside it so nothing overlaps — otherwise the grid would push the widened
+ * block down below its neighbours instead.
+ */
+function withMinWidths(layout: HomeBlockPosition[]): HomeBlockPosition[] {
+  let out = layout;
+  for (const [id, min] of Object.entries(MIN_W)) {
+    const b = out.find((p) => p.i === id);
+    if (!b || b.w >= min) continue;
+    const x = Math.min(b.x, COLS - min);
+    const grown = { ...b, x, w: Math.max(min, b.x + b.w - x) };
+    out = out.map((p) => {
+      if (p.i === id) return grown;
+      const sameRows = p.y < grown.y + grown.h && grown.y < p.y + p.h;
+      const overlaps = p.x < grown.x + grown.w && grown.x < p.x + p.w;
+      return sameRows && overlaps && p.x < grown.x ? { ...p, w: grown.x - p.x } : p;
+    });
+  }
+  return out;
+}
 
 /** The saved layout, with any block it doesn't know about yet put back where the default has it. */
 function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBlockPosition[] {
@@ -45,7 +70,7 @@ function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBl
   const unknown = ids
     .filter((id) => !base.some((p) => p.i === id) && !missing.some((p) => p.i === id))
     .map((i) => ({ i, x: 0, y: Infinity, w: 8, h: 8 }));
-  return [...base, ...missing, ...unknown];
+  return withMinWidths([...base, ...missing, ...unknown]);
 }
 
 function readingOrder(layout: readonly HomeBlockPosition[]): string[] {
@@ -101,7 +126,7 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
       {asGrid ? (
         <ReactGridLayout
           width={width}
-          layout={layout}
+          layout={layout.map((p) => (MIN_W[p.i] ? { ...p, minW: MIN_W[p.i] } : p))}
           gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [32, 0] }}
           dragConfig={{ enabled: true, handle: ".home-block-grip" }}
           resizeConfig={{ enabled: true, handles: ["se"] }}

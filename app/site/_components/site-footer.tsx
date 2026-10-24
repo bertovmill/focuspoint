@@ -19,7 +19,7 @@ const EXPLORE = [
 
 const CONTACT = [
   { href: BOOKING_URL, label: "Book a meeting" },
-  { href: "mailto:rmill@aucctus.com", label: "Email" },
+  { href: "mailto:berto@bertomill.com", label: "Email" },
   { href: "https://github.com/bertovmill", label: "GitHub" },
 ] as const;
 

@@ -103,7 +103,7 @@ export function SiteCommandPalette() {
 
     const reach: PaletteItem[] = [
       { id: "reach:book", label: "Book a meeting", icon: <CalendarIcon />, keywords: ["call", "calendar", "talk"], external: true, onSelect: away(BOOKING_URL) },
-      { id: "reach:email", label: "Email Berto", icon: <MailIcon />, keywords: ["contact", "mail"], onSelect: away("mailto:rmill@aucctus.com") },
+      { id: "reach:email", label: "Email Berto", icon: <MailIcon />, keywords: ["contact", "mail"], onSelect: away("mailto:berto@bertomill.com") },
       { id: "reach:github", label: "GitHub", icon: <CodeIcon />, keywords: ["code", "repos"], external: true, onSelect: away("https://github.com/bertovmill") },
       ...CHANNELS.map((c) => ({
         id: `reach:${c.href}`,

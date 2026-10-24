@@ -7,10 +7,9 @@ url: https://aucctus.com
 previewUrl: https://www.aucctus.com
 outcome: A full corporate pipeline in the first six months, built on an events motion and a go-to-market system that didn't exist when I started.
 color: "#8f5a3c"
-# The wordmark replaces the typeset name on the tile. Light file = black type
-# for the light theme; dark file = white type for the dark theme.
-logo: /site-art/logo-aucctus-wordmark-light.webp
-logoDark: /site-art/logo-aucctus-wordmark-dark.webp
+# Photo fills the tile; the mark and name sit in its top corner.
+image: /site-art/aucctus-booth.webp
+logo: /site-art/logo-aucctus.png
 tags: [go-to-market, events, enterprise, ai-agents]
 # Order on /work only; not shown on the site.
 date: 2026-06-01

@@ -98,7 +98,10 @@ export function WorkTile({
       <div
         className={cn(
           "relative mt-auto flex w-full items-end justify-between gap-4 p-5",
-          !logo && "bg-gradient-to-t from-black/50 to-transparent",
+          !logo &&
+            (project.image
+              ? "bg-gradient-to-t from-black/80 via-black/50 to-transparent pt-16"
+              : "bg-gradient-to-t from-black/50 to-transparent"),
         )}
       >
         <div>

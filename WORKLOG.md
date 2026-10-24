@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-24 — Work tiles: real photos with the logo
+
+The MakersLounge and Aucctus tiles on /work now show Berto in the room (speaking at a
+MakersLounge night; at the Aucctus booth) with the brand mark and name in the top corner.
+- `app/site/work/work-tile.tsx`: an entry with both `image` and `logo` puts the photo
+  full-bleed and the logo + name top-left (so the person in the photo stays clear), with a
+  stronger bottom fade on photo tiles so the caption reads over busy backgrounds.
+- Assets: `public/site-art/makerslounge-speaking.jpg`, `logo-makerslounge-mark-blue.svg`
+  (Berto's file), `aucctus-booth.webp`; Aucctus uses the existing `logo-aucctus.png` mark.
+Next: a photo for AI Coaching if he has one.
+
+---
+
 ## 2026-10-24 — Meals: tap a pick for the full NYT-style recipe
 
 Each Home pick (photo or name) opens `/meals/recipes/<id>-<slug>`, rendered by

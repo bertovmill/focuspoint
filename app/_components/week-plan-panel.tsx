@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   BookmarkIcon,
   CheckIcon,
@@ -10,6 +11,7 @@ import {
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
+  SearchIcon,
   ShoppingCartIcon,
   ShuffleIcon,
   TrashIcon,
@@ -44,6 +46,7 @@ import {
   ALL_SLOTS,
   MEAL_SLOTS,
   addDaysISO,
+  recipeHref,
   shortDayLabel,
   todayISO,
   weekDates,
@@ -1095,6 +1098,11 @@ function RecipeLibrary({
 }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? recipes.filter((r) => r.name.toLowerCase().includes(q) || r.ingredients.some((i) => i.toLowerCase().includes(q)))
+    : recipes;
   const [name, setName] = useState("");
   const [protein, setProtein] = useState("");
   const [kcal, setKcal] = useState("");
@@ -1165,33 +1173,55 @@ function RecipeLibrary({
       )}
 
       {recipes.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setOpenId(r.id)}
-              className="flex w-full min-w-0 items-center gap-3 rounded-md border p-2 text-left hover:bg-muted/60"
-            >
-              {r.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={r.image_url} alt="" className="size-14 shrink-0 rounded object-cover" />
-              ) : (
-                <span className="flex size-14 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
-                  <ImageIcon className="size-4" />
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{r.name}</span>
-                <span className="block text-xs tabular-nums text-muted-foreground">
+        <div className="relative mb-3">
+          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search the meal bank"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      )}
+
+      {/* NYT Cooking-style cards: big photo, serif title. The card opens the
+          full recipe; the pencil opens the bank entry for editing. */}
+      {shown.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
+          {shown.map((r) => (
+            <div key={r.id} className="group relative min-w-0">
+              <Link href={recipeHref(r)} className="block">
+                {r.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r.image_url} alt="" className="aspect-[4/3] w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
+                ) : (
+                  <span className="flex aspect-[4/3] w-full items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <ImageIcon className="size-5" />
+                  </span>
+                )}
+                <span className="mt-2 block font-serif text-base leading-snug group-hover:underline">{r.name}</span>
+                <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
                   {r.protein_g !== null ? `${r.protein_g} g protein` : "protein ?"}
                   {r.kcal !== null && ` · ${r.kcal} kcal`}
-                  {r.ingredients.length > 0 && ` · ${r.ingredients.length} ingredients`}
                 </span>
-              </span>
-            </button>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setOpenId(r.id)}
+                className="absolute right-1.5 top-1.5 rounded-full bg-background/85 p-1.5 text-muted-foreground opacity-100 shadow-sm hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+                aria-label={`Edit ${r.name}`}
+                title="Edit"
+              >
+                <PencilIcon className="size-3.5" />
+              </button>
+            </div>
           ))}
         </div>
+      )}
+
+      {recipes.length > 0 && shown.length === 0 && (
+        <p className="py-6 text-center text-sm text-muted-foreground">No meals match &ldquo;{query}&rdquo;.</p>
       )}
 
       <MealDetail

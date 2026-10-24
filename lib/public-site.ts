@@ -22,7 +22,7 @@ export const BOOKING_URL = "https://calendar.app.google/ZuKPqRgQpYNPwjhB6";
 
 /** Berto's social profiles — the menu sheet's "Channels" list and the footer both read this. */
 export const CHANNELS = [
-  { href: "https://www.linkedin.com/in/bertomill", label: "LinkedIn" },
+  { href: "https://www.linkedin.com/in/robertvmill", label: "LinkedIn" },
   { href: "https://www.youtube.com/@BertoVMill", label: "YouTube" },
   { href: "https://x.com/robrt_mill", label: "X" },
   { href: "https://robertmillwriting.substack.com", label: "Substack" },

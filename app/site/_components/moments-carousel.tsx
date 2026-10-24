@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 const HASH_PREFIX = "#moment-";
-const LINKEDIN_ACTIVITY_URL = "https://www.linkedin.com/in/bertomill/recent-activity/images/";
+const LINKEDIN_ACTIVITY_URL = "https://www.linkedin.com/in/robertvmill/recent-activity/images/";
 
 /** Newest first. */
 const SORTED = [...MOMENTS].sort((a, b) => b.date.localeCompare(a.date));

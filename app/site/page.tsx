@@ -25,7 +25,7 @@ const display = "font-sans font-semibold text-foreground/90";
 // on the same cadence as the rest of the site.
 export const revalidate = 300;
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/bertomill";
+const LINKEDIN_URL = "https://www.linkedin.com/in/robertvmill";
 const AUCCTUS_URL = "https://aucctus.com";
 const MAKERSLOUNGE_URL = "https://makerslounge.ca";
 

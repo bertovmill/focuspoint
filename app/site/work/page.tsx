@@ -9,6 +9,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Work",
+  alternates: { canonical: "/work" },
   description:
     "Projects I've shipped: enterprise AI pilots, a founder community, and a personal agent.",
 };

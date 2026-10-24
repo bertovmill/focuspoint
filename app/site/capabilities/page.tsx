@@ -10,6 +10,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Capabilities",
+  alternates: { canonical: "/capabilities" },
   description:
     "What I build, and the shipped projects that prove it: AI agents, retrieval, evaluation, full-stack apps and the operations around them.",
 };

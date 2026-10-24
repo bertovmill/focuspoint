@@ -5,6 +5,7 @@ import { SubscribeForm } from "../_components/subscribe-form";
 
 export const metadata: Metadata = {
   title: "Podcast",
+  alternates: { canonical: "/podcast" },
   description: "Conversations with Cael — my personal AI agent — recorded as they happen.",
 };
 

@@ -6,6 +6,7 @@ import { SiteLink } from "../_components/site-link";
 
 export const metadata: Metadata = {
   title: "Newsletter",
+  alternates: { canonical: "/newsletter" },
   description:
     "Occasional notes on building AI agents, shipping software, and running a life with one. No spam, one click to leave.",
 };

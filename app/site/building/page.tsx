@@ -5,6 +5,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Building",
+  alternates: { canonical: "/building" },
   description:
     "The 8 forms of wealth I track, with live progress against each goal — pulled from the agent that keeps the scoreboard.",
 };

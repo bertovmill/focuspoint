@@ -11,6 +11,7 @@ const TAGLINE = ["Community builder, system implementer,", "innovation driver."]
 
 export const metadata: Metadata = {
   title: "About",
+  alternates: { canonical: "/about" },
   description: TAGLINE.join(" "),
 };
 

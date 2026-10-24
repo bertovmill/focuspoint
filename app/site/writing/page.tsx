@@ -27,6 +27,7 @@ interface IndexEntry {
 
 export const metadata: Metadata = {
   title: "Writing",
+  alternates: { canonical: "/writing" },
   description:
     "Notes on building AI agents, shipping software, and running a life with one.",
 };

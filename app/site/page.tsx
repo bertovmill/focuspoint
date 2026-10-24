@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
 import { ASK_AI_HASH } from "@/lib/public-site";
@@ -24,6 +25,9 @@ const display = "font-sans font-semibold text-foreground/90";
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
 export const revalidate = 300;
+
+// Child pages inherit the layout's metadata, so the canonical lives here, not there.
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const LINKEDIN_URL = "https://www.linkedin.com/in/robertvmill";
 const AUCCTUS_URL = "https://aucctus.com";

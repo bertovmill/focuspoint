@@ -31,6 +31,8 @@ export const metadata: Metadata = {
     url: `https://${PUBLIC_HOST}`,
     images: [{ url: "/berto-headshot.jpg", width: 800, height: 800, alt: "Robert Mill" }],
   },
+  // Search Console ownership (HTML-tag method) for the https://bertomill.com/ property.
+  verification: { google: "3POZyY9xXdlFI2Zgbpmb6TD_62vGIGyjjSAQnzO1IH4" },
   twitter: {
     // Square portrait, so the large-image card would letterbox it badly.
     card: "summary",

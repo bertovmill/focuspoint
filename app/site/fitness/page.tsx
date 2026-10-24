@@ -20,7 +20,8 @@ const TAGLINE = ["HYROX results,", "from the official timing."];
 
 export const metadata: Metadata = {
   title: "Fitness",
-  description: "Berto Mill's HYROX results, with every run and station split.",
+  alternates: { canonical: "/fitness" },
+  description: "Robert Mill's HYROX results, with every run and station split.",
 };
 
 // "Up next" counts down to race day, so re-render hourly rather than freezing at build.

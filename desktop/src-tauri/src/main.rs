@@ -2,7 +2,11 @@
 
 use tauri::{LogicalSize, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
 
-const APP_URL: &str = "https://cael-keystrokes.vercel.app";
+const APP_URL: &str = "https://cael.bertomill.com";
+
+// Google refuses OAuth in embedded web views unless the UA looks like Safari,
+// and WKWebView's default UA leaves the Safari token off.
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
 
 // WKWebView silently drops target="_blank" clicks and window.open() calls
 // (there is no popup handler). Rewrite them into same-window navigations so
@@ -147,6 +151,7 @@ fn main() {
                 .min_inner_size(400.0, 500.0)
                 .inner_size(1280.0, 860.0)
                 .center()
+                .user_agent(USER_AGENT)
                 .initialization_script(INIT_SCRIPT)
                 .on_navigation(move |url| {
                     let host = url.host_str().unwrap_or("");
@@ -155,7 +160,9 @@ fn main() {
                     // host). Without this, the redirect gets treated as an external link and
                     // bounces the whole login flow out to the system browser.
                     let is_clerk_handshake = host.ends_with(".clerk.accounts.dev") || host.ends_with(".clerk.com");
-                    if host == app_host || host == "localhost" || host == "127.0.0.1" || is_clerk_handshake {
+                    // Production sign-in: Clerk's frontend API on our domain, then Google.
+                    let is_sign_in = host == "clerk.bertomill.com" || host == "accounts.google.com";
+                    if host == app_host || host == "localhost" || host == "127.0.0.1" || is_clerk_handshake || is_sign_in {
                         return true;
                     }
                     // External link: hand off to the default browser.

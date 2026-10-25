@@ -66,8 +66,13 @@ function withMinWidths(layout: HomeBlockPosition[]): HomeBlockPosition[] {
 
 /** The saved layout, with any block it doesn't know about yet put back where the default has it. */
 function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBlockPosition[] {
-  const base = (saved ?? []).filter((p) => ids.includes(p.i));
+  let base = (saved ?? []).filter((p) => ids.includes(p.i));
   const missing = DEFAULT_HOME_LAYOUT.filter((d) => ids.includes(d.i) && !base.some((p) => p.i === d.i));
+  // A new block takes its default spot and pushes whatever sits there down,
+  // rather than the grid dropping it below the saved blocks.
+  for (const d of missing) {
+    base = base.map((p) => (p.y >= d.y && p.x < d.x + d.w && d.x < p.x + p.w ? { ...p, y: p.y + d.h } : p));
+  }
   const unknown = ids
     .filter((id) => !base.some((p) => p.i === id) && !missing.some((p) => p.i === id))
     .map((i) => ({ i, x: 0, y: Infinity, w: 8, h: 8 }));

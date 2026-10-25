@@ -854,6 +854,22 @@ export function WeekPlanPanel() {
         placeholder="Typical grocery list, staples, go-to meals… Type '/' for headings, checklists, toggles."
       />
 
+      {/* Taste profile — rewritten by a model from his 👍/👎 and one-liners
+          (lib/meal-feedback.ts); new bank meals are written to follow it. */}
+      <MarkdownDoc
+        id="meal-taste-profile"
+        endpoint="/api/meals/taste-profile"
+        heading={
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold">Taste profile</h2>
+            <p className="text-xs text-muted-foreground">
+              Cael rewrites this from your 👍/👎 on meals. New meals are written to fit it. Edit anything here and it sticks.
+            </p>
+          </div>
+        }
+        placeholder="Rate a meal on Home or its recipe page and Cael starts this for you."
+      />
+
       <GroceryListDialog open={groceriesOpen} onOpenChange={setGroceriesOpen} from={days[0]} to={days[6]} />
 
       <RecipeLibrary

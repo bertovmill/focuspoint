@@ -26,7 +26,12 @@ export interface PlannedMeal {
   kcal: number | null;
   ingredients: string[];
   recipe_id: number | null;
+  /** His latest 👍/👎 on the bank meal behind this cell (meal_feedback). */
+  rating?: MealRating | null;
+  rating_reason?: string | null;
 }
+
+export type MealRating = "up" | "down";
 
 export interface Recipe {
   id: number;
@@ -90,7 +95,41 @@ export async function getPlanRange(from: string, to: string): Promise<PlannedMea
      ORDER BY meal_date ASC, ${SLOT_ORDER_SQL}`,
     [from, to],
   );
-  return (rows as Record<string, unknown>[]).map(shapePlan);
+  return withRatings((rows as Record<string, unknown>[]).map(shapePlan));
+}
+
+// ── ratings ───────────────────────────────────────────────────────────────
+
+export interface MealRatingEntry {
+  rating: MealRating;
+  reason: string | null;
+}
+
+/** The latest 👍/👎 per bank meal; pass ids to look at just those. */
+export async function getMealRatings(ids?: number[]): Promise<Map<number, MealRatingEntry>> {
+  const sql = getDb();
+  const rows = ids
+    ? await sql`
+        SELECT DISTINCT ON (recipe_id) recipe_id, rating, reason FROM meal_feedback
+        WHERE recipe_id = ANY(${ids}) ORDER BY recipe_id, created_at DESC, id DESC
+      `
+    : await sql`
+        SELECT DISTINCT ON (recipe_id) recipe_id, rating, reason FROM meal_feedback
+        ORDER BY recipe_id, created_at DESC, id DESC
+      `;
+  return new Map(
+    rows.map((r) => [Number(r.recipe_id), { rating: r.rating as MealRating, reason: (r.reason as string | null) ?? null }]),
+  );
+}
+
+async function withRatings(meals: PlannedMeal[]): Promise<PlannedMeal[]> {
+  const ids = [...new Set(meals.map((m) => m.recipe_id).filter((id): id is number => id !== null))];
+  if (ids.length === 0) return meals;
+  const ratings = await getMealRatings(ids);
+  return meals.map((m) => {
+    const r = m.recipe_id !== null ? ratings.get(m.recipe_id) : undefined;
+    return { ...m, rating: r?.rating ?? null, rating_reason: r?.reason ?? null };
+  });
 }
 
 export interface SetPlannedMealInput {
@@ -157,7 +196,8 @@ export async function setPlannedMeal(input: SetPlannedMealInput): Promise<Planne
       input.recipe_id ?? null,
     ],
   );
-  return shapePlan(row as Record<string, unknown>);
+  const [meal] = await withRatings([shapePlan(row as Record<string, unknown>)]);
+  return meal;
 }
 
 export async function clearPlannedMeal(date: string, slot: string) {
@@ -347,6 +387,9 @@ export async function addPlanToGroceries(from: string, to: string) {
 // nutrition_recipes — no model calls. A meal goes to its own sitting when the bank has one for it. The
 // rotation reaches the whole bank: each cell takes the meal planned least often
 // over the last three weeks that isn't already on that day, ties at random.
+// His ratings bend it: a 👎 meal is left out while anything else fits, and a
+// 👍 meal's uses count half, so it comes round about twice as often.
+const LIKED_USE_WEIGHT = 0.5;
 
 export interface BankFillResult {
   filled: PlannedMeal[];
@@ -378,6 +421,9 @@ export async function fillFromBank(
     if (id) uses.set(id, (uses.get(id) ?? 0) + 1);
   }
 
+  const ratings = await getMealRatings();
+  const score = (id: number) => (uses.get(id) ?? 0) * (ratings.get(id)?.rating === "up" ? LIKED_USE_WEIGHT : 1);
+
   const filled: PlannedMeal[] = [];
   let skipped = 0;
   for (const c of cells) {
@@ -390,7 +436,9 @@ export async function fillFromBank(
     // bank keeps Meal 1 as fruit alone); otherwise any meal fits. Never one
     // already on that day.
     const forSlot = recipes.filter((r) => r.slot === c.slot);
-    const base = forSlot.length > 0 ? forSlot : recipes;
+    let base = forSlot.length > 0 ? forSlot : recipes;
+    const notDisliked = base.filter((r) => ratings.get(r.id)?.rating !== "down");
+    if (notDisliked.length > 0) base = notDisliked;
     const sameDay = new Set(
       [...current.entries()].filter(([ck, id]) => ck.startsWith(`${c.date}:`) && ck !== k && id).map(([, id]) => id),
     );
@@ -403,11 +451,11 @@ export async function fillFromBank(
       skipped++;
       continue;
     }
-    const least = Math.min(...pool.map((r) => uses.get(r.id) ?? 0));
-    const choices = pool.filter((r) => (uses.get(r.id) ?? 0) === least);
+    const least = Math.min(...pool.map((r) => score(r.id)));
+    const choices = pool.filter((r) => score(r.id) === least);
     const pick = choices[Math.floor(Math.random() * choices.length)];
     filled.push(await setPlannedMeal({ date: c.date, slot: c.slot, name: "", recipe_id: pick.id }));
-    uses.set(pick.id, least + 1);
+    uses.set(pick.id, (uses.get(pick.id) ?? 0) + 1);
     current.set(k, pick.id);
   }
   return { filled, skipped };

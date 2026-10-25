@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ClockIcon, UtensilsIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Recipe } from "@/lib/nutrition-plan";
+import type { MealRatingEntry, Recipe } from "@/lib/nutrition-plan";
+import { MealFeedback } from "@/app/_components/meal-feedback";
 import { cn } from "@/lib/utils";
 
 // Which Robbins rule each sitting's meals are built around — shown under the
@@ -26,6 +27,7 @@ const SITTING: Record<string, { label: string; rule: string }> = {
 export function RecipeView({ id }: { id: number }) {
   const [recipe, setRecipe] = useState<Recipe | null | "missing">(null);
   const [have, setHave] = useState<Set<number>>(new Set());
+  const [rating, setRating] = useState<MealRatingEntry | null>(null);
 
   useEffect(() => {
     let stale = false;
@@ -35,6 +37,12 @@ export function RecipeView({ id }: { id: number }) {
       if (!res?.ok) return setRecipe("missing");
       const r = (await res.json()) as Recipe;
       setRecipe(r);
+      fetch(`/api/nutrition/recipes/${id}/feedback`)
+        .then((f) => (f.ok ? f.json() : null))
+        .then((f: { rating: MealRatingEntry["rating"] | null; reason: string | null } | null) => {
+          if (!stale && f?.rating) setRating({ rating: f.rating, reason: f.reason });
+        })
+        .catch(() => {});
       if (!r.image_url) {
         const img = await fetch(`/api/nutrition/recipes/${id}/image`, { method: "POST" }).catch(() => null);
         if (!stale && img?.ok) {
@@ -115,6 +123,13 @@ export function RecipeView({ id }: { id: number }) {
                 <span className="font-medium">Serves 1</span>
               </span>
             </div>
+            <MealFeedback
+              className="mt-4"
+              recipeId={recipe.id}
+              rating={rating?.rating ?? null}
+              reason={rating?.reason ?? null}
+              onChange={(r, reason) => setRating(r ? { rating: r, reason } : null)}
+            />
           </header>
 
           <div className="mt-8 grid gap-10 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">

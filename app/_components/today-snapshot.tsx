@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sessionHref } from "@/app/_components/session-editor";
+import { MealFeedback } from "@/app/_components/meal-feedback";
 import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
@@ -219,7 +220,8 @@ const PICK_LABELS: Record<string, string> = { meal1: "Morning", meal2: "Midday",
  * Today's three picks from the meal bank, shown as photos to get excited about
  * rather than a log to fill in — no protein ring, no ticking (Berto's call,
  * 2026-10-23). Tapping a pick opens its full recipe; each can be swapped for
- * another bank meal for that sitting.
+ * another bank meal for that sitting, or rated 👍/👎 with a one-liner, which
+ * steers future picks (lib/meal-feedback.ts).
  * A day from today on with nothing planned is filled on first view.
  */
 export function MealsToday({ today }: { today: string }) {
@@ -351,6 +353,18 @@ export function MealsToday({ today }: { today: string }) {
                   )}
                   {m?.description && (
                     <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">{m.description}</p>
+                  )}
+                  {m?.recipe_id && (
+                    <MealFeedback
+                      compact
+                      className="mt-1.5"
+                      recipeId={m.recipe_id}
+                      rating={m.rating ?? null}
+                      reason={m.rating_reason ?? null}
+                      onChange={(rating, rating_reason) =>
+                        setMeals((ms) => ms?.map((x) => (x.recipe_id === m.recipe_id ? { ...x, rating, rating_reason } : x)) ?? ms)
+                      }
+                    />
                   )}
                 </figcaption>
               </figure>

@@ -658,6 +658,23 @@ async function applySchema() {
       WHERE name = ${m.name} AND cardinality(steps) = 0
     `;
   }
+  // 👍/👎 + a one-line reason on a bank meal (2026-10-25), from Home's picks and
+  // the recipe page. The latest row per meal is its rating: 👎 meals leave the
+  // rotation, 👍 come up more, and the reasons rewrite the taste profile
+  // (lib/meal-feedback.ts). A 👎 meal gets one AI-written replacement in the
+  // bank, linked back through replaces_id so it's only written once.
+  await sql`
+    CREATE TABLE IF NOT EXISTS meal_feedback (
+      id SERIAL PRIMARY KEY,
+      recipe_id INTEGER NOT NULL,
+      rating TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS meal_feedback_recipe_idx ON meal_feedback (recipe_id, created_at DESC)`;
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS replaces_id INTEGER`;
 
   // ── Training plan (2026-09-26) ───────────────────────────────────────────
   // /training: the week's sessions, the races they build toward, and a cache of

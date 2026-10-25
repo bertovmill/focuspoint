@@ -4,6 +4,30 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-25 — Meals: 👍/👎 with a one-liner steers the picks
+
+Berto wanted to rate meal recommendations good/bad with a one-line reason and have
+that tune what gets suggested. Picks come from the bank on a rotation (no model), so
+he chose both (asked): ratings bend the rotation, and the reasons drive an AI taste
+profile that new meals are written to.
+- `meal_feedback` table (recipe_id, rating up/down, reason); latest row per meal is its
+  rating. `nutrition_recipes.replaces_id` links an AI-written meal to the 👎 one it replaced.
+- `fillFromBank`: 👎 meals are left out while anything else fits; 👍 meals' uses count
+  half, so they come round about twice as often.
+- `lib/meal-feedback.ts`, run via `after()` from `PUT /api/nutrition/recipes/[id]/feedback`:
+  rewrites the taste profile (`/meals#meal-taste-profile`, app_settings
+  `meals.taste_profile.markdown`) from every rating, and writes one new Robbins meal for
+  the sitting of a 👎 meal (once per meal), with full recipe; its photo is made on first show.
+  Lines he types into the profile are kept: the model's last version is stored under
+  `meals.taste_profile.generated`, and anything not in it counts as his.
+- UI: `MealFeedback` (thumbs, then a one-line popover; Enter saves, Esc/tap away skips the
+  reason; tapping the lit thumb takes the rating off) on Home's three picks and the recipe page.
+Verified locally against the real DB: 👎 + reason wrote the profile and a warm replacement
+(no cabbage); un-rating dropped the model's lines but kept a hand-typed one. Test rows,
+the test meal and the profile were cleared afterwards.
+
+---
+
 ## 2026-10-25 — Home: whole-day calendar timeline + AI daily strategy
 
 - **Calendar block is now an hour timeline** (Berto picked this over a full list):

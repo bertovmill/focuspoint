@@ -34,7 +34,8 @@ export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
   { i: "vision", x: 0, y: 0, w: 7, h: 10 },
   { i: "training", x: 0, y: 10, w: 3, h: 8 },
   { i: "meals", x: 3, y: 10, w: 4, h: 8 },
-  { i: "tasks", x: 7, y: 0, w: 5, h: 28 },
+  { i: "calendar", x: 7, y: 0, w: 5, h: 6 },
+  { i: "tasks", x: 7, y: 6, w: 5, h: 28 },
   { i: "principles", x: 0, y: 18, w: 7, h: 10 },
 ];
 

@@ -361,3 +361,102 @@ export function MealsToday({ today }: { today: string }) {
     </div>
   );
 }
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end?: string;
+  allDay: boolean;
+}
+
+/** How many of the day's events the home screen shows (his ask, 2026-10-25). */
+const CALENDAR_LIMIT = 3;
+
+/** "2:30 PM" for an ISO date-time, in local time. */
+function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * The next three timed events on his Google Calendar for the day, from now on:
+ * anything already over drops off, and an empty day just says so. On another
+ * day (the home screen's swipe) it's that day's first three. All-day events are
+ * left out, since they aren't something coming up at a time.
+ */
+export function CalendarToday({ today }: { today: string }) {
+  const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [connected, setConnected] = useState(true);
+  // Ticks each minute so events fall off as they end, without a refetch.
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let stale = false;
+    setEvents(null);
+    const [y, m, d] = today.split("-").map(Number);
+    const params = new URLSearchParams({
+      timeMin: new Date(y, m - 1, d).toISOString(),
+      timeMax: new Date(y, m - 1, d + 1).toISOString(),
+    });
+    fetch(`/api/calendar/events?${params}`)
+      .then(async (res) => {
+        if (stale) return;
+        setConnected(res.status !== 409);
+        setEvents(res.ok ? ((await res.json()) as CalendarEvent[]) : []);
+      })
+      .catch(() => !stale && setEvents([]));
+    return () => {
+      stale = true;
+    };
+  }, [today]);
+
+  const upcoming = (events ?? [])
+    .filter((e) => !e.allDay && new Date(e.end ?? e.start).getTime() > now)
+    .slice(0, CALENDAR_LIMIT);
+
+  return (
+    <div>
+      <Heading href="/calendar">{`${dayPossessive(today)} calendar`}</Heading>
+      <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
+        {events === null ? (
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-5 w-1/2" />
+          </div>
+        ) : !connected ? (
+          <Link href="/calendar" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+            Connect Google Calendar
+          </Link>
+        ) : upcoming.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nothing{today === todayISO() ? " left today" : " on"}.</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {upcoming.map((e) => {
+              const live = new Date(e.start).getTime() <= now;
+              return (
+                <li key={e.id} className="flex items-baseline gap-3">
+                  <span
+                    className={cn(
+                      "w-16 shrink-0 text-xs tabular-nums",
+                      live ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+                    )}
+                  >
+                    {live ? "Now" : clockTime(e.start)}
+                  </span>
+                  <span className="min-w-0 truncate text-sm font-medium" title={e.title}>
+                    {e.title}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}

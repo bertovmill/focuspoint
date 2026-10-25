@@ -131,12 +131,12 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
   const asGrid = mounted && width >= GRID_MIN_WIDTH;
 
   return (
-    <div ref={containerRef} id="home-blocks" className="-mx-8">
+    <div ref={containerRef} id="home-blocks" className="-mx-6">
       {asGrid ? (
         <ReactGridLayout
           width={width}
           layout={layout.map((p) => (MIN_W[p.i] ? { ...p, minW: MIN_W[p.i] } : p))}
-          gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [32, 0] }}
+          gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [24, 0] }}
           dragConfig={{ enabled: true, handle: ".home-block-grip" }}
           resizeConfig={{ enabled: true, handles: ["se"] }}
           onDragStop={commit}
@@ -161,7 +161,7 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
           })}
         </ReactGridLayout>
       ) : (
-        <div className="flex flex-col gap-8 px-8">
+        <div className="flex flex-col gap-8 px-6">
           {readingOrder(layout).map((id) => {
             const block = byId.get(id);
             return block ? (

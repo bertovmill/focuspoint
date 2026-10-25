@@ -69,13 +69,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StreakChip } from "@/app/_components/streak-chip";
-import { TaskLatestUpdate, TaskUpdateComposer } from "@/app/_components/task-update-line";
+import { TaskUpdateComposer } from "@/app/_components/task-update-line";
+import { AddFilterButton, FilterChip, GroupMenu, SortMenu, ViewTabs } from "@/app/_components/task-view-controls";
 import {
   CATEGORY_BADGE_CLASS,
   TASK_CATEGORIES,
   TASK_CATEGORY_LABELS,
   type TaskCategory,
 } from "@/lib/task-categories";
+import {
+  DEFAULT_VIEWS,
+  STATUS_LABEL,
+  dayKey,
+  groupDefs,
+  groupKeyOf,
+  matchesFilters,
+  parseViews,
+  slugify,
+  statusOf,
+  type FilterRule,
+  type MatchContext,
+  type TaskView,
+} from "@/lib/task-views";
 import {
   FOLLOW_UP_OPTIONS,
   PRIORITIES,
@@ -117,17 +132,14 @@ export interface TaskTableProps {
 
 type Row = Todo & { subRows?: Row[] };
 
-// Filter values double as URL query values (?status=waiting&category=sales), so a
-// filtered view can be linked to or named directly.
-const STATUS_FILTERS = [
-  { value: "open", label: "Open" },
-  { value: "working", label: "Working now" },
-  { value: "waiting", label: "Waiting" },
-  { value: "todo", label: "Not started" },
-  { value: "done", label: "Done today" },
-  { value: "all", label: "All" },
-] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];
+// Old links used ?status=…; map them onto the matching default view tab.
+const LEGACY_STATUS_VIEW: Record<string, string> = {
+  open: "open",
+  working: "working-now",
+  waiting: "waiting",
+  done: "done",
+  all: "all",
+};
 
 const PRIORITY_RANK: Record<Todo["priority"], number> = { urgent: 3, high: 2, normal: 1, low: 0 };
 
@@ -139,18 +151,6 @@ const PRIORITY_DOT: Record<Todo["priority"], string> = {
 };
 
 type Status = "working" | "waiting" | "todo";
-function statusOf(t: Todo): Status {
-  if (t.in_progress) return "working";
-  if (t.waiting) return "waiting";
-  return "todo";
-}
-// Same words as the home list's status pill (home-tasks.tsx).
-const STATUS_LABEL: Record<Status | "done", string> = {
-  todo: "To do",
-  working: "In progress",
-  waiting: "Waiting",
-  done: "Done",
-};
 
 // Column order is dragged by header and remembered per browser. The checkbox and ⋯
 // columns stay pinned to the ends; only the ones between them move.
@@ -184,26 +184,6 @@ function isDone(t: Todo, completingIds: Set<number>) {
   return t.completed || isDoneToday(t) || completingIds.has(t.id);
 }
 
-function matchesStatus(t: Todo, filter: StatusFilter, completingIds: Set<number>) {
-  const done = isDone(t, completingIds);
-  // A task mid-tick stays visible in the open views so you see it leave.
-  const leaving = completingIds.has(t.id);
-  switch (filter) {
-    case "all":
-      return true;
-    case "done":
-      return done;
-    case "open":
-      return !done || leaving;
-    case "working":
-      return (!done || leaving) && t.in_progress;
-    case "waiting":
-      return (!done || leaving) && t.waiting && !t.in_progress;
-    case "todo":
-      return (!done || leaving) && !t.in_progress && !t.waiting;
-  }
-}
-
 // The default order when no column is sorted: working now first, then the manual
 // queue number, priority, and oldest first — same as the mobile list.
 function defaultOrder(a: Todo, b: Todo) {
@@ -226,8 +206,7 @@ function formatDue(iso: string | null) {
 }
 
 function todayKey() {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  return dayKey(new Date());
 }
 
 function readParam(key: string) {
@@ -391,7 +370,6 @@ function TitleCell({
             )}
           </button>
         )}
-        <TaskLatestUpdate todo={todo} className="mt-1 max-w-xl whitespace-normal text-xs" />
         {addingStep && (
           <form onSubmit={addStep} className="mt-1 flex max-w-md items-center gap-1.5">
             <Input
@@ -444,10 +422,56 @@ export function TaskTable({
   onLocalPatch,
   onSetPinned,
 }: TaskTableProps) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
-  const [categoryFilter, setCategoryFilter] = useState<TaskCategory | "none" | "all">("all");
+  // Notion-style view tabs: each keeps its own filters, sorts and grouping, saved to
+  // /api/task-views so they follow Berto across devices. Until they load, the
+  // defaults stand in (they're the same tabs a fresh install gets).
+  const [views, setViews] = useState<TaskView[]>(DEFAULT_VIEWS);
+  const [activeViewId, setActiveViewId] = useState("open");
+  const [newRuleId, setNewRuleId] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const view = views.find((v) => v.id === activeViewId) ?? views[0];
+  const sorting = view.sorting as SortingState;
+
+  const viewsDirty = useRef(false);
+  const commitViews = useCallback((update: (prev: TaskView[]) => TaskView[]) => {
+    viewsDirty.current = true;
+    setViews(update);
+  }, []);
+  const updateView = useCallback(
+    (patch: (v: TaskView) => Partial<TaskView>) =>
+      commitViews((prev) => prev.map((v) => (v.id === view.id ? { ...v, ...patch(v) } : v))),
+    [commitViews, view.id],
+  );
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/task-views")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const loaded = parseViews(body?.views);
+        if (!cancelled && loaded && !viewsDirty.current) setViews(loaded);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    if (!viewsDirty.current) return;
+    const id = window.setTimeout(() => {
+      fetch("/api/task-views", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ views }),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error();
+        })
+        .catch(() => toast.error("Couldn't save the view."));
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [views]);
+
   const [expanded, setExpanded] = useState<ExpandedState>(true);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({ created_at: false, recurrence: false });
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
@@ -470,24 +494,66 @@ export function TaskTable({
   const composerRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Filters live in the URL so a view is linkable: /tasks?status=waiting&category=sales.
+  // The open tab lives in the URL so a view is linkable by name: /tasks?view=waiting.
   useEffect(() => {
-    const s = readParam("status");
-    if (s && STATUS_FILTERS.some((f) => f.value === s)) setStatusFilter(s as StatusFilter);
-    const c = readParam("category");
-    if (c && (c === "none" || (TASK_CATEGORIES as readonly string[]).includes(c))) {
-      setCategoryFilter(c as TaskCategory | "none");
-    }
+    const v = readParam("view") ?? LEGACY_STATUS_VIEW[readParam("status") ?? ""];
+    if (v) setActiveViewId(v);
     const q = readParam("q");
     if (q) setSearch(q);
   }, []);
   useEffect(() => {
     writeParams({
-      status: statusFilter === "open" ? null : statusFilter,
-      category: categoryFilter === "all" ? null : categoryFilter,
+      view: view.id === views[0].id ? null : view.id,
+      status: null,
+      category: null,
       q: search.trim() || null,
     });
-  }, [statusFilter, categoryFilter, search]);
+  }, [view.id, views, search]);
+
+  const addView = useCallback(() => {
+    const id = slugify("Untitled", new Set(views.map((v) => v.id)));
+    commitViews((prev) => [...prev, { id, name: "Untitled", filters: [], sorting: [], groupBy: "none" }]);
+    setActiveViewId(id);
+  }, [commitViews, views]);
+  const renameView = useCallback(
+    (id: string, name: string) => {
+      const newId = slugify(name, new Set(views.filter((v) => v.id !== id).map((v) => v.id)));
+      commitViews((prev) => prev.map((v) => (v.id === id ? { ...v, id: newId, name } : v)));
+      if (activeViewId === id) setActiveViewId(newId);
+    },
+    [activeViewId, commitViews, views],
+  );
+  const duplicateView = useCallback(
+    (id: string) => {
+      const src = views.find((v) => v.id === id);
+      if (!src) return;
+      const name = `${src.name} copy`;
+      const copy = { ...structuredClone(src), id: slugify(name, new Set(views.map((v) => v.id))), name };
+      commitViews((prev) => {
+        const i = prev.findIndex((v) => v.id === id);
+        return [...prev.slice(0, i + 1), copy, ...prev.slice(i + 1)];
+      });
+      setActiveViewId(copy.id);
+    },
+    [commitViews, views],
+  );
+  const deleteView = useCallback(
+    (id: string) => {
+      if (views.length <= 1) return;
+      const rest = views.filter((v) => v.id !== id);
+      commitViews(() => rest);
+      if (activeViewId === id) setActiveViewId(rest[0].id);
+    },
+    [activeViewId, commitViews, views],
+  );
+
+  const addRule = (rule: FilterRule) => {
+    updateView((v) => ({ filters: [...v.filters, rule] }));
+    setNewRuleId(rule.id);
+  };
+  const changeRule = (rule: FilterRule) =>
+    updateView((v) => ({ filters: v.filters.map((r) => (r.id === rule.id ? rule : r)) }));
+  const removeRule = (id: string) => updateView((v) => ({ filters: v.filters.filter((r) => r.id !== id) }));
 
   // "N" opens the composer and "/" jumps to search, unless you're already typing.
   useEffect(() => {
@@ -509,8 +575,10 @@ export function TaskTable({
   }, []);
 
   // Build the tree: top-level tasks, with pipeline steps (parent_id) as sub-rows.
-  // Status filtering happens here rather than in TanStack so a piece stays visible
-  // while any of its steps match, and steps follow the same filter as their piece.
+  // The view's filters run here rather than in TanStack so a piece stays visible
+  // while any of its steps match. Steps usually have no category of their own, so
+  // they're matched with their piece's.
+  const matchCtx = useMemo<MatchContext>(() => ({ completingIds, today: todayKey() }), [completingIds]);
   const data = useMemo<Row[]>(() => {
     const children = new Map<number, Todo[]>();
     for (const t of todos) {
@@ -524,19 +592,16 @@ export function TaskTable({
     const roots = todos.filter((t) => t.parent_id == null || !ids.has(t.parent_id));
     const rows: Row[] = [];
     for (const t of roots) {
-      if (categoryFilter !== "all") {
-        if (categoryFilter === "none" ? t.category != null : t.category !== categoryFilter) continue;
-      }
       const kids = (children.get(t.id) ?? [])
-        .filter((c) => matchesStatus(c, statusFilter, completingIds))
+        .filter((c) => matchesFilters({ ...c, category: c.category ?? t.category }, view.filters, matchCtx))
         .sort(defaultOrder)
         .map((c) => ({ ...c }));
-      const selfMatch = matchesStatus(t, statusFilter, completingIds);
+      const selfMatch = matchesFilters(t, view.filters, matchCtx);
       if (!selfMatch && kids.length === 0) continue;
       rows.push(kids.length ? { ...t, subRows: kids } : { ...t });
     }
     return rows.sort(defaultOrder);
-  }, [todos, statusFilter, categoryFilter, completingIds]);
+  }, [todos, view.filters, matchCtx]);
 
   const childCounts = useMemo(() => {
     const m = new Map<number, { done: number; total: number }>();
@@ -987,7 +1052,7 @@ export function TaskTable({
     data,
     columns,
     state: { sorting, expanded, columnVisibility, columnOrder, globalFilter: search },
-    onSortingChange: setSorting,
+    onSortingChange: (u) => updateView((v) => ({ sorting: typeof u === "function" ? u(v.sorting as SortingState) : u })),
     onExpandedChange: setExpanded,
     onColumnVisibilityChange: setColumnVisibility,
     onColumnOrderChange: setColumnOrder,
@@ -998,12 +1063,11 @@ export function TaskTable({
     getExpandedRowModel: getExpandedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Search matches the title and the latest update; a step matching keeps its piece.
+    // Search matches the title; a step matching keeps its piece.
     globalFilterFn: (row, _columnId, value: string) => {
       const q = value.trim().toLowerCase();
       if (!q) return true;
-      const t = row.original;
-      return t.title.toLowerCase().includes(q) || (t.last_update ?? "").toLowerCase().includes(q);
+      return row.original.title.toLowerCase().includes(q);
     },
     getColumnCanGlobalFilter: (col) => col.id === "title",
     filterFromLeafRows: true,
@@ -1013,7 +1077,50 @@ export function TaskTable({
   const rows = table.getRowModel().rows;
   const openCount = todos.filter((t) => !isDone(t, new Set())).length;
   const doneTodayCount = todos.filter(isDoneToday).length;
-  const filtered = statusFilter !== "open" || categoryFilter !== "all" || search.trim() !== "";
+  const filtered = view.filters.length > 0 || search.trim() !== "";
+
+  // Group by: bucket each top-level row (its steps ride along under it) by the
+  // view's group field, in the field's natural order. Empty groups are hidden.
+  const groups = useMemo(() => {
+    if (view.groupBy === "none") return null;
+    const buckets = new Map<string, typeof rows>();
+    let key = "";
+    for (const r of rows) {
+      if (r.depth === 0) key = groupKeyOf(r.original, view.groupBy, matchCtx);
+      const list = buckets.get(key) ?? [];
+      list.push(r);
+      buckets.set(key, list);
+    }
+    return groupDefs(view.groupBy)
+      .filter((g) => buckets.has(g.key))
+      .map((g) => ({ ...g, rows: buckets.get(g.key)!, count: buckets.get(g.key)!.filter((r) => r.depth === 0).length }));
+  }, [rows, view.groupBy, matchCtx]);
+
+  const renderRow = (row: (typeof rows)[number]) => {
+    const t = row.original;
+    // A task mid-tick fades out when checking it off will drop it from this view.
+    const leaving = completingIds.has(t.id) && !matchesFilters(t, view.filters, { ...matchCtx, asDone: true });
+    return (
+      <TableRow
+        key={row.id}
+        data-state={t.in_progress && !isDone(t, completingIds) ? "selected" : undefined}
+        className={cn("transition-opacity duration-500", row.depth > 0 && "bg-muted/20", leaving && "opacity-40")}
+      >
+        {row.getVisibleCells().map((cell) => (
+          <TableCell
+            key={cell.id}
+            className={cn(
+              "py-1.5 align-top",
+              cell.column.id === "done" && "pl-3 pt-2.5",
+              cell.column.id === "title" && "whitespace-normal",
+            )}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        ))}
+      </TableRow>
+    );
+  };
 
   // A small drag threshold keeps a plain click on a header sorting, not dragging.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -1030,7 +1137,26 @@ export function TaskTable({
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="shrink-0 border-b px-5 py-3">
+      <div className="shrink-0 border-b px-5 pb-3 pt-2">
+        <div className="mb-2 flex items-center gap-3">
+          <ViewTabs
+            views={views}
+            activeId={view.id}
+            onSelect={setActiveViewId}
+            onAdd={addView}
+            onRename={renameView}
+            onDuplicate={duplicateView}
+            onDelete={deleteView}
+          />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {!loading && (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {openCount} open · {doneTodayCount} done today
+              </span>
+            )}
+            {!loading && <StreakChip />}
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
@@ -1061,57 +1187,10 @@ export function TaskTable({
               className="h-8 w-56 pl-8 text-sm"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger size="sm" className="h-8 w-36 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_FILTERS.map((f) => (
-                <SelectItem key={f.value} value={f.value} className="text-xs">
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={categoryFilter}
-            onValueChange={(v) => setCategoryFilter(v as TaskCategory | "none" | "all")}
-          >
-            <SelectTrigger size="sm" className="h-8 w-36 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">All categories</SelectItem>
-              <SelectItem value="none" className="text-xs">No category</SelectItem>
-              {TASK_CATEGORIES.map((c) => (
-                <SelectItem key={c} value={c} className="text-xs">
-                  {TASK_CATEGORY_LABELS[c]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filtered && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={() => {
-                setStatusFilter("open");
-                setCategoryFilter("all");
-                setSearch("");
-              }}
-            >
-              Reset
-              <XIcon className="size-3" />
-            </Button>
-          )}
+          <AddFilterButton onAdd={addRule} />
+          <SortMenu sorting={view.sorting} onChange={(s) => updateView(() => ({ sorting: s }))} />
+          <GroupMenu groupBy={view.groupBy} onChange={(g) => updateView(() => ({ groupBy: g }))} />
           <div className="ml-auto flex items-center gap-2">
-            {!loading && (
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {openCount} open · {doneTodayCount} done today
-              </span>
-            )}
-            {!loading && <StreakChip />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
@@ -1144,6 +1223,21 @@ export function TaskTable({
             </DropdownMenu>
           </div>
         </div>
+
+        {view.filters.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {view.filters.map((r) => (
+              <FilterChip
+                key={r.id}
+                rule={r}
+                defaultOpen={r.id === newRuleId}
+                onChange={changeRule}
+                onRemove={() => removeRule(r.id)}
+              />
+            ))}
+            <AddFilterButton onAdd={addRule} label="Add filter" className="h-7" />
+          </div>
+        )}
 
         {composerOpen && (
           <form onSubmit={createTask} className="mt-3 flex items-center gap-2">
@@ -1229,35 +1323,36 @@ export function TaskTable({
                     {filtered ? "No tasks match these filters." : "Nothing left for today."}
                   </TableCell>
                 </TableRow>
-              ) : (
-                rows.map((row) => {
-                  const t = row.original;
-                  const leaving = completingIds.has(t.id) && statusFilter !== "done" && statusFilter !== "all";
-                  return (
-                    <TableRow
-                      key={row.id}
-                      data-state={t.in_progress && !isDone(t, completingIds) ? "selected" : undefined}
-                      className={cn(
-                        "transition-opacity duration-500",
-                        row.depth > 0 && "bg-muted/20",
-                        leaving && "opacity-40",
-                      )}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            "py-1.5 align-top",
-                            cell.column.id === "done" && "pl-3 pt-2.5",
-                            cell.column.id === "title" && "whitespace-normal",
-                          )}
+              ) : groups ? (
+                groups.flatMap((g) => {
+                  const collapsed = collapsedGroups.has(g.key);
+                  return [
+                    <TableRow key={`group-${g.key}`} className="hover:bg-transparent">
+                      <TableCell colSpan={table.getVisibleLeafColumns().length} className="bg-muted/30 py-1.5 pl-3">
+                        <button
+                          type="button"
+                          aria-expanded={!collapsed}
+                          onClick={() =>
+                            setCollapsedGroups((s) => {
+                              const next = new Set(s);
+                              if (next.has(g.key)) next.delete(g.key);
+                              else next.add(g.key);
+                              return next;
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 text-xs font-medium"
                         >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  );
+                          <ChevronRightIcon className={cn("size-3.5 transition-transform", !collapsed && "rotate-90")} />
+                          {g.label}
+                          <span className="font-normal tabular-nums text-muted-foreground">{g.count}</span>
+                        </button>
+                      </TableCell>
+                    </TableRow>,
+                    ...(collapsed ? [] : g.rows.map(renderRow)),
+                  ];
                 })
+              ) : (
+                rows.map(renderRow)
               )}
             </TableBody>
           </Table>

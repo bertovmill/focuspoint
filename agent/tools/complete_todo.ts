@@ -1,9 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { getDb } from "../../lib/db";
-import { buildDoneBlock } from "../../lib/done-block";
-import { TASK_CATEGORY_LABELS, normalizeCategory } from "../../lib/task-categories";
-import { createRawCalendarEvent, resolveGoogleToken } from "../lib/google-calendar";
 
 function nextDueDate(recurrence: string): string {
   const today = new Date();
@@ -11,32 +8,6 @@ function nextDueDate(recurrence: string): string {
   else if (recurrence === "weekly") today.setDate(today.getDate() + 7);
   else if (recurrence === "monthly") today.setMonth(today.getMonth() + 1);
   return today.toISOString().split("T")[0];
-}
-
-// Plots the finished work onto Google Calendar so past weeks can be audited.
-// Best-effort — a calendar problem must never make a completed task look failed.
-async function logToCalendar(id: number, finished: Record<string, unknown> | undefined) {
-  if (!finished) return;
-  try {
-    const token = await resolveGoogleToken();
-    if (!token) return;
-    const category = normalizeCategory(finished.category);
-    const result = await createRawCalendarEvent(
-      token,
-      buildDoneBlock({
-        title: String(finished.title ?? "Task"),
-        time_spent_seconds: Number(finished.time_spent_seconds ?? 0),
-        estimated_minutes: finished.estimated_minutes as number | null,
-        categoryLabel: category ? TASK_CATEGORY_LABELS[category] : null,
-      }),
-    );
-    if (result.success && result.eventId) {
-      const sql = getDb();
-      await sql`UPDATE todos SET calendar_event_id = ${result.eventId} WHERE id = ${id}`;
-    }
-  } catch {
-    // not connected / network blip — the task is still done
-  }
 }
 
 export default defineTool({
@@ -57,11 +28,6 @@ export default defineTool({
       WHERE id = ${id} AND timer_started_at IS NOT NULL
     `;
 
-    // Read back after banking the timer so the calendar block reflects the final time.
-    const [finished] = await sql`
-      SELECT title, time_spent_seconds, estimated_minutes, category FROM todos WHERE id = ${id}
-    `;
-
     const recurring = Boolean(todo.recurrence && todo.recurrence !== "none");
     let next_due: string | undefined;
     if (recurring) {
@@ -71,7 +37,6 @@ export default defineTool({
       await sql`UPDATE todos SET completed = TRUE, completed_at = NOW(), in_progress = FALSE WHERE id = ${id}`;
     }
 
-    await logToCalendar(id, finished);
     return { success: true, title: todo.title, recurring, next_due };
   },
   toModelOutput(output) {

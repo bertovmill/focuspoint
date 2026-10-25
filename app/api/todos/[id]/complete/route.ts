@@ -19,13 +19,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           success: true,
           recurring: true,
           next_due: result.next_due,
-          calendar_event_id: result.calendar_event_id,
         })
       : NextResponse.json({
           success: true,
           recurring: false,
           repeated: result.repeated,
-          calendar_event_id: result.calendar_event_id,
         });
   } catch {
     return NextResponse.json({ error: "Failed" }, { status: 500 });

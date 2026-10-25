@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/db";
 import { hasWorkingSlot, workingLimitMessage } from "@/lib/working-now";
-import { logCompletedTaskToCalendar } from "@/lib/task-calendar";
-import { TASK_CATEGORY_LABELS, normalizeCategory } from "@/lib/task-categories";
+import { normalizeCategory } from "@/lib/task-categories";
 import {
   LATEST_UPDATE_COLUMNS,
   LATEST_UPDATE_JOIN,
@@ -184,12 +183,10 @@ export type CompleteResult =
       recurring: boolean;
       next_due: string | null;
       repeated: TaskRow | null;
-      calendar_event_id: string | null;
     };
 
 /**
- * Cross a task off. Banks any running timer, plots a done-block onto Google
- * Calendar, and — with `repeat` (tomorrow) or `followUpDays` (any number of days
+ * Cross a task off. Banks any running timer and — with `repeat` (tomorrow) or `followUpDays` (any number of days
  * out) — lines the same work up again for later. A recurring task rolls its due
  * date forward instead of being marked done.
  */
@@ -211,11 +208,6 @@ export async function completeTask(
     WHERE id = ${id} AND timer_started_at IS NOT NULL
   `;
 
-  // Read back after banking the timer so the calendar block reflects the final time.
-  const [finished] = await sql`
-    SELECT title, time_spent_seconds, estimated_minutes, category FROM todos WHERE id = ${id}
-  `;
-
   const recurring = Boolean(todo.recurrence && todo.recurrence !== "none");
   let next_due: string | null = null;
   if (recurring) {
@@ -228,23 +220,9 @@ export async function completeTask(
     await sql`UPDATE todos SET completed = TRUE, completed_at = NOW(), in_progress = FALSE, task_number = NULL WHERE id = ${id}`;
   }
 
-  // Plot the finished work onto Google Calendar so past weeks can be audited.
-  // Best-effort: a null event id just means nothing was written.
-  const category = normalizeCategory(finished?.category);
-  const eventId = await logCompletedTaskToCalendar({
-    title: (finished?.title as string) ?? "Task",
-    time_spent_seconds: finished?.time_spent_seconds as number | undefined,
-    estimated_minutes: finished?.estimated_minutes as number | undefined,
-    categoryLabel: category ? TASK_CATEGORY_LABELS[category] : null,
-  });
-  if (eventId) {
-    await sql`UPDATE todos SET calendar_event_id = ${eventId} WHERE id = ${id}`;
-  }
-
   // A one-off task asked to repeat gets a fresh copy of itself dated N days out:
   // same title, priority, estimate, category, lane and card colour, but a clean
-  // timer and no queue slot. The original stays completed so today's record —
-  // and its calendar block — survives.
+  // timer and no queue slot. The original stays completed so today's record survives.
   let repeated: TaskRow | null = null;
   if (followUp !== null && !recurring) {
     const [source] = await sql`
@@ -261,7 +239,7 @@ export async function completeTask(
     }
   }
 
-  return { ok: true, recurring, next_due, repeated, calendar_event_id: eventId };
+  return { ok: true, recurring, next_due, repeated };
 }
 
 /** What a caller can set when putting a new task on the board. */

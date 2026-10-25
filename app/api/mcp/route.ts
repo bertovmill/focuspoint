@@ -341,7 +341,6 @@ const handler = createMcpHandler(
         const notes = [
           result.recurring ? `It recurs — next due ${result.next_due}.` : null,
           result.repeated ? `Queued again for ${result.repeated.due_date} as #${result.repeated.id}.` : null,
-          result.calendar_event_id ? "Logged to Google Calendar." : null,
         ].filter(Boolean);
         return ok([`Completed #${id}.`, ...notes].join(" "), {
           id,

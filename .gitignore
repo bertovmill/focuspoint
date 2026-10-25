@@ -23,4 +23,3 @@ __pycache__
 out
 .turbo
 !.env.example
-/.swc

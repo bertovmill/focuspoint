@@ -28,6 +28,30 @@ the test meal and the profile were cleared afterwards.
 
 ---
 
+## 2026-10-25 — Home: strategy folded into the calendar, keep/drop/done per activity
+
+- The separate "Today's strategy" block is gone (Berto: just show recommended
+  activities in the calendar). The calendar block now has the day's theme on top with
+  a **Rewrite** link (optional note), and the suggested activities sit in the
+  timeline's free time as dashed outlines with **✓ keep / ✕ drop**. A kept one turns
+  solid with a round box to tick when done (strikethrough). Dropped ones disappear.
+- Rewriting keeps what he kept and only replaces the rest; kept ones are passed to
+  the model as busy time.
+- Data: each block in `day_strategies.blocks` now has `state` (suggested | kept |
+  dropped) and `done`. PATCH `/api/day-strategy` takes `{ day, index, state?, done? }`.
+  Rows from the earlier whole-plan "Yes" (`status = 'accepted'`) read as all kept.
+- **Google Calendar got disconnected while testing.** The local `.env.local`
+  `GOOGLE_CLIENT_ID` is stale ("OAuth client was not found"). When the stored access
+  token expired, the local preview's refresh failed with `invalid_client`, and
+  `lib/google.ts` treated any 400/401 as "revoked" and deleted the shared
+  `google_auth` row. Fixed: it now only deletes on `invalid_grant`. Berto has to
+  reconnect at /calendar once. Local `.env.local` Google creds still need refreshing.
+- Files: `lib/day-strategy.ts`, `app/api/day-strategy/route.ts`,
+  `app/_components/today-snapshot.tsx`, `app/_components/home-screen.tsx`,
+  `app/_components/home-grid.tsx`, `lib/google.ts`; removed `app/_components/day-strategy.tsx`.
+
+---
+
 ## 2026-10-25 — Home: accepted strategy drawn on the calendar timeline
 
 - Once he taps **Yes** on Today's strategy, its blocks show on the calendar timeline as

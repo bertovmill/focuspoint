@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, ShuffleIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, RefreshCwIcon, ShuffleIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { sessionHref } from "@/app/_components/session-editor";
 import { MealFeedback } from "@/app/_components/meal-feedback";
 import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
+import type { DayStrategy, StrategyBlock } from "@/lib/day-strategy";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
 import { MEAL_SLOTS, addDaysISO, recipeHref, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -410,15 +413,16 @@ function hourLabel(h: number): string {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
-/** A time block from Home's day strategy (lib/day-strategy.ts), once he's said yes to it. */
-interface PlanBlock {
-  start: string;
-  end: string;
-  title: string;
+/** The browser's view of a day: local-midnight bounds and time zone, for the strategy's calendar read. */
+function planWindow(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  return {
+    day,
+    timeMin: new Date(y, m - 1, d).toISOString(),
+    timeMax: new Date(y, m - 1, d + 1).toISOString(),
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
 }
-
-/** Window event the strategy block fires when the day's strategy changes (app/_components/day-strategy.tsx). */
-const STRATEGY_EVENT = "cael:day-strategy";
 
 /** "13:30" → minutes since midnight. */
 function hhmmMinutes(hhmm: string): number {
@@ -460,9 +464,14 @@ function placeEvents(events: CalendarEvent[], day: string): Placed[] {
  * The whole day on his Google Calendar as an hour timeline (his ask, 2026-10-25),
  * 6 AM–10 PM, widened for anything earlier or later. Past events fade, the one on
  * now is green, and a line marks the time; it opens scrolled to now. All-day
- * events sit as chips above the hours. Once he's said yes to the day's strategy,
- * its blocks show as dashed outlines in the free time behind the events (his ask,
- * 2026-10-25). Follows the home screen's day swipe.
+ * events sit as chips above the hours. Follows the home screen's day swipe.
+ *
+ * Cael's strategy for the day lives in here too (lib/day-strategy.ts; his ask,
+ * 2026-10-25, replacing a separate block): a theme line on top, and suggested
+ * activities in the free time as dashed outlines with ✓ keep / ✕ drop. A kept one
+ * turns solid with a box to tick when done. Today's strategy writes itself on
+ * first view; "Rewrite" takes a note and replaces the suggestions, keeping what
+ * he kept.
  */
 export function CalendarToday({ today }: { today: string }) {
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
@@ -470,29 +479,65 @@ export function CalendarToday({ today }: { today: string }) {
   // Ticks each minute so the now line and fading keep up, without a refetch.
   const [now, setNow] = useState(() => Date.now());
   const scroller = useRef<HTMLDivElement>(null);
-  const [plan, setPlan] = useState<PlanBlock[]>([]);
+  // undefined while loading, null when the day has none yet.
+  const [strategy, setStrategy] = useState<DayStrategy | null | undefined>(undefined);
+  const [writing, setWriting] = useState(false);
+  const [rewriting, setRewriting] = useState(false);
+  const [note, setNote] = useState("");
 
-  // The accepted strategy's blocks: read on load, then kept current by the
-  // strategy block's event as he says yes, changes it or rewrites it.
+  const writeStrategy = async (feedback?: string) => {
+    setWriting(true);
+    try {
+      const res = await fetch("/api/day-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...planWindow(today), feedback }),
+      });
+      if (!res.ok) throw new Error();
+      setStrategy((await res.json()) as DayStrategy);
+      setRewriting(false);
+      setNote("");
+    } catch {
+      toast.error("Couldn't write a strategy.");
+    } finally {
+      setWriting(false);
+    }
+  };
+
   useEffect(() => {
     let stale = false;
-    setPlan([]);
-    const show = (s: { day: string; status: string; blocks: PlanBlock[] } | null) =>
-      !stale && setPlan(s && s.day === today && s.status === "accepted" ? s.blocks : []);
+    setStrategy(undefined);
+    setRewriting(false);
     fetch(`/api/day-strategy?day=${today}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then(show)
-      .catch(() => {});
-    const onChange = (e: Event) => {
-      const s = (e as CustomEvent).detail;
-      if (s?.day === today) show(s);
-    };
-    window.addEventListener(STRATEGY_EVENT, onChange);
+      .then(async (res) => {
+        if (stale) return;
+        const data = res.ok ? ((await res.json()) as DayStrategy | null) : null;
+        setStrategy(data);
+        // Today's plan writes itself the first time Home opens that day.
+        if (!data && res.ok && today === todayISO()) void writeStrategy();
+      })
+      .catch(() => !stale && setStrategy(null));
     return () => {
       stale = true;
-      window.removeEventListener(STRATEGY_EVENT, onChange);
     };
+    // writeStrategy only reads `today`, which this effect already keys on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
+
+  const updateBlock = async (index: number, patch: Partial<Pick<StrategyBlock, "state" | "done">>) => {
+    if (!strategy) return;
+    const prev = strategy;
+    setStrategy({ ...strategy, blocks: strategy.blocks.map((b, i) => (i === index ? { ...b, ...patch } : b)) });
+    const res = await fetch("/api/day-strategy", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day: today, index, ...patch }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setStrategy(prev);
+      toast.error("Couldn't save that.");
+    }
+  };
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
@@ -526,7 +571,11 @@ export function CalendarToday({ today }: { today: string }) {
   const timed = (events ?? []).filter((e) => !spansDay(e));
   const allDay = (events ?? []).filter(spansDay);
   const placed = placeEvents(timed, today);
-  const planned = plan.map((b) => ({ ...b, top: hhmmMinutes(b.start), bottom: Math.max(hhmmMinutes(b.end), hhmmMinutes(b.start) + 15) }));
+  // Index kept from `blocks`, which the PATCH addresses activities by.
+  const planned = (strategy?.blocks ?? [])
+    .map((b, index) => ({ ...b, index, top: hhmmMinutes(b.start), bottom: Math.max(hhmmMinutes(b.end), hhmmMinutes(b.start) + 15) }))
+    .filter((b) => b.state !== "dropped");
+  const isPast = today < todayISO();
   const fromH = Math.min(DAY_FROM_H, ...placed.map((p) => Math.floor(p.top / 60)), ...planned.map((b) => Math.floor(b.top / 60)));
   const toH = Math.max(DAY_TO_H, ...placed.map((p) => Math.ceil(p.bottom / 60)), ...planned.map((b) => Math.ceil(b.bottom / 60)));
   const y = (mins: number) => ((mins - fromH * 60) / 60) * HOUR_PX;
@@ -560,6 +609,59 @@ export function CalendarToday({ today }: { today: string }) {
           </Link>
         ) : (
           <>
+            <div id="day-strategy" className="mb-3 px-2">
+              {strategy === undefined || writing ? (
+                <div className="space-y-1.5">
+                  {writing && <p className="text-xs text-muted-foreground">Cael is planning your day…</p>}
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ) : strategy === null ? (
+                !isPast && (
+                  <button type="button" onClick={() => writeStrategy()} className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+                    Plan this day
+                  </button>
+                )
+              ) : rewriting ? (
+                <form
+                  className="space-y-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void writeStrategy(note.trim() || "Try a different plan.");
+                  }}
+                >
+                  <Textarea
+                    autoFocus
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="What should change? (optional) — kept activities stay"
+                    className="min-h-16 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) e.currentTarget.form?.requestSubmit();
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm">
+                      <RefreshCwIcon />
+                      Rewrite
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setRewriting(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm font-medium leading-snug">{strategy.theme}</p>
+                  <button
+                    type="button"
+                    onClick={() => setRewriting(true)}
+                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    Rewrite
+                  </button>
+                </div>
+              )}
+            </div>
             {allDay.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5 pl-14">
                 {allDay.map((e) => (
@@ -581,23 +683,65 @@ export function CalendarToday({ today }: { today: string }) {
                 ))}
 
                 <div className="absolute inset-y-0 left-14 right-1">
-                  {planned.map((b, i) => {
-                    const height = Math.max(y(b.bottom) - y(b.top) - 2, 18);
+                  {planned.map((b) => {
+                    const height = Math.max(y(b.bottom) - y(b.top) - 2, 20);
+                    const kept = b.state === "kept";
                     return (
                       <div
-                        key={`plan-${i}`}
-                        data-plan-block
-                        title={`Strategy: ${b.title}`}
+                        key={`plan-${b.index}`}
+                        data-plan-block={b.state}
+                        title={`${b.title} — ${b.why}`}
                         className={cn(
-                          "absolute inset-x-0 overflow-hidden rounded-md border border-dashed border-emerald-500/60 bg-emerald-500/5 px-2 py-0.5 text-xs leading-tight text-emerald-700 dark:text-emerald-300",
-                          hhmmMinutes(b.end) <= (nowMin ?? -1) && "opacity-45",
+                          "absolute inset-x-0 flex items-start gap-1.5 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-tight text-emerald-800 dark:text-emerald-200",
+                          kept
+                            ? "border-l-2 border-emerald-600 bg-emerald-500/10"
+                            : "border border-dashed border-emerald-500/60 bg-emerald-500/5",
+                          b.done && "opacity-50",
                         )}
                         style={{ top: y(b.top) + 1, height }}
                       >
-                        <span className="font-medium">{b.title}</span>
-                        {height >= 34 && (
-                          <span className="block text-[10px] opacity-75">
-                            {clockTime(`2000-01-01T${b.start}`)}–{clockTime(`2000-01-01T${b.end}`)}
+                        {kept && (
+                          <button
+                            type="button"
+                            onClick={() => updateBlock(b.index, { done: !b.done })}
+                            aria-label={b.done ? "Mark not done" : "Mark done"}
+                            className={cn(
+                              "mt-px flex size-3.5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                              b.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-600/70 hover:bg-emerald-500/20",
+                            )}
+                          >
+                            {b.done && <CheckIcon className="size-2.5" strokeWidth={3} />}
+                          </button>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className={cn("font-medium", b.done && "line-through")}>{b.title}</span>
+                          {height >= 34 && (
+                            <span className="block text-[10px] opacity-75">
+                              {clockTime(`2000-01-01T${b.start}`)}–{clockTime(`2000-01-01T${b.end}`)}
+                              {!kept && " · suggested"}
+                            </span>
+                          )}
+                        </div>
+                        {!kept && (
+                          <span className="flex shrink-0 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => updateBlock(b.index, { state: "kept" })}
+                              aria-label={`Keep ${b.title}`}
+                              title="Keep"
+                              className="flex size-4 items-center justify-center rounded text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+                            >
+                              <CheckIcon className="size-3" strokeWidth={2.5} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateBlock(b.index, { state: "dropped" })}
+                              aria-label={`Drop ${b.title}`}
+                              title="Drop"
+                              className="flex size-4 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                              <XIcon className="size-3" strokeWidth={2.5} />
+                            </button>
                           </span>
                         )}
                       </div>

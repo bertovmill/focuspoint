@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { generateDayStrategy, getDayStrategy, setDayStrategyStatus } from "@/lib/day-strategy";
+import { generateDayStrategy, getDayStrategy, updateStrategyBlock } from "@/lib/day-strategy";
 
-// Home's "Today's strategy" block (lib/day-strategy.ts).
+// The day's strategy on Home's calendar (lib/day-strategy.ts).
 // The model call takes a few seconds; give it room.
 export const maxDuration = 60;
 
@@ -33,14 +33,18 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH { day, status: "accepted" | "proposed" } — his yes, or reopening it.
+// PATCH { day, index, state?: "suggested" | "kept" | "dropped", done?: boolean } — keep, drop or tick one activity.
 export async function PATCH(req: Request) {
   try {
-    const { day, status } = await req.json();
-    if (!DAY_RE.test(day ?? "") || (status !== "accepted" && status !== "proposed")) {
-      return NextResponse.json({ error: "day and status are required" }, { status: 400 });
+    const { day, index, state, done } = await req.json();
+    const patch: { state?: "suggested" | "kept" | "dropped"; done?: boolean } = {};
+    if (state === "suggested" || state === "kept" || state === "dropped") patch.state = state;
+    if (typeof done === "boolean") patch.done = done;
+    if (!DAY_RE.test(day ?? "") || !Number.isInteger(index) || Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: "day, index and a state or done are required" }, { status: 400 });
     }
-    return NextResponse.json(await setDayStrategyStatus(day, status));
+    const updated = await updateStrategyBlock(day, index, patch);
+    return updated ? NextResponse.json(updated) : NextResponse.json({ error: "Not found" }, { status: 404 });
   } catch {
     return NextResponse.json({ error: "Couldn't save that" }, { status: 500 });
   }

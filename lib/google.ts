@@ -167,12 +167,15 @@ export async function getAccessToken(): Promise<string | null> {
     }),
   });
   if (!res.ok) {
-    // invalid_grant = the refresh token was revoked/expired — force a reconnect
-    if (res.status === 400 || res.status === 401) {
+    const body = await res.text();
+    // invalid_grant = the refresh token was revoked/expired — force a reconnect.
+    // Only then: an invalid_client (a stale GOOGLE_CLIENT_ID in some local
+    // .env) once wiped the shared connection from a dev preview (2026-10-25).
+    if (/"invalid_grant"/.test(body)) {
       if (!seededFromEnv) await sql`DELETE FROM google_auth WHERE id = 1`;
       return null;
     }
-    throw new Error(`Token refresh failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Token refresh failed: ${res.status} ${body}`);
   }
   const tokens: { access_token: string; expires_in: number } = await res.json();
   const newExpiry = new Date(Date.now() + tokens.expires_in * 1000).toISOString();

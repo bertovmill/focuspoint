@@ -31,7 +31,6 @@ import { ModeToggle } from "@/app/_components/mode-toggle";
 import { PinButton } from "@/app/_components/pin-button";
 import type { WorkoutLog } from "@/app/_components/workout-chart";
 import { CalendarToday, MealsToday, TrainingToday } from "@/app/_components/today-snapshot";
-import { DayStrategyToday } from "@/app/_components/day-strategy";
 import { HomeGrid } from "@/app/_components/home-grid";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
@@ -461,7 +460,6 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               { id: "vision", label: "Vision", node: <HomeSections /> },
               { id: "training", label: "Training", daily: true, node: <TrainingToday today={date} /> },
               { id: "meals", label: "Meals", daily: true, node: <MealsToday today={date} /> },
-              { id: "strategy", label: "Strategy", daily: true, node: <DayStrategyToday today={date} /> },
               { id: "calendar", label: "Calendar", daily: true, node: <CalendarToday today={date} /> },
               { id: "tasks", label: "Tasks", node: <HomeTasks /> },
               { id: "principles", label: "Principles", node: <PrinciplesDoc /> },

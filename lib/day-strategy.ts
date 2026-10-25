@@ -6,11 +6,12 @@ import { listHomeSections } from "@/lib/home-sections";
 import { getPrinciples } from "@/lib/principles";
 import { listTasks } from "@/lib/tasks";
 
-// The "Today's strategy" block on Home (his ask, 2026-10-25): an AI-written
-// plan for the day — one line of theme, then a few time blocks in the free gaps
-// of his calendar, each tied to his Vision sections or Principles. It's only a
-// suggestion until he says yes; "no" takes an optional note and writes a new
-// one. One row per day; nothing is written to Google Calendar.
+// The day's strategy on Home's calendar (his ask, 2026-10-25): an AI-written
+// plan — one line of theme, then a few suggested activities in the free gaps of
+// his calendar, each tied to his Vision sections or Principles. Each activity is
+// a suggestion until he keeps (✓) or drops (✕) it, and a kept one is ticked when
+// done. "Rewrite" takes an optional note and replaces the suggestions, leaving
+// what he kept. One row per day; nothing is written to Google Calendar.
 // The table is also in ensureSchema (lib/db.ts); it's created lazily here
 // because the read paths skip ensureSchema.
 
@@ -21,15 +22,16 @@ export interface StrategyBlock {
   title: string;
   /** Which goal or principle it serves, in a few words. */
   why: string;
+  state: BlockState;
+  done: boolean;
 }
 
-export type StrategyStatus = "proposed" | "accepted";
+export type BlockState = "suggested" | "kept" | "dropped";
 
 export interface DayStrategy {
   day: string;
   theme: string;
   blocks: StrategyBlock[];
-  status: StrategyStatus;
   updated_at: string | null;
 }
 
@@ -55,11 +57,19 @@ function ensureTable() {
 }
 
 function toStrategy(row: Record<string, unknown>): DayStrategy {
+  // Rows from before per-activity keeping had one yes for the whole plan (`status`).
+  const keptAll = row.status === "accepted";
   return {
     day: String(row.day),
     theme: String(row.theme),
-    blocks: (row.blocks as StrategyBlock[]) ?? [],
-    status: row.status === "accepted" ? "accepted" : "proposed",
+    blocks: ((row.blocks as Partial<StrategyBlock>[]) ?? []).map((b) => ({
+      start: String(b.start),
+      end: String(b.end),
+      title: String(b.title ?? ""),
+      why: String(b.why ?? ""),
+      state: b.state ?? (keptAll ? "kept" : "suggested"),
+      done: Boolean(b.done),
+    })),
     updated_at: row.updated_at ? new Date(row.updated_at as string).toISOString() : null,
   };
 }
@@ -73,19 +83,26 @@ export async function getDayStrategy(day: string): Promise<DayStrategy | null> {
   return row ? toStrategy(row) : null;
 }
 
-async function saveDayStrategy(day: string, theme: string, blocks: StrategyBlock[], status: StrategyStatus) {
+// `status` is left at 'proposed' now that keeping is per activity (see toStrategy).
+async function saveDayStrategy(day: string, theme: string, blocks: StrategyBlock[]) {
   await ensureTable();
   await getDb()`
-    INSERT INTO day_strategies (day, theme, blocks, status) VALUES (${day}, ${theme}, ${JSON.stringify(blocks)}, ${status})
-    ON CONFLICT (day) DO UPDATE SET theme = EXCLUDED.theme, blocks = EXCLUDED.blocks, status = EXCLUDED.status, updated_at = NOW()
+    INSERT INTO day_strategies (day, theme, blocks, status) VALUES (${day}, ${theme}, ${JSON.stringify(blocks)}, 'proposed')
+    ON CONFLICT (day) DO UPDATE SET theme = EXCLUDED.theme, blocks = EXCLUDED.blocks, status = 'proposed', updated_at = NOW()
   `;
   return (await getDayStrategy(day))!;
 }
 
-export async function setDayStrategyStatus(day: string, status: StrategyStatus): Promise<DayStrategy | null> {
-  await ensureTable();
-  await getDb()`UPDATE day_strategies SET status = ${status}, updated_at = NOW() WHERE day = ${day}`;
-  return getDayStrategy(day);
+/** Keeps, drops or ticks one activity (by its index in `blocks`). Null if the day or activity isn't there. */
+export async function updateStrategyBlock(
+  day: string,
+  index: number,
+  patch: Partial<Pick<StrategyBlock, "state" | "done">>,
+): Promise<DayStrategy | null> {
+  const current = await getDayStrategy(day);
+  if (!current || !current.blocks[index]) return null;
+  const blocks = current.blocks.map((b, i) => (i === index ? { ...b, ...patch } : b));
+  return saveDayStrategy(day, current.theme, blocks);
 }
 
 /** The day being planned, as the browser sees it: its date, local-midnight bounds and time zone. */
@@ -107,7 +124,7 @@ const schema = z.object({
         why: z.string().describe("The goal or principle it serves, in his words where possible. Under 10 words."),
       }),
     )
-    .describe("3 to 5 blocks, in time order, all inside free time."),
+    .describe("3 to 5 new blocks (fewer if he's already keeping some), in time order, all inside free time."),
 });
 
 async function calendarLines(w: PlanWindow): Promise<string[]> {
@@ -141,8 +158,10 @@ export async function generateDayStrategy(w: PlanWindow, feedback?: string): Pro
     getPrinciples(),
     listTasks("open", 40),
     calendarLines(w),
-    feedback ? getDayStrategy(w.day) : Promise.resolve(null),
+    getDayStrategy(w.day),
   ]);
+
+  const kept = previous?.blocks.filter((b) => b.state === "kept") ?? [];
 
   const nowLocal = new Date().toLocaleString("en-GB", { timeZone: w.timeZone, weekday: "long", hour: "2-digit", minute: "2-digit" });
   const todayLocal = new Date().toLocaleDateString("en-CA", { timeZone: w.timeZone });
@@ -154,14 +173,14 @@ export async function generateDayStrategy(w: PlanWindow, feedback?: string): Pro
     `His day runs roughly 06:00–22:00.`,
     `## His vision\n${sections.map((s) => `### ${s.title}\n${s.content.trim() || "(empty)"}`).join("\n\n") || "(none written yet)"}`,
     `## His principles\n${principles.content.trim() || "(none written yet)"}`,
-    `## Calendar (busy — never overlap these)\n${calendar.join("\n") || "(nothing scheduled)"}`,
+    `## Calendar (busy — never overlap these)\n${[...calendar, ...kept.map((b) => `- ${b.start}–${b.end} ${b.title} (he's keeping this from your last plan)`)].join("\n") || "(nothing scheduled)"}`,
     `## Open tasks\n${
       tasks
         .map((t) => `- ${t.title}${t.priority ? ` [${t.priority}]` : ""}${t.due_date ? ` due ${String(t.due_date).slice(0, 10)}` : ""}${t.in_progress ? " (in progress)" : ""}`)
         .join("\n") || "(none)"
     }`,
     previous && feedback
-      ? `## His last suggestion, which he said no to\nTheme: ${previous.theme}\n${previous.blocks.map((b) => `- ${b.start}–${b.end} ${b.title}`).join("\n")}\n\nHis note: ${feedback}`
+      ? `## Your last plan, which he asked you to rewrite\nTheme: ${previous.theme}\n${previous.blocks.map((b) => `- ${b.start}–${b.end} ${b.title} (${b.state})`).join("\n")}\n\nHis note: ${feedback}`
       : feedback
         ? `## His note on what he wants\n${feedback}`
         : "",
@@ -183,7 +202,7 @@ export async function generateDayStrategy(w: PlanWindow, feedback?: string): Pro
 
   const blocks = output.blocks
     .filter((b) => /^\d{1,2}:\d{2}$/.test(b.start) && /^\d{1,2}:\d{2}$/.test(b.end))
-    .map((b) => ({ ...b, start: b.start.padStart(5, "0"), end: b.end.padStart(5, "0") }))
-    .sort((a, b) => a.start.localeCompare(b.start));
-  return saveDayStrategy(w.day, output.theme.trim(), blocks, "proposed");
+    .map((b): StrategyBlock => ({ ...b, start: b.start.padStart(5, "0"), end: b.end.padStart(5, "0"), state: "suggested", done: false }));
+  // What he kept stays; the new suggestions fill in around it.
+  return saveDayStrategy(w.day, output.theme.trim(), [...kept, ...blocks].sort((a, b) => a.start.localeCompare(b.start)));
 }

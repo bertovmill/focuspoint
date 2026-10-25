@@ -282,6 +282,17 @@ async function applySchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // Home's AI-written plan for the day, one row per day (lib/day-strategy.ts).
+  await sql`
+    CREATE TABLE IF NOT EXISTS day_strategies (
+      day DATE PRIMARY KEY,
+      theme TEXT NOT NULL,
+      blocks JSONB NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'proposed',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS vision_items (
       id SERIAL PRIMARY KEY,

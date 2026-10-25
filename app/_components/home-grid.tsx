@@ -34,8 +34,9 @@ export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
   { i: "vision", x: 0, y: 0, w: 6, h: 10 },
   { i: "training", x: 0, y: 10, w: 3, h: 8 },
   { i: "meals", x: 3, y: 10, w: 3, h: 8 },
-  { i: "calendar", x: 6, y: 0, w: 6, h: 6 },
-  { i: "tasks", x: 6, y: 6, w: 6, h: 28 },
+  { i: "strategy", x: 6, y: 0, w: 6, h: 14 },
+  { i: "calendar", x: 6, y: 14, w: 6, h: 17 },
+  { i: "tasks", x: 6, y: 31, w: 6, h: 28 },
   { i: "principles", x: 0, y: 18, w: 6, h: 10 },
 ];
 
@@ -44,6 +45,8 @@ export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
  * Status, Due and Priority columns (Berto, 2026-10-25); Calendar sits above it at the same width.
  */
 const MIN_W: Record<string, number> = { calendar: 6, tasks: 6 };
+/** Shortest a block may be, in grid rows: Calendar is an hour timeline now and needs room to read (2026-10-25). */
+const MIN_H: Record<string, number> = { calendar: 14 };
 
 /**
  * Widens any block narrower than its minimum, leftwards, and trims the blocks
@@ -71,15 +74,21 @@ function withMinWidths(layout: HomeBlockPosition[]): HomeBlockPosition[] {
 function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBlockPosition[] {
   let base = (saved ?? []).filter((p) => ids.includes(p.i));
   const missing = DEFAULT_HOME_LAYOUT.filter((d) => ids.includes(d.i) && !base.some((p) => p.i === d.i));
-  // A new block takes its default spot and pushes whatever sits there down,
-  // rather than the grid dropping it below the saved blocks.
+  // A new block takes its default spot, rather than the grid dropping it below
+  // the saved blocks: a block reaching into its column from the left is trimmed
+  // to fit beside it (as withMinWidths does), anything else there is pushed down.
   for (const d of missing) {
-    base = base.map((p) => (p.y >= d.y && p.x < d.x + d.w && d.x < p.x + p.w ? { ...p, y: p.y + d.h } : p));
+    base = base.map((p) => {
+      if (p.x >= d.x + d.w || d.x >= p.x + p.w) return p;
+      if (p.x < d.x && p.y + p.h > d.y) return { ...p, w: d.x - p.x };
+      return p.y >= d.y ? { ...p, y: p.y + d.h } : p;
+    });
   }
   const unknown = ids
     .filter((id) => !base.some((p) => p.i === id) && !missing.some((p) => p.i === id))
     .map((i) => ({ i, x: 0, y: Infinity, w: 8, h: 8 }));
-  return withMinWidths([...base, ...missing, ...unknown]);
+  // A block shorter than its minimum grows in place; the grid's compaction pushes the blocks under it down.
+  return withMinWidths([...base, ...missing, ...unknown]).map((p) => (MIN_H[p.i] && p.h < MIN_H[p.i] ? { ...p, h: MIN_H[p.i] } : p));
 }
 
 function readingOrder(layout: readonly HomeBlockPosition[]): string[] {
@@ -135,7 +144,7 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
       {asGrid ? (
         <ReactGridLayout
           width={width}
-          layout={layout.map((p) => (MIN_W[p.i] ? { ...p, minW: MIN_W[p.i] } : p))}
+          layout={layout.map((p) => ({ ...p, ...(MIN_W[p.i] && { minW: MIN_W[p.i] }), ...(MIN_H[p.i] && { minH: MIN_H[p.i] }) }))}
           gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [24, 0] }}
           dragConfig={{ enabled: true, handle: ".home-block-grip" }}
           resizeConfig={{ enabled: true, handles: ["se"] }}

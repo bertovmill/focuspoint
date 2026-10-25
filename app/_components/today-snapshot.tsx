@@ -31,7 +31,7 @@ export function TodaySnapshot({ date }: { date?: string } = {}) {
 }
 
 /** "Today's", "Tomorrow's", "Yesterday's", else the weekday: "Thursday's". */
-function dayPossessive(iso: string): string {
+export function dayPossessive(iso: string): string {
   const now = todayISO();
   if (iso === now) return "Today's";
   if (iso === addDaysISO(now, 1)) return "Tomorrow's";
@@ -370,25 +370,72 @@ interface CalendarEvent {
   allDay: boolean;
 }
 
-/** How many of the day's events the home screen shows (his ask, 2026-10-25). */
-const CALENDAR_LIMIT = 3;
-
 /** "2:30 PM" for an ISO date-time, in local time. */
 function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+/** Pixels per hour on the timeline. */
+const HOUR_PX = 48;
+/** The timeline always covers at least this much of the day; events outside widen it. */
+const DAY_FROM_H = 6;
+const DAY_TO_H = 22;
+
+/** Minutes since local midnight of `day`, clamped to the day. */
+function minuteOfDay(iso: string, day: string): number {
+  const [y, m, d] = day.split("-").map(Number);
+  const mins = (new Date(iso).getTime() - new Date(y, m - 1, d).getTime()) / 60_000;
+  return Math.min(Math.max(mins, 0), 24 * 60);
+}
+
+function hourLabel(h: number): string {
+  if (h === 0 || h === 24) return "12 AM";
+  if (h === 12) return "12 PM";
+  return h < 12 ? `${h} AM` : `${h - 12} PM`;
+}
+
+type Placed = CalendarEvent & { top: number; bottom: number; lane: number; lanes: number };
+
+/** Side-by-side lanes for overlapping events, the way a calendar day view does it. */
+function placeEvents(events: CalendarEvent[], day: string): Placed[] {
+  const items = events
+    .map((e) => {
+      const top = minuteOfDay(e.start, day);
+      return { ...e, top, bottom: Math.max(minuteOfDay(e.end ?? e.start, day), top + 15), lane: 0, lanes: 1 };
+    })
+    .sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+  let cluster: Placed[] = [];
+  let clusterEnd = -1;
+  const close = () => {
+    const lanes = Math.max(1, ...cluster.map((p) => p.lane + 1));
+    cluster.forEach((p) => (p.lanes = lanes));
+  };
+  for (const item of items) {
+    if (item.top >= clusterEnd && cluster.length) {
+      close();
+      cluster = [];
+    }
+    const used = new Set(cluster.filter((p) => p.bottom > item.top).map((p) => p.lane));
+    while (used.has(item.lane)) item.lane++;
+    cluster.push(item);
+    clusterEnd = Math.max(clusterEnd, item.bottom);
+  }
+  if (cluster.length) close();
+  return items;
+}
+
 /**
- * The next three timed events on his Google Calendar for the day, from now on:
- * anything already over drops off, and an empty day just says so. On another
- * day (the home screen's swipe) it's that day's first three. All-day events are
- * left out, since they aren't something coming up at a time.
+ * The whole day on his Google Calendar as an hour timeline (his ask, 2026-10-25),
+ * 6 AM–10 PM, widened for anything earlier or later. Past events fade, the one on
+ * now is green, and a line marks the time; it opens scrolled to now. All-day
+ * events sit as chips above the hours. Follows the home screen's day swipe.
  */
 export function CalendarToday({ today }: { today: string }) {
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
   const [connected, setConnected] = useState(true);
-  // Ticks each minute so events fall off as they end, without a refetch.
+  // Ticks each minute so the now line and fading keep up, without a refetch.
   const [now, setNow] = useState(() => Date.now());
+  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
@@ -415,46 +462,115 @@ export function CalendarToday({ today }: { today: string }) {
     };
   }, [today]);
 
-  const upcoming = (events ?? [])
-    .filter((e) => !e.allDay && new Date(e.end ?? e.start).getTime() > now)
-    .slice(0, CALENDAR_LIMIT);
+  // An event that runs through the whole day (a multi-day block like a two-week
+  // sprint) reads as an all-day chip, not a column filling the timeline.
+  const spansDay = (e: CalendarEvent) =>
+    e.allDay || (minuteOfDay(e.start, today) === 0 && minuteOfDay(e.end ?? e.start, today) === 24 * 60);
+  const timed = (events ?? []).filter((e) => !spansDay(e));
+  const allDay = (events ?? []).filter(spansDay);
+  const placed = placeEvents(timed, today);
+  const fromH = Math.min(DAY_FROM_H, ...placed.map((p) => Math.floor(p.top / 60)));
+  const toH = Math.max(DAY_TO_H, ...placed.map((p) => Math.ceil(p.bottom / 60)));
+  const y = (mins: number) => ((mins - fromH * 60) / 60) * HOUR_PX;
+  const isToday = today === todayISO();
+  const nowMin = isToday ? minuteOfDay(new Date(now).toISOString(), today) : null;
+  const showNow = nowMin !== null && nowMin >= fromH * 60 && nowMin <= toH * 60;
+
+  // Open on the current hour today (an hour of context above), else the first event.
+  const loaded = events !== null;
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !loaded) return;
+    const anchor = nowMin ?? placed[0]?.top ?? 8 * 60;
+    el.scrollTop = Math.max(0, y(anchor) - HOUR_PX);
+    // Only on load and day change, not every minute's tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, today]);
 
   return (
     <div>
       <Heading href="/calendar">{`${dayPossessive(today)} calendar`}</Heading>
-      <Card className="gap-0 rounded-xl px-5 py-4 shadow-none">
+      <Card className="gap-0 rounded-xl px-3 py-3 shadow-none">
         {events === null ? (
-          <div className="space-y-2">
+          <div className="space-y-2 px-2 py-1">
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-5 w-1/2" />
           </div>
         ) : !connected ? (
-          <Link href="/calendar" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+          <Link href="/calendar" className="px-2 text-sm text-muted-foreground hover:text-foreground hover:underline">
             Connect Google Calendar
           </Link>
-        ) : upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing{today === todayISO() ? " left today" : " on"}.</p>
         ) : (
-          <ul className="space-y-2.5">
-            {upcoming.map((e) => {
-              const live = new Date(e.start).getTime() <= now;
-              return (
-                <li key={e.id} className="flex items-baseline gap-3">
-                  <span
-                    className={cn(
-                      "w-16 shrink-0 text-xs tabular-nums",
-                      live ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
-                    )}
-                  >
-                    {live ? "Now" : clockTime(e.start)}
-                  </span>
-                  <span className="min-w-0 truncate text-sm font-medium" title={e.title}>
+          <>
+            {allDay.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5 pl-14">
+                {allDay.map((e) => (
+                  <span key={e.id} className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium" title={e.title}>
                     {e.title}
                   </span>
-                </li>
-              );
-            })}
-          </ul>
+                ))}
+              </div>
+            )}
+            <div ref={scroller} id="calendar-timeline" className="max-h-[480px] overflow-y-auto">
+              <div className="relative" style={{ height: (toH - fromH) * HOUR_PX }}>
+                {Array.from({ length: toH - fromH + 1 }, (_, i) => (
+                  <div key={i} className="absolute inset-x-0 flex items-start" style={{ top: i * HOUR_PX }}>
+                    <span className="-mt-2 w-12 shrink-0 pr-2 text-right text-[10px] tabular-nums text-muted-foreground">
+                      {hourLabel(fromH + i)}
+                    </span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                ))}
+
+                <div className="absolute inset-y-0 left-14 right-1">
+                  {placed.map((e) => {
+                    const end = new Date(e.end ?? e.start).getTime();
+                    const past = end <= now;
+                    const live = !past && new Date(e.start).getTime() <= now;
+                    const height = Math.max(y(e.bottom) - y(e.top) - 2, 18);
+                    return (
+                      <div
+                        key={e.id}
+                        title={`${clockTime(e.start)} ${e.title}`}
+                        className={cn(
+                          "absolute overflow-hidden rounded-md border-l-2 px-2 py-0.5 text-xs leading-tight",
+                          live
+                            ? "border-emerald-500 bg-emerald-500/15 text-foreground"
+                            : "border-primary/50 bg-muted text-foreground",
+                          past && "opacity-45",
+                        )}
+                        style={{
+                          top: y(e.top) + 1,
+                          height,
+                          left: `${(e.lane / e.lanes) * 100}%`,
+                          width: `calc(${100 / e.lanes}% - 2px)`,
+                        }}
+                      >
+                        <span className="font-medium">{e.title}</span>
+                        {height >= 34 && (
+                          <span className="block text-[10px] text-muted-foreground">
+                            {clockTime(e.start)}
+                            {e.end ? `–${clockTime(e.end)}` : ""}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {showNow && (
+                  <div className="pointer-events-none absolute inset-x-0 z-10 flex items-center" style={{ top: y(nowMin!) }}>
+                    <span className="w-14 shrink-0" />
+                    <span className="-ml-0.5 size-2 rounded-full bg-red-500" />
+                    <span className="h-px flex-1 bg-red-500" />
+                  </div>
+                )}
+              </div>
+            </div>
+            {timed.length === 0 && allDay.length === 0 && (
+              <p className="px-2 pt-2 text-xs text-muted-foreground">Nothing on the calendar{isToday ? " today" : ""}.</p>
+            )}
+          </>
         )}
       </Card>
     </div>

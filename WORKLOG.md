@@ -4,6 +4,31 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-25 — Home: whole-day calendar timeline + AI daily strategy
+
+- **Calendar block is now an hour timeline** (Berto picked this over a full list):
+  6 AM–10 PM, widened for earlier/later events. Past events fade, the current one is
+  green, a red line marks now, and it opens scrolled to the current hour. All-day
+  events, and multi-day events that cover the whole day (e.g. "Build North"), sit as
+  chips above the hours. Overlapping events split into side-by-side lanes. Replaces the
+  "next three events" list from earlier today. Calendar has a minimum height of 14 rows.
+- **New "Today's strategy" block** above the calendar: Claude Sonnet 4.6 (AI Gateway)
+  reads the Vision sections, Principles doc, the day's Google Calendar and open tasks,
+  and writes a theme line plus 3–5 time blocks in free gaps, each with a short "why".
+  Today's writes itself on first view of Home. It's a suggestion until he taps **Yes**
+  ("Locked in"); **No, change it** takes an optional note and rewrites it (the old plan
+  and his note go to the model). One row per day in `day_strategies`; nothing is written
+  to Google Calendar. Other days: "Plan this day" button; past days just say none.
+- **Home grid**: a new block now trims a saved block that reaches into its column from
+  the left instead of pushing it down (his saved layout had Vision 8 wide, which got
+  shoved below Training).
+- Files: `lib/day-strategy.ts`, `app/api/day-strategy/route.ts`,
+  `app/_components/day-strategy.tsx`, `app/_components/today-snapshot.tsx`,
+  `app/_components/home-grid.tsx`, `app/_components/home-screen.tsx`, `lib/db.ts`.
+- Next: maybe draw accepted strategy blocks onto the timeline as dashed blocks.
+
+---
+
 ## 2026-10-25 — Home Tasks: drag to reorder, click headers to sort
 
 The Tasks block on the home grid can now be put in your own order and sorted by column.

@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-25 — Home Tasks: drag to reorder, click headers to sort
+
+The Tasks block on the home grid can now be put in your own order and sorted by column.
+- Each row has a grip on hover (always visible on touch screens). Drag it to move a task.
+  Only the grip drags, so the row's buttons, menus and date picker still work and a
+  phone can still scroll the list.
+- Click Task, Status, Due or Priority to sort: first click ↑, second ↓, third goes back
+  to your drag order. Due sorts soonest first with undated tasks always last; Priority
+  sorts P0 first; Status puts In progress first, then Waiting, then To do.
+- Dragging while a sort is on turns the sort off and keeps what you saw as your new
+  order (Berto's choice). Tasks that aren't in the saved order yet (new, or added by an
+  agent) go at the bottom in the API's order.
+- The order and sort are saved to app_settings under `tasks.home-layout.json` through
+  `GET/PUT /api/home-tasks-layout`, so they're the same on web, the Mac app and the phone.
+- Files: `app/_components/home-tasks.tsx`, `lib/home-tasks-layout.ts`,
+  `app/api/home-tasks-layout/route.ts`.
+- Not checked locally: the dev preview needs the real login. Checked on production instead.
+
+---
+
 ## 2026-10-24 — Chat: Approve/Deny cards for approval-gated tools (calendar add fixed)
 
 Adding a calendar event from chat hung forever. `add_calendar_event` is gated with

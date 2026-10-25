@@ -31,16 +31,19 @@ const MARGIN: [number, number] = [32, 16];
 const GRID_MIN_WIDTH = 900;
 
 export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
-  { i: "vision", x: 0, y: 0, w: 7, h: 10 },
+  { i: "vision", x: 0, y: 0, w: 6, h: 10 },
   { i: "training", x: 0, y: 10, w: 3, h: 8 },
-  { i: "meals", x: 3, y: 10, w: 4, h: 8 },
-  { i: "calendar", x: 7, y: 0, w: 5, h: 6 },
-  { i: "tasks", x: 7, y: 6, w: 5, h: 28 },
-  { i: "principles", x: 0, y: 18, w: 7, h: 10 },
+  { i: "meals", x: 3, y: 10, w: 3, h: 8 },
+  { i: "calendar", x: 6, y: 0, w: 6, h: 6 },
+  { i: "tasks", x: 6, y: 6, w: 6, h: 28 },
+  { i: "principles", x: 0, y: 18, w: 6, h: 10 },
 ];
 
-/** Narrowest a block may be. Tasks needs room for its Due and Priority columns (2026-10-24). */
-const MIN_W: Record<string, number> = { tasks: 5 };
+/**
+ * Narrowest a block may be. Tasks takes half the page so titles don't wrap past its
+ * Status, Due and Priority columns (Berto, 2026-10-25); Calendar sits above it at the same width.
+ */
+const MIN_W: Record<string, number> = { calendar: 6, tasks: 6 };
 
 /**
  * Widens any block narrower than its minimum, leftwards, and trims the blocks

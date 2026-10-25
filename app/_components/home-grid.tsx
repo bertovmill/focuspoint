@@ -45,8 +45,11 @@ export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
  * Status, Due and Priority columns (Berto, 2026-10-25); Calendar sits above it at the same width.
  */
 const MIN_W: Record<string, number> = { calendar: 6, tasks: 6 };
-/** Shortest a block may be, in grid rows: Calendar is an hour timeline now and needs room to read (2026-10-25). */
-const MIN_H: Record<string, number> = { calendar: 14 };
+/**
+ * Shortest a block may be, in grid rows: Calendar is an hour timeline now and needs room to read,
+ * and Meals needs room for all three picks without scrolling (both 2026-10-25).
+ */
+const MIN_H: Record<string, number> = { calendar: 14, meals: 11 };
 
 /**
  * Widens any block narrower than its minimum, leftwards, and trims the blocks

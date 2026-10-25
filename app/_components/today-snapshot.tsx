@@ -291,22 +291,24 @@ export function MealsToday({ today }: { today: string }) {
 
   const bySlot = new Map((meals ?? []).map((m) => [m.slot, m]));
 
+  // Sized to its home block, not the window: a narrow block lists the picks as
+  // rows (photo beside the name) instead of crushing three photos side by side.
   return (
-    <div>
+    <div className="@container">
       <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
       {meals === null ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-3 @md:grid-cols-3">
           {MEAL_SLOTS.map((s) => (
-            <Skeleton key={s.key} className="aspect-[4/5] w-full rounded-xl" />
+            <Skeleton key={s.key} className="h-20 w-full rounded-lg @md:aspect-[4/5] @md:h-auto @md:rounded-xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-3 @md:grid-cols-3">
           {slotsShown(bySlot.has("snack")).map(({ key }) => {
             const m = bySlot.get(key);
             return (
-              <figure key={key} className="group/pick min-w-0">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-muted">
+              <figure key={key} className="group/pick flex min-w-0 items-start gap-3 @md:block">
+                <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg bg-muted @md:aspect-[4/5] @md:w-auto @md:rounded-xl">
                   {m?.recipe_id ? (
                     <Link href={recipeHref({ id: m.recipe_id, name: m.name })} aria-label={`Open the ${m.name} recipe`} className="block size-full">
                       {m.image_url && (
@@ -331,13 +333,13 @@ export function MealsToday({ today }: { today: string }) {
                       disabled={swapping === key}
                       aria-label={`Swap ${PICK_LABELS[key]} pick`}
                       title="Show me something else"
-                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-opacity hover:bg-background md:opacity-0 md:group-hover/pick:opacity-100"
+                      className="absolute right-1 top-1 flex size-7 items-center @md:right-2 @md:top-2 @md:size-8 justify-center rounded-full bg-background/80 text-foreground backdrop-blur transition-opacity hover:bg-background md:opacity-0 md:group-hover/pick:opacity-100"
                     >
                       <ShuffleIcon className={cn("size-4", swapping === key && "animate-spin")} />
                     </button>
                   )}
                 </div>
-                <figcaption className="mt-2">
+                <figcaption className="min-w-0 flex-1 @md:mt-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{PICK_LABELS[key]}</p>
                   {m?.recipe_id ? (
                     <Link

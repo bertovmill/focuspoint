@@ -408,6 +408,22 @@ function hourLabel(h: number): string {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
+/** A time block from Home's day strategy (lib/day-strategy.ts), once he's said yes to it. */
+interface PlanBlock {
+  start: string;
+  end: string;
+  title: string;
+}
+
+/** Window event the strategy block fires when the day's strategy changes (app/_components/day-strategy.tsx). */
+const STRATEGY_EVENT = "cael:day-strategy";
+
+/** "13:30" → minutes since midnight. */
+function hhmmMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
 type Placed = CalendarEvent & { top: number; bottom: number; lane: number; lanes: number };
 
 /** Side-by-side lanes for overlapping events, the way a calendar day view does it. */
@@ -442,7 +458,9 @@ function placeEvents(events: CalendarEvent[], day: string): Placed[] {
  * The whole day on his Google Calendar as an hour timeline (his ask, 2026-10-25),
  * 6 AM–10 PM, widened for anything earlier or later. Past events fade, the one on
  * now is green, and a line marks the time; it opens scrolled to now. All-day
- * events sit as chips above the hours. Follows the home screen's day swipe.
+ * events sit as chips above the hours. Once he's said yes to the day's strategy,
+ * its blocks show as dashed outlines in the free time behind the events (his ask,
+ * 2026-10-25). Follows the home screen's day swipe.
  */
 export function CalendarToday({ today }: { today: string }) {
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
@@ -450,6 +468,29 @@ export function CalendarToday({ today }: { today: string }) {
   // Ticks each minute so the now line and fading keep up, without a refetch.
   const [now, setNow] = useState(() => Date.now());
   const scroller = useRef<HTMLDivElement>(null);
+  const [plan, setPlan] = useState<PlanBlock[]>([]);
+
+  // The accepted strategy's blocks: read on load, then kept current by the
+  // strategy block's event as he says yes, changes it or rewrites it.
+  useEffect(() => {
+    let stale = false;
+    setPlan([]);
+    const show = (s: { day: string; status: string; blocks: PlanBlock[] } | null) =>
+      !stale && setPlan(s && s.day === today && s.status === "accepted" ? s.blocks : []);
+    fetch(`/api/day-strategy?day=${today}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then(show)
+      .catch(() => {});
+    const onChange = (e: Event) => {
+      const s = (e as CustomEvent).detail;
+      if (s?.day === today) show(s);
+    };
+    window.addEventListener(STRATEGY_EVENT, onChange);
+    return () => {
+      stale = true;
+      window.removeEventListener(STRATEGY_EVENT, onChange);
+    };
+  }, [today]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
@@ -483,8 +524,9 @@ export function CalendarToday({ today }: { today: string }) {
   const timed = (events ?? []).filter((e) => !spansDay(e));
   const allDay = (events ?? []).filter(spansDay);
   const placed = placeEvents(timed, today);
-  const fromH = Math.min(DAY_FROM_H, ...placed.map((p) => Math.floor(p.top / 60)));
-  const toH = Math.max(DAY_TO_H, ...placed.map((p) => Math.ceil(p.bottom / 60)));
+  const planned = plan.map((b) => ({ ...b, top: hhmmMinutes(b.start), bottom: Math.max(hhmmMinutes(b.end), hhmmMinutes(b.start) + 15) }));
+  const fromH = Math.min(DAY_FROM_H, ...placed.map((p) => Math.floor(p.top / 60)), ...planned.map((b) => Math.floor(b.top / 60)));
+  const toH = Math.max(DAY_TO_H, ...placed.map((p) => Math.ceil(p.bottom / 60)), ...planned.map((b) => Math.ceil(b.bottom / 60)));
   const y = (mins: number) => ((mins - fromH * 60) / 60) * HOUR_PX;
   const isToday = today === todayISO();
   const nowMin = isToday ? minuteOfDay(new Date(now).toISOString(), today) : null;
@@ -537,6 +579,28 @@ export function CalendarToday({ today }: { today: string }) {
                 ))}
 
                 <div className="absolute inset-y-0 left-14 right-1">
+                  {planned.map((b, i) => {
+                    const height = Math.max(y(b.bottom) - y(b.top) - 2, 18);
+                    return (
+                      <div
+                        key={`plan-${i}`}
+                        data-plan-block
+                        title={`Strategy: ${b.title}`}
+                        className={cn(
+                          "absolute inset-x-0 overflow-hidden rounded-md border border-dashed border-emerald-500/60 bg-emerald-500/5 px-2 py-0.5 text-xs leading-tight text-emerald-700 dark:text-emerald-300",
+                          hhmmMinutes(b.end) <= (nowMin ?? -1) && "opacity-45",
+                        )}
+                        style={{ top: y(b.top) + 1, height }}
+                      >
+                        <span className="font-medium">{b.title}</span>
+                        {height >= 34 && (
+                          <span className="block text-[10px] opacity-75">
+                            {clockTime(`2000-01-01T${b.start}`)}–{clockTime(`2000-01-01T${b.end}`)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                   {placed.map((e) => {
                     const end = new Date(e.end ?? e.start).getTime();
                     const past = end <= now;

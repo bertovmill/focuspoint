@@ -28,6 +28,18 @@ the test meal and the profile were cleared afterwards.
 
 ---
 
+## 2026-10-25 — Home: accepted strategy drawn on the calendar timeline
+
+- Once he taps **Yes** on Today's strategy, its blocks show on the calendar timeline as
+  dashed green outlines in the free time, behind the real events (finished ones fade).
+  Rewriting the plan (back to "suggested") takes them off again.
+- The calendar reads `/api/day-strategy?day=` on load and listens for a
+  `cael:day-strategy` window event the strategy block fires on every change, so Yes
+  shows up instantly without a reload.
+- Files: `app/_components/today-snapshot.tsx`, `app/_components/day-strategy.tsx`.
+
+---
+
 ## 2026-10-25 — Home: whole-day calendar timeline + AI daily strategy
 
 - **Calendar block is now an hour timeline** (Berto picked this over a full list):

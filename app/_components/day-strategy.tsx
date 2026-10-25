@@ -82,6 +82,11 @@ export function DayStrategyToday({ today }: { today: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 
+  // Tells the calendar timeline, which draws the accepted blocks (CalendarToday).
+  useEffect(() => {
+    if (strategy) window.dispatchEvent(new CustomEvent("cael:day-strategy", { detail: strategy }));
+  }, [strategy]);
+
   const setStatus = async (status: DayStrategy["status"]) => {
     if (!strategy) return;
     const prev = strategy;

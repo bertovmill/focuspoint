@@ -12541,3 +12541,15 @@ the bottom edge resizes as well as the body moving. Snaps to 15 minutes.
 - Verified locally in the browser with stubbed data (dead local DATABASE_URL): move,
   resize, locked guest meeting, keep button, overlap layout; each drag sends one save
   with the right times. Not tested on touch: a finger drag scrolls instead.
+
+## 2026-10-26 — Home: more room between side-by-side blocks; lockfile back in sync
+
+Berto: Training and Meals sit too close on Home. The grid's horizontal gap goes from
+32px to 48px (`MARGIN` in `app/_components/home-grid.tsx`). It applies to every block
+pair side by side (Vision ↔ Calendar too) and to saved layouts as well, since it's the
+gap, not a position. Half-width blocks lose ~8px, 3-column blocks ~12px.
+- `package-lock.json` re-synced with `npm install`: `npm ci` refused it (missing
+  `@swc/helpers@0.5.23`, `chokidar@5.0.0`, `readdirp@5.1.1`).
+- Cloud sessions can't run the app: no `.env.local` (DATABASE_URL, MCP_TOKEN, etc.),
+  Node 22 where eve needs 24, and eve dev can't reach the AI Gateway. So not checked in
+  a browser; tsc clean.

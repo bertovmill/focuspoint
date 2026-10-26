@@ -33,15 +33,19 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH { day, index, state?: "suggested" | "kept" | "dropped", done?: boolean } — keep, drop or tick one activity.
+const HHMM_RE = /^([01]\d|2[0-4]):[0-5]\d$/;
+
+// PATCH { day, index, state?: "suggested" | "kept" | "dropped", done?: boolean, start?, end? }
+// — keep, drop or tick one activity, or move it (start and end together, "HH:MM", dragged on Home).
 export async function PATCH(req: Request) {
   try {
-    const { day, index, state, done } = await req.json();
-    const patch: { state?: "suggested" | "kept" | "dropped"; done?: boolean } = {};
+    const { day, index, state, done, start, end } = await req.json();
+    const patch: { state?: "suggested" | "kept" | "dropped"; done?: boolean; start?: string; end?: string } = {};
     if (state === "suggested" || state === "kept" || state === "dropped") patch.state = state;
     if (typeof done === "boolean") patch.done = done;
+    if (HHMM_RE.test(start ?? "") && HHMM_RE.test(end ?? "") && start < end) Object.assign(patch, { start, end });
     if (!DAY_RE.test(day ?? "") || !Number.isInteger(index) || Object.keys(patch).length === 0) {
-      return NextResponse.json({ error: "day, index and a state or done are required" }, { status: 400 });
+      return NextResponse.json({ error: "day, index and a state, done or start/end are required" }, { status: 400 });
     }
     const updated = await updateStrategyBlock(day, index, patch);
     return updated ? NextResponse.json(updated) : NextResponse.json({ error: "Not found" }, { status: 404 });

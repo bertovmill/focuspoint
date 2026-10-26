@@ -93,11 +93,14 @@ async function saveDayStrategy(day: string, theme: string, blocks: StrategyBlock
   return (await getDayStrategy(day))!;
 }
 
-/** Keeps, drops or ticks one activity (by its index in `blocks`). Null if the day or activity isn't there. */
+/**
+ * Keeps, drops, ticks or moves one activity (by its index in `blocks`). Null if the
+ * day or activity isn't there. A move doesn't re-sort, so indices stay stable.
+ */
 export async function updateStrategyBlock(
   day: string,
   index: number,
-  patch: Partial<Pick<StrategyBlock, "state" | "done">>,
+  patch: Partial<Pick<StrategyBlock, "state" | "done" | "start" | "end">>,
 ): Promise<DayStrategy | null> {
   const current = await getDayStrategy(day);
   if (!current || !current.blocks[index]) return null;

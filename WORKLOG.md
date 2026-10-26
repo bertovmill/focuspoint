@@ -12522,3 +12522,22 @@ Warm-up is now "10 min easy jog + 8 dynamic stretches × 10 yards" (`STATIONS_WA
 bank row once, only while the warm-up is still the old text, so editor changes stick.
 Still two checklist parts, so today's ticked "10 min easy jog" stays ticked.
 Verified: tsc clean; not run against the DB.
+
+## 2026-10-26 — Home calendar: drag events and Cael's blocks to move or resize
+
+Berto asked to drag events around on Home's "Today's calendar", both the Google events
+and Cael's planned activities. His calls: meetings with other guests stay locked, and
+the bottom edge resizes as well as the body moving. Snaps to 15 minutes.
+- `CalendarToday` (`app/_components/today-snapshot.tsx`): pointer drag on a block moves
+  it, the strip on its bottom edge resizes it. A press only becomes a drag after 4px, so
+  ✓ keep / ✕ drop / done still click. Google events save through the existing
+  `PATCH /api/calendar/events/[id]` (optimistic, reverts with a toast); Cael's blocks
+  through `PATCH /api/day-strategy` with new `start`/`end` (HH:MM).
+- `GET /api/calendar/events` now returns `hasGuests` (another attendee, or someone
+  else's invite). Those show a tooltip and can't be dragged. /calendar is unchanged.
+- Events and Cael's blocks now share side-by-side lanes (`assignLanes`), since a drag
+  can put a block on top of an event; before, blocks drew full-width under events.
+- `updateStrategyBlock` accepts start/end and does not re-sort, so indices stay stable.
+- Verified locally in the browser with stubbed data (dead local DATABASE_URL): move,
+  resize, locked guest meeting, keep button, overlap layout; each drag sends one save
+  with the right times. Not tested on touch: a finger drag scrolls instead.

@@ -387,6 +387,36 @@ interface CalendarEvent {
   start: string;
   end?: string;
   allDay: boolean;
+  /** Has other guests or is someone else's invite: it stays put on the timeline. */
+  hasGuests?: boolean;
+}
+
+/** Drags snap to this many minutes. */
+const SNAP_MIN = 15;
+/** How far the pointer moves before a press becomes a drag, so clicks still click. */
+const DRAG_THRESHOLD_PX = 4;
+
+/** What's being dragged on the timeline, in minutes since midnight. */
+interface Drag {
+  key: string;
+  mode: "move" | "resize";
+  startY: number;
+  origTop: number;
+  origBottom: number;
+  top: number;
+  bottom: number;
+  active: boolean;
+}
+
+/** Local `day` at `mins` past midnight, as an ISO string for Google. */
+function isoAt(day: string, mins: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, mins).toISOString();
+}
+
+/** Minutes since midnight → "13:30". */
+function minutesHHMM(mins: number): string {
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 }
 
 /** "2:30 PM" for an ISO date-time, in local time. */
@@ -430,17 +460,18 @@ function hhmmMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-type Placed = CalendarEvent & { top: number; bottom: number; lane: number; lanes: number };
+type Lanes = { lane: number; lanes: number };
+type Laned = { key: string; top: number; bottom: number } & Lanes;
 
-/** Side-by-side lanes for overlapping events, the way a calendar day view does it. */
-function placeEvents(events: CalendarEvent[], day: string): Placed[] {
-  const items = events
-    .map((e) => {
-      const top = minuteOfDay(e.start, day);
-      return { ...e, top, bottom: Math.max(minuteOfDay(e.end ?? e.start, day), top + 15), lane: 0, lanes: 1 };
-    })
+/**
+ * Side-by-side lanes for overlapping blocks, the way a calendar day view does it.
+ * Events and Cael's activities share them, since a drag can put one on top of the other.
+ */
+function assignLanes(blocks: { key: string; top: number; bottom: number }[]): Map<string, Lanes> {
+  const items: Laned[] = blocks
+    .map((b) => ({ key: b.key, top: b.top, bottom: b.bottom, lane: 0, lanes: 1 }))
     .sort((a, b) => a.top - b.top || b.bottom - a.bottom);
-  let cluster: Placed[] = [];
+  let cluster: Laned[] = [];
   let clusterEnd = -1;
   const close = () => {
     const lanes = Math.max(1, ...cluster.map((p) => p.lane + 1));
@@ -457,7 +488,23 @@ function placeEvents(events: CalendarEvent[], day: string): Placed[] {
     clusterEnd = Math.max(clusterEnd, item.bottom);
   }
   if (cluster.length) close();
-  return items;
+  return new Map(items.map((p) => [p.key, { lane: p.lane, lanes: p.lanes }]));
+}
+
+/** A block's horizontal slot in its lane. */
+function laneStyle({ lane, lanes }: Lanes) {
+  return { left: `${(lane / lanes) * 100}%`, width: `calc(${100 / lanes}% - 2px)` };
+}
+
+/** The strip along a block's bottom edge that drags its end time. */
+function ResizeHandle(props: React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      aria-hidden
+      className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize opacity-0 transition-opacity group-hover:opacity-100 after:mx-auto after:mt-0.5 after:block after:h-0.5 after:w-6 after:rounded-full after:bg-current after:opacity-40"
+    />
+  );
 }
 
 /**
@@ -524,7 +571,7 @@ export function CalendarToday({ today }: { today: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 
-  const updateBlock = async (index: number, patch: Partial<Pick<StrategyBlock, "state" | "done">>) => {
+  const updateBlock = async (index: number, patch: Partial<Pick<StrategyBlock, "state" | "done" | "start" | "end">>) => {
     if (!strategy) return;
     const prev = strategy;
     setStrategy({ ...strategy, blocks: strategy.blocks.map((b, i) => (i === index ? { ...b, ...patch } : b)) });
@@ -538,6 +585,76 @@ export function CalendarToday({ today }: { today: string }) {
       toast.error("Couldn't save that.");
     }
   };
+
+  /** Moves one of his own Google events; reverts if Google says no. */
+  const moveEvent = async (id: string, start: string, end: string) => {
+    const prev = events;
+    setEvents((list) => list?.map((e) => (e.id === id ? { ...e, start, end } : e)) ?? list);
+    const res = await fetch(`/api/calendar/events/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start, end }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setEvents(prev);
+      toast.error("Couldn't move that event.");
+    }
+  };
+
+  // Drag to move, or drag the bottom edge to resize (his ask, 2026-10-26). Works on
+  // his own Google events and Cael's planned activities; meetings with guests are locked.
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const startDrag = (e: React.PointerEvent<HTMLElement>, key: string, mode: Drag["mode"], top: number, bottom: number) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ key, mode, startY: e.clientY, origTop: top, origBottom: bottom, top, bottom, active: false });
+  };
+  const onDragMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (!drag) return;
+    const dy = e.clientY - drag.startY;
+    if (!drag.active && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+    const delta = Math.round((dy / HOUR_PX) * (60 / SNAP_MIN)) * SNAP_MIN;
+    const length = drag.origBottom - drag.origTop;
+    const next =
+      drag.mode === "move"
+        ? (() => {
+            const top = Math.min(Math.max(drag.origTop + delta, 0), 24 * 60 - length);
+            return { top, bottom: top + length };
+          })()
+        : { top: drag.origTop, bottom: Math.min(Math.max(drag.origBottom + delta, drag.origTop + SNAP_MIN), 24 * 60) };
+    setDrag({ ...drag, ...next, active: true });
+  };
+  const endDrag = (commit: boolean) => {
+    const d = drag;
+    setDrag(null);
+    if (!d?.active || !commit || (d.top === d.origTop && d.bottom === d.origBottom)) return;
+    if (d.key.startsWith("plan-")) {
+      void updateBlock(Number(d.key.slice(5)), { start: minutesHHMM(d.top), end: minutesHHMM(d.bottom) });
+    } else {
+      void moveEvent(d.key.slice(6), isoAt(today, d.top), isoAt(today, d.bottom));
+    }
+  };
+  /** Pointer handlers for a draggable block (move) or its bottom-edge handle (resize). */
+  const dragProps = (key: string, mode: Drag["mode"], top: number, bottom: number) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => startDrag(e, key, mode, top, bottom),
+    // Stopped here so a resize handle's events don't reach the block around it twice.
+    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+      e.stopPropagation();
+      onDragMove(e);
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
+      e.stopPropagation();
+      endDrag(true);
+    },
+    onPointerCancel: (e: React.PointerEvent<HTMLElement>) => {
+      e.stopPropagation();
+      endDrag(false);
+    },
+  });
+  /** The block's minutes, following the pointer while it's being dragged. */
+  const dragged = <T extends { top: number; bottom: number }>(key: string, item: T): T =>
+    drag?.active && drag.key === key ? { ...item, top: drag.top, bottom: drag.bottom } : item;
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
@@ -570,11 +687,23 @@ export function CalendarToday({ today }: { today: string }) {
     e.allDay || (minuteOfDay(e.start, today) === 0 && minuteOfDay(e.end ?? e.start, today) === 24 * 60);
   const timed = (events ?? []).filter((e) => !spansDay(e));
   const allDay = (events ?? []).filter(spansDay);
-  const placed = placeEvents(timed, today);
+  const eventBlocks = timed.map((e) => {
+    const top = minuteOfDay(e.start, today);
+    return { ...e, key: `event-${e.id}`, top, bottom: Math.max(minuteOfDay(e.end ?? e.start, today), top + 15) };
+  });
   // Index kept from `blocks`, which the PATCH addresses activities by.
-  const planned = (strategy?.blocks ?? [])
-    .map((b, index) => ({ ...b, index, top: hhmmMinutes(b.start), bottom: Math.max(hhmmMinutes(b.end), hhmmMinutes(b.start) + 15) }))
+  const planBlocks = (strategy?.blocks ?? [])
+    .map((b, index) => ({
+      ...b,
+      index,
+      key: `plan-${index}`,
+      top: hhmmMinutes(b.start),
+      bottom: Math.max(hhmmMinutes(b.end), hhmmMinutes(b.start) + 15),
+    }))
     .filter((b) => b.state !== "dropped");
+  const lanes = assignLanes([...eventBlocks, ...planBlocks]);
+  const placed = eventBlocks.map((e) => ({ ...e, ...lanes.get(e.key)! }));
+  const planned = planBlocks.map((b) => ({ ...b, ...lanes.get(b.key)! }));
   const isPast = today < todayISO();
   const fromH = Math.min(DAY_FROM_H, ...placed.map((p) => Math.floor(p.top / 60)), ...planned.map((b) => Math.floor(b.top / 60)));
   const toH = Math.max(DAY_TO_H, ...placed.map((p) => Math.ceil(p.bottom / 60)), ...planned.map((b) => Math.ceil(b.bottom / 60)));
@@ -683,26 +812,32 @@ export function CalendarToday({ today }: { today: string }) {
                 ))}
 
                 <div className="absolute inset-y-0 left-14 right-1">
-                  {planned.map((b) => {
+                  {planned.map((orig) => {
+                    const key = orig.key;
+                    const b = dragged(key, orig);
+                    const moving = drag?.active && drag.key === key;
                     const height = Math.max(y(b.bottom) - y(b.top) - 2, 20);
                     const kept = b.state === "kept";
                     return (
                       <div
-                        key={`plan-${b.index}`}
+                        key={key}
                         data-plan-block={b.state}
                         title={`${b.title} — ${b.why}`}
+                        {...dragProps(key, "move", orig.top, orig.bottom)}
                         className={cn(
-                          "absolute inset-x-0 flex items-start gap-1.5 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-tight text-emerald-800 dark:text-emerald-200",
+                          "group absolute flex cursor-grab select-none items-start gap-1.5 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-tight text-emerald-800 dark:text-emerald-200",
+                          moving && "z-20 cursor-grabbing shadow-md",
                           kept
                             ? "border-l-2 border-emerald-600 bg-emerald-500/10"
                             : "border border-dashed border-emerald-500/60 bg-emerald-500/5",
                           b.done && "opacity-50",
                         )}
-                        style={{ top: y(b.top) + 1, height }}
+                        style={{ top: y(b.top) + 1, height, ...laneStyle(b) }}
                       >
                         {kept && (
                           <button
                             type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => updateBlock(b.index, { done: !b.done })}
                             aria-label={b.done ? "Mark not done" : "Mark done"}
                             className={cn(
@@ -717,13 +852,13 @@ export function CalendarToday({ today }: { today: string }) {
                           <span className={cn("font-medium", b.done && "line-through")}>{b.title}</span>
                           {height >= 34 && (
                             <span className="block text-[10px] opacity-75">
-                              {clockTime(`2000-01-01T${b.start}`)}–{clockTime(`2000-01-01T${b.end}`)}
+                              {clockTime(`2000-01-01T${minutesHHMM(b.top)}`)}–{clockTime(`2000-01-01T${minutesHHMM(b.bottom)}`)}
                               {!kept && " · suggested"}
                             </span>
                           )}
                         </div>
                         {!kept && (
-                          <span className="flex shrink-0 gap-0.5">
+                          <span className="flex shrink-0 gap-0.5" onPointerDown={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => updateBlock(b.index, { state: "kept" })}
@@ -744,20 +879,31 @@ export function CalendarToday({ today }: { today: string }) {
                             </button>
                           </span>
                         )}
+                        <ResizeHandle {...dragProps(key, "resize", orig.top, orig.bottom)} />
                       </div>
                     );
                   })}
-                  {placed.map((e) => {
+                  {placed.map((orig) => {
+                    const key = orig.key;
+                    const e = dragged(key, orig);
+                    const moving = drag?.active && drag.key === key;
                     const end = new Date(e.end ?? e.start).getTime();
                     const past = end <= now;
                     const live = !past && new Date(e.start).getTime() <= now;
                     const height = Math.max(y(e.bottom) - y(e.top) - 2, 18);
+                    const locked = Boolean(e.hasGuests);
+                    // While dragging, the times follow the block.
+                    const shownStart = moving ? isoAt(today, e.top) : e.start;
+                    const shownEnd = moving ? isoAt(today, e.bottom) : e.end;
                     return (
                       <div
                         key={e.id}
-                        title={`${clockTime(e.start)} ${e.title}`}
+                        title={`${clockTime(e.start)} ${e.title}${locked ? " · has guests, move it in Google Calendar" : ""}`}
+                        {...(locked ? {} : dragProps(key, "move", orig.top, orig.bottom))}
                         className={cn(
-                          "absolute overflow-hidden rounded-md border-l-2 px-2 py-0.5 text-xs leading-tight",
+                          "group absolute select-none overflow-hidden rounded-md border-l-2 px-2 py-0.5 text-xs leading-tight",
+                          !locked && "cursor-grab",
+                          moving && "z-20 cursor-grabbing shadow-md",
                           live
                             ? "border-emerald-500 bg-emerald-500/15 text-foreground"
                             : "border-primary/50 bg-muted text-foreground",
@@ -766,17 +912,17 @@ export function CalendarToday({ today }: { today: string }) {
                         style={{
                           top: y(e.top) + 1,
                           height,
-                          left: `${(e.lane / e.lanes) * 100}%`,
-                          width: `calc(${100 / e.lanes}% - 2px)`,
+                          ...laneStyle(e),
                         }}
                       >
                         <span className="font-medium">{e.title}</span>
                         {height >= 34 && (
                           <span className="block text-[10px] text-muted-foreground">
-                            {clockTime(e.start)}
-                            {e.end ? `–${clockTime(e.end)}` : ""}
+                            {clockTime(shownStart)}
+                            {shownEnd ? `–${clockTime(shownEnd)}` : ""}
                           </span>
                         )}
+                        {!locked && <ResizeHandle {...dragProps(key, "resize", orig.top, orig.bottom)} />}
                       </div>
                     );
                   })}

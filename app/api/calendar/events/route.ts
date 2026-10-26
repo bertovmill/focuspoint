@@ -10,6 +10,13 @@ interface GoogleEvent {
   location?: string;
   start?: { date?: string; dateTime?: string };
   end?: { date?: string; dateTime?: string };
+  organizer?: { self?: boolean };
+  attendees?: { self?: boolean; resource?: boolean }[];
+}
+
+/** Someone else is on it (or it's someone else's invite): Home's timeline won't drag it. */
+function hasGuests(e: GoogleEvent): boolean {
+  return e.organizer?.self === false || (e.attendees ?? []).some((a) => !a.self && !a.resource);
 }
 
 function toFullCalendarEvent(e: GoogleEvent) {
@@ -20,6 +27,7 @@ function toFullCalendarEvent(e: GoogleEvent) {
     start: e.start?.dateTime ?? e.start?.date,
     end: e.end?.dateTime ?? e.end?.date,
     allDay,
+    hasGuests: hasGuests(e),
     extendedProps: { description: e.description ?? "", location: e.location ?? "" },
   };
 }

@@ -26,7 +26,8 @@ export interface HomeBlock {
 
 const COLS = 12;
 const ROW_HEIGHT = 20;
-const MARGIN: [number, number] = [32, 16];
+/** Gap between blocks [x, y]. 48 across so side-by-side blocks (Training beside Meals) don't crowd (Berto, 2026-10-26). */
+const MARGIN: [number, number] = [48, 16];
 /** Below this container width the blocks stack instead of sitting on the grid. */
 const GRID_MIN_WIDTH = 900;
 

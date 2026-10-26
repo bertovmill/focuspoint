@@ -432,11 +432,12 @@ export async function fillFromBank(
       skipped++;
       continue;
     }
-    // A meal goes to its own sitting when the bank has any for it (the Robbins
-    // bank keeps Meal 1 as fruit alone); otherwise any meal fits. Never one
-    // already on that day.
+    // A meal goes to its own sitting when the bank has any for it; otherwise
+    // any meal fits — except snacks (the fruit plates), which only fill the
+    // snack. Never one already on that day.
     const forSlot = recipes.filter((r) => r.slot === c.slot);
-    let base = forSlot.length > 0 ? forSlot : recipes;
+    const meals = c.slot === "snack" ? recipes : recipes.filter((r) => r.slot !== "snack");
+    let base = forSlot.length > 0 ? forSlot : meals.length > 0 ? meals : recipes;
     const notDisliked = base.filter((r) => ratings.get(r.id)?.rating !== "down");
     if (notDisliked.length > 0) base = notDisliked;
     const sameDay = new Set(

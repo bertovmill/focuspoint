@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 // Which Robbins rule each sitting's meals are built around — shown under the
 // title so the "why" is part of the recipe, not a separate screen.
 const SITTING: Record<string, { label: string; rule: string }> = {
-  meal1: { label: "Morning", rule: "Fruit alone, on an empty stomach" },
+  meal1: { label: "Morning", rule: "Water-rich · no protein with starch" },
   meal2: { label: "Midday", rule: "Water-rich · no protein with starch" },
   meal3: { label: "Evening", rule: "Water-rich · no protein with starch" },
   snack: { label: "Snack", rule: "Light and water-rich" },

@@ -8,7 +8,7 @@ const RULE_KEYS = PROTOCOL_RULES.map((r) => r.key) as [string, ...string[]];
 
 export default defineTool({
   description:
-    `Record which of the user's four nutrition-protocol rules they kept on a given day. The rules are: ${PROTOCOL_RULES.map((r) => `${r.key} (${r.label})`).join(", ")}. A day only counts as "on protocol" when all four are kept — that percentage is the headline number on the Nutrition screen. Pass the complete set of rules kept; this replaces whatever was stored for that day.`,
+    `Record which of the user's ${PROTOCOL_RULES.length} nutrition-protocol rules they kept on a given day. The rules are: ${PROTOCOL_RULES.map((r) => `${r.key} (${r.label})`).join(", ")}. A day only counts as "on protocol" when all ${PROTOCOL_RULES.length} are kept — that percentage is the headline number on the Nutrition screen. Pass the complete set of rules kept; this replaces whatever was stored for that day.`,
   inputSchema: z.object({
     rules: z.array(z.enum(RULE_KEYS)).describe("Every rule kept that day. Send an empty array for a day where none held."),
     note: z.string().optional(),
@@ -32,7 +32,7 @@ export default defineTool({
     const kept = (output.rules as string[]) ?? [];
     return {
       type: "text",
-      value: `${String(output.logged_date).slice(0, 10)}: kept ${kept.length}/4 rules${isOnProtocol(kept) ? " — fully on protocol." : ` (${kept.join(", ") || "none"}).`}`,
+      value: `${String(output.logged_date).slice(0, 10)}: kept ${kept.length}/${PROTOCOL_RULES.length} rules${isOnProtocol(kept) ? " — fully on protocol." : ` (${kept.join(", ") || "none"}).`}`,
     };
   },
 });

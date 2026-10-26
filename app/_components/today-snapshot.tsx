@@ -215,8 +215,7 @@ export function TrainingToday({ today }: { today: string }) {
   );
 }
 
-// Friendlier names than Meal 1/2/3 for the picks, following the Robbins day:
-// fruit alone in the morning, then two water-rich meals.
+// Friendlier names than Meal 1/2/3 for the picks: three water-rich meals.
 const PICK_LABELS: Record<string, string> = { meal1: "Morning", meal2: "Midday", meal3: "Evening", snack: "Snack" };
 
 /**

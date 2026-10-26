@@ -1,8 +1,9 @@
 // The nutrition protocol — Tony Robbins' discipline of eating, which Berto
 // chose to go all in on (2026-10-23), replacing the four rules he'd written
-// down over July–August. A day counts as "on protocol" only when all four were
-// kept. Older nutrition_days rows still carry the old keys; normalizeRules
-// drops them, so those days simply read as off-protocol.
+// down over July–August. A day counts as "on protocol" only when every rule
+// was kept. Older nutrition_days rows still carry old keys (including
+// fruit_alone, dropped 2026-10-26 because he doesn't eat fruit alone in the
+// morning); normalizeRules ignores them.
 
 export const PROTOCOL_RULES = [
   {
@@ -20,14 +21,9 @@ export const PROTOCOL_RULES = [
     label: "Alkaline, greens first",
     detail: "Lean on greens, sprouts and vegetables. Go light on meat, dairy, sugar, coffee and alcohol.",
   },
-  {
-    key: "fruit_alone",
-    label: "Fruit alone, mornings",
-    detail: "Fruit on its own on an empty stomach — ideally the whole morning — never after a meal.",
-  },
 ] as const;
 
-// Photoreal art for the four rules, generated once into Vercel Blob and cached
+// Photoreal art for the rules, generated once into Vercel Blob and cached
 // by rule_key in nutrition_rule_art (the rules themselves rarely change).
 export const RULE_IMAGE_PROMPTS: Record<string, string> = {
   water_rich:
@@ -36,8 +32,6 @@ export const RULE_IMAGE_PROMPTS: Record<string, string> = {
     "two separate plates side by side: grilled salmon on a bed of greens, and roasted sweet potato with broccoli — clearly kept apart",
   alkaline:
     "a vivid spread of dark leafy greens, sprouts, avocado, lemon halves and a tall glass of green juice",
-  fruit_alone:
-    "a simple morning plate of fresh sliced fruit — mango, papaya, berries and melon — on its own, soft early sunlight",
 };
 
 export type ProtocolRuleKey = (typeof PROTOCOL_RULES)[number]["key"];

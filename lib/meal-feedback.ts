@@ -20,10 +20,10 @@ const TASTE_PROFILE_KEY = "meals.taste_profile.markdown";
 const TASTE_PROFILE_GENERATED_KEY = "meals.taste_profile.generated";
 
 const SITTING_RULE: Record<string, string> = {
-  meal1: "Morning (Meal 1): fruit only, eaten alone on an empty stomach. No other food at all.",
-  meal2: "Midday (Meal 2): water-rich and green-led; animal protein OR starch with vegetables, never both.",
-  meal3: "Evening (Meal 3): water-rich and green-led; animal protein OR starch with vegetables, never both.",
-  snack: "Snack: light and water-rich.",
+  meal1: "Meal 1 (his first meal of the day): water-rich and green-led; animal protein OR starch with vegetables, never both.",
+  meal2: "Meal 2: water-rich and green-led; animal protein OR starch with vegetables, never both.",
+  meal3: "Meal 3: water-rich and green-led; animal protein OR starch with vegetables, never both.",
+  snack: "Snack: light and water-rich; fruit is fine here.",
 };
 
 const RULES = PROTOCOL_RULES.map((r) => `- ${r.label}: ${r.detail}`).join("\n");

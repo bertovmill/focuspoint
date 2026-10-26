@@ -83,7 +83,7 @@ export function ProtocolChart({ days, window = 30 }: { days: NutritionDay[]; win
             <span className="text-base font-normal text-muted-foreground">%</span>
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {total > 0 ? `${kept} of ${total} days, all four rules kept` : "No days logged yet"}
+            {total > 0 ? `${kept} of ${total} days, every rule kept` : "No days logged yet"}
           </p>
         </div>
         <p className="text-xs text-muted-foreground text-right max-w-[46%] leading-snug">

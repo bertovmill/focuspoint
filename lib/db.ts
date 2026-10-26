@@ -570,7 +570,7 @@ async function applySchema() {
   `;
   // AI-generated photo of the ingredient (see lib/nutrition-art.ts). NULL until generated.
   await sql`ALTER TABLE nutrition_staples ADD COLUMN IF NOT EXISTS image_url TEXT`;
-  // Art for the four protocol rules. Only four rows, ever — but the pictures live
+  // Art for the protocol rules. Only a few rows, ever — but the pictures live
   // here rather than in the repo because generating them needs AI Gateway creds,
   // which only exist on the deployed app.
   await sql`
@@ -657,6 +657,22 @@ async function applySchema() {
       UPDATE nutrition_recipes SET minutes = ${m.minutes}, ingredient_lines = ${m.lines}, steps = ${m.steps}
       WHERE name = ${m.name} AND cardinality(steps) = 0
     `;
+  }
+  // One time (2026-10-26): Berto dropped "fruit alone in the morning", so the
+  // fruit plates the Robbins bank seeded as Meal 1 become snacks, and coming
+  // Meal 1 cells that still hold one are cleared (Home refills them with a
+  // proper meal). Guarded by a marker so a later re-tag of his is kept.
+  const [fruitMoved] = await sql`SELECT 1 FROM app_settings WHERE key = 'meals.fruit_to_snack_done'`;
+  if (!fruitMoved) {
+    const fruitNames = ROBBINS_MEALS.filter((m) => m.slot === "snack").map((m) => m.name);
+    await sql`UPDATE nutrition_recipes SET slot = 'snack' WHERE slot = 'meal1' AND name = ANY(${fruitNames})`;
+    await sql`
+      DELETE FROM meal_recommendations
+      WHERE slot = 'meal1'
+        AND meal_date >= (NOW() AT TIME ZONE 'America/Toronto')::date
+        AND recipe_id IN (SELECT id FROM nutrition_recipes WHERE name = ANY(${fruitNames}))
+    `;
+    await sql`INSERT INTO app_settings (key, value) VALUES ('meals.fruit_to_snack_done', 'true') ON CONFLICT (key) DO NOTHING`;
   }
   // 👍/👎 + a one-line reason on a bank meal (2026-10-25), from Home's picks and
   // the recipe page. The latest row per meal is its rating: 👎 meals leave the

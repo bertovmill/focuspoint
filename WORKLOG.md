@@ -12541,3 +12541,19 @@ the bottom edge resizes as well as the body moving. Snaps to 15 minutes.
 - Verified locally in the browser with stubbed data (dead local DATABASE_URL): move,
   resize, locked guest meeting, keep button, overlap layout; each drag sends one save
   with the right times. Not tested on touch: a finger drag scrolls instead.
+
+## 2026-10-26 — Home: Principles stands out and isn't a scrolling box
+
+Berto: Principles should stand out more and not sit in a box; it didn't look laid out
+properly. The block had a fixed height on the grid, so the list scrolled inside it and
+cut off mid-item ("On eating").
+- `HomeBlock` gets `autoHeight` (`app/_components/home-grid.tsx`): the block measures
+  its content (ResizeObserver) and takes exactly the rows it needs, so there's no inner
+  scroll and opening a toggle grows the block. The block's height comes from the
+  measurement, not the saved layout. It only resizes sideways (an `e` handle). Only
+  Principles uses it.
+- `PrinciplesDoc` heading is now a page title ("Principles", text-3xl) instead of the
+  small-caps label the other blocks use.
+- Verified in headless Chromium with stubbed APIs: 11 principles all show, block
+  height = content height (560px), grows to 596px when a toggle opens. Run without
+  `withEve` locally (eve dev can't reach its model gateway in the sandbox).

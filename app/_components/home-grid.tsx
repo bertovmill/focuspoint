@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import ReactGridLayout, { useContainerWidth, type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import { GripVerticalIcon, RotateCcwIcon } from "lucide-react";
@@ -21,6 +21,11 @@ export interface HomeBlock {
   label: string;
   /** Marks the block as following the day swipe (the home screen animates these). */
   daily?: boolean;
+  /**
+   * The block is always as tall as its content: no inner scroll, and only its width
+   * resizes. Principles reads as a page, not a scrolling box (Berto, 2026-10-26).
+   */
+  autoHeight?: boolean;
   node: ReactNode;
 }
 
@@ -93,6 +98,31 @@ function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBl
   return withMinWidths([...base, ...missing, ...unknown]).map((p) => (MIN_H[p.i] && p.h < MIN_H[p.i] ? { ...p, h: MIN_H[p.i] } : p));
 }
 
+/** Grid rows needed to show `px` of content: h rows span h * ROW_HEIGHT plus the h - 1 gaps between them. */
+function rowsFor(px: number): number {
+  return Math.max(1, Math.ceil((px + MARGIN[1]) / (ROW_HEIGHT + MARGIN[1])));
+}
+
+/** Reports its content's height whenever it changes (an editor loading, a toggle opening). */
+function Measured({ onHeight, children }: { onHeight: (px: number) => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const report = useRef(onHeight);
+  report.current = onHeight;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => report.current(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // flow-root keeps the content's bottom margin inside the measurement.
+  return (
+    <div ref={ref} className="flow-root">
+      {children}
+    </div>
+  );
+}
+
 function readingOrder(layout: readonly HomeBlockPosition[]): string[] {
   return [...layout].sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.i);
 }
@@ -101,6 +131,8 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
   const ids = useMemo(() => blocks.map((b) => b.id), [blocks]);
   const [layout, setLayout] = useState<HomeBlockPosition[]>(() => withAllBlocks(null, ids));
   const [customised, setCustomised] = useState(false);
+  /** Rows each autoHeight block needs right now; overrides whatever height the layout has saved. */
+  const [fitRows, setFitRows] = useState<Record<string, number>>({});
   const { width, containerRef, mounted } = useContainerWidth();
 
   useEffect(() => {
@@ -146,7 +178,11 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
       {asGrid ? (
         <ReactGridLayout
           width={width}
-          layout={layout.map((p) => ({ ...p, ...(MIN_W[p.i] && { minW: MIN_W[p.i] }), ...(MIN_H[p.i] && { minH: MIN_H[p.i] }) }))}
+          layout={layout.map((p) =>
+            byId.get(p.i)?.autoHeight
+              ? { ...p, h: fitRows[p.i] ?? p.h, resizeHandles: ["e"] as const }
+              : { ...p, ...(MIN_W[p.i] && { minW: MIN_W[p.i] }), ...(MIN_H[p.i] && { minH: MIN_H[p.i] }) },
+          )}
           gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [24, 0] }}
           dragConfig={{ enabled: true, handle: ".home-block-grip" }}
           resizeConfig={{ enabled: true, handles: ["se"] }}
@@ -166,7 +202,13 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
                 >
                   <GripVerticalIcon className="size-4" />
                 </button>
-                <div className="h-full overflow-y-auto overflow-x-hidden pr-1">{block.node}</div>
+                {block.autoHeight ? (
+                  <Measured onHeight={(px) => setFitRows((prev) => (prev[block.id] === rowsFor(px) ? prev : { ...prev, [block.id]: rowsFor(px) }))}>
+                    {block.node}
+                  </Measured>
+                ) : (
+                  <div className="h-full overflow-y-auto overflow-x-hidden pr-1">{block.node}</div>
+                )}
               </div>
             );
           })}

@@ -462,7 +462,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
               { id: "meals", label: "Meals", daily: true, node: <MealsToday today={date} /> },
               { id: "calendar", label: "Calendar", daily: true, node: <CalendarToday today={date} /> },
               { id: "tasks", label: "Tasks", node: <HomeTasks /> },
-              { id: "principles", label: "Principles", node: <PrinciplesDoc /> },
+              { id: "principles", label: "Principles", autoHeight: true, node: <PrinciplesDoc /> },
             ]}
           />
         </div>

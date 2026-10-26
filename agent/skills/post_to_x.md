@@ -44,6 +44,15 @@ Aim for under 200 characters. No hashtags unless the user asks. No filler. No mo
 
 Draft 2–3 options at different angles and let the user pick.
 
+## Images
+
+A tweet can carry up to 4 images (JPG, PNG or WEBP, 5 MB each). Attach one when:
+
+- He shared a photo and wants it in the tweet: use its URL from the `[Image uploaded — public URL: ...]` marker.
+- He asks for a picture: make one with `generate_post_image` (kind `tweet`, no slug) and share the URL with your drafts so he can see it.
+
+Don't add an image he didn't ask for. With an image, the text can be short, or even empty if he wants the picture to speak for itself.
+
 ## Step 4 — Confirm before posting
 
 Show the draft(s) as plain text in your reply and wait for the user to respond in chat. Do not use `ask_question` or any interactive tool — just write something like:
@@ -60,7 +69,7 @@ Never call `post_tweet` without a clear "yes, post that" or equivalent from the 
 
 ## Step 5 — Post
 
-Once approved, call `post_tweet` with the exact confirmed text. Confirm it went through and share the link.
+Once approved, call `post_tweet` with the exact confirmed text, plus `image_urls` for any confirmed images. Confirm it went through and share the link.
 
 ## Tone reference
 

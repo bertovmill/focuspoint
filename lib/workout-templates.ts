@@ -229,6 +229,9 @@ export const THRESHOLD_COOLDOWN = "5 min walk + 6 min static stretch";
 /** Threshold warm-up: dynamic stretching instead of strides (Berto, 2026-10-15). */
 export const OLD_THRESHOLD_WARMUP = "10 min easy + 4 × 20 s strides";
 export const THRESHOLD_WARMUP = "10 min easy + 5 min dynamic stretching";
+// Stations: his 8 dynamic stretches, 10 yards each, in place of "drills" (Berto, 2026-10-26).
+export const OLD_STATIONS_WARMUP = "10 min easy jog + drills";
+export const STATIONS_WARMUP = "10 min easy jog + 8 dynamic stretches × 10 yards";
 /** Heavy abs between the threshold reps: one set after each rep but the last. */
 export const ROCKIES: TemplateExercise = { key: "rockies", name: "Rockies", sets: 5, ladder: [30], weight: null, note: "Between each 1 km rep" };
 
@@ -286,7 +289,7 @@ WORKOUT_TEMPLATES.push(
     session_type: "hyrox",
     default_day: 0,
     plan: { minutes: 65, intensity: "hard" },
-    warmup: "10 min easy jog + drills",
+    warmup: STATIONS_WARMUP,
     cooldown: "5 min walk + stretch",
     blocks: [
       { key: "round-1", label: "Round 1", exercises: [run("run_1", "Run 1 km"), station("ski", "SkiErg 1000 m")] },

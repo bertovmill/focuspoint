@@ -12513,3 +12513,12 @@ crons, and Hobby fires those once a day, so exact-time posting uses **Vercel Wor
   `.well-known/workflow/`.
 - Not verified locally: `.env.local` DATABASE_URL is stale and the neonctl token expired.
   Verified on production by scheduling then cancelling a test tweet (nothing posted).
+
+## 2026-10-26 — Stations warm-up: 8 dynamic stretches instead of "drills"
+
+Berto: change the Stations warm-up's "drills" to his 8 dynamic stretches for 10 yards.
+Warm-up is now "10 min easy jog + 8 dynamic stretches × 10 yards" (`STATIONS_WARMUP` in
+`lib/workout-templates.ts`). `ensureBank` in `lib/workout-bank.ts` swaps it into the live
+bank row once, only while the warm-up is still the old text, so editor changes stick.
+Still two checklist parts, so today's ticked "10 min easy jog" stays ticked.
+Verified: tsc clean; not run against the DB.

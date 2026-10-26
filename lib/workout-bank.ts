@@ -7,7 +7,7 @@
 import { getDb } from "./db";
 import { addDaysISO, todayISO, weekStartISO } from "./nutrition";
 import { SESSION_TYPE_KEYS, minutesAtPace } from "./training";
-import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_THRESHOLD_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, RUN_MOBILITY, SEED_WORKOUTS, STATIONS_BLOCKS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
+import { DB_CHEST_FLY, INTERIM_UPPER_BODY_WARMUP, KM_REP_NOTE, KM_REP_REST_SEC, OLD_KM_REP_NOTE, ROCKIES_3MIN_KM_REP_NOTE, OLD_THRESHOLD_COOLDOWN, OLD_STATIONS_WARMUP, OLD_THRESHOLD_WARMUP, STATIONS_WARMUP, THRESHOLD_WARMUP, ROCKIES_KM_REP_NOTE, THRESHOLD_COOLDOWN, OLD_UPPER_BODY_WARMUP, RFE_SPLIT_SQUAT, ROCKIES, RUN_MOBILITY, SEED_WORKOUTS, STATIONS_BLOCKS, UPPER_BODY_WARMUP, normalizeTemplate, type WorkoutTemplate } from "./workout-templates";
 
 let ready = false;
 async function ensureBank() {
@@ -49,10 +49,17 @@ async function ensureBank() {
   const [stations] = await sql`SELECT definition FROM workout_bank WHERE slug = 'stations'`;
   if (stations) {
     const def = (typeof stations.definition === "string" ? JSON.parse(stations.definition) : stations.definition) as WorkoutTemplate;
+    let changed = false;
     if (def.blocks.some((b) => b.exercises.some((e) => /^(ski|sled_pull)(_\d+)?$/.test(e.key)))) {
       def.blocks = STATIONS_BLOCKS;
-      await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'stations'`;
+      changed = true;
     }
+    // And his 8 dynamic stretches, 10 yards each, instead of "drills" (Berto, 2026-10-26).
+    if (def.warmup === OLD_STATIONS_WARMUP) {
+      def.warmup = STATIONS_WARMUP;
+      changed = true;
+    }
+    if (changed) await sql`UPDATE workout_bank SET definition = ${JSON.stringify(def)}, updated_at = NOW() WHERE slug = 'stations'`;
   }
   // One-time: rear-foot elevated split squats replace the wall balls on lower body
   // (Berto, 2026-10-06). Skipped once the split squat is in, so wall balls added

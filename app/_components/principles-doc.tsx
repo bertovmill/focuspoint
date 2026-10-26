@@ -6,8 +6,8 @@ import { MarkdownDoc } from "@/app/_components/markdown-doc";
 export const PRINCIPLES_CHANGED_EVENT = "cael:principles-changed";
 
 /**
- * Berto's principles: a Notion-style page at the bottom of Home, under the
- * dashboard. One markdown document in app_settings (lib/principles.ts); Cael
+ * Berto's principles: a Notion-style page among Home's blocks, as tall as its
+ * text (no inner scroll). One markdown document in app_settings (lib/principles.ts); Cael
  * reads and edits the same text through the principles_doc tool. Autosaves.
  */
 export function PrinciplesDoc() {
@@ -16,8 +16,10 @@ export function PrinciplesDoc() {
       id="principles"
       endpoint="/api/principles"
       reloadEvent={PRINCIPLES_CHANGED_EVENT}
-      className="mb-10"
-      heading={<p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Principles</p>}
+      className="mb-10 pt-4"
+      // A page title rather than the small caps label the other blocks use, so his
+      // principles stand out on Home (2026-10-26).
+      heading={<h2 className="text-3xl font-semibold tracking-tight">Principles</h2>}
       placeholder="Write a principle you want to live by. Type '/' for headings, lists, toggles…"
     />
   );

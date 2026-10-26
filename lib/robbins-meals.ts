@@ -1,7 +1,8 @@
 // The meal bank Berto switched to on 2026-10-23: Tony Robbins' discipline of
-// eating. Every meal keeps the four rules in lib/nutrition.ts — mostly
-// water-rich food, never animal protein with starch, greens first, and fruit
-// alone (Meal 1 is always fruit). Seeded once by applySchema in lib/db.ts,
+// eating. Every meal keeps the rules in lib/nutrition.ts — mostly water-rich
+// food, never animal protein with starch, greens first. The fruit plates were
+// Meal 1 until he dropped "fruit alone in the morning" (2026-10-26); they're
+// snacks now. Seeded once by applySchema in lib/db.ts,
 // which also fills in the full recipe (amounts, time, steps) on meals that
 // don't have one yet; photos are made the first time a meal shows up on Home.
 
@@ -18,9 +19,9 @@ export interface RobbinsMeal {
 }
 
 export const ROBBINS_MEALS: RobbinsMeal[] = [
-  // Meal 1 — fruit alone, on an empty stomach
+  // Snacks — fruit plates
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Mango, papaya & lime plate",
     description: "Ripe mango and papaya, sliced and squeezed with lime. Nothing else.",
     ingredients: ["Mango", "Papaya", "Lime"],
@@ -33,7 +34,7 @@ export const ROBBINS_MEALS: RobbinsMeal[] = [
     ],
   },
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Watermelon & mint",
     description: "Big chilled wedges of watermelon torn with fresh mint — the most water-rich start there is.",
     ingredients: ["Watermelon", "Mint"],
@@ -45,7 +46,7 @@ export const ROBBINS_MEALS: RobbinsMeal[] = [
     ],
   },
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Berry bowl",
     description: "Blueberries, raspberries and strawberries, piled high and eaten slowly.",
     ingredients: ["Blueberries", "Raspberries", "Strawberries"],
@@ -58,7 +59,7 @@ export const ROBBINS_MEALS: RobbinsMeal[] = [
     ],
   },
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Pineapple & kiwi",
     description: "Fresh pineapple spears and halved golden kiwi.",
     ingredients: ["Pineapple", "Golden kiwi"],
@@ -70,7 +71,7 @@ export const ROBBINS_MEALS: RobbinsMeal[] = [
     ],
   },
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Green juice & melon",
     description: "Celery, cucumber, apple and lemon juice, then a plate of honeydew and cantaloupe.",
     ingredients: ["Celery", "Cucumber", "Green apple", "Lemon", "Honeydew", "Cantaloupe"],
@@ -83,7 +84,7 @@ export const ROBBINS_MEALS: RobbinsMeal[] = [
     ],
   },
   {
-    slot: "meal1",
+    slot: "snack",
     name: "Citrus salad",
     description: "Blood orange, grapefruit and navel orange rounds with a few pomegranate seeds.",
     ingredients: ["Blood orange", "Grapefruit", "Navel orange", "Pomegranate"],

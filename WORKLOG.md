@@ -12542,6 +12542,43 @@ the bottom edge resizes as well as the body moving. Snaps to 15 minutes.
   resize, locked guest meeting, keep button, overlap layout; each drag sends one save
   with the right times. Not tested on touch: a finger drag scrolls instead.
 
+## 2026-10-26 — Home: Principles stands out and isn't a scrolling box
+
+Berto: Principles should stand out more and not sit in a box; it didn't look laid out
+properly. The block had a fixed height on the grid, so the list scrolled inside it and
+cut off mid-item ("On eating").
+- `HomeBlock` gets `autoHeight` (`app/_components/home-grid.tsx`): the block measures
+  its content (ResizeObserver) and takes exactly the rows it needs, so there's no inner
+  scroll and opening a toggle grows the block. The block's height comes from the
+  measurement, not the saved layout. It only resizes sideways (an `e` handle). Only
+  Principles uses it.
+- `PrinciplesDoc` heading is now a page title ("Principles", text-3xl) instead of the
+  small-caps label the other blocks use.
+- Verified in headless Chromium with stubbed APIs: 11 principles all show, block
+  height = content height (560px), grows to 596px when a toggle opens. Run without
+  `withEve` locally (eve dev can't reach its model gateway in the sandbox).
+
+## 2026-10-26 — Meals: drop "fruit alone, mornings"; Cael sees the eating rules, taste profile and ratings
+
+Berto asked what rules Cael follows for meal suggestions, then: remove rule 4 (fruit alone
+in the morning, he doesn't eat that way) and close the gaps found.
+- **Rule removed**: `PROTOCOL_RULES` in `lib/nutrition.ts` is now three rules (water-rich,
+  no protein with starch, alkaline/greens first). A day is on protocol when all three
+  held; old `fruit_alone` keys are ignored by `normalizeRules`. Counts in
+  `log_nutrition_day` and the protocol chart come from the list instead of "four".
+- **Meal 1 is a normal meal now.** The six fruit plates in `lib/robbins-meals.ts` are
+  `snack`s. A one-time step in `applySchema` (guarded by app_settings
+  `meals.fruit_to_snack_done`) re-tags them in the DB and clears coming Meal 1 cells that
+  still hold one, so Home refills those with a real meal. `fillFromBank` no longer puts
+  snack-tagged meals in Meal 1–3. The 👎 replacement writer (`SITTING_RULE` in
+  `lib/meal-feedback.ts`) and the recipe page's sitting line follow the new rules.
+- **Cael's gaps filled**: the daily snapshot's Food today section lists the rules with
+  their details. `list_meal_history` now returns the taste profile, his 👍/👎 ratings on
+  bank meals with his reasons (the `meal_feedback` table), and recent picks. Before, it only
+  read the old per-cell thumbs. `agent/instructions.md` tells Cael to keep the rules, lean
+  on 👍 meals and never suggest a 👎 one.
+- Verified: tsc clean. Not run against the DB (no working local DATABASE_URL).
+
 ## 2026-10-26 — Cael can attach images to tweets
 
 Berto: Cael's tweets should be able to include images (posting text already worked).

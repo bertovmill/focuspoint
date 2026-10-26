@@ -1,4 +1,5 @@
 import { getDb } from "../../lib/db";
+import { PROTOCOL_RULES } from "../../lib/nutrition";
 import { getPlanRange, getProteinTarget, proteinEatenOn } from "../../lib/nutrition-plan";
 import { getPrinciples } from "../../lib/principles";
 import { getCareerPlan, summarizeCareerPlan } from "../../lib/career-plan";
@@ -71,6 +72,7 @@ async function meals(today: string): Promise<string | null> {
     plan.length ? `- Planned: ${plan.map((p) => `${p.slot} — ${p.name}`).join("; ")}` : "- Nothing planned.",
     eaten.length ? `- Eaten so far: ${eaten.map((m) => String(m.name)).join("; ")}` : "- Nothing logged yet.",
     `- Protein: ${Math.round(proteinToday)} of ${target} g`,
+    `- His eating rules (Tony Robbins' protocol — every suggestion keeps all of them): ${PROTOCOL_RULES.map((r) => `${r.label} (${r.detail})`).join("; ")}`,
   ];
   return `## Food today\n${lines.join("\n")}`;
 }

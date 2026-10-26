@@ -12541,3 +12541,21 @@ the bottom edge resizes as well as the body moving. Snaps to 15 minutes.
 - Verified locally in the browser with stubbed data (dead local DATABASE_URL): move,
   resize, locked guest meeting, keep button, overlap layout; each drag sends one save
   with the right times. Not tested on touch: a finger drag scrolls instead.
+
+## 2026-10-26 — Cael can attach images to tweets
+
+Berto: Cael's tweets should be able to include images (posting text already worked).
+- `post_tweet` takes `image_urls` (up to 4, JPG/PNG/WEBP, 5 MB each). With images the
+  text may be empty. Each URL is fetched and uploaded through the same
+  `uploadTweetImage` the Writing tab uses; the result says how many images went up.
+- `lib/x-api.ts`: `fetchTweetImage(url)`. bertomill.com/media URLs are read straight
+  from the `media` table, and anything else (chat uploads' Blob URLs) is fetched.
+- `generate_post_image` has a new kind `tweet` that needs no post slug. It's stored as
+  `media` key `tweets/tweet-<ts>.webp` (`lib/post-art.ts`: slug now optional).
+- `agent/skills/post_to_x.md` has an Images section: use an uploaded photo's URL or
+  generate one when asked, show it with the drafts, and never add an image he didn't
+  ask for. `agent/instructions.md` mentions it too.
+- Verified: tsc clean; `fetchTweetImage` against a local server (PNG → `image/png`,
+  passes X's type check; 404 → clear error). **Not verified: a real image tweet from
+  Cael.** There are no X keys in the session, and posting is public. First real use in
+  production is the test.

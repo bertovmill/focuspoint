@@ -1,4 +1,6 @@
 import { createHmac, randomBytes } from "crypto";
+import { readMedia } from "./image-upload";
+import { PUBLIC_SITE_URL } from "./posts";
 import { recordTweet } from "./tweets";
 import { TWEET_IMAGE_MAX_BYTES, TWEET_IMAGE_TYPES } from "./x-shared";
 
@@ -93,6 +95,25 @@ export async function uploadTweetImage(image: Blob): Promise<string> {
   const json = (await res.json().catch(() => null)) as { data?: { id: string } } | null;
   if (!res.ok || !json?.data?.id) throw new Error(`Image upload failed: ${xError(json, res.status)}`);
   return json.data.id;
+}
+
+/**
+ * Fetch an image by URL for `uploadTweetImage`: a chat upload's Blob URL, or a
+ * bertomill.com/media URL from generate_post_image (read straight from the
+ * `media` table, so it works before the site has deployed and from local dev).
+ */
+export async function fetchTweetImage(url: string): Promise<Blob> {
+  const mediaPrefix = `${PUBLIC_SITE_URL}/media/`;
+  if (url.startsWith(mediaPrefix)) {
+    const key = url.slice(mediaPrefix.length).split(/[?#]/)[0].split("/").map(decodeURIComponent).join("/");
+    const media = await readMedia(key);
+    if (!media) throw new Error(`No image at ${url}`);
+    return new Blob([new Uint8Array(media.data)], { type: media.contentType });
+  }
+
+  const res = await fetch(url, { headers: { "User-Agent": "Cael/1.0" } });
+  if (!res.ok) throw new Error(`Couldn't fetch image ${url}: HTTP ${res.status}`);
+  return res.blob();
 }
 
 /**

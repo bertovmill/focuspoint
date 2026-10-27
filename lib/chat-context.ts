@@ -12,7 +12,12 @@ export function withChatContext(context: string, text: string): string {
 }
 
 export function stripChatContext(text: string): string {
-  if (!text.startsWith(OPEN)) return text;
-  const end = text.indexOf(CLOSE);
-  return end === -1 ? text : text.slice(end + CLOSE.length).replace(/^\s+/, "");
+  // More than one line can stack up (the corner chat's page, then the voice
+  // note), so strip until the text no longer opens with one.
+  while (text.startsWith(OPEN)) {
+    const end = text.indexOf(CLOSE);
+    if (end === -1) return text;
+    text = text.slice(end + CLOSE.length).replace(/^\s+/, "");
+  }
+  return text;
 }

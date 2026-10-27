@@ -12596,3 +12596,45 @@ Berto: Cael's tweets should be able to include images (posting text already work
   passes X's type check; 404 → clear error). **Not verified: a real image tweet from
   Cael.** There are no X keys in the session, and posting is public. First real use in
   production is the test.
+
+## 2026-10-27 — Chat: Cael talks back (voice replies + hands-free conversation)
+
+Berto wants to talk to Cael on walks instead of reading a phone, without paying ElevenLabs
+rates. Done: a voice menu in the chat composer (the speaker button beside the model chip).
+
+- **Modes** (per device, in localStorage `cael.voice`): Off / **Read replies aloud** /
+  **Talk hands-free**. Hands-free: after Cael finishes speaking the mic opens again, and
+  what Berto says is sent when he pauses (1.2s after a final result, 2.5s after an
+  interim one, or when recognition ends on its own). A round that hears nothing retries
+  twice, then waits for a tap. A new send or a tap on the pulsing speaker stops Cael
+  mid-sentence. The mic tap in Talk mode also auto-sends.
+- **Voices**: *Device voice* (browser `speechSynthesis`, free, no server; prefers Apple's
+  enhanced/Siri voices, then Google's), *Kokoro* (open-weights Kokoro-82M through
+  DeepInfra, needs `DEEPINFRA_API_KEY`), *ElevenLabs* (River via Flash v2.5, 0.5
+  credit/char, needs the existing key). Unconfigured ones show greyed out with the env var
+  to add. A failing paid voice falls back to the device voice and shows the error in the menu.
+- `lib/speech-text.ts`: markdown → spoken text (no asterisks, URLs, code, emoji; table
+  rows become sentences) and sentence-sized chunking. `lib/tts.ts` + `app/api/tts/route.ts`
+  (GET = configured providers, POST `{text, provider}` = audio). `hooks/use-cael-voice.ts`:
+  the settings store and the speaker (one `<audio>` unlocked inside the tap that turns
+  voice on, for iOS; chunk N+1 fetched while chunk N plays so speech starts fast).
+- Cael is told it's being spoken to: every send while voice is on carries a hidden
+  `[[Context: …]]` line asking for short spoken sentences, no markdown. `stripChatContext`
+  now strips stacked context lines (corner chat page + voice).
+- Replies already in a thread when the composer mounts are never read aloud.
+- Also: `package-lock.json` was out of sync (missing `@swc/helpers`, `chokidar`,
+  `readdirp`), which made `npm ci` fail — the cloud setup script was dying on it.
+  Resynced with `npm install`.
+
+Verified: tsc clean; speech-text cleanup/chunking checked in node. **Not verified in a
+browser or on the phone** (no DB/env in this session). Things to watch on first use:
+- iOS Safari / Home Screen app: whether `SpeechRecognition.start()` after Cael finishes
+  speaking (no tap) is allowed. If Safari refuses, hands-free needs one tap per turn.
+- The Capacitor iOS shell is a WKWebView, which has no SpeechRecognition: voice *replies*
+  work there, the mic doesn't. Use Safari / the Home Screen web app for hands-free, or add
+  `@capacitor-community/speech-recognition` later.
+- DeepInfra's Kokoro endpoint (`/v1/openai/audio/speech`, `voice: am_michael`) was written
+  from memory — deepinfra.com was blocked from this sandbox. If it 4xxs, the error shows
+  in the voice menu; check the request shape against their model page.
+- Screen off: the page is suspended, so the walk works with the screen on (or audio
+  playing keeps iOS Safari alive longer, but recognition stops).

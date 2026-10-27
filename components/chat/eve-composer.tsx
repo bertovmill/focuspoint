@@ -1,8 +1,19 @@
 "use client";
 
 import type { ChatStatus, FileUIPart, UserContent } from "ai";
-import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "lucide-react";
+import { ArrowUpIcon, AudioLinesIcon, MicIcon, PlusIcon, SquareIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { type Speaker, type VoiceMode, type VoiceProvider, useSpeaker, useVoiceSettings } from "@/hooks/use-cael-voice";
+import { withChatContext } from "@/lib/chat-context";
 import {
   Attachment,
   AttachmentPreview,
@@ -30,6 +41,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { ModelPicker } from "@/app/_components/model-picker";
 import type { EveAgent, SentFile } from "@/components/chat/eve-thread";
+import type { EveMessagePart } from "eve/react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,7 +51,24 @@ import { cn } from "@/lib/utils";
  * chip. On the right one round button does three jobs: a mic to dictate when
  * the box is empty, a filled send arrow once there's something to send, and a
  * stop square while Cael is answering.
+ *
+ * Voice (hooks/use-cael-voice.ts): with "Read replies" on, each finished answer
+ * is read aloud; with "Talk" on, the mic opens again once Cael has finished
+ * speaking and whatever Berto says is sent when he pauses — a conversation he
+ * can have with the phone in his pocket on a walk. Cael is told (in a hidden
+ * context line) that the reply will be spoken, so it answers in short plain
+ * sentences instead of markdown.
  */
+
+const VOICE_CONTEXT =
+  "Berto is talking to you by voice and your reply will be read aloud by a text-to-speech voice. " +
+  "Answer the way you would speak: short, natural sentences, no markdown, no lists, no headings, no links or code.";
+
+/** How long a pause ends Berto's turn in hands-free mode. */
+const SILENCE_AFTER_FINAL_MS = 1200;
+const SILENCE_AFTER_INTERIM_MS = 2500;
+/** Hands-free rounds that heard nothing before the mic gives up and waits for a tap. */
+const MAX_EMPTY_ROUNDS = 2;
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -177,8 +206,34 @@ function ComposerCard({
   const controller = usePromptInputController();
   const attachments = usePromptInputAttachments();
   const hasContent = controller.textInput.value.trim().length > 0 || attachments.files.length > 0;
-  const dictation = useDictation(controller.textInput.value, controller.textInput.setInput);
+
+  const voice = useVoiceSettings();
+  const speaker = useSpeaker(voice.provider);
+  const modeRef = useRef<VoiceMode>(voice.mode);
+  modeRef.current = voice.mode;
+  const speakerRef = useRef(speaker);
+  speakerRef.current = speaker;
+
+  // Hands-free: what was heard goes straight out, bypassing the form.
+  const deliverRef = useRef<(text: string, files: readonly FileUIPart[]) => Promise<void>>(async () => {});
+  const emptyRoundsRef = useRef(0);
+  const startListeningRef = useRef<(auto: boolean) => void>(() => {});
+  const dictation = useDictation(controller.textInput.value, controller.textInput.setInput, {
+    onAutoSend: (text) => {
+      emptyRoundsRef.current = 0;
+      controller.textInput.clear();
+      void deliverRef.current(text, []);
+    },
+    onAutoEmpty: () => {
+      // Nothing said (iOS ends recognition after a few quiet seconds). Listen
+      // again a couple of times, then wait for a tap rather than loop forever.
+      if (modeRef.current !== "talk") return;
+      if (emptyRoundsRef.current++ >= MAX_EMPTY_ROUNDS) return;
+      startListeningRef.current(true);
+    },
+  });
   const dictationStop = dictation.stop;
+  startListeningRef.current = dictation.start;
 
   // A brand-new thread has no session until its first send, and creating one
   // (starting the workflow, opening its inbox) used to sit in front of the first
@@ -201,8 +256,12 @@ function ComposerCard({
   // length of the answer, or for good (Berto, 2026-10-13).
   const deliver = useCallback(
     async (text: string, files: readonly FileUIPart[]) => {
+      // A fresh question interrupts whatever Cael was still saying.
+      speakerRef.current.stop();
+      const spoken = modeRef.current !== "off";
       const parts: Exclude<UserContent, string> = [];
-      if (text) parts.push({ type: "text", text });
+      if (text) parts.push({ type: "text", text: spoken ? withChatContext(VOICE_CONTEXT, text) : text });
+      else if (spoken) parts.push({ type: "text", text: withChatContext(VOICE_CONTEXT, "") });
 
       const sent: SentFile[] = [];
       for (const [i, file] of files.entries()) {
@@ -241,6 +300,40 @@ function ComposerCard({
     },
     [agent, onSend],
   );
+  deliverRef.current = deliver;
+
+  // Read each new reply once it has fully arrived. Replies already in the
+  // thread when this composer mounted are not read: opening an old chat
+  // shouldn't start a monologue.
+  const spokenRef = useRef<Set<string> | null>(null);
+  if (spokenRef.current === null) {
+    spokenRef.current = new Set(agent.data.messages.filter((m) => m.role === "assistant").map((m) => m.id));
+  }
+  const prevStatusRef = useRef(agent.status);
+  const dictationStart = dictation.start;
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = agent.status;
+    if (agent.status === "submitted") speakerRef.current.stop();
+    if (agent.status !== "ready" || (prev !== "streaming" && prev !== "submitted")) return;
+    const last = agent.data.messages.at(-1);
+    if (!last || last.role !== "assistant" || spokenRef.current!.has(last.id)) return;
+    spokenRef.current!.add(last.id);
+    if (modeRef.current === "off" || agent.error) return;
+    const text = last.parts
+      .filter((p: EveMessagePart): p is Extract<EveMessagePart, { type: "text" }> => p.type === "text")
+      .map((p) => p.text)
+      .join("\n\n")
+      .trim();
+    if (!text) {
+      if (modeRef.current === "talk") dictationStart(true);
+      return;
+    }
+    void speakerRef.current.speak(text).then((finished) => {
+      // Interrupted (a tap, a new send) means Berto has taken over; don't open the mic on him.
+      if (finished && modeRef.current === "talk") dictationStart(true);
+    });
+  }, [agent.status, agent.data.messages, agent.error, dictationStart]);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -252,6 +345,7 @@ function ComposerCard({
       // button), and eve would refuse the send: throwing keeps the text in place.
       if (busy) throw new Error("Cael is still answering");
       dictationStop();
+      emptyRoundsRef.current = 0;
       void deliver(text, files);
     },
     [busy, deliver, dictationStop],
@@ -279,7 +373,7 @@ function ComposerCard({
       <PendingAttachments />
       <PromptInputBody>
         <PromptInputTextarea
-          placeholder={dictation.listening ? "Listening…" : placeholder}
+          placeholder={speaker.speaking ? "Cael is speaking…" : dictation.listening ? "Listening…" : placeholder}
           aria-label="Message input"
           autoFocus={autoFocus}
           className="min-h-12 px-4 pt-3.5 pb-1 text-base leading-snug placeholder:text-muted-foreground/70"
@@ -301,6 +395,28 @@ function ComposerCard({
           </PromptInputActionMenu>
           {/* One global setting — the same picker the floating chat bar shows. */}
           <ModelPicker variant="compact" />
+          <VoiceMenu
+            mode={voice.mode}
+            provider={voice.provider}
+            available={voice.available}
+            speaker={speaker}
+            onMode={(mode) => {
+              // Inside the tap, so iOS lets the audio play later without one.
+              speaker.unlock();
+              voice.update({ mode });
+              emptyRoundsRef.current = 0;
+              if (mode === "off") {
+                speaker.stop();
+                dictationStop();
+              } else if (mode === "talk" && !busy && !dictation.listening) {
+                dictation.start(true);
+              }
+            }}
+            onProvider={(provider) => {
+              speaker.unlock();
+              voice.update({ provider });
+            }}
+          />
         </PromptInputTools>
         {busy ? (
           <PromptInputSubmit
@@ -332,7 +448,11 @@ function ComposerCard({
           <PromptInputButton
             aria-label={dictation.listening ? "Stop dictation" : "Dictate"}
             aria-pressed={dictation.listening}
-            onClick={dictation.toggle}
+            onClick={() => {
+              speaker.stop();
+              emptyRoundsRef.current = 0;
+              dictation.listening ? dictation.stop() : dictation.start(voice.mode === "talk");
+            }}
             className={cn(
               "size-8 rounded-full transition-colors",
               dictation.listening
@@ -349,11 +469,103 @@ function ComposerCard({
 }
 
 // ---------------------------------------------------------------------------
+// The voice button: a speaker that stops Cael mid-sentence while it talks, and
+// otherwise opens the voice settings for this device.
+
+const MODE_LABELS: Record<VoiceMode, { label: string; hint: string }> = {
+  off: { label: "Off", hint: "Replies as text only" },
+  read: { label: "Read replies aloud", hint: "Cael speaks every answer" },
+  talk: { label: "Talk hands-free", hint: "Listens again after each answer; sends when you pause" },
+};
+
+const PROVIDER_LABELS: Record<VoiceProvider, { label: string; hint: string; needs?: string }> = {
+  browser: { label: "Device voice", hint: "Built into the phone or browser. Free." },
+  kokoro: { label: "Kokoro", hint: "Open-source voice, cents per hour.", needs: "DEEPINFRA_API_KEY" },
+  elevenlabs: { label: "ElevenLabs", hint: "River, the podcast voice. Uses credits.", needs: "ELEVEN_LABS_API_KEY" },
+};
+
+function VoiceMenu({
+  mode,
+  provider,
+  available,
+  speaker,
+  onMode,
+  onProvider,
+}: {
+  mode: VoiceMode;
+  provider: VoiceProvider;
+  available: readonly VoiceProvider[];
+  speaker: Speaker;
+  onMode: (mode: VoiceMode) => void;
+  onProvider: (provider: VoiceProvider) => void;
+}) {
+  const buttonClass = cn(
+    "size-8 rounded-full border border-border/70 transition-colors",
+    mode === "off" ? "text-muted-foreground hover:text-foreground" : "border-foreground/30 text-foreground",
+  );
+  if (speaker.speaking) {
+    return (
+      <PromptInputButton
+        aria-label="Stop speaking"
+        onClick={speaker.stop}
+        className={cn(buttonClass, "animate-pulse bg-foreground text-background hover:bg-foreground/85 hover:text-background")}
+      >
+        <AudioLinesIcon className="size-4" />
+      </PromptInputButton>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <PromptInputButton aria-label="Voice settings" className={buttonClass}>
+          {mode === "off" ? <VolumeXIcon className="size-4" /> : mode === "talk" ? <AudioLinesIcon className="size-4" /> : <Volume2Icon className="size-4" />}
+        </PromptInputButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuLabel>Cael&apos;s voice</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={mode} onValueChange={(v) => onMode(v as VoiceMode)}>
+          {(Object.keys(MODE_LABELS) as VoiceMode[]).map((m) => (
+            <DropdownMenuRadioItem key={m} value={m} className="flex-col items-start gap-0 py-1.5">
+              <span>{MODE_LABELS[m].label}</span>
+              <span className="text-xs text-muted-foreground">{MODE_LABELS[m].hint}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Voice</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={provider} onValueChange={(v) => onProvider(v as VoiceProvider)}>
+          {(Object.keys(PROVIDER_LABELS) as VoiceProvider[]).map((p) => {
+            const ready = p === "browser" || available.includes(p);
+            return (
+              <DropdownMenuRadioItem key={p} value={p} disabled={!ready} className="flex-col items-start gap-0 py-1.5">
+                <span>{PROVIDER_LABELS[p].label}</span>
+                <span className="text-xs text-muted-foreground">
+                  {ready ? PROVIDER_LABELS[p].hint : `Add ${PROVIDER_LABELS[p].needs} to turn this on`}
+                </span>
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+        {speaker.error ? (
+          <p className="px-2 pb-1.5 pt-1 text-xs text-destructive">
+            {speaker.error} — used the device voice instead.
+          </p>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Dictation via the browser's own speech recognition (Chrome, Edge, Safari).
 // Where it isn't available the mic never shows and the send button sits there
 // dimmed instead. Speech is appended to whatever is already typed.
+//
+// Started with `auto` (hands-free), it also decides when Berto has finished:
+// a pause after a final result, or recognition ending on its own, sends what
+// was heard through `onAutoSend`; a round that heard nothing calls `onAutoEmpty`.
 
-type SpeechResultList = ArrayLike<ArrayLike<{ transcript: string }>>;
+type SpeechResultList = ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
 
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -372,47 +584,89 @@ function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
   return ((w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => SpeechRecognitionLike) | undefined) ?? null;
 }
 
-function useDictation(value: string, setValue: (v: string) => void) {
+function useDictation(
+  value: string,
+  setValue: (v: string) => void,
+  handlers: { onAutoSend: (text: string) => void; onAutoEmpty: () => void },
+) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const baseRef = useRef("");
   const valueRef = useRef(value);
   valueRef.current = value;
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+  const silenceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Checked after mount so the server and first client render agree.
   useEffect(() => setSupported(speechRecognitionCtor() !== null), []);
 
   const stop = useCallback(() => recognitionRef.current?.stop(), []);
 
-  const start = useCallback(() => {
-    const Ctor = speechRecognitionCtor();
-    if (!Ctor) return;
-    const rec = new Ctor();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = navigator.language || "en-US";
-    const typed = valueRef.current.trim();
-    baseRef.current = typed ? `${typed} ` : "";
-    rec.onresult = (event) => {
+  const start = useCallback(
+    (auto = false) => {
+      if (recognitionRef.current) return;
+      const Ctor = speechRecognitionCtor();
+      if (!Ctor) return;
+      const rec = new Ctor();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = navigator.language || "en-US";
+      const typed = valueRef.current.trim();
+      baseRef.current = typed ? `${typed} ` : "";
       let heard = "";
-      for (let i = 0; i < event.results.length; i++) heard += event.results[i]![0]!.transcript;
-      setValue(baseRef.current + heard.trimStart());
-    };
-    const finish = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-    rec.onend = finish;
-    rec.onerror = finish;
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
-  }, [setValue]);
+      const clearSilence = () => {
+        if (silenceRef.current) clearTimeout(silenceRef.current);
+        silenceRef.current = null;
+      };
+      rec.onresult = (event) => {
+        heard = "";
+        let lastFinal = false;
+        for (let i = 0; i < event.results.length; i++) {
+          heard += event.results[i]![0]!.transcript;
+          lastFinal = !!event.results[i]!.isFinal;
+        }
+        setValue(baseRef.current + heard.trimStart());
+        if (auto && heard.trim()) {
+          // Quiet for a moment after speaking: that's the end of the turn.
+          clearSilence();
+          silenceRef.current = setTimeout(() => rec.stop(), lastFinal ? SILENCE_AFTER_FINAL_MS : SILENCE_AFTER_INTERIM_MS);
+        }
+      };
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearSilence();
+        setListening(false);
+        recognitionRef.current = null;
+        if (!auto) return;
+        const text = (baseRef.current + heard.trimStart()).trim();
+        if (text) handlersRef.current.onAutoSend(text);
+        else handlersRef.current.onAutoEmpty();
+      };
+      rec.onend = finish;
+      rec.onerror = finish;
+      recognitionRef.current = rec;
+      try {
+        rec.start();
+      } catch {
+        finish();
+        return;
+      }
+      setListening(true);
+    },
+    [setValue],
+  );
 
-  const toggle = useCallback(() => (recognitionRef.current ? stop() : start()), [start, stop]);
+  useEffect(
+    () => () => {
+      if (silenceRef.current) clearTimeout(silenceRef.current);
+      recognitionRef.current?.stop();
+    },
+    [],
+  );
 
-  useEffect(() => () => recognitionRef.current?.stop(), []);
-
-  return { supported, listening, toggle, stop };
+  return { supported, listening, start, stop };
 }

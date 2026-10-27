@@ -64,7 +64,14 @@ Requires `DATABASE_URL` env var. On first run, call `ensureSchema()` or run the 
 - `DATABASE_URL` — Neon Postgres connection string (required for agent tools and API routes).
 - Eve-specific vars are pulled via `vercel env pull` or set in `.env.local`.
 - `BASIC_AUTH_PASSWORD` — protects the app (cookie-based login page at `/login`). Set in `.env.local` and Vercel production.
-- `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice.
+- `ELEVEN_LABS_API_KEY` — ElevenLabs API key for Cael's voice (podcast skill, and the
+  "ElevenLabs" option in the chat's voice menu). Optional `ELEVEN_LABS_VOICE_ID` /
+  `ELEVEN_LABS_MODEL` override River / `eleven_flash_v2_5`.
+- `DEEPINFRA_API_KEY` — turns on the "Kokoro" voice in the chat (open-weights Kokoro-82M
+  via DeepInfra's OpenAI-compatible `/audio/speech`; a small fraction of ElevenLabs'
+  price). `KOKORO_API_URL` / `KOKORO_API_KEY` / `KOKORO_MODEL` / `KOKORO_VOICE` point the
+  same code at any OpenAI-compatible TTS server (self-hosted Kokoro-FastAPI, OpenAI).
+  With neither key the chat still speaks, using the device's own voice for free.
 - The daily scorecard's steps and sleep come from the watch via the **Google Health
   API**, on the *existing* `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — there is no
   separate Fitbit app or secret. (The legacy Fitbit Web API is turned down in September

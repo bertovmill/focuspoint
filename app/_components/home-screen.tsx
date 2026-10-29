@@ -424,8 +424,9 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
             alt={`${art.moment}, ${art.year}`}
             onError={() => setArtFailed(true)}
             // Taller by the status bar's height, so the photo runs up under the clock
-            // in the installed app and the visible part stays the same size.
-            className="w-full h-[calc(13rem+var(--safe-top))] sm:h-[calc(18rem+var(--safe-top))] lg:h-80 object-cover"
+            // in the installed app and the visible part stays the same size. Kept to a
+            // banner so Vision, Calendar and Tasks start above the fold (2026-10-29).
+            className="w-full h-[calc(10rem+var(--safe-top))] sm:h-[calc(13rem+var(--safe-top))] lg:h-52 object-cover"
           />
           <div className="absolute inset-x-0 top-0 h-[calc(6rem+var(--safe-top))] bg-gradient-to-b from-black/50 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
@@ -447,7 +448,7 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         </div>
       )}
 
-      <div className={cn("pb-24 lg:pb-12", artFailed ? "pt-[calc(2rem+var(--safe-top))]" : "pt-10")}>
+      <div className={cn("pb-24 lg:pb-12", artFailed ? "pt-[calc(2rem+var(--safe-top))]" : "pt-8")}>
       <div className="mx-auto max-w-6xl px-6">
         {/* Header falls back into the page flow when the artwork fails to load */}
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
@@ -457,10 +458,10 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         <div ref={dayScope}>
           <HomeGrid
             blocks={[
-              { id: "vision", label: "Vision", node: <HomeSections /> },
-              { id: "training", label: "Training", daily: true, node: <TrainingToday today={date} /> },
-              { id: "meals", label: "Meals", daily: true, node: <MealsToday today={date} /> },
-              { id: "calendar", label: "Calendar", daily: true, node: <CalendarToday today={date} /> },
+              { id: "vision", label: "Vision", autoHeight: true, node: <HomeSections /> },
+              { id: "training", label: "Training", daily: true, autoHeight: true, node: <TrainingToday today={date} /> },
+              { id: "meals", label: "Meals", daily: true, autoHeight: true, node: <MealsToday today={date} /> },
+              { id: "calendar", label: "Calendar", daily: true, autoHeight: true, node: <CalendarToday today={date} /> },
               { id: "tasks", label: "Tasks", node: <HomeTasks /> },
               { id: "principles", label: "Principles", autoHeight: true, node: <PrinciplesDoc /> },
             ]}

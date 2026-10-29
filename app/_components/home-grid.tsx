@@ -24,6 +24,8 @@ export interface HomeBlock {
   /**
    * The block is always as tall as its content: no inner scroll, and only its width
    * resizes. Principles reads as a page, not a scrolling box (Berto, 2026-10-26).
+   * Vision, Training, Meals and Calendar too (2026-10-29): a fixed height left a gap
+   * under short content, and the blocks below now close up under them.
    */
   autoHeight?: boolean;
   node: ReactNode;
@@ -49,11 +51,6 @@ export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
  * Status, Due and Priority columns (Berto, 2026-10-25); Calendar sits above it at the same width.
  */
 const MIN_W: Record<string, number> = { calendar: 6, tasks: 6 };
-/**
- * Shortest a block may be, in grid rows: Calendar is an hour timeline now and needs room to read,
- * and Meals needs room for all three picks without scrolling (both 2026-10-25).
- */
-const MIN_H: Record<string, number> = { calendar: 14, meals: 11 };
 
 /**
  * Widens any block narrower than its minimum, leftwards, and trims the blocks
@@ -94,8 +91,7 @@ function withAllBlocks(saved: HomeBlockPosition[] | null, ids: string[]): HomeBl
   const unknown = ids
     .filter((id) => !base.some((p) => p.i === id) && !missing.some((p) => p.i === id))
     .map((i) => ({ i, x: 0, y: Infinity, w: 8, h: 8 }));
-  // A block shorter than its minimum grows in place; the grid's compaction pushes the blocks under it down.
-  return withMinWidths([...base, ...missing, ...unknown]).map((p) => (MIN_H[p.i] && p.h < MIN_H[p.i] ? { ...p, h: MIN_H[p.i] } : p));
+  return withMinWidths([...base, ...missing, ...unknown]);
 }
 
 /** Grid rows needed to show `px` of content: h rows span h * ROW_HEIGHT plus the h - 1 gaps between them. */
@@ -115,9 +111,10 @@ function Measured({ onHeight, children }: { onHeight: (px: number) => void; chil
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  // flow-root keeps the content's bottom margin inside the measurement.
+  // flow-root keeps the content's bottom margin inside the measurement; pr-1 matches
+  // the scrolling blocks' gutter so the edges of stacked blocks line up.
   return (
-    <div ref={ref} className="flow-root">
+    <div ref={ref} className="flow-root pr-1">
       {children}
     </div>
   );
@@ -178,11 +175,11 @@ export function HomeGrid({ blocks }: { blocks: HomeBlock[] }) {
       {asGrid ? (
         <ReactGridLayout
           width={width}
-          layout={layout.map((p) =>
-            byId.get(p.i)?.autoHeight
-              ? { ...p, h: fitRows[p.i] ?? p.h, resizeHandles: ["e"] as const }
-              : { ...p, ...(MIN_W[p.i] && { minW: MIN_W[p.i] }), ...(MIN_H[p.i] && { minH: MIN_H[p.i] }) },
-          )}
+          layout={layout.map((p) => ({
+            ...p,
+            ...(MIN_W[p.i] && { minW: MIN_W[p.i] }),
+            ...(byId.get(p.i)?.autoHeight && { h: fitRows[p.i] ?? p.h, resizeHandles: ["e"] as const }),
+          }))}
           gridConfig={{ cols: COLS, rowHeight: ROW_HEIGHT, margin: MARGIN, containerPadding: [24, 0] }}
           dragConfig={{ enabled: true, handle: ".home-block-grip" }}
           resizeConfig={{ enabled: true, handles: ["se"] }}

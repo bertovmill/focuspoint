@@ -12638,3 +12638,35 @@ browser or on the phone** (no DB/env in this session). Things to watch on first 
   in the voice menu; check the request shape against their model page.
 - Screen off: the page is suspended, so the walk works with the screen on (or audio
   playing keeps iOS Safari alive longer, but recognition stops).
+
+---
+
+## 2026-10-29 — Home: tighter layout (shorter hero, blocks fit their content, calendar unsquashed)
+
+Berto felt Home's layout could be better (asked to use Mobbin; it wasn't connected, so
+he said build without it). From his screenshot: the hero ate a third of the screen,
+Vision and Training left big empty gaps, Tasks started at the very bottom, and the
+calendar squeezed every event into slivers whose titles were cut mid-word.
+- **Hero** is a banner now: 208px on desktop (was 320), 10rem/13rem on phone/tablet.
+- **Vision, Training, Meals and Calendar are `autoHeight`** like Principles: the block is
+  exactly as tall as its content, so the blocks under them close up (Tasks now sits right
+  under the calendar instead of ~130px below it). They only resize sideways. `MIN_H` is
+  gone (only Calendar and Meals used it, both autoHeight now); `MIN_W` now applies to
+  autoHeight blocks too, so Calendar still can't be narrowed under 6 columns. The
+  measured wrapper gets the same `pr-1` as scrolling blocks so stacked edges line up.
+- **Calendar**: a timed event of 4h or more (e.g. "Build North" 10:30–9 PM) sits with the
+  all-day chips as "Build North · 10:30 AM–9:00 PM" (green while it's on) instead of
+  taking a lane down the whole day; it was what squeezed everything else. Titles in
+  blocks under ~60px tall stay on one line with an ellipsis instead of wrapping and
+  getting clipped. `LONG_EVENT_MIN` in `today-snapshot.tsx`. Long events can't be
+  dragged from the chip row; move them in Google Calendar.
+- Vision sections' spacing tightened (`mb-10` → `mb-6`, no extra margin under "Add section").
+- His saved layout still applies: only heights changed, positions are his.
+- Files: `app/_components/home-screen.tsx`, `home-grid.tsx`, `home-sections.tsx`,
+  `today-snapshot.tsx`.
+- Verified in headless Chromium with stubbed APIs (no DB/env in the cloud session; eve
+  needs Node 24, so run without `withEve`), desktop 1440 and phone 390: the "before"
+  render matched his screenshot; after, Tasks starts in the first screen and every
+  calendar title reads. tsc clean.
+- Next: once Mobbin is connected, pull references (Sunsama/Akiflow/Notion Calendar day
+  views) for a second pass, e.g. a denser agenda view of the empty afternoon.

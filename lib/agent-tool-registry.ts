@@ -42,6 +42,7 @@ import post_task_update from "@/agent/tools/post_task_update";
 import query_database from "@/agent/tools/query_database";
 import request_feature from "@/agent/tools/request_feature";
 import post_tweet from "@/agent/lib/toolsets/publishing/post_tweet";
+import get_tweet_stats from "@/agent/lib/toolsets/publishing/get_tweet_stats";
 import principles_doc from "@/agent/tools/principles_doc";
 import home_sections from "@/agent/tools/home_sections";
 import career_relationships_doc from "@/agent/tools/career_relationships_doc";
@@ -109,6 +110,7 @@ export const agentTools = {
   post_linkedin,
   post_task_update,
   post_tweet,
+  get_tweet_stats,
   principles_doc,
   query_database,
   request_feature,

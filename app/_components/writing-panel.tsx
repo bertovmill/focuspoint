@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
+  BookmarkIcon,
   CalendarClockIcon,
+  EyeIcon,
+  HeartIcon,
   ExternalLinkIcon,
   ImagePlusIcon,
   Loader2Icon,
+  MessageCircleIcon,
+  RefreshCwIcon,
+  Repeat2Icon,
   SaveIcon,
   PenLineIcon,
   PlusIcon,
@@ -48,6 +54,7 @@ import {
   TWEET_IMAGE_MAX_BYTES,
   TWEET_IMAGE_TYPES,
   TWEET_MAX_IMAGES,
+  X_POST_READ_COST,
 } from "@/lib/x-shared";
 
 type PostSummary = {
@@ -264,7 +271,18 @@ type TweetRow = {
   postId: number | null;
   postTitle: string | null;
   createdAt: string;
+  metrics: {
+    impressions: number;
+    likes: number;
+    reposts: number;
+    replies: number;
+    quotes: number;
+    bookmarks: number;
+  } | null;
+  metricsAt: string | null;
 };
+
+const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 
 type TweetDraftRow = { id: number; text: string; updatedAt: string };
 
@@ -304,7 +322,16 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   // undefined while loading, null when X's balance isn't available.
   const [balance, setBalance] = useState<number | null | undefined>(undefined);
+  const [refreshingStats, setRefreshingStats] = useState(false);
+  const [sortTop, setSortTop] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const loadBalance = useCallback(() => {
+    fetch("/api/tweets/credits")
+      .then((r) => r.json())
+      .then((d) => setBalance(typeof d.balance === "number" ? d.balance : null))
+      .catch(() => setBalance(null));
+  }, []);
 
   const loadDrafts = useCallback(() => {
     fetch("/api/tweets/drafts")
@@ -327,11 +354,8 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       .catch(() => setTweets([]));
     loadDrafts();
     loadScheduled();
-    fetch("/api/tweets/credits")
-      .then((r) => r.json())
-      .then((d) => setBalance(typeof d.balance === "number" ? d.balance : null))
-      .catch(() => setBalance(null));
-  }, [loadDrafts, loadScheduled]);
+    loadBalance();
+  }, [loadDrafts, loadScheduled, loadBalance]);
   useEffect(load, [load]);
 
   const addImages = (files: FileList | File[]) => {
@@ -417,6 +441,30 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       setPosting(false);
     }
   };
+
+  // Pulls current likes/impressions from X for every tweet below. Each tweet
+  // read costs X credit, so this only runs from the button, never on load.
+  const refreshStats = async () => {
+    setRefreshingStats(true);
+    try {
+      const res = await fetch("/api/tweets/metrics", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setTweets(data.tweets);
+      loadBalance();
+      toast.success(`Updated stats for ${data.refreshed} tweet${data.refreshed === 1 ? "" : "s"} (~${formatUsd(data.cost)}).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't refresh stats.");
+    } finally {
+      setRefreshingStats(false);
+    }
+  };
+  const withStats = tweets?.filter((t) => t.metrics) ?? [];
+  const statsAt = withStats.map((t) => t.metricsAt!).sort().at(-1);
+  const shownTweets =
+    tweets && sortTop
+      ? [...tweets].sort((a, b) => (b.metrics?.impressions ?? -1) - (a.metrics?.impressions ?? -1))
+      : tweets;
 
   const schedule = async () => {
     if (!scheduleAt) return;
@@ -656,6 +704,40 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           </section>
         )}
 
+        {tweets !== null && tweets.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {statsAt ? (
+                <>
+                  {compact.format(withStats.reduce((n, t) => n + t.metrics!.impressions, 0))} impressions ·{" "}
+                  {compact.format(withStats.reduce((n, t) => n + t.metrics!.likes, 0))} likes · updated{" "}
+                  {formatMoment(statsAt)}
+                </>
+              ) : (
+                "No stats yet. Refresh to pull them from X."
+              )}
+            </span>
+            <div className="flex items-center gap-1">
+              {statsAt && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSortTop((v) => !v)}>
+                  {sortTop ? "Top first" : "Newest first"}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => void refreshStats()}
+                disabled={refreshingStats}
+                title="Reads each tweet from X, which X bills per tweet"
+              >
+                {refreshingStats ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />}
+                Refresh stats · ~{formatUsd(tweets.length * X_POST_READ_COST)}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {tweets === null ? (
           <div className="flex flex-col gap-3">
             {[0, 1, 2].map((i) => (
@@ -666,9 +748,27 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           <p className="py-8 text-center text-sm text-muted-foreground">No tweets from Cael yet. New ones show up here.</p>
         ) : (
           <ul className="divide-y divide-border rounded-lg border">
-            {tweets.map((t) => (
+            {shownTweets!.map((t) => (
               <li key={t.id} className="flex flex-col gap-1.5 px-3 py-3">
                 <p className="whitespace-pre-wrap break-words text-sm">{t.text}</p>
+                {t.metrics && (
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums text-muted-foreground">
+                    {(
+                      [
+                        [EyeIcon, t.metrics.impressions, "impressions"],
+                        [HeartIcon, t.metrics.likes, "likes"],
+                        [Repeat2Icon, t.metrics.reposts + t.metrics.quotes, "reposts and quotes"],
+                        [MessageCircleIcon, t.metrics.replies, "replies"],
+                        [BookmarkIcon, t.metrics.bookmarks, "bookmarks"],
+                      ] as const
+                    ).map(([Icon, n, label]) => (
+                      <span key={label} className="inline-flex items-center gap-1" title={`${n.toLocaleString()} ${label}`}>
+                        <Icon className="size-3.5" />
+                        {compact.format(n)}
+                      </span>
+                    ))}
+                  </p>
+                )}
                 <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   <span>{formatMoment(t.createdAt)}</span>
                   {t.postTitle && <span>· shared “{t.postTitle}”</span>}

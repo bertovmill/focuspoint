@@ -83,13 +83,13 @@ export function HomeSections() {
   if (sections === null) return null;
 
   return (
-    <div className="mb-10">
+    <div>
       {sections.map((section, i) => (
         <MarkdownDoc
           key={section.id}
           id={sectionSlug(section)}
           endpoint={`/api/home-sections/${section.id}`}
-          className="mb-10"
+          className="mb-6"
           placeholder="Start writing. Type '/' for headings, lists, toggles…"
           heading={
             <div className="flex min-w-0 flex-1 items-center gap-1">

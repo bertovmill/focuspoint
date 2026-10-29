@@ -423,6 +423,13 @@ function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+/**
+ * A timed event at least this long (a workday-length block like "Build North") sits
+ * with the all-day chips instead of taking a lane: as a column it squeezed every
+ * other event into slivers whose titles got cut off (2026-10-29).
+ */
+const LONG_EVENT_MIN = 4 * 60;
+
 /** Pixels per hour on the timeline. */
 const HOUR_PX = 48;
 /** The timeline always covers at least this much of the day; events outside widen it. */
@@ -684,8 +691,11 @@ export function CalendarToday({ today }: { today: string }) {
   // sprint) reads as an all-day chip, not a column filling the timeline.
   const spansDay = (e: CalendarEvent) =>
     e.allDay || (minuteOfDay(e.start, today) === 0 && minuteOfDay(e.end ?? e.start, today) === 24 * 60);
-  const timed = (events ?? []).filter((e) => !spansDay(e));
+  const isLong = (e: CalendarEvent) =>
+    !spansDay(e) && minuteOfDay(e.end ?? e.start, today) - minuteOfDay(e.start, today) >= LONG_EVENT_MIN;
+  const timed = (events ?? []).filter((e) => !spansDay(e) && !isLong(e));
   const allDay = (events ?? []).filter(spansDay);
+  const long = (events ?? []).filter(isLong);
   const eventBlocks = timed.map((e) => {
     const top = minuteOfDay(e.start, today);
     return { ...e, key: `event-${e.id}`, top, bottom: Math.max(minuteOfDay(e.end ?? e.start, today), top + 15) };
@@ -790,13 +800,30 @@ export function CalendarToday({ today }: { today: string }) {
                 </div>
               )}
             </div>
-            {allDay.length > 0 && (
+            {allDay.length + long.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5 pl-14">
                 {allDay.map((e) => (
                   <span key={e.id} className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-xs font-medium" title={e.title}>
                     {e.title}
                   </span>
                 ))}
+                {long.map((e) => {
+                  const live = new Date(e.start).getTime() <= now && now < new Date(e.end ?? e.start).getTime();
+                  const span = `${clockTime(e.start)}${e.end ? `–${clockTime(e.end)}` : ""}`;
+                  return (
+                    <span
+                      key={e.id}
+                      title={`${e.title} · ${span}`}
+                      className={cn(
+                        "max-w-full truncate rounded-md px-2 py-0.5 text-xs",
+                        live ? "bg-emerald-500/15 text-foreground" : "bg-muted",
+                      )}
+                    >
+                      <span className="font-medium">{e.title}</span>
+                      <span className="text-muted-foreground"> · {span}</span>
+                    </span>
+                  );
+                })}
               </div>
             )}
             <div ref={scroller} id="calendar-timeline" className="max-h-[480px] overflow-y-auto">
@@ -848,7 +875,7 @@ export function CalendarToday({ today }: { today: string }) {
                           </button>
                         )}
                         <div className="min-w-0 flex-1">
-                          <span className={cn("font-medium", b.done && "line-through")}>{b.title}</span>
+                          <span className={cn("font-medium", b.done && "line-through", height < 60 && "block truncate")}>{b.title}</span>
                           {height >= 34 && (
                             <span className="block text-[10px] opacity-75">
                               {clockTime(`2000-01-01T${minutesHHMM(b.top)}`)}–{clockTime(`2000-01-01T${minutesHHMM(b.bottom)}`)}
@@ -914,7 +941,8 @@ export function CalendarToday({ today }: { today: string }) {
                           ...laneStyle(e),
                         }}
                       >
-                        <span className="font-medium">{e.title}</span>
+                        {/* One line when there's only room for one, so a title never shows cut in half. */}
+                        <span className={cn("font-medium", height < 60 && "block truncate")}>{e.title}</span>
                         {height >= 34 && (
                           <span className="block text-[10px] text-muted-foreground">
                             {clockTime(shownStart)}
@@ -936,7 +964,7 @@ export function CalendarToday({ today }: { today: string }) {
                 )}
               </div>
             </div>
-            {timed.length === 0 && allDay.length === 0 && (
+            {timed.length === 0 && allDay.length === 0 && long.length === 0 && (
               <p className="px-2 pt-2 text-xs text-muted-foreground">Nothing on the calendar{isToday ? " today" : ""}.</p>
             )}
           </>

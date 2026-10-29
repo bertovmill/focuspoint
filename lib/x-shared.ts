@@ -10,6 +10,11 @@ export const X_POST_COST = 0.015;
 /** A post with a link in it costs far more than a plain one. */
 export const X_POST_WITH_LINK_COST = 0.2;
 
+/** Reading a tweet (e.g. to refresh its stats) is billed per tweet returned. */
+export const X_POST_READ_COST = 0.005;
+/** Most tweet ids one lookup request takes. */
+export const X_LOOKUP_MAX_IDS = 100;
+
 export function hasLink(text: string): boolean {
   return /https?:\/\/\S+/.test(text);
 }

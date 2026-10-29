@@ -11,6 +11,7 @@
 
 import generate_post_image from "./publishing/generate_post_image";
 import get_post from "./publishing/get_post";
+import get_tweet_stats from "./publishing/get_tweet_stats";
 import list_portfolio from "./publishing/list_portfolio";
 import list_posts from "./publishing/list_posts";
 import post_linkedin from "./publishing/post_linkedin";
@@ -29,7 +30,7 @@ import sync_luma from "./events_and_news/sync_luma";
 export const TOOLSETS = {
   publishing: {
     summary:
-      "Articles on bertomill.com/writing (list, read, draft, edit, publish, cover/inline images), posting to X and LinkedIn, and the bertomill.com/capabilities portfolio.",
+      "Articles on bertomill.com/writing (list, read, draft, edit, publish, cover/inline images), posting to X and LinkedIn, how his tweets performed on X, and the bertomill.com/capabilities portfolio.",
     // Lower-cased substrings of a user message that mean this toolset is needed.
     triggers: [
       "[[context: writing editor",
@@ -41,6 +42,8 @@ export const TOOLSETS = {
       "tweet",
       "post on x",
       "post to x",
+      "x analytics",
+      "impressions",
       "linkedin",
       "portfolio",
       "capabilit",
@@ -53,6 +56,7 @@ export const TOOLSETS = {
       publish_post,
       generate_post_image,
       post_tweet,
+      get_tweet_stats,
       post_linkedin,
       list_portfolio,
       save_portfolio_project,

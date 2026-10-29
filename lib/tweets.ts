@@ -10,6 +10,18 @@ export interface Tweet {
   postId: number | null;
   postTitle: string | null;
   createdAt: string;
+  /** X's counts as of `metricsAt`; null until stats are first refreshed. */
+  metrics: TweetMetrics | null;
+  metricsAt: string | null;
+}
+
+export interface TweetMetrics {
+  impressions: number;
+  likes: number;
+  reposts: number;
+  replies: number;
+  quotes: number;
+  bookmarks: number;
 }
 
 function toTweet(row: Record<string, unknown>): Tweet {
@@ -21,6 +33,23 @@ function toTweet(row: Record<string, unknown>): Tweet {
     postId: row.post_id == null ? null : Number(row.post_id),
     postTitle: (row.post_title as string | null) ?? null,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    metrics:
+      row.metrics_at == null
+        ? null
+        : {
+            impressions: Number(row.impressions ?? 0),
+            likes: Number(row.likes ?? 0),
+            reposts: Number(row.reposts ?? 0),
+            replies: Number(row.replies ?? 0),
+            quotes: Number(row.quotes ?? 0),
+            bookmarks: Number(row.bookmarks ?? 0),
+          },
+    metricsAt:
+      row.metrics_at == null
+        ? null
+        : row.metrics_at instanceof Date
+          ? row.metrics_at.toISOString()
+          : String(row.metrics_at),
   };
 }
 
@@ -34,6 +63,7 @@ export async function recordTweet(t: { tweetId: string; text: string; url: strin
 
 /** Newest first. */
 export async function listTweets(limit = 100): Promise<Tweet[]> {
+  await ensureSchema();
   const rows = await getDb()`
     SELECT t.*, p.title AS post_title
     FROM tweets t LEFT JOIN posts p ON p.id = t.post_id
@@ -41,6 +71,25 @@ export async function listTweets(limit = 100): Promise<Tweet[]> {
     LIMIT ${limit}
   `;
   return rows.map(toTweet);
+}
+
+/** Store fresh counts from X (lib/x-api.ts `fetchTweetMetrics`), keyed by X's tweet id. */
+export async function saveTweetMetrics(metrics: Map<string, TweetMetrics>): Promise<void> {
+  if (metrics.size === 0) return;
+  await ensureSchema();
+  const ids = [...metrics.keys()];
+  const col = (k: keyof TweetMetrics) => ids.map((id) => metrics.get(id)![k]);
+  await getDb()`
+    UPDATE tweets t SET
+      impressions = m.impressions, likes = m.likes, reposts = m.reposts,
+      replies = m.replies, quotes = m.quotes, bookmarks = m.bookmarks,
+      metrics_at = NOW()
+    FROM unnest(
+      ${ids}::text[], ${col("impressions")}::int[], ${col("likes")}::int[], ${col("reposts")}::int[],
+      ${col("replies")}::int[], ${col("quotes")}::int[], ${col("bookmarks")}::int[]
+    ) AS m(tweet_id, impressions, likes, reposts, replies, quotes, bookmarks)
+    WHERE t.tweet_id = m.tweet_id
+  `;
 }
 
 /** A tweet saved from the Tweets tab to post later (text only). */

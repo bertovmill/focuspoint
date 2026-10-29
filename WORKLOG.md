@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-29 — Home: meals end level with sleep + training
+
+Berto: "these should be the same height - so it all fits nicely together". In the top row
+the meal photos now stretch to the height of the sleep + training column beside them
+(at least 14rem), instead of a fixed 4:5 shape. The three figures share rows through CSS
+subgrid, so photos and captions line up across the three. The heading sits in a div so it
+keeps its line box and stays level with "Sleep this week". Narrow widths unchanged.
+File: `app/_components/today-snapshot.tsx` (`MealsToday`).
+
+---
+
 ## 2026-10-29 — Home: sleep shows the 7-day average
 
 Berto: "i dont often get sleep tracked every night, so i think weekly average is more

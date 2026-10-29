@@ -542,9 +542,15 @@ export function MealsToday({ today }: { today: string }) {
 
   // Sized to its home block, not the window: a narrow block lists the picks as
   // rows (photo beside the name) instead of crushing three photos side by side.
+  // Side by side, the photos stretch to fill whatever height they're given, so the
+  // meals end level with sleep + training beside them (Berto, 2026-10-29). The
+  // figures share the rows (subgrid), so the three photos and captions line up too.
   return (
-    <div className="@container">
-      <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
+    <div className="@container flex h-full flex-col">
+      {/* In a div so the heading keeps its line box, level with the sleep heading. */}
+      <div>
+        <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
+      </div>
       {meals === null ? (
         <div className="grid gap-3 @md:grid-cols-3">
           {MEAL_SLOTS.map((s) => (
@@ -552,14 +558,14 @@ export function MealsToday({ today }: { today: string }) {
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 @md:grid-cols-3">
+        <div className="grid gap-3 @md:flex-1 @md:grid-cols-3 @md:grid-rows-[minmax(14rem,1fr)_auto]">
           {slotsShown(bySlot.has("snack")).map(({ key }) => {
             const m = bySlot.get(key);
             return (
-              <figure key={key} className="group/pick flex min-w-0 items-start gap-3 @md:block">
-                <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg bg-muted @md:aspect-[4/5] @md:w-auto @md:rounded-xl">
+              <figure key={key} className="group/pick flex min-w-0 items-start gap-3 @md:row-span-2 @md:grid @md:grid-rows-subgrid @md:items-stretch">
+                <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg bg-muted @md:aspect-auto @md:w-auto @md:rounded-xl">
                   {m?.recipe_id ? (
-                    <Link href={recipeHref({ id: m.recipe_id, name: m.name })} aria-label={`Open the ${m.name} recipe`} className="block size-full">
+                    <Link href={recipeHref({ id: m.recipe_id, name: m.name })} aria-label={`Open the ${m.name} recipe`} className="absolute inset-0 block">
                       {m.image_url && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -572,7 +578,7 @@ export function MealsToday({ today }: { today: string }) {
                   ) : (
                     m?.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.image_url} alt={m.name} className="size-full object-cover" />
+                      <img src={m.image_url} alt={m.name} className="absolute inset-0 size-full object-cover" />
                     )
                   )}
                   {m && (
@@ -588,7 +594,7 @@ export function MealsToday({ today }: { today: string }) {
                     </button>
                   )}
                 </div>
-                <figcaption className="min-w-0 flex-1 @md:mt-2">
+                <figcaption className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{PICK_LABELS[key]}</p>
                   {m?.recipe_id ? (
                     <Link

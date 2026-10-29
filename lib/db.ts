@@ -950,6 +950,15 @@ async function applySchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // X's public metrics for each tweet, as of `metrics_at`. Only refreshed on
+  // request (lib/x-api.ts `fetchTweetMetrics`), since every read costs X credit (2026-10-29).
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS impressions INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS likes INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS reposts INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS replies INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS quotes INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS bookmarks INTEGER`;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS metrics_at TIMESTAMPTZ`;
   // Tweets saved from the composer to finish later, text only (2026-10-19).
   await sql`
     CREATE TABLE IF NOT EXISTS tweet_drafts (

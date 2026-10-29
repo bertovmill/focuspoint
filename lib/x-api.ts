@@ -1,8 +1,8 @@
 import { createHmac, randomBytes } from "crypto";
 import { readMedia } from "./image-upload";
 import { PUBLIC_SITE_URL } from "./posts";
-import { recordTweet } from "./tweets";
-import { TWEET_IMAGE_MAX_BYTES, TWEET_IMAGE_TYPES } from "./x-shared";
+import { listTweets, recordTweet, saveTweetMetrics, type TweetMetrics } from "./tweets";
+import { TWEET_IMAGE_MAX_BYTES, TWEET_IMAGE_TYPES, X_LOOKUP_MAX_IDS, X_POST_READ_COST } from "./x-shared";
 
 function percentEncode(s: string): string {
   return encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
@@ -32,6 +32,7 @@ function buildAuthHeader(
   consumerSecret: string,
   accessToken: string,
   accessTokenSecret: string,
+  query: Record<string, string> = {},
 ): string {
   const nonce = randomBytes(16).toString("hex");
   const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -43,7 +44,8 @@ function buildAuthHeader(
     oauth_token: accessToken,
     oauth_version: "1.0",
   };
-  oauthParams.oauth_signature = oauthSign(method, url, oauthParams, consumerSecret, accessTokenSecret);
+  // Query params are part of the signature base string, but not of the header.
+  oauthParams.oauth_signature = oauthSign(method, url, { ...query, ...oauthParams }, consumerSecret, accessTokenSecret);
   return `OAuth ${Object.keys(oauthParams)
     .sort()
     .map((k) => `${percentEncode(k)}="${percentEncode(oauthParams[k])}"`)
@@ -61,10 +63,13 @@ function credentials() {
   return { consumerKey, consumerSecret, accessToken, accessTokenSecret };
 }
 
-/** OAuth 1.0a header for a request signed as Berto. Body params aren't signed (JSON and multipart bodies aren't). */
-function userAuth(method: string, url: string): string {
+/**
+ * OAuth 1.0a header for a request signed as Berto. `url` has no query string;
+ * pass its params as `query`. Body params aren't signed (JSON and multipart bodies aren't).
+ */
+function userAuth(method: string, url: string, query: Record<string, string> = {}): string {
   const c = credentials();
-  return buildAuthHeader(method, url, c.consumerKey, c.consumerSecret, c.accessToken, c.accessTokenSecret);
+  return buildAuthHeader(method, url, c.consumerKey, c.consumerSecret, c.accessToken, c.accessTokenSecret, query);
 }
 
 /** X v2 errors come as `errors[]` or as a problem doc (`title`/`detail`), e.g. on a 401. */
@@ -148,6 +153,65 @@ export async function postTweet(
     console.error("couldn't save tweet:", err),
   );
   return tweet;
+}
+
+/**
+ * Current public metrics for Berto's tweets, keyed by tweet id. Read as Berto,
+ * up to 100 ids per request; each tweet returned is a billed post read
+ * (`X_POST_READ_COST`). Deleted tweets are simply missing from the result.
+ */
+export async function fetchTweetMetrics(tweetIds: string[]): Promise<Map<string, TweetMetrics>> {
+  const url = "https://api.x.com/2/tweets";
+  const metrics = new Map<string, TweetMetrics>();
+  for (let i = 0; i < tweetIds.length; i += X_LOOKUP_MAX_IDS) {
+    const query = { ids: tweetIds.slice(i, i + X_LOOKUP_MAX_IDS).join(","), "tweet.fields": "public_metrics" };
+    const qs = Object.entries(query)
+      .map(([k, v]) => `${percentEncode(k)}=${percentEncode(v)}`)
+      .join("&");
+    const res = await fetch(`${url}?${qs}`, {
+      headers: { Authorization: userAuth("GET", url, query), "User-Agent": "Cael/1.0" },
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => null)) as {
+      data?: {
+        id: string;
+        public_metrics?: {
+          impression_count?: number;
+          like_count?: number;
+          retweet_count?: number;
+          reply_count?: number;
+          quote_count?: number;
+          bookmark_count?: number;
+        };
+      }[];
+    } | null;
+    // A lookup where some ids are gone still answers 200, with those in `errors`.
+    if (!res.ok) throw new Error(`Couldn't read tweet stats: ${xError(json, res.status)}`);
+    for (const t of json?.data ?? []) {
+      const m = t.public_metrics ?? {};
+      metrics.set(t.id, {
+        impressions: m.impression_count ?? 0,
+        likes: m.like_count ?? 0,
+        reposts: m.retweet_count ?? 0,
+        replies: m.reply_count ?? 0,
+        quotes: m.quote_count ?? 0,
+        bookmarks: m.bookmark_count ?? 0,
+      });
+    }
+  }
+  return metrics;
+}
+
+/**
+ * Pull fresh stats from X for every tweet on the Writing page and store them.
+ * Costs about `X_POST_READ_COST` per tweet, so it only runs when asked.
+ */
+export async function refreshTweetStats(): Promise<{ refreshed: number; cost: number }> {
+  const tweets = await listTweets();
+  if (tweets.length === 0) return { refreshed: 0, cost: 0 };
+  const metrics = await fetchTweetMetrics(tweets.map((t) => t.tweetId));
+  await saveTweetMetrics(metrics);
+  return { refreshed: metrics.size, cost: metrics.size * X_POST_READ_COST };
 }
 
 /**

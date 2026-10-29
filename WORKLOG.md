@@ -12639,6 +12639,34 @@ browser or on the phone** (no DB/env in this session). Things to watch on first 
 - Screen off: the page is suspended, so the walk works with the screen on (or audio
   playing keeps iOS Safari alive longer, but recognition stops).
 
+## 2026-10-29 — Writing: X analytics for Cael's tweets
+
+Berto asked whether the Writing page could pull X analytics. Done for every tweet in
+the Tweets tab (the ones Cael posted; tweets written on X itself still aren't tracked).
+
+- **Stored, not live.** `tweets` gained `impressions, likes, reposts, replies, quotes,
+  bookmarks, metrics_at`. X pay-per-use bills every post read (~$0.005/tweet, so ~$0.50
+  for 100 tweets) and the account had $4.53 left, so nothing reads X on page load. A
+  **Refresh stats** button (labelled with its estimated cost) pulls fresh numbers.
+- `lib/x-api.ts`: `fetchTweetMetrics(ids)` — `GET /2/tweets?ids=…&tweet.fields=public_metrics`,
+  100 ids per request, signed as Berto (OAuth 1.0a; `userAuth` now signs query params,
+  checked against X's published signature example). `refreshTweetStats()` reads every
+  listed tweet and saves via `lib/tweets.ts` `saveTweetMetrics` (one `unnest` UPDATE).
+  Deleted tweets just keep their last stats.
+- `POST /api/tweets/metrics` — refresh and return the updated list.
+- Tweets tab: per-tweet views / likes / reposts+quotes / replies / bookmarks, a totals line
+  ("12K impressions · 210 likes · updated 2h ago"), and a Newest/Top-first toggle.
+- Cael: `get_tweet_stats` (publishing toolset, also over MCP) — stored stats, `sort: top`,
+  and `refresh: true` only when Berto asks for fresh numbers. Toolset triggers gained
+  "x analytics" and "impressions"; instructions mention the tool.
+- Only `public_metrics`. Link clicks / profile clicks (`non_public_metrics`) exist only for
+  tweets under 30 days old and fail the lookup for older ones; left out for now.
+
+Verified: tsc clean. **Not run against X or the DB** — both hosts (and eve's AI gateway,
+so the dev server) are blocked from this sandbox. First real refresh is the test: if it
+errors, the toast shows X's message. Next: maybe a daily auto-refresh of the last week's
+tweets only, if the per-read cost is fine.
+
 ---
 
 ## 2026-10-29 — Home: tighter layout (shorter hero, blocks fit their content, calendar unsquashed)

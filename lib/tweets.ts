@@ -1,4 +1,5 @@
 import { ensureSchema, getDb } from "./db";
+import { STATS_FINAL_DAYS, STATS_FIRST_DAYS } from "./x-shared";
 
 /** A tweet Cael posted to X (lib/x-api.ts saves every one). */
 export interface Tweet {
@@ -71,6 +72,35 @@ export async function listTweets(limit = 100): Promise<Tweet[]> {
     LIMIT ${limit}
   `;
   return rows.map(toTweet);
+}
+
+/**
+ * X ids of the tweets whose stats should be read. `unfrozen`: every tweet whose
+ * stats aren't final yet (the Refresh button). `due`: only those whose next
+ * scheduled snapshot has come up (the daily cron) — the first STATS_FIRST_DAYS
+ * after posting, the final one STATS_FINAL_DAYS after; older tweets with no
+ * stats yet get their one final read.
+ */
+export async function listTweetIdsForStats(which: "due" | "unfrozen"): Promise<string[]> {
+  await ensureSchema();
+  const first = `${STATS_FIRST_DAYS} days`;
+  const final = `${STATS_FINAL_DAYS} days`;
+  const rows =
+    which === "unfrozen"
+      ? await getDb()`
+          SELECT tweet_id FROM tweets
+          WHERE metrics_at IS NULL OR metrics_at < created_at + ${final}::interval
+        `
+      : await getDb()`
+          SELECT tweet_id FROM tweets
+          WHERE (metrics_at IS NULL OR metrics_at < created_at + ${final}::interval)
+            AND (
+              created_at <= NOW() - ${final}::interval
+              OR (created_at <= NOW() - ${first}::interval
+                  AND (metrics_at IS NULL OR metrics_at < created_at + ${first}::interval))
+            )
+        `;
+  return rows.map((r) => String(r.tweet_id));
 }
 
 /** Store fresh counts from X (lib/x-api.ts `fetchTweetMetrics`), keyed by X's tweet id. */

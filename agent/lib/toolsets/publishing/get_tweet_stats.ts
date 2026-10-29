@@ -2,18 +2,18 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { listTweets } from "../../../../lib/tweets";
 import { refreshTweetStats } from "../../../../lib/x-api";
-import { formatUsd, X_POST_READ_COST } from "../../../../lib/x-shared";
+import { formatUsd, STATS_FINAL_DAYS, STATS_FIRST_DAYS, X_POST_READ_COST } from "../../../../lib/x-shared";
 
 export default defineTool({
-  description: `How Berto's tweets are doing on X: impressions, likes, reposts, replies, quotes and bookmarks for every tweet Cael has posted (the Writing page's Tweets tab; tweets written on X itself aren't included). Use it when he asks how his tweets or posts on X performed, which one did best, or what's resonating, and when drafting new tweets to learn from what landed. Stats are stored from the last refresh (see stats_as_of). Pass refresh: true only when he asks for fresh numbers or none are stored yet: it reads every tweet from X, about ${formatUsd(X_POST_READ_COST)} of X credit per tweet.`,
+  description: `How Berto's tweets are doing on X: impressions, likes, reposts, replies, quotes and bookmarks for every tweet Cael has posted (the Writing page's Tweets tab; tweets written on X itself aren't included). Use it when he asks how his tweets or posts on X performed, which one did best, or what's resonating, and when drafting new tweets to learn from what landed. Stats update by themselves ${STATS_FIRST_DAYS} and ${STATS_FINAL_DAYS} days after each tweet, then stay final, so the stored numbers are normally all you need. Pass refresh: true only when he asks for up-to-the-minute numbers on recent tweets: it reads every tweet under ${STATS_FINAL_DAYS} days old (or without stats yet) from X, about ${formatUsd(X_POST_READ_COST)} of X credit each.`,
   inputSchema: z.object({
-    refresh: z.boolean().optional().describe("Pull current numbers from X first (spends X credit)."),
+    refresh: z.boolean().optional().describe("Pull current numbers from X first for tweets whose stats aren't final (spends X credit)."),
     sort: z.enum(["recent", "top"]).optional().describe("'recent' (default) newest first, or 'top' by impressions."),
     limit: z.number().int().min(1).max(100).optional().describe("How many tweets to return (default 20)."),
   }),
   async execute({ refresh = false, sort = "recent", limit = 20 }) {
     try {
-      const refreshed = refresh ? await refreshTweetStats() : null;
+      const refreshed = refresh ? await refreshTweetStats("unfrozen") : null;
       const tweets = await listTweets();
       const ordered =
         sort === "top"

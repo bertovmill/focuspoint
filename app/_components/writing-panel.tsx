@@ -53,6 +53,9 @@ import {
   hasLink,
   TWEET_IMAGE_MAX_BYTES,
   TWEET_IMAGE_TYPES,
+  STATS_FINAL_DAYS,
+  STATS_FIRST_DAYS,
+  statsFinal,
   TWEET_MAX_IMAGES,
   X_POST_READ_COST,
 } from "@/lib/x-shared";
@@ -442,8 +445,9 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
     }
   };
 
-  // Pulls current likes/impressions from X for every tweet below. Each tweet
-  // read costs X credit, so this only runs from the button, never on load.
+  // Pulls current likes/impressions from X for the tweets whose stats aren't
+  // final yet. Each tweet read costs X credit, so this only runs from the button,
+  // never on load; a daily cron takes the 2- and 7-day snapshots on its own.
   const refreshStats = async () => {
     setRefreshingStats(true);
     try {
@@ -461,6 +465,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   };
   const withStats = tweets?.filter((t) => t.metrics) ?? [];
   const statsAt = withStats.map((t) => t.metricsAt!).sort().at(-1);
+  const unfrozen = tweets?.filter((t) => !statsFinal(t)).length ?? 0;
   const shownTweets =
     tweets && sortTop
       ? [...tweets].sort((a, b) => (b.metrics?.impressions ?? -1) - (a.metrics?.impressions ?? -1))
@@ -714,7 +719,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                   {formatMoment(statsAt)}
                 </>
               ) : (
-                "No stats yet. Refresh to pull them from X."
+                `No stats yet. They come in ${STATS_FIRST_DAYS} and ${STATS_FINAL_DAYS} days after each tweet, or refresh now.`
               )}
             </span>
             <div className="flex items-center gap-1">
@@ -728,11 +733,11 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => void refreshStats()}
-                disabled={refreshingStats}
-                title="Reads each tweet from X, which X bills per tweet"
+                disabled={refreshingStats || unfrozen === 0}
+                title={`Stats update by themselves ${STATS_FIRST_DAYS} and ${STATS_FINAL_DAYS} days after each tweet, then stay final. This reads the ${unfrozen} tweet${unfrozen === 1 ? "" : "s"} still changing now; X bills per tweet read.`}
               >
                 {refreshingStats ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />}
-                Refresh stats · ~{formatUsd(tweets.length * X_POST_READ_COST)}
+                {unfrozen === 0 ? "All stats final" : `Refresh ${unfrozen} · ~${formatUsd(unfrozen * X_POST_READ_COST)}`}
               </Button>
             </div>
           </div>

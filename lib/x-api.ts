@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "crypto";
 import { readMedia } from "./image-upload";
 import { PUBLIC_SITE_URL } from "./posts";
-import { listTweets, recordTweet, saveTweetMetrics, type TweetMetrics } from "./tweets";
+import { listTweetIdsForStats, recordTweet, saveTweetMetrics, type TweetMetrics } from "./tweets";
 import { TWEET_IMAGE_MAX_BYTES, TWEET_IMAGE_TYPES, X_LOOKUP_MAX_IDS, X_POST_READ_COST } from "./x-shared";
 
 function percentEncode(s: string): string {
@@ -203,13 +203,14 @@ export async function fetchTweetMetrics(tweetIds: string[]): Promise<Map<string,
 }
 
 /**
- * Pull fresh stats from X for every tweet on the Writing page and store them.
- * Costs about `X_POST_READ_COST` per tweet, so it only runs when asked.
+ * Pull fresh stats from X and store them: `due` tweets (the daily cron's
+ * 2- and 7-day snapshots) or every `unfrozen` one (the Refresh button).
+ * Tweets with final stats are never read again. Costs about `X_POST_READ_COST` per tweet.
  */
-export async function refreshTweetStats(): Promise<{ refreshed: number; cost: number }> {
-  const tweets = await listTweets();
-  if (tweets.length === 0) return { refreshed: 0, cost: 0 };
-  const metrics = await fetchTweetMetrics(tweets.map((t) => t.tweetId));
+export async function refreshTweetStats(which: "due" | "unfrozen"): Promise<{ refreshed: number; cost: number }> {
+  const ids = await listTweetIdsForStats(which);
+  if (ids.length === 0) return { refreshed: 0, cost: 0 };
+  const metrics = await fetchTweetMetrics(ids);
   await saveTweetMetrics(metrics);
   return { refreshed: metrics.size, cost: metrics.size * X_POST_READ_COST };
 }

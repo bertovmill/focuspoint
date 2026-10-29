@@ -12698,3 +12698,27 @@ calendar squeezed every event into slivers whose titles were cut mid-word.
   calendar title reads. tsc clean.
 - Next: once Mobbin is connected, pull references (Sunsama/Akiflow/Notion Calendar day
   views) for a second pass, e.g. a denser agenda view of the empty afternoon.
+
+## 2026-10-29 — Tweet stats: 2- and 7-day snapshots, then frozen (ultra-cheap X analytics)
+
+The first version re-read every tweet on each Refresh (~$0.005 × all tweets, every
+time). Berto: "unsustainable, make it ultra cheap". A tweet gets nearly all its reach in
+its first days, so now each one is read at most twice, then never again:
+
+- **Daily cron** `/api/cron/tweet-stats` (vercel.json, 13:37 UTC, `CRON_SECRET` like the
+  others) reads only *due* tweets: ones that just passed 2 days old (first snapshot) or
+  7 days old (final). Older tweets with no stats get one final read (the backfill).
+- **Frozen**: a read taken ≥7 days after posting is final (`statsFinal()` in
+  lib/x-shared.ts, mirrored in SQL in `listTweetIdsForStats`). Frozen tweets are never read.
+- **Refresh button** now reads only unfrozen tweets (under 7 days or no stats yet), labelled
+  "Refresh N · ~$x", and shows "All stats final" (disabled) when there's nothing to read.
+  `get_tweet_stats refresh: true` does the same.
+- Cost: ~$0.01 per tweet for its whole life (posting one is $0.015), ~$0.30/month at a
+  tweet a day, plus a one-time ~$0.005 per existing tweet. If X's "owned reads" rate
+  (~$0.001, unconfirmed — docs.x.com blocked here) applies, 5x less.
+- Constants `STATS_FIRST_DAYS` / `STATS_FINAL_DAYS` in lib/x-shared.ts.
+
+Verified: tsc clean; the due/unfrozen queries and the unnest UPDATE run on a local
+Postgres 16 against hand-made rows (1-day tweet waits; 3-day tweet read at day 1 is due;
+read at day 2.5 isn't; 8-day tweet read at day 3 is due; 30-day with none is due; 30-day
+read at day 10 is frozen). Still not run against X itself.

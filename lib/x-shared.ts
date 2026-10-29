@@ -12,6 +12,21 @@ export const X_POST_WITH_LINK_COST = 0.2;
 
 /** Reading a tweet (e.g. to refresh its stats) is billed per tweet returned. */
 export const X_POST_READ_COST = 0.005;
+
+// A tweet gets nearly all its reach in its first few days, so its stats are read
+// at most twice on a schedule (lib/tweets.ts `listTweetIdsForStats`): once
+// STATS_FIRST_DAYS after posting, once STATS_FINAL_DAYS after. A read taken after
+// STATS_FINAL_DAYS freezes them — about $0.01 of X credit per tweet, ever.
+export const STATS_FIRST_DAYS = 2;
+export const STATS_FINAL_DAYS = 7;
+
+/** True once a tweet's stored stats were read STATS_FINAL_DAYS or more after it was posted. */
+export function statsFinal(t: { createdAt: string; metricsAt: string | null }): boolean {
+  return (
+    t.metricsAt !== null &&
+    new Date(t.metricsAt).getTime() - new Date(t.createdAt).getTime() >= STATS_FINAL_DAYS * 86_400_000
+  );
+}
 /** Most tweet ids one lookup request takes. */
 export const X_LOOKUP_MAX_IDS = 100;
 

@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-29 — Home: a picture for the day's workout
+
+Berto: "for the workouts, lets generate an image for it too that makes sense".
+- `lib/training-art.ts` `workoutImage()`: one 16:9 picture per workout, not per session,
+  stored in a new `training_images(key, image_url)` table. Bank workouts key on
+  `bank-<slug>`, others on `<type>-<title>`, so the same workout reuses its picture every
+  week. The prompt picks a scene by session type (run on a road, treadmill intervals,
+  hybrid gym, barbells, yoga) and adds the bank workout's exercise names. Same model as
+  the meal photos (`bfl/flux-3-image-klein`), uploaded as webp at 960px.
+- `POST /api/training/image { type, title, workout_slug?, regenerate? }` → `{ image_url }`.
+- The big training card on Home shows it above each non-rest session (links to the
+  session), made on first show. Swapping the workout fetches the new one's picture.
+
+---
+
 ## 2026-10-29 — Home: sleep, training and meals across the top, big
 
 Berto: "todays sleep training and meals has to be the top thing - how well did I sleep,

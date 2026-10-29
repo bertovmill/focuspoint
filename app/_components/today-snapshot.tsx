@@ -256,6 +256,8 @@ export function TrainingToday({ today, big = false }: { today: string; big?: boo
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
   const [swapping, setSwapping] = useState<TrainingSession | null>(null);
+  /** Each session's picture by id (lib/training-art.ts); only the big Home card shows them. */
+  const [images, setImages] = useState<Record<number, string>>({});
 
   // `isStale` drops an answer for a day the home screen has already swiped past.
   const load = useCallback(async (isStale: () => boolean = () => false) => {
@@ -283,6 +285,25 @@ export function TrainingToday({ today, big = false }: { today: string; big?: boo
       stale = true;
     };
   }, [load]);
+
+  // One picture per workout, made the first time it's shown and stored after that.
+  const painting = useRef(new Set<string>());
+  useEffect(() => {
+    if (!big) return;
+    for (const s of sessions ?? []) {
+      const key = `${s.id}:${s.workout_slug ?? ""}:${s.title}`;
+      if (s.type === "rest" || painting.current.has(key)) continue;
+      painting.current.add(key);
+      fetch("/api/training/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: s.type, title: s.title, workout_slug: s.workout_slug }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { image_url?: string } | null) => d?.image_url && setImages((m) => ({ ...m, [s.id]: d.image_url! })))
+        .catch(() => {});
+    }
+  }, [sessions, big]);
 
   const toggleDone = async (s: TrainingSession) => {
     const prev = sessions;
@@ -328,7 +349,26 @@ export function TrainingToday({ today, big = false }: { today: string; big?: boo
               const meta = sessionMeta(s.type);
               const rest = s.type === "rest";
               return (
-                <div key={s.id} className="flex items-start gap-3">
+                <div key={s.id} className="space-y-3">
+                {big && !rest && (
+                  <Link
+                    href={sessionHref(s.id)}
+                    aria-label={`Open ${s.title}`}
+                    className="group/art block aspect-[16/9] overflow-hidden rounded-lg bg-muted"
+                  >
+                    {images[s.id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={images[s.id]}
+                        alt={s.title}
+                        className={cn("size-full object-cover transition-transform duration-500 group-hover/art:scale-105", s.done && "opacity-60")}
+                      />
+                    ) : (
+                      <Skeleton className="size-full rounded-none" />
+                    )}
+                  </Link>
+                )}
+                <div className="flex items-start gap-3">
                   {rest ? (
                     <span className="size-7 shrink-0" />
                   ) : (
@@ -371,6 +411,7 @@ export function TrainingToday({ today, big = false }: { today: string; big?: boo
                       <ArrowLeftRightIcon className="size-4" />
                     </button>
                   )}
+                </div>
                 </div>
               );
             })}

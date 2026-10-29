@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-29 — Home: sleep shows the 7-day average
+
+Berto: "i dont often get sleep tracked every night, so i think weekly average is more
+fitting". The sleep card ("Sleep this week") now leads with the average minutes asleep
+over the nights tracked in the 7 days up to the viewed date (from the scorecard's
+`recent` days), with "N of 7 tracked" and the ring against the 8h goal. Last night sits
+underneath as "Add last night" / "Last night 6h 42m · correct it". No API change.
+
+---
+
 ## 2026-10-29 — Home: a picture for the day's workout
 
 Berto: "for the workouts, lets generate an image for it too that makes sense".

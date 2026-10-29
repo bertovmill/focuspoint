@@ -66,9 +66,9 @@ function hoursMinutes(mins: number): string {
 }
 
 /**
- * Last night's sleep, big: minutes asleep from the watch (Google Health, the same
- * number the scorecard scores) against the sleep target. The date's row holds the
- * night that ended that morning. When the watch hasn't synced it, it can be typed in.
+ * Sleep, big: the average minutes asleep over the nights tracked in the last 7 days
+ * (Google Health, the same numbers the scorecard scores) against the sleep target.
+ * Last night sits underneath and can be typed in or corrected when the watch missed it.
  */
 export function SleepToday({ today }: { today: string }) {
   const [summary, setSummary] = useState<ScorecardSummary | null>(null);
@@ -108,11 +108,22 @@ export function SleepToday({ today }: { today: string }) {
   }, [today]);
 
   const metric = summary?.today.metrics.find((m) => m.key === "sleep_minutes");
+  /** Last night: the row for the viewed date holds the night that ended that morning. */
   const value = metric?.value ?? null;
   const target = metric?.target ?? summary?.targets.sleep_minutes ?? 480;
-  const pct = value === null ? 0 : value / target;
+  // He doesn't wear the watch every night (Berto, 2026-10-29), so the headline is the
+  // average over the nights tracked in the 7 days up to the viewed date, not one night.
+  const weekFrom = addDaysISO(today, -6);
+  const nights = new Map<string, number>();
+  for (const d of summary?.recent ?? []) {
+    const v = d.metrics.find((m) => m.key === "sleep_minutes")?.value;
+    if (v != null && d.date >= weekFrom && d.date <= today) nights.set(d.date, v);
+  }
+  if (value !== null) nights.set(today, value);
+  const avg = nights.size ? [...nights.values()].reduce((a, b) => a + b, 0) / nights.size : null;
+  const pct = avg === null ? 0 : avg / target;
   const tone =
-    value === null ? "#a1a1aa" : pct >= 1 ? "#059669" : pct >= 0.85 ? "#d97706" : "#e11d48";
+    avg === null ? "#a1a1aa" : pct >= 1 ? "#059669" : pct >= 0.85 ? "#d97706" : "#e11d48";
 
   const save = async () => {
     const hours = Number(draft.replace(",", "."));
@@ -163,7 +174,7 @@ export function SleepToday({ today }: { today: string }) {
 
   return (
     <div>
-      <Heading href="/measures">{today === todayISO() ? "Last night's sleep" : `${dayPossessive(today)} sleep`}</Heading>
+      <Heading href="/measures">{today === todayISO() ? "Sleep this week" : `Sleep, 7 days to ${dayPossessive(today).slice(0, -2).toLowerCase()}`}</Heading>
       <Card className="gap-0 rounded-xl px-5 py-5 shadow-none">
         {summary === null && !failed ? (
           <div className="flex items-center gap-5">
@@ -175,51 +186,51 @@ export function SleepToday({ today }: { today: string }) {
             <AnimatedCircularProgressBar
               className="size-28 shrink-0 text-base"
               max={target}
-              value={Math.min(value ?? 0, target)}
+              value={Math.min(avg ?? 0, target)}
               gaugePrimaryColor={tone}
               gaugeSecondaryColor="rgba(161,161,170,0.18)"
             >
               <MoonIcon className="size-7" style={{ color: tone }} />
             </AnimatedCircularProgressBar>
             <div className="min-w-0 flex-1 space-y-1">
-              {value !== null ? (
+              {avg !== null ? (
                 <>
-                  <p className="text-4xl font-semibold tabular-nums tracking-tight">{hoursMinutes(value)}</p>
+                  <p className="text-4xl font-semibold tabular-nums tracking-tight">{hoursMinutes(avg)}</p>
                   <p className="text-sm text-muted-foreground">
-                    asleep · goal {hoursMinutes(target)}
-                    {pct >= 1 ? " ✓" : ` · ${hoursMinutes(target - value)} short`}
+                    a night · {nights.size} of 7 tracked · goal {hoursMinutes(target)}
+                    {pct >= 1 && " ✓"}
                   </p>
-                  {editing ? (
-                    entry
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDraft((value / 60).toFixed(1));
-                        setEditing(true);
-                      }}
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <PencilIcon className="size-3" /> Correct it
-                    </button>
-                  )}
                 </>
               ) : (
                 <>
                   <p className="text-4xl font-semibold tracking-tight text-muted-foreground">—</p>
                   <p className="text-sm text-muted-foreground">
-                    {failed ? "Couldn't load it." : summary?.googleConnected ? "Not synced from the watch yet." : "Watch not connected."}
+                    {failed ? "Couldn't load it." : "No nights tracked this week."}
                   </p>
-                  {entry}
-                  {summary && !summary.googleConnected && (
-                    <a
-                      href="/api/health/connect"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                    >
-                      <WatchIcon className="size-3.5" /> Connect the watch
-                    </a>
-                  )}
                 </>
+              )}
+              {editing ? (
+                entry
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(value === null ? "" : (value / 60).toFixed(1));
+                    setEditing(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <PencilIcon className="size-3" />
+                  {value === null ? "Add last night" : `Last night ${hoursMinutes(value)} · correct it`}
+                </button>
+              )}
+              {summary && !summary.googleConnected && (
+                <a
+                  href="/api/health/connect"
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <WatchIcon className="size-3.5" /> Connect the watch
+                </a>
               )}
             </div>
           </div>

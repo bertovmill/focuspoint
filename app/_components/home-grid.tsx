@@ -37,13 +37,17 @@ const MARGIN: [number, number] = [32, 16];
 /** Below this container width the blocks stack instead of sitting on the grid. */
 const GRID_MIN_WIDTH = 900;
 
+/**
+ * Sleep, training and meals sit across the top at full width (Berto, 2026-10-29:
+ * "has to be the top thing ... nice and big"); they replaced the separate Training
+ * and Meals blocks, which a saved layout simply drops.
+ */
 export const DEFAULT_HOME_LAYOUT: HomeBlockPosition[] = [
-  { i: "vision", x: 0, y: 0, w: 6, h: 10 },
-  { i: "training", x: 0, y: 10, w: 3, h: 8 },
-  { i: "meals", x: 3, y: 10, w: 3, h: 8 },
-  { i: "calendar", x: 6, y: 0, w: 6, h: 20 },
-  { i: "tasks", x: 6, y: 20, w: 6, h: 28 },
-  { i: "principles", x: 0, y: 18, w: 6, h: 10 },
+  { i: "today", x: 0, y: 0, w: 12, h: 12 },
+  { i: "vision", x: 0, y: 12, w: 6, h: 10 },
+  { i: "calendar", x: 6, y: 12, w: 6, h: 20 },
+  { i: "tasks", x: 6, y: 32, w: 6, h: 28 },
+  { i: "principles", x: 0, y: 22, w: 6, h: 10 },
 ];
 
 /**

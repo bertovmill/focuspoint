@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-29 — Home: sleep, training and meals across the top, big
+
+Berto: "todays sleep training and meals has to be the top thing - how well did I sleep,
+what should I eat today, what is my exercise today ... nice and big".
+- New full-width `today` block at the top of the Home grid (`TodayBody` in
+  `app/_components/today-snapshot.tsx`): sleep over training on the left, the three meal
+  photos on the right. Replaces the separate Training and Meals blocks; a saved layout
+  drops their ids and pushes everything down under the new row.
+- `SleepToday`: last night's minutes asleep from the scorecard (`/api/scorecard?date=`,
+  the Google Health number) as a big "6h 42m" with a ring against the 8h target (green hit,
+  amber ≥85%, red under). Connected but empty → it runs `/api/health/sync` once. No data
+  → type the hours in (PATCH `/api/scorecard`), plus a "Connect the watch" link to
+  `/api/health/connect`. "Correct it" edits a synced value.
+- Training titles render larger in this row (`TrainingToday big`).
+- **The watch is not connected in prod** (`googleConnected: false`, no sleep since Oct 16),
+  so the card will say "Watch not connected" until Berto taps Connect once.
+- Verified locally with stubbed API data (the local `.env.local` DATABASE_URL is a
+  redacted placeholder), desktop 1440 and phone 390.
+
+---
+
 ## 2026-10-25 — Meals: 👍/👎 with a one-liner steers the picks
 
 Berto wanted to rate meal recommendations good/bad with a one-line reason and have

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, RefreshCwIcon, ShuffleIcon, XIcon } from "lucide-react";
+import { ArrowLeftRightIcon, CheckIcon, ChevronRightIcon, FlagIcon, MoonIcon, PencilIcon, RefreshCwIcon, ShuffleIcon, WatchIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AnimatedCircularProgressBar } from "@/components/ui/animated-circular-progress-bar";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sessionHref } from "@/app/_components/session-editor";
@@ -14,6 +16,7 @@ import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { DayStrategy, StrategyBlock } from "@/lib/day-strategy";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
+import type { ScorecardSummary } from "@/lib/scorecard";
 import { MEAL_SLOTS, addDaysISO, recipeHref, slotsShown, todayISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,198 @@ export function TodaySnapshot({ date }: { date?: string } = {}) {
       <TrainingToday today={day} />
       <MealsToday today={day} />
     </section>
+  );
+}
+
+/**
+ * The top of Home (Berto, 2026-10-29): "how well did I sleep, what should I eat
+ * today, and what is my exercise today", nice and big, before anything else. One
+ * full-width row: sleep over training on the left, meals taking the wider right
+ * share so the three photos stay large. Stacks on a phone.
+ */
+export function TodayBody({ today }: { today: string }) {
+  return (
+    <section id="today-body" className="@container">
+      <div className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div className="space-y-6">
+          <SleepToday today={today} />
+          <TrainingToday today={today} big />
+        </div>
+        <MealsToday today={today} />
+      </div>
+    </section>
+  );
+}
+
+/** "7h 12m" for a count of minutes. */
+function hoursMinutes(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+/**
+ * Last night's sleep, big: minutes asleep from the watch (Google Health, the same
+ * number the scorecard scores) against the sleep target. The date's row holds the
+ * night that ended that morning. When the watch hasn't synced it, it can be typed in.
+ */
+export function SleepToday({ today }: { today: string }) {
+  const [summary, setSummary] = useState<ScorecardSummary | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stale = false;
+    (async () => {
+      try {
+        const read = async () => {
+          const res = await fetch(`/api/scorecard?date=${today}`);
+          return res.ok ? ((await res.json()) as ScorecardSummary) : null;
+        };
+        let s = await read();
+        if (stale) return;
+        setSummary(s);
+        setFailed(!s);
+        // Nothing yet but the watch is connected: pull it now rather than wait for
+        // the scheduled sync (last night's sleep often uploads after midnight).
+        const sleep = s?.today.metrics.find((m) => m.key === "sleep_minutes");
+        if (s?.googleConnected && sleep?.value == null && today === todayISO()) {
+          await fetch("/api/health/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+          s = await read();
+          if (!stale && s) setSummary(s);
+        }
+      } catch {
+        // The card falls back to "type it in".
+        if (!stale) setFailed(true);
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [today]);
+
+  const metric = summary?.today.metrics.find((m) => m.key === "sleep_minutes");
+  const value = metric?.value ?? null;
+  const target = metric?.target ?? summary?.targets.sleep_minutes ?? 480;
+  const pct = value === null ? 0 : value / target;
+  const tone =
+    value === null ? "#a1a1aa" : pct >= 1 ? "#059669" : pct >= 0.85 ? "#d97706" : "#e11d48";
+
+  const save = async () => {
+    const hours = Number(draft.replace(",", "."));
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) {
+      toast.error("Hours asleep, like 7.5");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/scorecard", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: today, sleep_minutes: Math.round(hours * 60) }),
+      });
+      if (!res.ok) throw new Error();
+      setSummary(await res.json());
+      setEditing(false);
+    } catch {
+      toast.error("Couldn't save that.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const entry = (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <Input
+        autoFocus={editing}
+        inputMode="decimal"
+        placeholder="Hours, e.g. 7.5"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+        className="h-8 w-32"
+        aria-label="Hours asleep"
+      />
+      <Button type="submit" size="sm" disabled={saving || !draft.trim()}>
+        Save
+      </Button>
+    </form>
+  );
+
+  return (
+    <div>
+      <Heading href="/measures">{today === todayISO() ? "Last night's sleep" : `${dayPossessive(today)} sleep`}</Heading>
+      <Card className="gap-0 rounded-xl px-5 py-5 shadow-none">
+        {summary === null && !failed ? (
+          <div className="flex items-center gap-5">
+            <Skeleton className="size-28 rounded-full" />
+            <Skeleton className="h-10 w-28" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-5">
+            <AnimatedCircularProgressBar
+              className="size-28 shrink-0 text-base"
+              max={target}
+              value={Math.min(value ?? 0, target)}
+              gaugePrimaryColor={tone}
+              gaugeSecondaryColor="rgba(161,161,170,0.18)"
+            >
+              <MoonIcon className="size-7" style={{ color: tone }} />
+            </AnimatedCircularProgressBar>
+            <div className="min-w-0 flex-1 space-y-1">
+              {value !== null ? (
+                <>
+                  <p className="text-4xl font-semibold tabular-nums tracking-tight">{hoursMinutes(value)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    asleep · goal {hoursMinutes(target)}
+                    {pct >= 1 ? " ✓" : ` · ${hoursMinutes(target - value)} short`}
+                  </p>
+                  {editing ? (
+                    entry
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft((value / 60).toFixed(1));
+                        setEditing(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <PencilIcon className="size-3" /> Correct it
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-4xl font-semibold tracking-tight text-muted-foreground">—</p>
+                  <p className="text-sm text-muted-foreground">
+                    {failed ? "Couldn't load it." : summary?.googleConnected ? "Not synced from the watch yet." : "Watch not connected."}
+                  </p>
+                  {entry}
+                  {summary && !summary.googleConnected && (
+                    <a
+                      href="/api/health/connect"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <WatchIcon className="size-3.5" /> Connect the watch
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -56,7 +251,7 @@ function Heading({ href, children }: { href: string; children: string }) {
   );
 }
 
-export function TrainingToday({ today }: { today: string }) {
+export function TrainingToday({ today, big = false }: { today: string; big?: boolean }) {
   const [sessions, setSessions] = useState<TrainingSession[] | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
@@ -158,9 +353,9 @@ export function TrainingToday({ today }: { today: string }) {
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{meta.short}</span>
                       {s.intensity === "hard" && <span className="text-xs text-rose-500">hard</span>}
                     </span>
-                    <p className={cn("text-sm font-medium leading-snug", s.done && "text-muted-foreground line-through")}>{s.title}</p>
+                    <p className={cn(big ? "text-xl font-semibold leading-tight" : "text-sm font-medium leading-snug", s.done && "text-muted-foreground line-through")}>{s.title}</p>
                     {targetLabel(s) && (
-                      <p className="text-xs tabular-nums text-muted-foreground">
+                      <p className={cn("tabular-nums text-muted-foreground", big ? "mt-0.5 text-sm" : "text-xs")}>
                         {targetLabel(s)}
                       </p>
                     )}

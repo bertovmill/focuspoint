@@ -30,7 +30,7 @@ import {
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { PinButton } from "@/app/_components/pin-button";
 import type { WorkoutLog } from "@/app/_components/workout-chart";
-import { CalendarToday, MealsToday, TrainingToday } from "@/app/_components/today-snapshot";
+import { CalendarToday, TodayBody } from "@/app/_components/today-snapshot";
 import { HomeGrid } from "@/app/_components/home-grid";
 import { GoalCelebration } from "@/app/_components/goal-celebration";
 import { PrinciplesDoc } from "@/app/_components/principles-doc";
@@ -454,13 +454,12 @@ export function HomeScreen({ onNavigate }: { onNavigate: (tab: HomeTarget) => vo
         {artFailed && <div className="flex items-center justify-between mb-10">{header(false)}</div>}
 
         {/* Every block on Home moves and resizes (his ask, 2026-10-23). Vision is
-            his own sections; training and meals follow the day swipe. */}
+            his own sections; sleep, training and meals (one row, on top) follow the day swipe. */}
         <div ref={dayScope}>
           <HomeGrid
             blocks={[
               { id: "vision", label: "Vision", autoHeight: true, node: <HomeSections /> },
-              { id: "training", label: "Training", daily: true, autoHeight: true, node: <TrainingToday today={date} /> },
-              { id: "meals", label: "Meals", daily: true, autoHeight: true, node: <MealsToday today={date} /> },
+              { id: "today", label: "Sleep, training and meals", daily: true, autoHeight: true, node: <TodayBody today={date} /> },
               { id: "calendar", label: "Calendar", daily: true, autoHeight: true, node: <CalendarToday today={date} /> },
               { id: "tasks", label: "Tasks", node: <HomeTasks /> },
               { id: "principles", label: "Principles", autoHeight: true, node: <PrinciplesDoc /> },

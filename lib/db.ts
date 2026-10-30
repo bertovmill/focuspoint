@@ -121,6 +121,8 @@ async function applySchema() {
   // until it's put back, or until it's started again. NULL = eligible for the
   // pinned window, which is nearly every task.
   await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS pinned_hidden_at TIMESTAMPTZ`;
+  // Free-text details on a task, edited in the task drawer on Home. NULL = none.
+  await sql`ALTER TABLE todos ADD COLUMN IF NOT EXISTS notes TEXT`;
   // Progress notes on a task, newest last. Written by Berto from the board and by
   // Claude over MCP (see app/api/mcp/route.ts) when an agent finishes an intermediary
   // step and needs him to pick it up — `author` says which. The whole thread is kept;

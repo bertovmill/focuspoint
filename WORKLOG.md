@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-30 — Home tasks: details drawer
+
+Berto asked for task details and a right-side drawer when a task is clicked. Clicking a
+Home task's title (or the row's empty space) opens `app/_components/task-drawer.tsx`, a
+right Sheet with: editable title, the same Status / Due / Priority controls as the row
+(the row's controls were pulled into `statusControl`/`dueControl`/`priorityControl` in
+home-tasks.tsx so both share them), Estimate presets, a free-text **Details** box, and
+the task's update thread with a "Post an update" box (author "me"). He picked
+"notes + updates" over notes-only or updates-only. The open task is mirrored in
+`?task=<id>` so a link or reload reopens it.
+
+New `todos.notes TEXT` column (lib/db.ts). `GET /api/todos/[id]` returns one task with
+notes; PATCH accepts `notes` (presence-based, ""/null clears). Lists don't select notes
+to stay light. Details autosave 800ms after typing stops and on blur. The Sheet overlay
+was lightened from black/80 to black/20 (nothing else used Sheet). Not done: exposing
+notes over MCP so agents can read/write task details.
+
+---
 ## 2026-10-30 — Cael desktop sidebar: grouped, Stripe/Shopify style
 
 Berto said the sidebar could be better and named Stripe, ElevenLabs and Shopify as the

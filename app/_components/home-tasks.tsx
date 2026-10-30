@@ -30,6 +30,7 @@ import { DEFAULT_HOME_TASKS_LAYOUT, type HomeSortKey, type HomeTasksLayout } fro
 import { isLaneCategory } from "@/lib/task-categories";
 import type { Todo } from "@/lib/todo";
 import { cn } from "@/lib/utils";
+import { TaskDrawer } from "@/app/_components/task-drawer";
 
 // Home shows priority as P0/P1/P2 (Berto, 2026-10-24). The four stored levels stay;
 // normal and low both read as P2, and picking P2 here sets normal.
@@ -127,6 +128,22 @@ export function HomeTasks({ className }: { className?: string }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const rows = useMemo(() => (todos ? arrange(todos, layout) : null), [todos, layout]);
+  // The open drawer's task, mirrored in ?task=<id> so a link (or a reload) reopens it.
+  const [openId, setOpenId] = useState<number | null>(null);
+  const openTodo = (openId != null && todos?.find((t) => t.id === openId)) || null;
+
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get("task"));
+    if (id) setOpenId(id);
+  }, []);
+
+  const openTask = (id: number | null) => {
+    setOpenId(id);
+    const url = new URL(window.location.href);
+    if (id == null) url.searchParams.delete("task");
+    else url.searchParams.set("task", String(id));
+    window.history.replaceState(window.history.state, "", url);
+  };
 
   useEffect(() => {
     fetch("/api/home-tasks-layout")
@@ -191,6 +208,7 @@ export function HomeTasks({ className }: { className?: string }) {
   }, [load]);
 
   const complete = async (todo: Todo) => {
+    if (todo.id === openId) openTask(null);
     const prev = todos;
     setTodos((ts) => ts?.filter((t) => t.id !== todo.id) ?? ts);
     award(todo);
@@ -222,7 +240,7 @@ export function HomeTasks({ className }: { className?: string }) {
     }
   };
 
-  const update = async (todo: Todo, patch: Partial<Pick<Todo, "due_date" | "priority">>) => {
+  const update = async (todo: Todo, patch: Partial<Pick<Todo, "title" | "due_date" | "priority" | "estimated_minutes">>) => {
     const prev = todos;
     setTodos((ts) => ts?.map((t) => (t.id === todo.id ? { ...t, ...patch } : t)) ?? ts);
     try {
@@ -256,6 +274,76 @@ export function HomeTasks({ className }: { className?: string }) {
       setDraft(title);
       toast.error("Couldn't add that.");
     }
+  };
+
+  // The row's status, due and priority controls, shared with the drawer.
+  const statusControl = (t: Todo) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Status of ${t.title}: ${pill(t).label}`}
+        className={cn(
+          "-mx-1 mt-0.5 justify-self-start rounded px-1 text-[10px] font-medium uppercase tracking-wide whitespace-nowrap transition-colors hover:bg-muted",
+          pill(t).className,
+        )}
+      >
+        {pill(t).label}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+          <DropdownMenuItem key={s} onSelect={() => setStatus(t, s)}>
+            {STATUS_LABEL[s]}
+            {pill(t).label === STATUS_LABEL[s] && <CheckIcon className="ml-auto size-3.5" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const dueControl = (t: Todo) => {
+    const due = t.due_date?.slice(0, 10) ?? "";
+    const overdue = Boolean(due) && due < dayKey();
+    return (
+      <label className="relative -mx-1 inline-flex h-5 cursor-pointer items-center justify-self-start rounded px-1 text-xs hover:bg-muted">
+        <span className={cn("tabular-nums", overdue ? "text-priority-urgent" : due ? "text-muted-foreground" : "text-muted-foreground/40")}>
+          {due ? formatDue(due) : "—"}
+        </span>
+        <input
+          type="date"
+          aria-label={`Due date for ${t.title}`}
+          value={due}
+          onChange={(e) => update(t, { due_date: e.target.value || null })}
+          className="absolute inset-0 cursor-pointer opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+        />
+      </label>
+    );
+  };
+
+  const priorityControl = (t: Todo) => {
+    const level = pLevel(t.priority);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Priority for ${t.title}: ${level.label}`}
+          className="-mx-1 inline-flex h-5 items-center gap-1.5 justify-self-start rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <span className={cn("size-1.5 rounded-full", level.dot)} />
+          {level.label}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-24">
+          <DropdownMenuRadioGroup
+            value={level.value}
+            onValueChange={(v) => update(t, { priority: v as Todo["priority"] })}
+          >
+            {P_LEVELS.map((l) => (
+              <DropdownMenuRadioItem key={l.value} value={l.value} className="text-xs">
+                <span className={cn("mr-1 size-1.5 rounded-full", l.dot)} />
+                {l.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
   return (
@@ -306,11 +394,8 @@ export function HomeTasks({ className }: { className?: string }) {
               <DndContext id="home-tasks-rows" sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                 <SortableContext items={rows.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                   {rows.map((t) => {
-                    const due = t.due_date?.slice(0, 10) ?? "";
-                    const overdue = Boolean(due) && due < dayKey();
-                    const level = pLevel(t.priority);
                     return (
-                      <SortableRow key={t.id} todo={t}>
+                      <SortableRow key={t.id} todo={t} onOpen={() => openTask(t.id)}>
                         <button
                           type="button"
                           onClick={() => complete(t)}
@@ -319,60 +404,16 @@ export function HomeTasks({ className }: { className?: string }) {
                         >
                           <CheckIcon className="size-2.5 opacity-0 group-hover:opacity-100" />
                         </button>
-                        <span className="min-w-0 text-sm leading-snug">{t.title}</span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            aria-label={`Status of ${t.title}: ${pill(t).label}`}
-                            className={cn(
-                              "-mx-1 mt-0.5 justify-self-start rounded px-1 text-[10px] font-medium uppercase tracking-wide whitespace-nowrap transition-colors hover:bg-muted",
-                              pill(t).className,
-                            )}
-                          >
-                            {pill(t).label}
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-                              <DropdownMenuItem key={s} onSelect={() => setStatus(t, s)}>
-                                {STATUS_LABEL[s]}
-                                {pill(t).label === STATUS_LABEL[s] && <CheckIcon className="ml-auto size-3.5" />}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <label className="relative -mx-1 inline-flex h-5 cursor-pointer items-center justify-self-start rounded px-1 text-xs hover:bg-muted">
-                          <span className={cn("tabular-nums", overdue ? "text-priority-urgent" : due ? "text-muted-foreground" : "text-muted-foreground/40")}>
-                            {due ? formatDue(due) : "—"}
-                          </span>
-                          <input
-                            type="date"
-                            aria-label={`Due date for ${t.title}`}
-                            value={due}
-                            onChange={(e) => update(t, { due_date: e.target.value || null })}
-                            className="absolute inset-0 cursor-pointer opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                          />
-                        </label>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            aria-label={`Priority for ${t.title}: ${level.label}`}
-                            className="-mx-1 inline-flex h-5 items-center gap-1.5 justify-self-start rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          >
-                            <span className={cn("size-1.5 rounded-full", level.dot)} />
-                            {level.label}
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-24">
-                            <DropdownMenuRadioGroup
-                              value={level.value}
-                              onValueChange={(v) => update(t, { priority: v as Todo["priority"] })}
-                            >
-                              {P_LEVELS.map((l) => (
-                                <DropdownMenuRadioItem key={l.value} value={l.value} className="text-xs">
-                                  <span className={cn("mr-1 size-1.5 rounded-full", l.dot)} />
-                                  {l.label}
-                                </DropdownMenuRadioItem>
-                              ))}
-                            </DropdownMenuRadioGroup>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <button
+                          type="button"
+                          onClick={() => openTask(t.id)}
+                          className="min-w-0 cursor-pointer text-left text-sm leading-snug"
+                        >
+                          {t.title}
+                        </button>
+                        {statusControl(t)}
+                        {dueControl(t)}
+                        {priorityControl(t)}
                       </SortableRow>
                     );
                   })}
@@ -397,13 +438,22 @@ export function HomeTasks({ className }: { className?: string }) {
           />
         </form>
       </Card>
+      <TaskDrawer
+        todo={openTodo}
+        onClose={() => openTask(null)}
+        onUpdate={update}
+        statusControl={statusControl}
+        dueControl={dueControl}
+        priorityControl={priorityControl}
+        onComplete={complete}
+      />
     </section>
   );
 }
 
 // One task row. The grip is the drag handle so the row's own buttons, menus and
 // date picker keep working, and so a phone can still scroll the list by the rows.
-function SortableRow({ todo, children }: { todo: Todo; children: ReactNode }) {
+function SortableRow({ todo, onOpen, children }: { todo: Todo; onOpen: () => void; children: ReactNode }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: todo.id,
   });
@@ -411,9 +461,13 @@ function SortableRow({ todo, children }: { todo: Todo; children: ReactNode }) {
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform && { ...transform, x: 0 }), transition }}
+      // Clicking the row's empty space opens the drawer too; its own controls keep theirs.
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest("button, input, label, a")) onOpen();
+      }}
       className={cn(
         ROW,
-        "group relative rounded-md px-1 py-1.5 hover:bg-muted/50",
+        "group relative cursor-pointer rounded-md px-1 py-1.5 hover:bg-muted/50",
         isDragging && "z-10 bg-muted shadow-sm",
       )}
     >

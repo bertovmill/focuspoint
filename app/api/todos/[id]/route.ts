@@ -5,6 +5,22 @@ import { normalizeCategory } from "@/lib/task-categories";
 import { normalizeCardColor } from "@/lib/task-colors";
 import { removeCompletedTaskFromCalendar } from "@/lib/task-calendar";
 
+// One task with everything the drawer on Home shows, including the free-text
+// details that lists leave out.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const [row] = await getDb()`
+      SELECT id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at, notes
+      FROM todos WHERE id = ${id}
+    `;
+    if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(row);
+  } catch {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  }
+}
+
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -60,6 +76,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // back to a plain card, omitting the key leaves whatever's there.
     const hasColor = Object.prototype.hasOwnProperty.call(body, "color");
     const color = normalizeCardColor(body.color);
+    // Same rule for the free-text details: "" or null clears them.
+    const hasNotes = Object.prototype.hasOwnProperty.call(body, "notes");
+    const notes = typeof body.notes === "string" && body.notes.trim() ? body.notes : null;
     const sql = getDb();
     // Queue positions are slots: giving #3 to this task takes it from whoever had it.
     if (hasTaskNumber && task_number !== null) {
@@ -82,11 +101,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
             category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
             color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END,
+            notes = CASE WHEN ${hasNotes}::boolean THEN ${notes}::text ELSE notes END,
             -- Working on it again is the clearest statement that it belongs in the
             -- pinned window, so starting a task un-hides it.
             pinned_hidden_at = CASE WHEN ${in_progress === true}::boolean THEN NULL ELSE pinned_hidden_at END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at, notes
         `
       : await sql`
           UPDATE todos
@@ -100,11 +120,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             estimated_minutes = CASE WHEN ${hasEstimatedMinutes}::boolean THEN ${estimated_minutes}::int ELSE estimated_minutes END,
             category = CASE WHEN ${hasCategory}::boolean THEN ${category}::text ELSE category END,
             color = CASE WHEN ${hasColor}::boolean THEN ${color}::text ELSE color END,
+            notes = CASE WHEN ${hasNotes}::boolean THEN ${notes}::text ELSE notes END,
             -- Working on it again is the clearest statement that it belongs in the
             -- pinned window, so starting a task un-hides it.
             pinned_hidden_at = CASE WHEN ${in_progress === true}::boolean THEN NULL ELSE pinned_hidden_at END
           WHERE id = ${id}
-          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at
+          RETURNING id, title, completed, in_progress, waiting, priority, due_date, recurrence, created_at, completed_at, timer_started_at, time_spent_seconds, task_number, estimated_minutes, category, canvas_x, canvas_y, parent_id, color, pinned_hidden_at, notes
         `;
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);

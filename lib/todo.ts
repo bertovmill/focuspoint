@@ -33,6 +33,9 @@ export interface Todo {
   // Set when the task was removed from the pinned window. It stays a normal task
   // on the board; it just isn't featured up there until it's put back or started.
   pinned_hidden_at?: string | null;
+  // Free-text details, edited in the task drawer. Only the single-task GET and
+  // PATCH return it; lists leave it out to stay light.
+  notes?: string | null;
   // Newest line from the task's update thread (lib/task-updates.ts) — Berto's own
   // note, or an agent's hand-off when it finished a step and needs him. The whole
   // thread is kept server-side; a card only ever shows this one.

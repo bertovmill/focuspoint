@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow, type Sky } from "./sky";
 import { JAR_ART, PLANT_ART, sillAnchor, windowRect } from "./scene";
+import { DeskBook } from "./desk-book";
 import { WindowBlind } from "./window-blind";
 import { windowStyleStore } from "./window-style-store";
 
@@ -361,6 +362,10 @@ export function DeskScene() {
           />
         </div>
       </div>
+
+      {/* The Makerslounge book, between the notebook and the pot. After the
+          plant, whose box reaches over it and would take its clicks. */}
+      <DeskBook light={light} />
 
       {/* The water, while the jar is tipped over the pot. */}
       {stream && (

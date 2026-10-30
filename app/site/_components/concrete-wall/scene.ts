@@ -200,6 +200,15 @@ export const PLANT_ART = {
 } as const;
 
 /**
+ * The Makerslounge book lying on the desk, between the notebook and the pot,
+ * towards the back so the buddy (whose lane runs at depth 0.6, see
+ * hero-agents/cast.ts) walks in front of it. `x` is its centre and `y` where
+ * its box's bottom rests (fractions of the desk image); `width` is its box's
+ * width as a fraction of the desk's.
+ */
+export const BOOK_SPOT = { x: 0.66, y: 0.478, width: 0.17 } as const;
+
+/**
  * The mason jar on the windowsill: upright, and tipped to pour. `mouth` is
  * where the water leaves each image (fractions of its box); `aspect` is
  * width / height. Measured from the cutouts.

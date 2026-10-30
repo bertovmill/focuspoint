@@ -9,6 +9,7 @@ import { Prose } from "../../_components/prose";
 import { PostFooterCta } from "../../_components/post-footer-cta";
 import { PostNewsletterCta } from "../../_components/post-newsletter-cta";
 import { SiteLink } from "../../_components/site-link";
+import { ReadingProgress } from "./reading-progress";
 
 // Posts are database rows Cael edits (lib/posts.ts), and a draft is shown only
 // with its ?preview= token, so this page renders per request.
@@ -75,34 +76,59 @@ export default async function WritingPostPage({ params, searchParams }: Props) {
   };
 
   return (
-    <article className="mx-auto max-w-3xl px-6 py-12">
+    <article id="writing-article" className="px-6 pt-10 pb-24">
       {!isDraft && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
         />
       )}
-      {isDraft && (
-        <p className="mb-8 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-primary">
-          Draft preview — not public yet
-        </p>
-      )}
+      <ReadingProgress targetId="writing-article" />
 
-      <SiteLink
-        href="/writing"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3.5" />
-        Writing
-      </SiteLink>
+      <div className="mx-auto max-w-[42rem]">
+        {isDraft && (
+          <p className="mb-8 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-primary">
+            Draft preview — not public yet
+          </p>
+        )}
+        <SiteLink
+          href="/writing"
+          className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-primary"
+        >
+          <ArrowLeftIcon className="size-3.5" />
+          All writing
+        </SiteLink>
+      </div>
 
-      <header className="mt-8 border-b border-border/60 pb-8">
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{post.title}</h1>
-        {post.summary && <p className="mt-4 text-lg leading-relaxed text-muted-foreground">{post.summary}</p>}
-        <p className="mt-5 font-mono text-xs text-muted-foreground">
-          {post.publishedAt ? formatDate(post.publishedAt) : "Unpublished"} · {post.readingMinutes} min read
-          {post.tags.length > 0 ? ` · ${post.tags.join(" · ")}` : ""}
-        </p>
+      <header className="mx-auto mt-12 max-w-4xl text-center">
+        {post.tags.length > 0 && (
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary">
+            {post.tags.slice(0, 3).join(" · ")}
+          </p>
+        )}
+        <h1 className="font-display mt-5 text-5xl leading-[1.02] font-medium tracking-tight text-balance sm:text-7xl">
+          {post.title}
+        </h1>
+        {post.summary && (
+          <p className="mx-auto mt-6 max-w-2xl font-serif text-xl leading-relaxed text-muted-foreground italic text-balance sm:text-2xl">
+            {post.summary}
+          </p>
+        )}
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <Image
+            src="/berto-headshot.jpg"
+            alt=""
+            width={80}
+            height={80}
+            className="size-10 rounded-full object-cover"
+          />
+          <p className="text-left text-sm leading-tight">
+            <span className="font-medium">{AUTHOR}</span>
+            <span className="block font-mono text-xs text-muted-foreground">
+              {post.publishedAt ? formatDate(post.publishedAt) : "Unpublished"} · {post.readingMinutes} min read
+            </span>
+          </p>
+        </div>
       </header>
 
       {post.coverUrl && (
@@ -112,17 +138,21 @@ export default async function WritingPostPage({ params, searchParams }: Props) {
           width={1600}
           height={1067}
           priority
-          sizes="(min-width: 768px) 720px, 100vw"
-          className="mt-8 aspect-[3/2] w-full rounded-lg border border-border object-cover"
+          sizes="(min-width: 1024px) 960px, 100vw"
+          className="mx-auto mt-12 aspect-[3/2] w-full max-w-5xl rounded-3xl object-cover"
         />
       )}
 
-      <div className="mt-8">
-        <Prose>{post.body}</Prose>
-      </div>
+      <div className="mx-auto mt-14 max-w-[42rem]">
+        <Prose variant="article">{post.body}</Prose>
 
-      <PostNewsletterCta />
-      <PostFooterCta />
+        <p aria-hidden className="font-display mt-16 text-center text-2xl tracking-[1em] pl-[1em] text-primary">
+          ✳✳✳
+        </p>
+
+        <PostNewsletterCta />
+        <PostFooterCta />
+      </div>
     </article>
   );
 }

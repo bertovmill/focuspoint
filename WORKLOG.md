@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-30 — bertomill.com/writing: warm magazine redesign
+
+Berto: "this 'writing section' can be a bit brighter, more fun, like actually good to
+read". He picked the "warm magazine" direction, index and article pages both. The
+Writing section now sits on cream paper (`.writing-paper` in globals.css re-points the
+shadcn tokens, with a warm dark version, and a vermilion accent instead of the site
+green). Headlines are Fraunces (soft/wonky axes on), reading text is Newsreader, both
+loaded only in `app/site/writing/layout.tsx`. Index: big "Writing." header with a yellow
+sign-up card, the latest post as a large featured card, then a 3-column grid of tinted
+cards (tints rotate down the page; posts without a cover get a big italic first letter).
+Article: centered serif header with byline + headshot, wide rounded cover, 20-21px serif
+body at ~42rem, drop cap, pull-quote blockquotes, ✳✳✳ breaks, and a reading progress bar
+(`[slug]/reading-progress.tsx`). `Prose` gained `variant="article"`; podcast/work still use
+the default. Files: `app/globals.css`, `app/site/writing/{layout,page}.tsx`,
+`app/site/writing/[slug]/{page,reading-progress}.tsx`, `app/site/_components/prose.tsx`.
+Local preview tip: `http://site.localhost:<port>/writing` skips Clerk (counts as the public host).
+
+---
+
 ## 2026-10-29 — Home: meals end level with sleep + training
 
 Berto: "these should be the same height - so it all fits nicely together". In the top row

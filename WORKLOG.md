@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-30 — Cael desktop sidebar: grouped, Stripe/Shopify style
+
+Berto said the sidebar could be better and named Stripe, ElevenLabs and Shopify as the
+look he likes. The desktop nav rail in `app/(app)/layout.tsx` now groups its items
+(`NAV_GROUPS`): Home/Chat/To-dos with no label, then Create (Notes, Writing, Sketches,
+Newsletter), Health (Training, Meals), Growth (Career, Persona, Great Thinkers). Small
+muted group labels; collapsed rail shows thin dividers instead. Rail has a faint tint
+(`bg-muted/40`), compact 32px rows at 13px, and the selected item is a raised white card
+with a green icon (Shopify) instead of the green wash. Header is a small green "C" mark +
+name with the collapse button on the right. Phone bar unchanged.
+
 ## 2026-10-30 — bertomill.com: the warm magazine look goes site-wide
 
 Berto loved the Writing redesign's "fun colors" and said to bring it to the rest of the

@@ -128,20 +128,41 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
 // the mobile bar move with the same weight.
 const NAV_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.7 };
 
-// Every navigable section, in the order they appear in the desktop nav rail.
-const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] = [
-  { tab: "home", label: "Home", icon: HomeIcon },
-  { tab: "chat", label: "Chat", icon: MessageCircleIcon },
-  { tab: "tasks", label: "To-dos", icon: ListTodoIcon },
-  { tab: "notes", label: "Notes", icon: FileTextIcon },
-  { tab: "writing", label: "Writing", icon: PenLineIcon },
-  { tab: "sketches", label: "Sketches", icon: BrushIcon },
-  { tab: "training", label: "Training", icon: DumbbellIcon },
-  { tab: "meals", label: "Meals", icon: UtensilsIcon },
-  { tab: "career", label: "Career", icon: BriefcaseIcon },
-  { tab: "persona", label: "Persona", icon: UserRoundIcon },
-  { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
-  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
+// Every navigable section, grouped as they appear in the desktop nav rail. The
+// small group labels follow Stripe, ElevenLabs and Shopify (Berto, 2026-10-30);
+// the first group has none, like their top-level items.
+const NAV_GROUPS: { label?: string; items: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] }[] = [
+  {
+    items: [
+      { tab: "home", label: "Home", icon: HomeIcon },
+      { tab: "chat", label: "Chat", icon: MessageCircleIcon },
+      { tab: "tasks", label: "To-dos", icon: ListTodoIcon },
+    ],
+  },
+  {
+    label: "Create",
+    items: [
+      { tab: "notes", label: "Notes", icon: FileTextIcon },
+      { tab: "writing", label: "Writing", icon: PenLineIcon },
+      { tab: "sketches", label: "Sketches", icon: BrushIcon },
+      { tab: "newsletter", label: "Newsletter", icon: MailIcon },
+    ],
+  },
+  {
+    label: "Health",
+    items: [
+      { tab: "training", label: "Training", icon: DumbbellIcon },
+      { tab: "meals", label: "Meals", icon: UtensilsIcon },
+    ],
+  },
+  {
+    label: "Growth",
+    items: [
+      { tab: "career", label: "Career", icon: BriefcaseIcon },
+      { tab: "persona", label: "Persona", icon: UserRoundIcon },
+      { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
+    ],
+  },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */
@@ -443,67 +464,75 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       {/* Desktop nav rail — leftmost, always visible, collapsible to icons only */}
       <aside
         className={cn(
-          "hidden lg:flex lg:flex-col shrink-0 border-r border-border bg-background overflow-hidden",
+          // A faint tint sets the rail apart from the page, as in Stripe and Shopify.
+          "hidden lg:flex lg:flex-col shrink-0 border-r border-border bg-muted/40 overflow-hidden",
           "lg:transition-[width] lg:duration-200 lg:ease-in-out",
-          navRailOpen ? "lg:w-52" : "lg:w-14",
+          navRailOpen ? "lg:w-56" : "lg:w-14",
         )}
       >
-        <div className="flex items-center gap-1.5 h-14 px-2 shrink-0">
+        <div className={cn("flex items-center h-14 px-2 shrink-0", navRailOpen ? "justify-between pl-3" : "justify-center")}>
+          {/* The identity that used to sit in the dashboard's top bar: a small mark
+              and name, like a workspace switcher. */}
+          {navRailOpen && (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="grid size-6 shrink-0 place-items-center rounded-md bg-primary text-[11px] font-semibold text-primary-foreground">
+                C
+              </span>
+              <span className="text-sm font-semibold tracking-tight truncate">Cael</span>
+            </div>
+          )}
           <button
             onClick={toggleNavRail}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors shrink-0"
             aria-label={navRailOpen ? "Collapse navigation" : "Expand navigation"}
           >
             <PanelLeftIcon className="size-4" />
           </button>
-          {/* The identity that used to sit in the dashboard's top bar. */}
-          {navRailOpen && (
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm font-semibold tracking-tight truncate">Cael</span>
-            </div>
-          )}
         </div>
-        <nav className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
-          {NAV_ITEMS.map(({ tab, label, icon: Icon }) => {
-            const active = mobileTab === tab;
-            return (
-              <Fragment key={tab}>
-              <button
-                onClick={() => setMobileTab(tab)}
-                title={label}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "group relative flex w-full items-center gap-3 rounded-lg py-2 text-sm transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                  navRailOpen ? "px-2.5" : "justify-center px-0",
-                  active
-                    ? "text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {/* Hover wash sits under the indicator so the two never stack. */}
-                {!active && (
-                  <span className="absolute inset-0 rounded-lg bg-muted opacity-0 transition-opacity group-hover:opacity-100" />
-                )}
-                {active && (
-                  <motion.span
-                    layoutId="navRailActive"
-                    transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
-                    className="absolute inset-0 rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/15"
-                  />
-                )}
-                <motion.span
-                  className="relative shrink-0"
-                  animate={reduceMotion ? undefined : { scale: active ? 1.08 : 1 }}
-                  transition={NAV_SPRING}
-                >
-                  <Icon className="size-4" />
-                </motion.span>
-                {navRailOpen && <span className="relative truncate">{label}</span>}
-              </button>
-              </Fragment>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-2 pb-3">
+          {NAV_GROUPS.map((group, i) => (
+            <div key={group.label ?? "main"} className={cn(i > 0 && (navRailOpen ? "mt-5" : "mt-3 border-t border-border pt-3"))}>
+              {group.label && navRailOpen && (
+                <div className="px-2.5 pb-1 text-[11px] font-medium text-muted-foreground/80">{group.label}</div>
+              )}
+              <div className="space-y-px">
+                {group.items.map(({ tab, label, icon: Icon }) => {
+                  const active = mobileTab === tab;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setMobileTab(tab)}
+                      title={label}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "group relative flex w-full items-center gap-2.5 rounded-md h-8 text-[13px] transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        navRailOpen ? "px-2.5" : "justify-center px-0",
+                        active
+                          ? "text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {/* Hover wash sits under the indicator so the two never stack. */}
+                      {!active && (
+                        <span className="absolute inset-0 rounded-md bg-foreground/5 opacity-0 transition-opacity group-hover:opacity-100" />
+                      )}
+                      {/* The selected item is a raised card on the tinted rail (Shopify). */}
+                      {active && (
+                        <motion.span
+                          layoutId="navRailActive"
+                          transition={reduceMotion ? { duration: 0 } : NAV_SPRING}
+                          className="absolute inset-0 rounded-md bg-background shadow-sm ring-1 ring-border/70"
+                        />
+                      )}
+                      <Icon className={cn("relative size-4 shrink-0", active && "text-primary")} />
+                      {navRailOpen && <span className="relative truncate">{label}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
         {/* Utility controls — pin, traces, panel collapse, theme. These used to
             live in the dashboard's top bar; the rail holds them now so the

@@ -107,7 +107,7 @@ const PATH_TABS = Object.fromEntries(
   Object.entries(TAB_PATHS).map(([tab, path]) => [path, tab as MobileTab]),
 ) as Record<string, MobileTab>;
 
-// The nav shows only Home, Chat, To-dos, Notes, Writing, Sketches, Training, Meals, Career and Persona (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30; Persona 2026-10-17; To-dos, his life to-dos outside Venice, 2026-10-19). Every other
+// The nav shows only Home, Chat, To-dos, Notes, Writing, Sketches, Training, Meals, Career and Persona (Berto, 2026-09-14; Meals, Career and Notes added 2026-09-27; Writing 2026-09-30; Persona 2026-10-17; To-dos, his life to-dos outside Venice, 2026-10-19; Newsletter, his Kit subscribers, 2026-10-30). Every other
 // section still exists at its URL and through Cael's tools; it just isn't a
 // destination in the shell any more. On the phone the bar holds five slots
 // (Berto, 2026-09-30): the first four tabs plus "More", which opens the rest.
@@ -120,6 +120,7 @@ const MORE_TABS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "career", label: "Career", icon: BriefcaseIcon },
   { tab: "persona", label: "Persona", icon: UserRoundIcon },
   { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
+  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
 // The selected state is one element that travels between items rather than a
@@ -140,6 +141,7 @@ const NAV_ITEMS: { tab: MobileTab; label: string; icon: typeof BookOpenIcon }[] 
   { tab: "career", label: "Career", icon: BriefcaseIcon },
   { tab: "persona", label: "Persona", icon: UserRoundIcon },
   { tab: "great-thinkers", label: "Great Thinkers", icon: LightbulbIcon },
+  { tab: "newsletter", label: "Newsletter", icon: MailIcon },
 ];
 
 /** A tab's colour: the label/icon tint when active, and the pill behind the icon. */

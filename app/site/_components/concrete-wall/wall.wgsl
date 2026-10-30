@@ -230,8 +230,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let grit = (value_noise(p * 420.0) - 0.5) * 0.035;
 
   // Light mode: warm plaster. Dark mode: the same wall at night, lit the same way.
-  let base_light = vec3f(0.84, 0.82, 0.78);
-  let base_dark = vec3f(0.17, 0.165, 0.155);
+  let base_light = vec3f(0.89, 0.84, 0.74);
+  let base_dark = vec3f(0.18, 0.16, 0.135);
   let base = mix(base_light, base_dark, dark) * (0.94 + h * 0.10 + grit);
 
   // Daylight dims under cloud and at night, though never so far in light mode

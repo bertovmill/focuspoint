@@ -40,7 +40,7 @@ export default async function PodcastEpisodePage({ params }: { params: Promise<{
       </SiteLink>
 
       <header className="mt-8 border-b border-border/60 pb-8">
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{ep.title}</h1>
+        <h1 className="font-display text-4xl leading-[1.05] font-medium tracking-tight sm:text-6xl">{ep.title}</h1>
         {ep.summary && <p className="mt-4 text-lg leading-relaxed text-muted-foreground">{ep.summary}</p>}
         <p className="mt-5 font-mono text-xs text-muted-foreground">
           {formatDate(ep.date)}
@@ -81,7 +81,7 @@ export default async function PodcastEpisodePage({ params }: { params: Promise<{
       )}
 
       <div className="mt-10">
-        <Prose>{ep.body}</Prose>
+        <Prose variant="article">{ep.body}</Prose>
       </div>
 
       <PostNewsletterCta />

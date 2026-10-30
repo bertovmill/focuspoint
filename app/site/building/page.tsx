@@ -21,9 +21,9 @@ function formatTotal(form: PublicWealthForm) {
 
 function FormCard({ form }: { form: PublicWealthForm }) {
   return (
-    <div className="flex flex-col rounded-xl border border-border bg-card p-5">
+    <div className="flex flex-col rounded-3xl bg-card p-6">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-medium tracking-tight">{form.label}</h3>
+        <h3 className="font-display text-xl font-medium tracking-tight">{form.label}</h3>
         {form.hasTarget && (
           <span className="font-mono text-xs text-muted-foreground tabular-nums">{form.percent}%</span>
         )}
@@ -78,8 +78,8 @@ export default async function BuildingPage() {
     <div className="mx-auto max-w-5xl px-6">
       <section className="border-b border-border/60 py-16">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Live</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Building in public</h1>
-        <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+        <h1 className="font-display mt-4 text-5xl font-medium tracking-tight sm:text-6xl">Building in public</h1>
+        <p className="mt-6 max-w-2xl font-serif text-xl leading-relaxed text-muted-foreground sm:text-2xl">
           I don&apos;t measure my life in one number. I measure it in eight — the forms of wealth that
           actually make a life good. Cael keeps the scoreboard; this page reads straight off it.
         </p>

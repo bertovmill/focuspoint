@@ -3,6 +3,7 @@ import { ArrowUpRightIcon } from "lucide-react";
 import { getPublishedPortfolio, type PortfolioProject } from "@/lib/portfolio";
 import { SiteLink } from "../_components/site-link";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
+import { TINTS } from "../_components/tints";
 import { cn } from "@/lib/utils";
 
 // Short, so an edit from Cael or the Career tab shows up within a minute.
@@ -42,9 +43,9 @@ export default async function CapabilitiesPage({
       <ConcreteWall className="bottom-auto h-[min(100%,48rem)]" />
       <div className="mx-auto max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-10 lg:py-14">
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Capabilities</p>
-          <h1 className="mt-4 text-2xl font-medium tracking-tight">What I build</h1>
-          <p className="mt-1 text-2xl leading-snug tracking-tight text-muted-foreground">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Capabilities</p>
+          <h1 className="font-display mt-4 text-4xl font-medium tracking-tight">What I build</h1>
+          <p className="mt-2 font-serif text-2xl leading-snug text-muted-foreground">
             And the shipped work that proves it.
           </p>
 
@@ -70,8 +71,8 @@ export default async function CapabilitiesPage({
         <section id="projects" className="mt-10 scroll-mt-24 lg:mt-0">
           {selected && (
             <header className="mb-6">
-              <h2 className="text-xl font-medium tracking-tight">{selected.name}</h2>
-              {selected.summary && <p className="mt-2 max-w-2xl text-muted-foreground">{selected.summary}</p>}
+              <h2 className="font-display text-3xl font-medium tracking-tight">{selected.name}</h2>
+              {selected.summary && <p className="mt-2 max-w-2xl font-serif text-lg text-muted-foreground">{selected.summary}</p>}
             </header>
           )}
 
@@ -79,9 +80,9 @@ export default async function CapabilitiesPage({
             <p className="py-8 text-muted-foreground">Nothing published yet.</p>
           ) : (
             <ul className="flex flex-col gap-4">
-              {shown.map((project) => (
+              {shown.map((project, i) => (
                 <li key={project.id} id={project.slug} className="scroll-mt-24">
-                  <ProjectCard project={project} focusCapabilityId={selected?.id ?? null} />
+                  <ProjectCard project={project} focusCapabilityId={selected?.id ?? null} tint={TINTS[i % TINTS.length]} />
                 </li>
               ))}
             </ul>
@@ -113,20 +114,28 @@ function FilterLink({ href, active, label, count }: { href: string; active: bool
  * One project. With a capability selected, that capability's evidence leads and
  * the rest follow; with none selected, every capability is listed with its evidence.
  */
-function ProjectCard({ project, focusCapabilityId }: { project: PortfolioProject; focusCapabilityId: number | null }) {
+function ProjectCard({
+  project,
+  focusCapabilityId,
+  tint,
+}: {
+  project: PortfolioProject;
+  focusCapabilityId: number | null;
+  tint: string;
+}) {
   const focus = project.capabilities.find((l) => l.capabilityId === focusCapabilityId) ?? null;
   const rest = project.capabilities.filter((l) => l !== focus);
 
   return (
-    <article className="rounded-xl border bg-background/80 p-6 backdrop-blur">
+    <article className={cn("rounded-3xl p-7", tint)}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 className="text-lg font-medium tracking-tight">{project.name}</h3>
+        <h3 className="font-display text-2xl font-medium tracking-tight">{project.name}</h3>
         {project.year && <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{project.year}</span>}
       </div>
-      {project.summary && <p className="mt-2 text-muted-foreground">{project.summary}</p>}
+      {project.summary && <p className="mt-2 font-serif text-lg text-foreground/75">{project.summary}</p>}
 
       {focus && focus.evidence && (
-        <p className="mt-4 border-l-2 border-foreground pl-4 leading-relaxed">{focus.evidence}</p>
+        <p className="mt-4 border-l-2 border-primary pl-4 font-serif text-lg leading-relaxed">{focus.evidence}</p>
       )}
 
       {rest.length > 0 && (

@@ -20,10 +20,10 @@ export default async function NewsletterPage() {
     <div className="mx-auto max-w-3xl px-6">
       <section className="border-b border-border/60 py-16">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Newsletter</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="font-display mt-4 text-5xl font-medium tracking-tight sm:text-6xl">
           Get what I&apos;m learning
         </h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+        <p className="mt-6 font-serif text-xl leading-relaxed text-muted-foreground sm:text-2xl">
           I&apos;m building AI agents — including one that runs my own life — and writing down what
           works as I go. When I publish something, you get it. That&apos;s the whole deal.
         </p>
@@ -36,7 +36,7 @@ export default async function NewsletterPage() {
       </section>
 
       <section className="py-12">
-        <h2 className="text-sm font-medium tracking-tight">What you&apos;d have got</h2>
+        <h2 className="font-display text-3xl font-medium tracking-tight">What you&apos;d have got</h2>
         {writing.length === 0 ? (
           <p className="mt-4 text-muted-foreground">The first issue is on its way.</p>
         ) : (
@@ -45,7 +45,7 @@ export default async function NewsletterPage() {
               <li key={post.url}>
                 <SiteLink href={post.url} className="group block py-4">
                   <div className="flex items-baseline gap-4">
-                    <h3 className="font-medium tracking-tight transition-colors group-hover:text-primary">
+                    <h3 className="font-display text-xl font-medium tracking-tight transition-colors group-hover:text-primary">
                       {post.title}
                     </h3>
                     <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
@@ -53,7 +53,7 @@ export default async function NewsletterPage() {
                     </span>
                   </div>
                   {post.summary && (
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{post.summary}</p>
+                    <p className="mt-1.5 font-serif text-lg leading-snug text-muted-foreground">{post.summary}</p>
                   )}
                 </SiteLink>
               </li>

@@ -8,6 +8,7 @@ import { listSubstackPosts } from "@/lib/substack";
 import { cn } from "@/lib/utils";
 import { SiteLink } from "../_components/site-link";
 import { SubscribeForm } from "../_components/subscribe-form";
+import { TINTS } from "../_components/tints";
 
 // Short, so a post Cael publishes shows up within a minute. The Substack feed
 // and Medium feeds keep their own hour-long fetch caches underneath.
@@ -32,16 +33,6 @@ export const metadata: Metadata = {
   description:
     "Notes on building AI agents, shipping software, and running a life with one.",
 };
-
-/* The card colours from `.writing-paper`, as classes Tailwind can see. */
-const TINTS = [
-  "bg-[var(--tint-1)]",
-  "bg-[var(--tint-2)]",
-  "bg-[var(--tint-3)]",
-  "bg-[var(--tint-4)]",
-  "bg-[var(--tint-5)]",
-  "bg-[var(--tint-6)]",
-];
 
 export default async function WritingIndexPage() {
   const [own, substack, medium] = await Promise.all([

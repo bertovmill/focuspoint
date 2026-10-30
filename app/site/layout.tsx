@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
+import { Fraunces, Newsreader } from "next/font/google";
 import { PUBLIC_HOST, SITE_PREFIX, CHANNELS, isPublicHost } from "@/lib/public-site";
 import { SiteBasePathProvider } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
@@ -9,6 +10,24 @@ import { SiteCommandPalette } from "./_components/site-command-palette";
 import { SiteFooter } from "./_components/site-footer";
 import { PageGrain } from "./_components/grain";
 import { AskAiProvider } from "./_components/ask-ai";
+
+// Fraunces for headlines, Newsreader for reading. Loaded here rather than in the
+// root layout so the Cael app doesn't download them.
+const display = Fraunces({
+  subsets: ["latin"],
+  axes: ["SOFT", "WONK", "opsz"],
+  display: "swap",
+});
+
+const serif = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+  display: "swap",
+});
+
+/* Set on :root rather than a wrapper, so portalled menus and popups get them too. */
+const FONT_VARS = `:root{--font-fraunces:${display.style.fontFamily};--font-newsreader:${serif.style.fontFamily}}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
@@ -65,6 +84,7 @@ export default async function SiteLayout({ children }: { readonly children: Reac
       {/* AskAiProvider renders the page wrapper itself, so it can slide the page
           over when the Ask AI panel opens. */}
       <AskAiProvider>
+        <style dangerouslySetInnerHTML={{ __html: FONT_VARS }} />
         <PageGrain />
         <script
           type="application/ld+json"
@@ -72,7 +92,8 @@ export default async function SiteLayout({ children }: { readonly children: Reac
           dangerouslySetInnerHTML={{ __html: JSON.stringify(PERSON_JSON_LD) }}
         />
         <SiteNav />
-        <main className="flex-1">{children}</main>
+        {/* `.site-paper` switches the whole document to the warm paper theme (globals.css). */}
+        <main className="site-paper flex-1">{children}</main>
         <NewsletterPopup />
         {/* `/` or ⌘K anywhere on the site opens search; nothing on screen advertises it. */}
         <SiteCommandPalette />

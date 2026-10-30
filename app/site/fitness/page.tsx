@@ -62,7 +62,7 @@ export default function FitnessPage() {
         >
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
             <div>
-              <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">Fitness</h1>
+              <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">Fitness</h1>
               {/* The same sign-up as the homepage hero, /writing and /podcast. */}
               <div id="fitness-newsletter" className="mt-8 max-w-md">
                 <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-foreground/60">
@@ -73,7 +73,7 @@ export default function FitnessPage() {
             </div>
             <AnimatedHeading
               as="p"
-              className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"
+              className="font-serif text-3xl leading-snug text-muted-foreground sm:text-4xl"
               lines={TAGLINE}
             />
           </div>

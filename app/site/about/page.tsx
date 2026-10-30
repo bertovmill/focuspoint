@@ -65,7 +65,7 @@ export default function AboutPage() {
         >
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
             <div>
-              <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">About</h1>
+              <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">About</h1>
               {/* A print taped to the concrete: white border, a slight tilt, a
                   strip of tape at the top and a soft shadow on the wall. */}
               <figure className="relative mt-10 w-full max-w-sm -rotate-2 bg-white p-2.5 pb-9 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.45),0_4px_10px_-4px_rgba(0,0,0,0.25)] transition-transform duration-500 hover:rotate-0 sm:max-w-md">
@@ -86,7 +86,7 @@ export default function AboutPage() {
             </div>
             <AnimatedHeading
               as="p"
-              className="text-3xl leading-snug tracking-tight text-muted-foreground sm:text-4xl"
+              className="font-serif text-3xl leading-snug text-muted-foreground sm:text-4xl"
               lines={TAGLINE}
             />
           </div>
@@ -122,7 +122,7 @@ export default function AboutPage() {
             <section key={s.id} id={s.id} className="scroll-mt-24 border-t border-border/60">
               <RevealOnView delay={i * 0.04} className="py-14 lg:grid lg:grid-cols-2 lg:gap-14">
                 <h2 className={`${LABEL} text-muted-foreground`}>{s.label}</h2>
-                <div className="mt-6 max-w-[62ch] text-lg leading-relaxed lg:mt-0">{s.body}</div>
+                <div className="mt-6 max-w-[62ch] font-serif text-xl leading-relaxed lg:mt-0">{s.body}</div>
               </RevealOnView>
             </section>
           ))}

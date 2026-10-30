@@ -166,12 +166,12 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
       )}
     >
       {/* CSS wall, always present. */}
-      <div className="absolute inset-0 bg-[#d9d5ce] dark:bg-[#2b2a28]" />
+      <div className="absolute inset-0 bg-[#e6dac2] dark:bg-[#2e2822]" />
       <div className="absolute inset-0 opacity-90 mix-blend-multiply dark:opacity-40 dark:mix-blend-screen">
         <PaperTexture
           style={{ width: "100%", height: "100%" }}
-          colorFront="#9d988f"
-          colorBack="#f1eee8"
+          colorFront="#a8977a"
+          colorBack="#f7eedb"
           scale={0.4}
           contrast={0.8}
           roughness={1}

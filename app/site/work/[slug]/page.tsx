@@ -85,7 +85,7 @@ export default async function WorkProjectPage({
       )}
 
       <header className="mt-10 border-b border-border/60 pb-8">
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+        <h1 className="font-display text-4xl leading-[1.05] font-medium tracking-tight sm:text-6xl">
           {project.title}
         </h1>
         {project.outcome && (
@@ -122,7 +122,7 @@ export default async function WorkProjectPage({
       </header>
 
       <div className="mt-8">
-        <Prose>{project.body}</Prose>
+        <Prose variant="article">{project.body}</Prose>
       </div>
 
       <PostFooterCta />

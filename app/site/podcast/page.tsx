@@ -15,8 +15,8 @@ export default async function PodcastIndexPage() {
   return (
     <div className="mx-auto max-w-3xl px-6">
       <section className="border-b border-border/60 py-16">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Podcast</h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+        <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">Podcast<span className="text-primary">.</span></h1>
+        <p className="mt-6 font-serif text-xl leading-relaxed text-muted-foreground sm:text-2xl">
           Conversations with Cael, my personal agent — recorded as they actually happen. I ask, it
           answers out loud, and we work through whatever I&apos;m stuck on.
         </p>
@@ -37,14 +37,14 @@ export default async function PodcastIndexPage() {
             {episodes.map((ep, i) => (
               <li key={ep.slug}>
                 <SiteLink href={`/podcast/${ep.slug}`} className="group flex gap-5 py-6">
-                  <span className="mt-0.5 font-mono text-sm text-muted-foreground tabular-nums">
+                  <span className="font-display mt-0.5 text-3xl font-medium italic text-primary tabular-nums">
                     {String(episodes.length - i).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                    <h2 className="font-display text-2xl font-medium tracking-tight transition-colors group-hover:text-primary">
                       {ep.title}
                     </h2>
-                    {ep.summary && <p className="mt-2 leading-relaxed text-muted-foreground">{ep.summary}</p>}
+                    {ep.summary && <p className="mt-2 font-serif text-lg leading-snug text-muted-foreground">{ep.summary}</p>}
                     <p className="mt-3 font-mono text-xs text-muted-foreground">
                       {formatDate(ep.date)}
                       {ep.duration ? ` · ${ep.duration}` : ""}

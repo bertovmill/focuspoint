@@ -52,7 +52,7 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
-  /* The Writing section's two serifs, loaded by app/site/writing/layout.tsx. */
+  /* bertomill.com's two serifs, loaded by app/site/layout.tsx. */
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-serif: var(--font-newsreader), Georgia, serif;
 }
@@ -852,13 +852,14 @@
 }
 
 /*
- * bertomill.com/writing: warm paper instead of the site's neutral grays, so the
- * section reads like a magazine (his ask, 2026-10-30: "brighter, more fun,
- * actually good to read"). It re-points the shadcn tokens inside the wrapper,
- * so the subscribe form and the end-of-post cards pick up the paper too.
- * --tint-1..6 colour the post cards; each post keeps the same one.
+ * bertomill.com: warm paper instead of the app's neutral grays, so the site
+ * reads like a magazine. Started on /writing (his ask, 2026-10-30: "brighter,
+ * more fun, actually good to read") and went site-wide the same day. The site
+ * layout's <main> carries `.site-paper`; keyed on :root:has() so portals (the
+ * menu sheet, popups, search) get the paper too, and the Cael app never does.
+ * --tint-1..6 are the card colours, all at one lightness so they read as a set.
  */
-.writing-paper {
+:root:has(.site-paper) {
   --background: oklch(0.975 0.014 85);
   --foreground: oklch(0.22 0.02 50);
   --card: oklch(0.99 0.008 85);
@@ -876,11 +877,9 @@
   --tint-4: oklch(0.92 0.045 300);
   --tint-5: oklch(0.93 0.04 230);
   --tint-6: oklch(0.93 0.05 10);
-  background-color: var(--background);
-  color: var(--foreground);
 }
 
-.dark .writing-paper {
+:root.dark:has(.site-paper) {
   --background: oklch(0.17 0.012 60);
   --foreground: oklch(0.94 0.02 85);
   --card: oklch(0.22 0.015 60);

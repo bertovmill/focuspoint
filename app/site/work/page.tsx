@@ -32,13 +32,13 @@ export default async function WorkIndexPage() {
       />
       <div className="mx-auto max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-10 lg:py-14">
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
             Work
           </p>
-          <h1 className="mt-4 text-2xl font-medium tracking-tight">
+          <h1 className="font-display mt-4 text-4xl font-medium tracking-tight">
             Things I&apos;ve shipped
           </h1>
-          <p className="mt-1 text-2xl leading-snug tracking-tight text-muted-foreground">
+          <p className="mt-2 font-serif text-2xl leading-snug text-muted-foreground">
             What was broken, what I did, what changed.
           </p>
 

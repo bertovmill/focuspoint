@@ -39,10 +39,10 @@ export function SiteFooter() {
       <div className="mx-auto max-w-5xl px-6 py-16 lg:py-20">
         <div className="grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-20">
           <div>
-            <h2 className="max-w-md text-3xl font-medium leading-[1.1] tracking-tight sm:text-4xl">
+            <h2 className="font-display max-w-md text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
               Putting AI to work,
               <br />
-              <span className="text-muted-foreground">one agent at a time.</span>
+              <span className="italic text-primary">one agent at a time.</span>
             </h2>
 
             <div className="mt-12 grid grid-cols-2 gap-10 sm:grid-cols-3">

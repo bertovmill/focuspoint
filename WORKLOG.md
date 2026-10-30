@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-30 — bertomill.com: the warm magazine look goes site-wide
+
+Berto loved the Writing redesign's "fun colors" and said to bring it to the rest of the
+site (he also named Stripe Press as a reference he likes). The paper theme moved from a
+`.writing-paper` wrapper to `:root:has(.site-paper)` in globals.css, with the class on the
+site layout's `<main>`, so portals (menu sheet, newsletter popup, search) get it too and
+the Cael app never does. Fraunces + Newsreader now load in `app/site/layout.tsx` and are
+set on :root via an inline style (`--font-fraunces`/`--font-newsreader`); the Writing
+layout is gone. The wall shader and its CSS fallback are warmed from gray concrete to
+cream plaster (`wall.wgsl` base_light/base_dark, `concrete-wall.tsx`). Headlines on Home,
+About, Work, Capabilities, Fitness, Podcast, Building, Newsletter, footer and the work/
+podcast detail pages are Fraunces; taglines and summaries Newsreader. Home's three pillar
+cards and Capabilities' project cards use the tints (shared list:
+`app/site/_components/tints.ts`). Work and podcast detail pages use `Prose variant="article"`.
+Kept on purpose: the blue watercolor ink on the hero headline, project brand colours on
+Work tiles, the mono nav labels.
+
+---
+
 ## 2026-10-30 — bertomill.com/writing: warm magazine redesign
 
 Berto: "this 'writing section' can be a bit brighter, more fun, like actually good to

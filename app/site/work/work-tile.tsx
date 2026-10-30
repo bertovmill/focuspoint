@@ -31,10 +31,10 @@ export function WorkTile({
   return (
     <div
       className={cn(
-        "relative flex overflow-hidden rounded-xl",
+        "relative flex overflow-hidden rounded-3xl",
         featured ? "aspect-[4/3] sm:aspect-[16/9]" : "aspect-[4/3]",
         logo
-          ? "bg-[#fbfaf8] text-[#1c1b19] ring-1 ring-inset ring-black/[0.06] dark:bg-[#141312] dark:text-white dark:ring-white/10"
+          ? "bg-card text-[#1c1b19] dark:text-white"
           : "text-white",
       )}
       style={logo ? undefined : { backgroundColor: project.color ?? "#3a3835" }}

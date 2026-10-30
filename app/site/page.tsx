@@ -18,9 +18,12 @@ import { WallClock } from "./_components/concrete-wall/wall-clock";
 import { SubscribeForm } from "./_components/subscribe-form";
 import { MomentsCarousel } from "./_components/moments-carousel";
 
-// Display type: Geist (from the root layout) at semibold with tight tracking and a
-// soft ink instead of a heavy weight in pure black. Calm and current, not shouty.
-const display = "font-sans font-semibold text-foreground/90";
+/* The warm card colours from globals.css (`.site-paper`), in order. */
+const PILLAR_TINTS = ["bg-[var(--tint-1)]", "bg-[var(--tint-2)]", "bg-[var(--tint-4)]"];
+
+// Display type: Fraunces (from the site layout) at medium weight in a soft ink,
+// the same magazine headline as Writing.
+const display = "font-display font-medium text-foreground/90";
 
 // Writing and podcast lists come from the filesystem, but keep the page fresh
 // on the same cadence as the rest of the site.
@@ -170,7 +173,7 @@ export default async function SiteHomePage() {
             />
             <WallClock className="mb-5" />
             <AnimatedHeading
-              className={`${display} watercolor-ink text-5xl leading-[1.0] tracking-[-0.045em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
+              className={`${display} watercolor-ink text-5xl leading-[1.0] tracking-[-0.02em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
               lines={[
                 "I lead go-to-market for Aucctus,",
                 "a fast-scaling AI startup.",
@@ -200,7 +203,7 @@ export default async function SiteHomePage() {
               In the room
             </p>
             <h2
-              className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.045em] sm:text-5xl lg:text-6xl`}
+              className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-5xl lg:text-6xl`}
             >
               Talks, hackathons and events
             </h2>
@@ -215,7 +218,7 @@ export default async function SiteHomePage() {
             About
           </p>
           <h2
-            className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.045em] sm:text-5xl lg:text-6xl`}
+            className={`${display} mt-4 text-4xl leading-[1.0] tracking-[-0.02em] sm:text-5xl lg:text-6xl`}
           >
             Work
           </h2>
@@ -224,7 +227,7 @@ export default async function SiteHomePage() {
         <ul className="mt-14 grid gap-6 sm:mt-20 md:grid-cols-3 lg:gap-8">
           {PILLARS.map((pillar, i) => {
             const inner = (
-              <article className="flex h-full flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-border/70 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl group-hover:ring-foreground/20">
+              <article className={`flex h-full flex-col overflow-hidden rounded-3xl transition-all duration-300 group-hover:-translate-y-1 group-hover:-rotate-[0.5deg] group-hover:shadow-[0_18px_40px_-18px_rgba(60,35,10,0.35)] ${PILLAR_TINTS[i % PILLAR_TINTS.length]}`}>
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#0d0c0b]">
                   <Image
                     src={pillar.image}
@@ -248,7 +251,7 @@ export default async function SiteHomePage() {
                 </div>
                 <div className="flex flex-1 flex-col p-6">
                   <h3
-                    className={`${display} flex items-center gap-3 text-2xl tracking-[-0.035em] transition-colors group-hover:text-primary sm:text-3xl`}
+                    className={`${display} flex items-center gap-3 text-2xl tracking-[-0.01em] transition-colors group-hover:text-primary sm:text-3xl`}
                   >
                     <Image
                       src={pillar.logo}
@@ -267,7 +270,7 @@ export default async function SiteHomePage() {
                   <p className="mt-1 text-sm font-medium text-muted-foreground">
                     {pillar.role}
                   </p>
-                  <p className="mt-4 leading-relaxed text-muted-foreground">
+                  <p className="mt-4 font-serif text-lg leading-snug text-foreground/75">
                     {pillar.description}
                   </p>
                 </div>
@@ -301,7 +304,7 @@ export default async function SiteHomePage() {
         </ul>
 
         <RevealOnView className="mt-16 flex flex-col gap-6 border-t border-border/60 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-lg text-muted-foreground">
+          <p className="font-serif text-xl text-muted-foreground">
             Before this, three years in AI strategy at{" "}
             <span className="text-foreground">KPMG</span> and{" "}
             <span className="text-foreground">CIBC</span>.
@@ -346,11 +349,11 @@ export default async function SiteHomePage() {
                         {formatDate(latestWriting.date)}
                       </span>
                     </div>
-                    <p className="mt-2 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                    <p className="font-display mt-2 text-2xl font-medium tracking-tight transition-colors group-hover:text-primary">
                       {latestWriting.title}
                     </p>
                     {latestWriting.summary && (
-                      <p className="mt-1.5 leading-relaxed text-muted-foreground">
+                      <p className="mt-1.5 font-serif text-lg leading-snug text-muted-foreground">
                         {latestWriting.summary}
                       </p>
                     )}
@@ -372,11 +375,11 @@ export default async function SiteHomePage() {
                           formatDate(latestEpisode.date)}
                       </span>
                     </div>
-                    <p className="mt-2 text-lg font-medium tracking-tight transition-colors group-hover:text-primary">
+                    <p className="font-display mt-2 text-2xl font-medium tracking-tight transition-colors group-hover:text-primary">
                       {latestEpisode.title}
                     </p>
                     {latestEpisode.summary && (
-                      <p className="mt-1.5 leading-relaxed text-muted-foreground">
+                      <p className="mt-1.5 font-serif text-lg leading-snug text-muted-foreground">
                         {latestEpisode.summary}
                       </p>
                     )}

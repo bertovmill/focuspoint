@@ -200,13 +200,13 @@ export const PLANT_ART = {
 } as const;
 
 /**
- * The Makerslounge book lying on the desk, between the notebook and the pot,
- * towards the back so the buddy (whose lane runs at depth 0.6, see
- * hero-agents/cast.ts) walks in front of it. `x` is its centre and `y` where
- * its box's bottom rests (fractions of the desk image); `width` is its box's
- * width as a fraction of the desk's.
+ * The Makerslounge book lying on the desk, at the left end beside the lamp:
+ * out of the buddy's lane (0.3 to 0.68, see hero-agents/cast.ts), so it
+ * never walks over it. `x` is its centre and `y` where its box's bottom
+ * rests (fractions of the desk image); `width` is its box's width as a
+ * fraction of the desk's.
  */
-export const BOOK_SPOT = { x: 0.66, y: 0.478, width: 0.17 } as const;
+export const BOOK_SPOT = { x: 0.122, y: 0.524, width: 0.14 } as const;
 
 /**
  * The mason jar on the windowsill: upright, and tipped to pour. `mouth` is

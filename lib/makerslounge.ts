@@ -18,8 +18,10 @@ export type MakersLoungeEvent = {
   capacity: number | null;
   series_slug: string | null;
   rsvps: number;
-  /** null = makerslounge.ca doesn't track check-ins yet (unknown, not zero). */
-  check_ins: number | null;
+  /** Who showed up. Site events are checked in at the door since Nov 2026. */
+  check_ins: number;
+  /** Site events only: guests added at the door without an RSVP (counted in rsvps). null for Luma. */
+  walk_ins: number | null;
   url: string;
 };
 
@@ -31,10 +33,12 @@ export type MakersLoungeTotals = {
   events_upcoming: number;
   /** RSVPs on the site plus approved Luma registrations. */
   rsvps_total: number;
-  /** Check-ins; only Luma events recorded them so far. */
+  /** Check-ins, site and Luma. */
   check_ins: number;
   site_events_run: number;
   site_rsvps: number;
+  site_check_ins: number;
+  site_walk_ins: number;
   luma_events: number;
   luma_rsvps: number;
   luma_check_ins: number;

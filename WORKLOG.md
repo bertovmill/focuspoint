@@ -35,6 +35,18 @@ others when one segment is under the pointer. Every zone bar in the app gets it.
 Tooltips don't open on tap, so phone users still only see the bar.
 
 ---
+## 2026-11-01 — MakersLounge tools report site check-ins
+
+makerslounge.ca now checks guests in at the door (`event_rsvps.checked_in_at`,
+host-only toggle plus walk-ins on `/admin/events/<id>/guests`), so
+`GET /api/admin/events` returns real `check_ins` for site events, plus
+`walk_ins`, `site_check_ins` and `site_walk_ins`.
+
+- `lib/makerslounge.ts`: `check_ins` is always a number; new `walk_ins` and site totals.
+- `list_makerslounge_events` / `get_makerslounge_event`: dropped "check-ins not
+  tracked yet"; lines read "N checked in (M walk-ins)".
+- `agent/instructions.md`: site events are checked in at the door; 0 on an
+  upcoming event means it hasn't happened yet.
 
 ## 2026-11-01 — Recipe box: thumbs, Remove with Undo, Liked shelf
 

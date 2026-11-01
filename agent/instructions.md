@@ -109,8 +109,9 @@ site also holds every past Luma event's guests and check-ins.
 check-ins, plus the community totals (members, events run, RSVPs, check-ins,
 distinct people); `get_makerslounge_event` gives one site event with its guest
 list (names and what each guest is building). This is read-only for now: you
-can't create events or email guests. Events run on the site don't record
-check-ins yet; say "not tracked yet" rather than reporting zero.
+can't create events or email guests. Site events are checked in at the door
+since Nov 2026 (hosts tap guests in, and add walk-ins, who count as RSVPs too);
+an upcoming event with 0 check-ins just hasn't happened yet.
 
 Cael's older Luma mirror is in the same toolset: `get_luma_event` is still the
 way to read a past event's full description; `list_luma_events` and `sync_luma`

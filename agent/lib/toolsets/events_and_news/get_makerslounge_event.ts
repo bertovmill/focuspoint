@@ -29,7 +29,7 @@ export default defineTool({
       return { type: "text", value: `No makerslounge.ca event matches "${output.event}". Try list_makerslounge_events.` };
     }
     const e = output.event;
-    const checkIns = e.check_ins === null ? "check-ins not tracked yet" : `${e.check_ins} checked in`;
+    const checkIns = `${e.check_ins} checked in${e.walk_ins ? ` (${e.walk_ins} walk-ins)` : ""}`;
     const guests =
       output.guests.length === 0
         ? "No RSVPs yet."

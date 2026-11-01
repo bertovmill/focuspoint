@@ -391,6 +391,18 @@ function Workspace({ children }: { readonly children: ReactNode }) {
     if (!active || active.title) newThread();
   }, [mobileTab, hydrated, activeId, getThread, newThread, switchTo]);
 
+  // Opening Chat puts the cursor in the message box. The composer stays mounted
+  // between visits (so its own autoFocus only fires once); a new thread remounts it,
+  // hence the activeId dependency and the short delay.
+  const chatPaneRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (mobileTab !== "chat" || !hydrated) return;
+    const id = window.setTimeout(() => {
+      chatPaneRef.current?.querySelector("textarea")?.focus({ preventScroll: true });
+    }, 150);
+    return () => window.clearTimeout(id);
+  }, [mobileTab, hydrated, activeId]);
+
   useEffect(() => {
     window.addEventListener(NEW_CHAT_EVENT, openNewChat);
     return () => window.removeEventListener(NEW_CHAT_EVENT, openNewChat);
@@ -693,7 +705,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div ref={chatPaneRef} className="flex min-w-0 flex-1 flex-col">
           {chatOpened && hydrated && activeId ? (
             <AgentChat
               key={activeId}

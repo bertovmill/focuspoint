@@ -4,6 +4,15 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Chat: focus the message box on open (issue #16)
+
+Opening Chat now puts the cursor in the composer. The composer stays mounted between
+visits so its own `autoFocus` only fired once; `app/(app)/layout.tsx` now focuses the
+chat pane's textarea (150ms after arriving, and again when the thread changes). Typecheck
+clean; not browser-tested.
+
+---
+
 ## 2026-10-31 — bertomill.com: events-led GTM retarget (Cael board 52, 51, 63, 62, 50, 45)
 
 Site fixes from Berto's Cael task board, for the events-led GTM job hunt.

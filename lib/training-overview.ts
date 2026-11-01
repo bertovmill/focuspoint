@@ -10,6 +10,7 @@ import { listWorkouts } from "./workout-bank";
 import { formatTime, goalProgress, templateExercises, totalReps, workoutHref, type StrengthLog } from "./workout-templates";
 
 export interface GoalRow {
+  slug: string;
   workout: string;
   name: string;
   /** The goal in his words. */
@@ -20,12 +21,24 @@ export interface GoalRow {
   href: string;
 }
 
+export interface WorkoutGoals {
+  slug: string;
+  name: string;
+  /** Average % of the goals that can be measured yet; null when none can. */
+  pct: number | null;
+  measured: number;
+  hit: number;
+  total: number;
+}
+
 export interface TrainingOverview {
   /** Workouts done in the last 30 days, and in the 30 before. */
   month: { done: number; prev: number };
   week: { change: number | null; prev: number | null };
   race: { name: string; days: number } | null;
   goals: GoalRow[];
+  /** His standard workouts that have goals, in default-week order, each at the average of its goals. */
+  workouts: WorkoutGoals[];
   weeks: { start: string; done: number; change: number | null }[];
 }
 
@@ -77,12 +90,30 @@ export async function trainingOverview(today: string): Promise<TrainingOverview>
       if (!g) continue;
       // A goal with nothing to measure against (a label only) shows no "now".
       const now = !last || g.pct === null ? null : timed ? (best !== null ? formatTime(best) : null) : `${last.weight ? `${last.weight} lbs` : "BW"} × ${Math.max(...times(last))}`;
-      const row: GoalRow = { workout: t.name, name: ex.name, label: g.text, now, pct: g.pct, href: workoutHref(t.slug, last?.log_date ?? today) };
+      // Never logged: not started, rather than 0% of the way.
+      const row: GoalRow = { slug: t.slug, workout: t.name, name: ex.name, label: g.text, now, pct: last ? g.pct : null, href: workoutHref(t.slug, last?.log_date ?? today) };
       const key = `${t.slug}|${ex.name}|${ex.goal.label}`;
       const had = goals.get(key);
       if (!had || (row.pct ?? -1) > (had.pct ?? -1)) goals.set(key, row);
     }
-    if (t.goal) goals.set(`${t.slug}|*`, { workout: t.name, name: t.name, label: t.goal, now: null, pct: null, href: workoutHref(t.slug, today) });
+    if (t.goal) goals.set(`${t.slug}|*`, { slug: t.slug, workout: t.name, name: t.name, label: t.goal, now: null, pct: null, href: workoutHref(t.slug, today) });
+  }
+
+  const rows = [...goals.values()];
+  const byWorkout: WorkoutGoals[] = [];
+  // Monday's workout first; the ones with no set day after.
+  for (const t of [...workouts].sort((a, b) => (a.default_day ?? 7) - (b.default_day ?? 7))) {
+    const mine = rows.filter((g) => g.slug === t.slug);
+    if (!mine.length) continue;
+    const m = mine.filter((g) => g.pct !== null);
+    byWorkout.push({
+      slug: t.slug,
+      name: t.name,
+      pct: m.length ? m.reduce((n, g) => n + g.pct!, 0) / m.length : null,
+      measured: m.length,
+      hit: m.filter((g) => g.pct! >= 1).length,
+      total: mine.length,
+    });
   }
 
   const upcoming = events.map((e) => ({ name: e.name, days: daysUntil(e.event_date, today) })).filter((e) => e.days >= 0).sort((a, b) => a.days - b.days);
@@ -90,7 +121,8 @@ export async function trainingOverview(today: string): Promise<TrainingOverview>
     month: { done: Number(counts.month), prev: Number(counts.prev) },
     week: { change: weeks[7].change, prev: weeks[6].change },
     race: upcoming[0] ?? null,
-    goals: [...goals.values()].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1)),
+    goals: rows.sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1)),
+    workouts: byWorkout,
     weeks,
   };
 }

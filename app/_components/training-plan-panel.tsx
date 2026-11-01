@@ -107,6 +107,9 @@ export function TrainingPlanPanel() {
   // The written plan and the old lift log, moved off the week view into the ⋯ menu (Berto, 2026-10-17).
   if (/^\/training\/plan\/?$/.test(pathname)) return <SubPage title="Written plan"><TrainingPlanDoc /></SubPage>;
   if (/^\/training\/progress\/?$/.test(pathname)) return <TrainingProgress />;
+  // /training/progress/<workout> drills into one workout's goals.
+  const progressOf = pathname.match(/^\/training\/progress\/([^/]+)\/?$/);
+  if (progressOf) return <TrainingProgress key={progressOf[1]} slug={progressOf[1]} />;
   if (/^\/training\/heart-rate\/?$/.test(pathname)) return <SubPage title="Heart rate" blurb="Your heart rate through each workout from the watch, last 30 days."><WorkoutHeartRates /></SubPage>;
   if (/^\/training\/past\/?$/.test(pathname)) return <SubPage title="Past programs" blurb="5×5 lifts and 10K times, logged one number per day before the structured workouts."><PastPrograms /></SubPage>;
   if (/^\/training\/workouts\/new\/?$/.test(pathname)) return <WorkoutEditor />;

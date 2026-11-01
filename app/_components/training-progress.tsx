@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowDownRightIcon, ArrowUpRightIcon, CheckIcon, ChevronRightIcon, MinusIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, ChevronRightIcon, MinusIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { todayISO } from "@/lib/nutrition";
 import type { WeeklyProgress } from "@/lib/progress";
-import type { GoalRow, TrainingOverview } from "@/lib/training-overview";
+import type { GoalRow, TrainingOverview, WorkoutGoals } from "@/lib/training-overview";
 import { cn } from "@/lib/utils";
 
 /** Today | Progress, under the Training title. Real routes, so each tab has its own URL. */
@@ -37,7 +37,7 @@ const pctText = (n: number) => `${Math.abs(n * 100).toFixed(1)}%`;
  * /training/progress — what the training is for (Berto, 2026-11-01): stat tiles with
  * change vs before, Shopify-admin style; the Dec 31 goals as bars; two weekly trends.
  */
-export function TrainingProgress() {
+export function TrainingProgress({ slug }: { slug?: string }) {
   const [data, setData] = useState<TrainingOverview | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -49,10 +49,12 @@ export function TrainingProgress() {
 
   return (
     <div className="space-y-6 pb-10">
-      <header className="space-y-3">
-        <h1 className="text-3xl font-bold tracking-tight">Training</h1>
-        <TrainingTabs active="progress" />
-      </header>
+      {!slug && (
+        <header className="space-y-3">
+          <h1 className="text-3xl font-bold tracking-tight">Training</h1>
+          <TrainingTabs active="progress" />
+        </header>
+      )}
       {failed ? (
         <p className="text-muted-foreground">Couldn’t load your progress.</p>
       ) : !data ? (
@@ -62,6 +64,8 @@ export function TrainingProgress() {
           </div>
           <Skeleton className="h-80 rounded-2xl" />
         </div>
+      ) : slug ? (
+        <WorkoutDetail data={data} slug={slug} />
       ) : (
         <Overview data={data} />
       )}
@@ -74,7 +78,6 @@ function Overview({ data }: { data: TrainingOverview }) {
   const measured = data.goals.filter((g) => g.pct !== null);
   const avg = measured.length ? measured.reduce((n, g) => n + g.pct!, 0) / measured.length : null;
   const hit = measured.filter((g) => g.pct! >= 1).length;
-  const waiting = data.goals.filter((g) => g.pct === null);
   return (
     <>
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="This month at a glance">
@@ -95,14 +98,13 @@ function Overview({ data }: { data: TrainingOverview }) {
       <section className="rounded-2xl bg-muted/60 p-5 dark:bg-muted/40">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold">Goals by Dec 31</h2>
-          <span className="text-sm text-muted-foreground">Latest vs goal</span>
+          <span className="text-sm text-muted-foreground">Average of each workout’s goals</span>
         </div>
         <ul className="mt-3 divide-y divide-foreground/5">
-          {measured.map((g) => (
-            <GoalItem key={`${g.workout}|${g.name}|${g.label}`} g={g} />
+          {data.workouts.map((w) => (
+            <WorkoutItem key={w.slug} w={w} />
           ))}
         </ul>
-        {waiting.length > 0 && <Waiting goals={waiting} />}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -149,47 +151,83 @@ function Delta({ change }: { change: number }) {
   );
 }
 
-/** "Run 1 km, SkiErg: 10% faster than your first time" — names sharing a goal said once. */
-function byLabel(workout: string, gs: GoalRow[]) {
-  const groups = new Map<string, string[]>();
-  for (const g of gs) groups.set(g.label, [...new Set([...(groups.get(g.label) ?? []), g.name])]);
-  return [...groups]
-    .map(([label, names]) => {
-      const own = names.filter((n) => n !== workout);
-      return own.length ? `${own.join(", ")}: ${label}` : label;
-    })
-    .join(" · ");
-}
-
-/** Goals with no number to measure yet (new workouts, label-only goals): one quiet line per workout. */
-function Waiting({ goals }: { goals: GoalRow[] }) {
-  const byWorkout = new Map<string, GoalRow[]>();
-  for (const g of goals) byWorkout.set(g.workout, [...(byWorkout.get(g.workout) ?? []), g]);
+/** One standard workout: its goals averaged into one bar. Opens the per-exercise detail. */
+function WorkoutItem({ w }: { w: WorkoutGoals }) {
+  const done = w.pct !== null && w.pct >= 1;
   return (
-    <div className="mt-4 border-t border-foreground/5 pt-4">
-      <h3 className="text-sm font-medium text-muted-foreground">No number to track yet</h3>
-      <ul className="mt-2 space-y-2 text-sm">
-        {[...byWorkout].map(([workout, gs]) => (
-          <li key={workout}>
-            <Link href={gs[0].href} className="hover:underline">
-              <span className="font-medium">{workout}</span>
-            </Link>
-            <span className="text-muted-foreground"> · {byLabel(workout, gs)}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <li>
+      <Link href={`/training/progress/${w.slug}`} className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 py-3 sm:grid-cols-[minmax(0,16rem)_1fr_4rem]">
+        <span className="min-w-0">
+          <span className="block truncate font-medium">{w.name}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {w.total} goal{w.total === 1 ? "" : "s"}
+            {w.measured > 0 && w.hit > 0 && ` · ${w.hit} hit`}
+          </span>
+        </span>
+        <span className="order-last col-span-2 min-w-0 sm:order-none sm:col-span-1">
+          {w.pct === null ? (
+            <span className="text-sm text-muted-foreground">No numbers yet. Log it once to start.</span>
+          ) : (
+            <span className="block h-2 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+              <span className={cn("block h-full rounded-full", done ? "bg-emerald-600" : "bg-foreground/70")} style={{ width: `${Math.max(2, w.pct * 100)}%` }} />
+            </span>
+          )}
+        </span>
+        <span className="flex items-center justify-end gap-1 text-sm tabular-nums">
+          <span className={cn("font-medium", w.pct === null && "text-muted-foreground")}>{w.pct === null ? "–" : `${Math.round(w.pct * 100)}%`}</span>
+          <ChevronRightIcon className="size-4 text-muted-foreground/50 group-hover:text-foreground" />
+        </span>
+      </Link>
+    </li>
   );
 }
 
-function GoalItem({ g }: { g: GoalRow }) {
+/** /training/progress/<workout> — one workout's goals, exercise by exercise. */
+function WorkoutDetail({ data, slug }: { data: TrainingOverview; slug: string }) {
+  const w = data.workouts.find((x) => x.slug === slug);
+  const goals = data.goals.filter((g) => g.slug === slug);
+  return (
+    <>
+      <header className="space-y-2">
+        <Link href="/training/progress" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeftIcon className="size-4" /> Progress
+        </Link>
+        <h1 className="text-3xl font-semibold tracking-tight">{w?.name ?? "Workout"}</h1>
+        {w && (
+          <p className="text-muted-foreground">
+            {w.pct === null ? "No numbers yet" : `${Math.round(w.pct * 100)}% of the way to the Dec 31 goals`}
+            {w.measured > 0 && ` · ${w.hit} of ${w.measured} hit`}
+          </p>
+        )}
+      </header>
+      {goals.length === 0 ? (
+        <p className="text-muted-foreground">No goals on this workout.</p>
+      ) : (
+        <section className="rounded-2xl bg-muted/60 p-5 dark:bg-muted/40">
+          <ul className="divide-y divide-foreground/5">
+            {goals.map((g) => (
+              <GoalItem key={`${g.name}|${g.label}`} g={g} hideWorkout />
+            ))}
+          </ul>
+        </section>
+      )}
+      {goals[0] && (
+        <Link href={goals[0].href} className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
+          Open the workout log <ChevronRightIcon className="size-4" />
+        </Link>
+      )}
+    </>
+  );
+}
+
+function GoalItem({ g, hideWorkout }: { g: GoalRow; hideWorkout?: boolean }) {
   const done = g.pct !== null && g.pct >= 1;
   return (
     <li>
       <Link href={g.href} className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 py-3 sm:grid-cols-[minmax(0,14rem)_1fr_4rem]">
         <span className="min-w-0">
           <span className="block truncate font-medium">{g.name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{g.workout}</span>
+          {!hideWorkout && <span className="block truncate text-xs text-muted-foreground">{g.workout}</span>}
         </span>
         <span className="order-last col-span-2 min-w-0 sm:order-none sm:col-span-1">
           <span className="flex items-baseline justify-between gap-2 text-sm">

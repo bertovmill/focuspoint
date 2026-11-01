@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Toggle triangles go dark when they hold something
+
+Berto wanted note toggles (e.g. "What are my core values?") to show at a glance which
+ones have content. Empty toggles keep the grey triangle; toggles with anything folded
+inside get a `has-content` class (a ProseMirror node decoration added in `ToggleDetails`
+in `app/_components/notion-editor.tsx`) and `globals.css` turns their triangle
+`--foreground`. "Empty" = a body that is a single empty paragraph.
+
+---
+
 ## 2026-11-01 — Second X account: @makersloungeto posts from Cael
 
 Berto wanted MakersLounge's X account next to his own on /writing so he can ask Cael to

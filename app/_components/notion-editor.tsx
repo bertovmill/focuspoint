@@ -5,7 +5,8 @@ import { EditorContent, ReactRenderer, useEditor, useEditorState, type Editor } 
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Extension, InputRule, getHTMLFromFragment, type Range } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from "@tiptap/suggestion";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-task-list";
@@ -172,6 +173,28 @@ const ToggleDetails = Details.extend({
         parse: {},
       },
     };
+  },
+  // Marks toggles with something folded inside ("has-content"), so their triangle
+  // reads darker than an empty one's, the way Notion greys out empty toggles.
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        key: new PluginKey("toggleHasContent"),
+        props: {
+          decorations: (state) => {
+            const decos: Decoration[] = [];
+            state.doc.descendants((node, pos) => {
+              if (node.type.name !== this.name) return;
+              const body = node.childCount > 1 ? node.child(1) : null;
+              const empty = !body || (body.childCount === 1 && body.firstChild!.type.name === "paragraph" && body.firstChild!.content.size === 0);
+              if (!empty) decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "has-content" }));
+            });
+            return DecorationSet.create(state.doc, decos);
+          },
+        },
+      }),
+    ];
   },
 });
 

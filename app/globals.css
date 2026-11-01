@@ -663,6 +663,10 @@
   color: var(--muted-foreground);
   cursor: pointer;
 }
+/* A toggle with something folded inside gets a dark triangle; empty ones stay grey. */
+.notion-prose [data-type="details"].has-content > button {
+  color: var(--foreground);
+}
 .notion-prose [data-type="details"] > button:hover {
   background: var(--muted);
 }

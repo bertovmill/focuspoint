@@ -1,6 +1,16 @@
 {
   "crons": [
-    { "path": "/api/cron/habit-nudge", "schedule": "0 16 */2 * *" },
-    { "path": "/api/cron/naval-moves", "schedule": "0 12 * * 1-5" }
+    {
+      "path": "/api/cron/habit-nudge",
+      "schedule": "0 16 */2 * *"
+    },
+    {
+      "path": "/api/cron/naval-moves",
+      "schedule": "0 12 * * 1-5"
+    },
+    {
+      "path": "/api/cron/health-sync",
+      "schedule": "0 13 * * *"
+    }
   ]
 }

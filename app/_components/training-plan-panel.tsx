@@ -13,6 +13,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   FlagIcon,
+  HeartPulseIcon,
   MinusIcon,
   MoreHorizontalIcon,
   PlusIcon,
@@ -67,6 +68,7 @@ import { daysUntil, formatPace, isTraining, sessionMeta, targetLabel, type Activ
 import { addDaysISO, shortDayLabel, todayISO, weekDates, weekRangeLabel, weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
 import { ZoneBar } from "@/app/_components/zone-bar";
+import { WorkoutHeartRates } from "@/app/_components/workout-heart-rate";
 
 interface SyncStatus {
   connected: boolean;
@@ -106,6 +108,7 @@ export function TrainingPlanPanel() {
   if (/^\/training\/workouts\/?$/.test(pathname)) return <WorkoutBank />;
   // The written plan and the old lift log, moved off the week view into the ⋯ menu (Berto, 2026-10-17).
   if (/^\/training\/plan\/?$/.test(pathname)) return <SubPage title="Written plan"><TrainingPlanDoc /></SubPage>;
+  if (/^\/training\/heart-rate\/?$/.test(pathname)) return <SubPage title="Heart rate" blurb="Your heart rate through each workout from the watch, last 30 days."><WorkoutHeartRates /></SubPage>;
   if (/^\/training\/past\/?$/.test(pathname)) return <SubPage title="Past programs" blurb="5×5 lifts and 10K times, logged one number per day before the structured workouts."><PastPrograms /></SubPage>;
   if (/^\/training\/workouts\/new\/?$/.test(pathname)) return <WorkoutEditor />;
   const editing = pathname.match(/^\/training\/workouts\/([^/]+)\/edit\/?$/);
@@ -421,6 +424,11 @@ function TrainingWeek() {
               <DropdownMenuItem asChild>
                 <Link href="/training/plan">
                   <FileTextIcon /> Written plan
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/training/heart-rate">
+                  <HeartPulseIcon /> Heart rate
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

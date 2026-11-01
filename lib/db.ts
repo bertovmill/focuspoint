@@ -748,6 +748,17 @@ async function applySchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS fitbit_exercises_start_idx ON fitbit_exercises (start_local)`;
+  // The real instants, so a workout's heart-rate samples can be fetched (2026-11-01).
+  await sql`ALTER TABLE fitbit_exercises ADD COLUMN IF NOT EXISTS start_utc TIMESTAMPTZ`;
+  await sql`ALTER TABLE fitbit_exercises ADD COLUMN IF NOT EXISTS end_utc TIMESTAMPTZ`;
+  // Each workout's heart-rate curve, cached once fetched: [[seconds in, bpm], ...].
+  await sql`
+    CREATE TABLE IF NOT EXISTS workout_heart_rate (
+      exercise_id TEXT PRIMARY KEY,
+      samples JSONB NOT NULL,
+      fetched_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS activity_id TEXT`;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_avg_hr INTEGER`;
   await sql`ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS actual_zones INTEGER[]`;

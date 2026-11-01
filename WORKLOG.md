@@ -14,6 +14,30 @@ in `app/_components/notion-editor.tsx`) and `globals.css` turns their triangle
 
 ---
 
+## 2026-11-01 — Steady watch sleep sync + heart rate inside workouts
+
+Berto: sleep "disconnects often and doesn't even show"; wants a steady daily stream, and
+heart rate across workouts (picked the full minute-by-minute curve per workout).
+- Diagnosis: the Google Health grant works (refreshed fine today). Google itself has no
+  sleep or workouts after Oct 23, so the phone/Fitbit app stopped passing data on.
+  Home's sleep card now says "Nothing from the watch since <date>. Open the Fitbit app
+  on your phone to sync it." instead of a bare "—".
+- False disconnects: `lib/google-health.ts` dropped the grant on any 400/401 refresh
+  error, incl. `invalid_client` from a local preview with stale Google creds sharing the
+  prod DB. Now only `invalid_grant` disconnects (same rule as lib/google.ts).
+- Daily cron `/api/cron/health-sync` (13:00 UTC): sleep/steps 7 days back, workouts 14,
+  and caches their heart-rate curves. Sleep used to sync only when Home was open, 3 days back.
+- Heart rate: new scope `googlehealth.health_metrics_and_measurements.readonly`;
+  `fetchHeartRate()` reads the `heart-rate` type per workout interval. `fitbit_exercises`
+  gains `start_utc`/`end_utc`; `workout_heart_rate` caches downsampled curves (≤240 pts).
+  `/training/heart-rate` (⋯ menu → Heart rate): soft cards with the curve, avg/max, zone
+  bar; walks hidden behind "Show N walks". `GET /api/training/heart-rate?days=30`.
+Next: Berto reconnects the watch once (the page's "Reconnect the watch" link) so the grant
+carries the heart-rate scope, and opens the Fitbit app so data after Oct 23 flows again.
+If Google rejects the new scope, add it on the OAuth consent screen's Data Access page.
+
+---
+
 ## 2026-11-01 — Second X account: @makersloungeto posts from Cael
 
 Berto wanted MakersLounge's X account next to his own on /writing so he can ask Cael to

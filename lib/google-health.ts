@@ -35,6 +35,10 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const HEALTH_SCOPES = [
   "https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly",
   "https://www.googleapis.com/auth/googlehealth.sleep.readonly",
+  // Heart-rate samples, for the curve inside each workout (/training/heart-rate, 2026-11-01).
+  // A grant made before this was added doesn't carry it: the heart-rate list then 403s
+  // and the page asks him to reconnect, while sleep and steps keep working.
+  "https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly",
 ];
 
 const TOKEN_KEY = "google_health_tokens";
@@ -132,10 +136,13 @@ async function getAccessToken(): Promise<string | null> {
     }),
   });
   if (!res.ok) {
-    // A dead refresh token is unrecoverable: drop it so the UI says "connect" rather
-    // than failing every sync from here on.
-    if (res.status === 400 || res.status === 401) await disconnectHealth();
-    throw new Error(`Health token refresh failed: ${res.status} ${await res.text()}`);
+    // Only a dead refresh token (`invalid_grant`) is unrecoverable, so only that drops
+    // the grant. It used to drop on any 400/401, which included `invalid_client` from a
+    // local preview with stale Google creds sharing the prod DB, and every such blip
+    // silently "disconnected the watch" (Berto, 2026-11-01). Same rule as lib/google.ts.
+    const body = await res.text();
+    if (body.includes("invalid_grant")) await disconnectHealth();
+    throw new Error(`Health token refresh failed: ${res.status} ${body}`);
   }
   const t = (await res.json()) as { access_token: string; expires_in: number };
   const next = { ...tokens, access_token: t.access_token, expires_at: Date.now() + t.expires_in * 1000 };
@@ -362,6 +369,9 @@ export interface HealthExercise {
   name: string;
   /** Local wall-clock start, "YYYY-MM-DDTHH:MM:SS". */
   start_local: string;
+  /** The real instants, RFC 3339 — what the heart-rate samples are filtered on. */
+  start_utc: string;
+  end_utc: string | null;
   distance_m: number;
   active_s: number;
   avg_hr: number | null;
@@ -391,6 +401,8 @@ function shapeExercise(p: RollupPoint): HealthExercise | null {
     exercise_type: String(e.exerciseType ?? "OTHER"),
     name: String(e.displayName ?? e.exerciseType ?? "Workout"),
     start_local: localTime(e.interval.startTime, e.interval.startUtcOffset),
+    start_utc: String(e.interval.startTime),
+    end_utc: typeof e.interval.endTime === "string" ? e.interval.endTime : null,
     distance_m: Math.round(Number(m.distanceMillimeters ?? 0) / 1000),
     active_s: Math.round(secs(e.activeDuration)),
     avg_hr: intOrNull(m.averageHeartRateBeatsPerMinute),
@@ -430,4 +442,43 @@ export async function fetchExercises(since: Date): Promise<HealthExercise[]> {
     page = json.nextPageToken;
   }
   return out;
+}
+
+// ── heart rate ────────────────────────────────────────────────────────────
+
+/** The grant predates the heart-rate scope: reconnecting the watch fixes it. */
+export class HeartRateScopeError extends Error {}
+
+/** One heart-rate sample: ms since epoch, beats per minute. */
+export type HeartRateSample = [t: number, bpm: number];
+
+/**
+ * Every heart-rate sample between two instants, oldest first.
+ *
+ * `heart-rate` is a Sample type (1 s resolution), filtered on
+ * `heart_rate.sample_time.physical_time` with RFC 3339 bounds — snake_case in the
+ * filter, kebab-case in the URL, or the API 400s. Results come newest first.
+ */
+export async function fetchHeartRate(startIso: string, endIso: string): Promise<HeartRateSample[]> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("The watch is not connected");
+  const filter = `heart_rate.sample_time.physical_time >= "${startIso}" AND heart_rate.sample_time.physical_time < "${endIso}"`;
+  const out: HeartRateSample[] = [];
+  let page = "";
+  for (let i = 0; i < 10; i++) {
+    const url = `${API}/users/me/dataTypes/heart-rate/dataPoints?pageSize=10000&filter=${encodeURIComponent(filter)}${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 403) throw new HeartRateScopeError(await res.text());
+    if (!res.ok) throw new Error(`Google Health list heart-rate failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json()) as { dataPoints?: RollupPoint[]; nextPageToken?: string };
+    for (const p of json.dataPoints ?? []) {
+      const hr = p.heartRate as { sampleTime?: { physicalTime?: string }; beatsPerMinute?: string } | undefined;
+      const t = hr?.sampleTime?.physicalTime ? Date.parse(hr.sampleTime.physicalTime) : NaN;
+      const bpm = Number(hr?.beatsPerMinute);
+      if (Number.isFinite(t) && Number.isFinite(bpm) && bpm > 0) out.push([t, bpm]);
+    }
+    if (!json.nextPageToken) break;
+    page = json.nextPageToken;
+  }
+  return out.sort((a, b) => a[0] - b[0]);
 }

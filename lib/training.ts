@@ -388,9 +388,10 @@ export async function syncWorkouts(days = 14) {
   const sql = getDb();
   for (const w of workouts) {
     await sql`
-      INSERT INTO fitbit_exercises (id, exercise_type, name, start_local, distance_m, active_s, avg_hr, azm, zones, auto, synced_at)
-      VALUES (${w.id}, ${w.exercise_type}, ${w.name}, ${w.start_local}, ${w.distance_m}, ${w.active_s}, ${w.avg_hr}, ${w.azm}, ${w.zones}, ${w.auto}, NOW())
+      INSERT INTO fitbit_exercises (id, exercise_type, name, start_local, start_utc, end_utc, distance_m, active_s, avg_hr, azm, zones, auto, synced_at)
+      VALUES (${w.id}, ${w.exercise_type}, ${w.name}, ${w.start_local}, ${w.start_utc}, ${w.end_utc}, ${w.distance_m}, ${w.active_s}, ${w.avg_hr}, ${w.azm}, ${w.zones}, ${w.auto}, NOW())
       ON CONFLICT (id) DO UPDATE SET exercise_type = EXCLUDED.exercise_type, name = EXCLUDED.name, start_local = EXCLUDED.start_local,
+        start_utc = EXCLUDED.start_utc, end_utc = EXCLUDED.end_utc,
         distance_m = EXCLUDED.distance_m, active_s = EXCLUDED.active_s, avg_hr = EXCLUDED.avg_hr, azm = EXCLUDED.azm,
         zones = EXCLUDED.zones, auto = EXCLUDED.auto, synced_at = NOW()
     `;

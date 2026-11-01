@@ -57,6 +57,11 @@ export function TodayBody({ today }: { today: string }) {
   );
 }
 
+/** "Oct 23" for a YYYY-MM-DD. */
+function shortDate(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 /** "7h 12m" for a count of minutes. */
 function hoursMinutes(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -120,6 +125,11 @@ export function SleepToday({ today }: { today: string }) {
     if (v != null && d.date >= weekFrom && d.date <= today) nights.set(d.date, v);
   }
   if (value !== null) nights.set(today, value);
+  // The watch connection can be fine while the phone stops passing data on (the
+  // Fitbit app not opened for days, 2026-11-01): say so instead of a bare "—".
+  const lastWatchNight = [...(summary?.recent ?? [])]
+    .reverse()
+    .find((d) => d.metrics.find((m) => m.key === "sleep_minutes")?.value != null)?.date;
   const avg = nights.size ? [...nights.values()].reduce((a, b) => a + b, 0) / nights.size : null;
   const pct = avg === null ? 0 : avg / target;
   const tone =
@@ -223,6 +233,14 @@ export function SleepToday({ today }: { today: string }) {
                   <PencilIcon className="size-3" />
                   {value === null ? "Add last night" : `Last night ${hoursMinutes(value)} · correct it`}
                 </button>
+              )}
+              {summary?.googleConnected && nights.size === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {lastWatchNight
+                    ? `Nothing from the watch since ${shortDate(lastWatchNight)}.`
+                    : "Nothing from the watch in two weeks."}{" "}
+                  Open the Fitbit app on your phone to sync it.
+                </p>
               )}
               {summary && !summary.googleConnected && (
                 <a

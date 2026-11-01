@@ -1,86 +1,37 @@
+import { getAccessToken } from "@/lib/google";
+
 import { TIME_ZONE } from "./now";
 
-// Google Calendar auth for a single-user personal app.
-//
-// Google access tokens expire in ~1 hour, so we don't store one — we store a
-// long-lived OAuth *refresh token* and exchange it for a fresh access token on
-// demand (cached in-process until just before it expires). This works the same
-// in chat and in the morning-digest cron, neither of which has a logged-in
-// browser session.
-//
-// One-time setup (see WORKLOG / the README for the click-by-click version):
-//   1. Google Cloud Console: create a project, enable the Google Calendar API.
-//   2. Create an OAuth client (Desktop app) and an OAuth consent screen; add
-//      yourself as a test user.
-//   3. Authorize once (e.g. via the OAuth Playground using your own client id/
-//      secret, scope https://www.googleapis.com/auth/calendar) to get a
-//      refresh token.
-//   4. Set env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN.
+// Google Calendar auth for the agent tools. The token comes from the same
+// stored connection the app's calendar UI uses (lib/google.ts: the google_auth
+// row from "Connect Google Calendar", seeded from GOOGLE_REFRESH_TOKEN when no
+// row exists), so reconnecting in the app fixes chat, MCP and the digest too.
+// These tools used to mint from GOOGLE_REFRESH_TOKEN alone; once that env token
+// went stale every agent calendar call said "not connected" while the UI worked.
 //
 // GOOGLE_CALENDAR_ACCESS_TOKEN still works as a manual override (handy for a
 // quick test), and takes precedence when set.
 
 const CAL_BASE = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
-const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-
-// In-process cache of the last minted access token. Survives across warm
-// invocations on Fluid Compute; a cold start just mints a new one.
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function mintAccessTokenFromRefresh(): Promise<string | null> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  if (!clientId || !clientSecret || !refreshToken) return null;
-
-  const now = Date.now();
-  if (cachedToken && now < cachedToken.expiresAt - 60_000) return cachedToken.token;
-
-  const res = await fetch(TOKEN_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!res.ok) {
-    // Don't cache failures; surface as "not connected" to the model.
-    return null;
-  }
-
-  const data = (await res.json()) as { access_token?: string; expires_in?: number };
-  if (!data.access_token) return null;
-
-  cachedToken = {
-    token: data.access_token,
-    expiresAt: now + (data.expires_in ?? 3600) * 1000,
-  };
-  return cachedToken.token;
-}
 
 /**
  * Resolve a Google access token. Prefers an explicit GOOGLE_CALENDAR_ACCESS_TOKEN
- * override, otherwise mints a fresh, auto-refreshed token from the stored
- * refresh-token credentials. Returns null when nothing is configured so callers
- * degrade gracefully instead of throwing.
+ * override, otherwise the app's stored, auto-refreshed connection. Returns null
+ * when nothing is connected so callers degrade gracefully instead of throwing.
  */
 export async function resolveGoogleToken(): Promise<string | null> {
   const override = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN;
   if (override) return override;
   try {
-    return await mintAccessTokenFromRefresh();
+    return await getAccessToken();
   } catch {
     return null;
   }
 }
 
 export const CALENDAR_NOT_CONNECTED =
-  "Google Calendar isn't connected yet. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, " +
-  "and GOOGLE_REFRESH_TOKEN (see agent/lib/google-calendar.ts for setup).";
+  "Google Calendar isn't connected. Open Cael's calendar and click \"Connect Google Calendar\" " +
+  "(or visit /api/google/connect).";
 
 export interface CalendarEventInput {
   title: string;
@@ -106,8 +57,9 @@ export async function createCalendarEvent(token: string, ev: CalendarEventInput)
   const start = isAllDay
     ? { date: ev.date }
     : { dateTime: `${ev.date}T${ev.time}:00`, timeZone: TIME_ZONE };
+  // Google's all-day end date is exclusive: end == start is an empty range (400).
   const end = isAllDay
-    ? { date: ev.date }
+    ? { date: addMinutesToWallClock(`${ev.date}T00:00:00`, 24 * 60).slice(0, 10) }
     : { dateTime: addMinutesToWallClock(`${ev.date}T${ev.time}:00`, ev.durationMinutes ?? 30), timeZone: TIME_ZONE };
 
   const res = await fetch(CAL_BASE, {

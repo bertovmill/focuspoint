@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Calendar add fixed for the agent and MCP (Cael board 28)
+
+Every agent calendar call (add_calendar_event, list_calendar_events, the daily snapshot)
+said "Google Calendar isn't connected" while the app's calendar UI worked. The agent tools
+minted tokens from the GOOGLE_REFRESH_TOKEN env var alone, which had gone stale; the UI
+uses the google_auth DB row from "Connect Google Calendar".
+- `agent/lib/google-calendar.ts` `resolveGoogleToken()` now uses `getAccessToken()` from
+  `lib/google.ts` (DB row, env seed fallback), so one reconnect in the app fixes both.
+  The env-only minting code is gone. GOOGLE_CALENDAR_ACCESS_TOKEN override still wins.
+- All-day adds sent end == start (Google's end date is exclusive, so an empty range); end
+  is now the next day.
+- Not-connected message now points at "Connect Google Calendar" / `/api/google/connect`.
+Verified with timed and all-day test events against the real calendar, then deleted them.
+
+---
+
 ## 2026-10-31 — bertomill.com: events-led GTM retarget (Cael board 52, 51, 63, 62, 50, 45)
 
 Site fixes from Berto's Cael task board, for the events-led GTM job hunt.

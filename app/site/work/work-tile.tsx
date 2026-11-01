@@ -116,6 +116,16 @@ export function WorkTile({
           <p className="mt-1 text-sm font-medium leading-snug sm:text-base">
             {project.title}
           </p>
+          {project.stat && (
+            <p
+              className={cn(
+                "mt-1 text-xs leading-snug sm:text-sm",
+                logo ? "opacity-70" : "text-white/80",
+              )}
+            >
+              {project.stat}
+            </p>
+          )}
         </div>
         <ArrowUpRightIcon className="size-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100" />
       </div>

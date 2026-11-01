@@ -18,7 +18,6 @@ import {
   SparklesIcon,
   SunIcon,
   UserIcon,
-  WrenchIcon,
 } from "lucide-react";
 import { CommandPalette, type PaletteGroup, type PaletteItem } from "@/app/_components/command-palette";
 import { usePaletteHotkey } from "@/app/_components/use-palette-hotkey";
@@ -37,7 +36,6 @@ const PAGES: { href: string; label: string; icon: Icon; keywords?: string[] }[] 
   { href: "/podcast", label: "Podcast", icon: MicIcon, keywords: ["episodes", "youtube", "spotify"] },
   { href: "/fitness", label: "Fitness", icon: DumbbellIcon, keywords: ["training", "hyrox", "running"] },
   { href: "/chat", label: "Ask Cael", icon: MessageCircleIcon, keywords: ["agent", "ai", "question"] },
-  { href: "/building", label: "Building", icon: WrenchIcon, keywords: ["projects", "makerslounge", "side"] },
   { href: "/newsletter", label: "Newsletter", icon: MailIcon, keywords: ["subscribe", "email"] },
 ];
 

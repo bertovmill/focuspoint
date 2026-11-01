@@ -6,6 +6,7 @@ year: 2026 –
 url: https://aucctus.com
 previewUrl: https://www.aucctus.com
 outcome: A full corporate pipeline in the first six months, built on an events motion and a go-to-market system that didn't exist when I started.
+stat: "Events motion from zero to a full corporate pipeline in six months"
 color: "#8f5a3c"
 # Photo fills the tile; the mark and name sit in its top corner.
 image: /site-art/aucctus-booth.webp

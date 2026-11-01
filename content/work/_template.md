@@ -8,6 +8,7 @@ org: Who it was for                              # e.g. Aucctus
 role: What you were there as                     # e.g. Go-to-Market Lead
 year: 2026                                       # or "2024 – 2026"
 outcome: The result in one sentence, with a number if there is one.
+stat: The short proof line on the /work tile    # e.g. "Rated 5.0 across 9 reviews"
 color: "#8f5a3c"                                 # tile background; pick one per project
 # image: /work/<slug>.jpg                        # optional, drop the file in public/work/
 # url: https://example.com                       # optional, the org's site; linked in the fact row

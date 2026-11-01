@@ -32,8 +32,10 @@ export interface ContentMeta {
   org?: string;
   role?: string;
   year?: string;
-  /** Work only — the one-line result, shown on the tile and under the title. */
+  /** Work only — the one-line result, shown under the title on the case study. */
   outcome?: string;
+  /** Work only — the short proof line on the /work tile, ideally with a number. */
+  stat?: string;
   /** Work only — tile background (any CSS colour). Typographic tiles until there are images. */
   color?: string;
   /** Work only — optional hero image under `public/`, e.g. `/work/aucctus.jpg`. */
@@ -106,6 +108,7 @@ function toMeta(
         ? String(data.year)
         : undefined,
     outcome: typeof data.outcome === "string" ? data.outcome : undefined,
+    stat: typeof data.stat === "string" ? data.stat : undefined,
     color: typeof data.color === "string" ? data.color : undefined,
     image: typeof data.image === "string" ? data.image : undefined,
     url: typeof data.url === "string" ? data.url : undefined,

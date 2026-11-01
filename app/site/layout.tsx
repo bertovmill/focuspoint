@@ -29,6 +29,10 @@ const serif = Newsreader({
 /* Set on :root rather than a wrapper, so portalled menus and popups get them too. */
 const FONT_VARS = `:root{--font-fraunces:${display.style.fontFamily};--font-newsreader:${serif.style.fontFamily}}`;
 
+/** The search snippet, og:description and the first line of llms.txt say the same thing. */
+const DESCRIPTION =
+  "Robert Mill runs events-led GTM: 20+ builder events through MakersLounge, the pipeline behind them, and the AI agents that research attendees and run follow-up.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(`https://${PUBLIC_HOST}`),
   title: {
@@ -42,9 +46,9 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     apple: "/apple-icon.png",
   },
-  description:
-    "GTM lead at Aucctus who builds the AI agents and pipeline systems his team runs on. Writing on AI-native go-to-market.",
+  description: DESCRIPTION,
   openGraph: {
+    description: DESCRIPTION,
     siteName: "Robert Mill",
     type: "website",
     url: `https://${PUBLIC_HOST}`,
@@ -66,7 +70,7 @@ const PERSON_JSON_LD = {
   alternateName: "Berto Mill",
   url: `https://${PUBLIC_HOST}`,
   image: `https://${PUBLIC_HOST}/berto-headshot.jpg`,
-  jobTitle: "Go-to-Market Lead",
+  jobTitle: "Events-led GTM Lead",
   worksFor: { "@type": "Organization", name: "Aucctus", url: "https://aucctus.com" },
   alumniOf: "Ivey Business School at Western University",
   address: { "@type": "PostalAddress", addressLocality: "Toronto", addressCountry: "CA" },

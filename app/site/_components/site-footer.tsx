@@ -13,7 +13,7 @@ const EXPLORE = [
   { href: "/about", label: "About" },
   { href: "/writing", label: "Writing" },
   { href: "/podcast", label: "Podcast" },
-  { href: "/building", label: "Building" },
+  { href: "/capabilities", label: "Builds" },
   { href: "/newsletter", label: "Newsletter" },
 ] as const;
 
@@ -98,7 +98,7 @@ export function SiteFooter() {
 
       <div className="border-t border-border/60">
         <div className="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Berto Mill</p>
+          <p>© {new Date().getFullYear()} Robert Mill</p>
           <p>Toronto, Canada · Built with Cael</p>
         </div>
       </div>

@@ -12,7 +12,7 @@ import { SocialIcons } from "./social-icons";
 import { AskAiButton } from "./ask-ai";
 import { SparklesIcon } from "lucide-react";
 
-// Building stays reachable at /building; it left the header when Work arrived.
+// /building now redirects to /capabilities (shipped builds); it left the header when Work arrived.
 // The chat is no tab either: it is the Ask AI button at the right of every header.
 const NAV = [
   { href: "/about", label: "About" },

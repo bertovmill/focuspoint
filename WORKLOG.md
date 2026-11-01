@@ -4,6 +4,25 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-31 — bertomill.com: events-led GTM retarget (Cael board 52, 51, 63, 62, 50, 45)
+
+Site fixes from Berto's Cael task board, for the events-led GTM job hunt.
+- /about lede is now "I run events-led go-to-market, and build the AI agents behind it."
+  (same line as the homepage hero); "solving information that way" → "solving problems";
+  footer © now "Robert Mill".
+- Homepage hero, meta description, og:description, Person schema jobTitle ("Events-led GTM
+  Lead") and the first line of llms.txt all say events-led GTM (one `DESCRIPTION` const in
+  `app/site/layout.tsx`).
+- /work tiles show a short `stat` line (new frontmatter field in `lib/content.ts`); added a
+  Cael case study (`content/work/cael.md`, dated to sort last). No Aucctus deal counts.
+- /building permanently redirects to /capabilities; footer label "Builds"; palette, chat
+  prompt, sitemap and llms.txt updated. /fitness dropped from sitemap and llms.txt.
+- Portfolio DB rows (not code): attribution card now "~1,370 Luma registrations (1,040
+  approved, 320 check-ins)"; Cael project "860+ commits", linked to /work/cael.
+Next: Google Search Console steps for task 45 are Berto's.
+
+---
+
 ## 2026-10-31 — Improve box ("liquid software")
 
 After Patrick Collison's "improvements" tweet: a freeform box that ships whatever is

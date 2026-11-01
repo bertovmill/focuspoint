@@ -6,8 +6,8 @@ import { AnimatedHeading } from "../_components/animated-heading";
 import { ConcreteWall } from "../_components/concrete-wall/concrete-wall";
 import { PhotoRevealGrid } from "../_components/photo-reveal-grid";
 
-/** The line beside "About". Berto's words, verbatim. */
-const TAGLINE = ["Community builder, system implementer,", "innovation driver."];
+/** The line beside "About". */
+const TAGLINE = ["I run events-led go-to-market,", "and build the AI agents behind it."];
 
 export const metadata: Metadata = {
   title: "About",
@@ -38,7 +38,7 @@ const SECTIONS: readonly Section[] = [
         <p>
           I&apos;ve always been fascinated by digital creativity, spending hours on the paint tool
           when Microsoft first released it, and making blog pages when I was 12 years old.
-          I&apos;m passionate about building the best possible products and solving information
+          I&apos;m passionate about building the best possible products and solving problems
           that way.
         </p>
       </div>

@@ -9,12 +9,10 @@ export const revalidate = 3600;
 
 const PAGES = [
   ["About", "/about", "Background, career, and what he's working on now."],
-  ["Work", "/work", "Case studies: Aucctus, MakersLounge, AI coaching."],
-  ["Capabilities", "/capabilities", "What he builds: AI agents, GTM systems, events."],
+  ["Work", "/work", "Case studies: Aucctus, MakersLounge, AI coaching, Cael."],
+  ["Capabilities", "/capabilities", "Shipped builds: AI agents, GTM systems, events."],
   ["Writing", "/writing", "Essays on AI-native go-to-market."],
   ["Podcast", "/podcast", "Conversations with Cael, his personal AI agent."],
-  ["Building", "/building", "A live log of what he's shipping."],
-  ["Fitness", "/fitness", "HYROX results with every split."],
   ["Newsletter", "/newsletter", "Subscribe to the newsletter."],
 ] as const;
 
@@ -32,7 +30,7 @@ export async function GET() {
   const lines = [
     "# Robert Mill",
     "",
-    "> Robert Mill (also known as Berto Mill) is the go-to-market lead at Aucctus in Toronto. He builds the AI agents and pipeline systems his team runs on, runs events-led GTM, and writes about AI-native go-to-market.",
+    "> Robert Mill runs events-led GTM: 20+ builder events through MakersLounge, the pipeline behind them, and the AI agents that research attendees and run follow-up. Also known as Berto Mill; based in Toronto.",
     "",
     `This is his personal site, ${BASE}. Every page is public.`,
     "",

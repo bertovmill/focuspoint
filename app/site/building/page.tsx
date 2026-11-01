@@ -1,110 +1,12 @@
-import type { Metadata } from "next";
-import { getWealthForms, getPublicStats, type PublicWealthForm } from "@/lib/public-data";
+import { headers } from "next/headers";
+import { permanentRedirect } from "next/navigation";
+import { SITE_PREFIX, isPublicHost } from "@/lib/public-site";
 
-export const revalidate = 300;
-
-export const metadata: Metadata = {
-  title: "Building",
-  alternates: { canonical: "/building" },
-  description:
-    "The 8 forms of wealth I track, with live progress against each goal — pulled from the agent that keeps the scoreboard.",
-};
-
-function formatTotal(form: PublicWealthForm) {
-  // A redacted form with no goal has nothing publishable at all — not the value,
-  // and not a percentage of a target that doesn't exist.
-  if (form.redacted) return form.hasTarget ? `${form.percent}%` : "—";
-  const n = form.total ?? 0;
-  const rounded = Number.isInteger(n) ? n : Math.round(n * 10) / 10;
-  return rounded.toLocaleString();
-}
-
-function FormCard({ form }: { form: PublicWealthForm }) {
-  return (
-    <div className="flex flex-col rounded-3xl bg-card p-6">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-display text-xl font-medium tracking-tight">{form.label}</h3>
-        {form.hasTarget && (
-          <span className="font-mono text-xs text-muted-foreground tabular-nums">{form.percent}%</span>
-        )}
-      </div>
-
-      <div className="mt-3 flex items-baseline gap-1.5">
-        <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums">{formatTotal(form)}</span>
-        {form.redacted ? (
-          <span className="text-sm text-muted-foreground">{form.hasTarget ? "of target" : "tracked privately"}</span>
-        ) : (
-          <span className="text-sm text-muted-foreground">
-            {form.hasTarget ? `/ ${form.target.toLocaleString()} ` : ""}
-            {form.unit}
-          </span>
-        )}
-      </div>
-
-      {form.hasTarget ? (
-        <div
-          className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          aria-valuenow={form.percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${form.label} progress`}
-        >
-          <div className="h-full rounded-full bg-primary" style={{ width: `${form.percent}%` }} />
-        </div>
-      ) : (
-        // No goal set for this form yet — the count is still real, so show it
-        // without inventing a denominator.
-        <p className="mt-4 text-xs text-muted-foreground">Tracking, no goal set yet.</p>
-      )}
-
-      {form.redacted && form.hasTarget && (
-        <p className="mt-4 text-xs text-muted-foreground">
-          Progress only — the balance behind this one stays private.
-        </p>
-      )}
-    </div>
-  );
-}
-
+/**
+ * /building used to be the life-wealth scoreboard. Hiring leads land here from
+ * old DM links, so it now sends them to the shipped builds on /capabilities.
+ */
 export default async function BuildingPage() {
-  // Scores only: the written vision behind each form stays private in Cael.
-  const [forms, stats] = await Promise.all([
-    getWealthForms().catch(() => [] as PublicWealthForm[]),
-    getPublicStats().catch(() => null),
-  ]);
-
-  return (
-    <div className="mx-auto max-w-5xl px-6">
-      <section className="border-b border-border/60 py-16">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Live</p>
-        <h1 className="font-display mt-4 text-5xl font-medium tracking-tight sm:text-6xl">Building in public</h1>
-        <p className="mt-6 max-w-2xl font-serif text-xl leading-relaxed text-muted-foreground sm:text-2xl">
-          I don&apos;t measure my life in one number. I measure it in eight — the forms of wealth that
-          actually make a life good. Cael keeps the scoreboard; this page reads straight off it.
-        </p>
-        {stats && (
-          <p className="mt-6 font-mono text-sm text-muted-foreground">
-            {stats.tasksShipped.toLocaleString()} tasks completed · {stats.shippedLast30Days} in the last 30 days
-          </p>
-        )}
-      </section>
-
-      <section className="py-12">
-        {forms.length === 0 ? (
-          <p className="text-muted-foreground">The scoreboard is briefly unavailable. Try again in a moment.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {forms.map((form) => (
-              <FormCard key={form.key} form={form} />
-            ))}
-          </div>
-        )}
-        <p className="mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Every figure here is an aggregate — a count, a sum, a percentage. The entries underneath
-          them (what I read, who I trained with, what I wrote down) stay with the agent.
-        </p>
-      </section>
-    </div>
-  );
+  const host = (await headers()).get("host");
+  permanentRedirect(`${isPublicHost(host) ? "" : SITE_PREFIX}/capabilities`);
 }

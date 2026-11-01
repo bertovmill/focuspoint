@@ -175,8 +175,8 @@ export default async function SiteHomePage() {
             <AnimatedHeading
               className={`${display} watercolor-ink text-5xl leading-[1.0] tracking-[-0.02em] sm:text-7xl lg:text-[clamp(2.6rem,3.7vw,6rem)]`}
               lines={[
-                "I lead go-to-market for Aucctus,",
-                "a fast-scaling AI startup.",
+                "I run events-led go-to-market,",
+                "and build the AI agents behind it.",
               ]}
             />
             {/* The newsletter signup, where every visitor sees it. */}

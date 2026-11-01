@@ -6,6 +6,7 @@ year: 2025 –
 url: https://www.joinleland.com/robert-mill
 previewImage: /site-art/leland-profile.webp
 outcome: One-on-one coaching that helps people turn AI tools into real gains in their own work. Rated 5.0 across 9 reviews on Leland.
+stat: "Rated 5.0 across 9 reviews"
 color: "#3d4a63"
 # Order on /work only; not shown on the site.
 date: 2025-09-01

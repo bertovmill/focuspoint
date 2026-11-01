@@ -5,6 +5,7 @@ role: Founder and host
 year: 2025 –
 url: https://www.makerslounge.ca
 outcome: 20+ events in a year, from meetups to workshops to hackathons. 1,040 builders approved, 320 check-ins, and workshops that fill 80% of their seats.
+stat: "20+ events, 1,040 approved, 320 in the room, workshops at 80% show-up"
 color: "#2f4a3a"
 # Photo fills the tile; the blue mark and name sit in its top corner.
 image: /site-art/makerslounge-speaking.jpg

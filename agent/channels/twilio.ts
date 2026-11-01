@@ -20,8 +20,14 @@ function formatInputRequest(request: {
 }
 
 export default twilioChannel({
-  // Gate inbound messages to your number(s). Replace with your number or use "*" only for testing.
-  allowFrom: process.env.TWILIO_ALLOW_FROM ?? "*",
+  // Only Berto's number(s) reach the agent, which has every tool over his data.
+  // Comma-separated E.164 numbers. Unset, or "*", lets nobody through: the
+  // wildcard used to be the default and let any sender in.
+  allowFrom: async () =>
+    (process.env.TWILIO_ALLOW_FROM ?? "")
+      .split(",")
+      .map((n) => n.trim())
+      .filter((n) => n && n !== "*"),
   messaging: {
     // The Twilio number that sends outbound SMS replies.
     from: process.env.TWILIO_FROM_NUMBER ?? "",

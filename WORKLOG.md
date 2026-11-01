@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Telegram and SMS answer only Berto
+
+Found in the open-source audit (Cael task 71): `agent/channels/twilio.ts` defaulted
+`allowFrom` to `"*"`, and `agent/channels/telegram.ts` had no sender check, so anyone
+who found the number or bot could reach an agent with every tool over his data.
+Both now fail closed. Twilio reads `TWILIO_ALLOW_FROM` as comma-separated E.164
+numbers and ignores `"*"`; unset means nobody. Telegram only dispatches private
+chats from `TELEGRAM_OWNER_ID` (not set in prod, and no bot token is set either, so
+Telegram stays off). Slack was already gated on his user id. If SMS stops answering,
+`TWILIO_ALLOW_FROM` in Vercel prod was `"*"`: set it to his number.
+
+The public copy (github.com/bertovmill/cael, MIT, one commit) has the same gates.
+
 ## 2026-11-01 — Cael reads makerslounge.ca events as an admin
 
 MakersLounge events moved off Luma onto makerslounge.ca, so Cael couldn't see them.

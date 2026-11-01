@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
-  ArrowLeftRightIcon,
   CalendarRangeIcon,
   FileTextIcon,
   DumbbellIcon,
@@ -58,9 +57,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { SessionPage, newSessionHref, sessionHref } from "@/app/_components/session-editor";
-import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
 import { TrainingPlanDoc } from "@/app/_components/training-plan-doc";
 import { WorkoutLog } from "@/app/_components/workout-log";
+import { WorkoutPicker } from "@/app/_components/workout-picker";
 import { WorkoutBank, WorkoutEditor } from "@/app/_components/workout-bank";
 import { WorkoutChart, type WorkoutLog as OldWorkoutLog } from "@/app/_components/workout-chart";
 import { workoutHref } from "@/lib/workout-templates";
@@ -114,8 +113,11 @@ export function TrainingPlanPanel() {
   // /training/workouts/<template>/<date> opens one structured session in place of the week.
   const m = pathname.match(/^\/training\/workouts\/([^/]+)(?:\/(\d{4}-\d{2}-\d{2}))?\/?$/);
   if (m) return <WorkoutLog slug={m[1]} date={m[2] ?? todayISO()} />;
-  // /training/sessions/<id> edits a session; /training/sessions/new/<date> adds one.
-  const edit = pathname.match(/^\/training\/sessions\/(\d+)\/?$/);
+  // /training/sessions/<id> swaps the day for another workout; .../details is the full
+  // editor; /training/sessions/new/<date> adds one.
+  const pickWorkout = pathname.match(/^\/training\/sessions\/(\d+)\/?$/);
+  if (pickWorkout) return <WorkoutPicker key={pickWorkout[1]} id={Number(pickWorkout[1])} />;
+  const edit = pathname.match(/^\/training\/sessions\/(\d+)\/details\/?$/);
   if (edit) return <SessionPage key={edit[1]} id={Number(edit[1])} />;
   const add = pathname.match(/^\/training\/sessions\/new\/(\d{4}-\d{2}-\d{2})\/?$/);
   if (add) return <SessionPage key={add[1]} date={add[1]} />;
@@ -141,7 +143,6 @@ function TrainingWeek() {
   // Kept after close so the title doesn't blank out during the exit animation.
   const [removing, setRemoving] = useState<TrainingSession | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
-  const [swapping, setSwapping] = useState<TrainingSession | null>(null);
   const askRemove = (s: TrainingSession) => { setRemoving(s); setRemoveOpen(true); };
   const [activities, setActivities] = useState<Activity[]>([]);
   const [events, setEvents] = useState<TrainingEvent[]>([]);
@@ -493,7 +494,7 @@ function TrainingWeek() {
                 )}
                 {todayList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} onSwap={() => setSwapping(s)} />
+                    <SessionCard s={s} past={false} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -575,7 +576,7 @@ function TrainingWeek() {
                 )}
                 {selectedList.map((s) => (
                   <SortableSession key={s.id} id={s.id}>
-                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} onSwap={() => setSwapping(s)} />
+                    <SessionCard s={s} past={selectedDay < today} big onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => removeSession(s)} />
                   </SortableSession>
                 ))}
               </div>
@@ -646,7 +647,7 @@ function TrainingWeek() {
                 <SortableContext id={d} items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {list.map((s) => (
                     <DragSession key={s.id} id={s.id}>
-                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} onSwap={() => setSwapping(s)} />
+                      <SessionCard s={s} past={past} onToggle={() => toggleDone(s)} onEdit={() => router.push(sessionHref(s.id))} onDelete={() => askRemove(s)} />
                     </DragSession>
                   ))}
                 </SortableContext>
@@ -671,7 +672,6 @@ function TrainingWeek() {
       <WeeklyProgressLine />
 
 
-      {swapping && <SwapWorkoutDialog session={swapping} open onOpenChange={(o) => !o && setSwapping(null)} onSwapped={load} />}
 
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent>
@@ -770,7 +770,7 @@ function SortableSession({ id, children }: { id: number; children: React.ReactNo
   );
 }
 
-function SessionCard({ s, past, big, onToggle, onEdit, onDelete, onSwap }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void; onSwap?: () => void }) {
+function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: TrainingSession; past: boolean; big?: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void }) {
   const meta = sessionMeta(s.type);
   const rest = s.type === "rest";
   const template = s.workout_slug ? { slug: s.workout_slug } : null;
@@ -830,11 +830,6 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete, onSwap }: { s: 
             {logLabel}
           </Link>
         )}
-        {onSwap && !rest && !s.done && (
-          <button type="button" onClick={onSwap} className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeftRightIcon className="size-4" /> Swap workout
-          </button>
-        )}
       </div>
     );
   }
@@ -877,17 +872,6 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete, onSwap }: { s: 
           </Link>
         ) : (
           <span />
-        )}
-        {onSwap && !rest && !s.done && (
-          <button
-            type="button"
-            onClick={onSwap}
-            aria-label={`Swap ${s.title}`}
-            title="Swap workout"
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <ArrowLeftRightIcon className="size-3.5" />
-          </button>
         )}
         {onDelete && (
           <button

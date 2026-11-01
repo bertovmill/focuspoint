@@ -294,6 +294,8 @@ export async function fillWeekFromBank(weekStart: string, opts: { replace?: bool
  * the same workout, and moves the default week over — the new workout takes the old
  * one's default day and the old one is unscheduled — so weeks not yet filled follow.
  * Done sessions never change. Returns the ids of the sessions that were swapped.
+ * `newSlug` "rest" turns the session into a rest day. A session with no bank workout
+ * (a rest day, a one-off) only carries "following" to later ones on the same weekday.
  */
 export async function swapSessionWorkout(
   sessionId: number,
@@ -302,38 +304,48 @@ export async function swapSessionWorkout(
 ): Promise<number[]> {
   await ensureBank();
   const sql = getDb();
-  const next = await getWorkout(newSlug);
-  if (!next) throw new Error("Workout not found");
+  const toRest = newSlug === "rest";
+  const next = toRest ? null : await getWorkout(newSlug);
+  if (!toRest && !next) throw new Error("Workout not found");
   const [cur] = await sql`SELECT to_char(session_date, 'YYYY-MM-DD') AS d, workout_slug, title, type FROM training_sessions WHERE id = ${sessionId}`;
   if (!cur) throw new Error("Session not found");
-  const p = next.plan ?? {};
+  const p = next?.plan ?? {};
   const minutes = minutesAtPace(p.km ?? null, p.pace_sec ?? null) ?? p.minutes ?? null;
   const oldSlug = (cur.workout_slug as string | null) ?? null;
 
   // The session itself always swaps (even a done one has been explicitly picked);
   // "following" adds later unfinished sessions of the same workout.
   const rows = await sql`
-    UPDATE training_sessions SET type = ${next.session_type}, title = ${next.name}, workout_slug = ${next.slug},
+    UPDATE training_sessions SET type = ${next?.session_type ?? "rest"}, title = ${next?.name ?? "Rest"}, workout_slug = ${next?.slug ?? null},
       target_km = ${p.km ?? null}, target_minutes = ${minutes}, target_pace_sec = ${p.pace_sec ?? null},
       intensity = ${p.intensity ?? null}, notes = NULL, updated_at = NOW()
     WHERE id = ${sessionId}
        OR (${scope === "following"} AND done = FALSE AND session_date > ${cur.d}
            AND (CASE WHEN ${oldSlug}::text IS NOT NULL THEN workout_slug = ${oldSlug}
-                     ELSE workout_slug IS NULL AND title = ${cur.title as string} AND type = ${cur.type as string} END))
+                     ELSE workout_slug IS NULL AND title = ${cur.title as string} AND type = ${cur.type as string}
+                          AND EXTRACT(ISODOW FROM session_date) = EXTRACT(ISODOW FROM ${cur.d}::date) END))
     RETURNING id
   `;
 
-  if (scope === "following" && oldSlug && oldSlug !== next.slug) {
-    const old = await getWorkout(oldSlug);
-    if (old && old.default_day !== null) {
-      await sql`
-        UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', ${JSON.stringify(old.default_day)}::jsonb), updated_at = NOW()
-        WHERE slug = ${next.slug}
-      `;
-      await sql`
-        UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', 'null'::jsonb), updated_at = NOW()
-        WHERE slug = ${old.slug}
-      `;
+  // The default week follows, so weeks not yet filled match: the new workout takes this
+  // day (the old workout's default day, or this weekday when it was a rest day) and the
+  // old one is unscheduled. Rest isn't in the bank; unscheduled days fill as rest.
+  if (scope === "following" && oldSlug !== (next?.slug ?? null)) {
+    const old = oldSlug ? await getWorkout(oldSlug) : null;
+    const day = old ? old.default_day : (new Date(`${cur.d}T00:00:00Z`).getUTCDay() + 6) % 7;
+    if (day !== null) {
+      if (next) {
+        await sql`
+          UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', ${JSON.stringify(day)}::jsonb), updated_at = NOW()
+          WHERE slug = ${next.slug}
+        `;
+      }
+      if (old) {
+        await sql`
+          UPDATE workout_bank SET definition = jsonb_set(definition, '{default_day}', 'null'::jsonb), updated_at = NOW()
+          WHERE slug = ${old.slug}
+        `;
+      }
     }
   }
   return rows.map((r) => Number(r.id));

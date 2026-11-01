@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SparklesIcon } from "lucide-react";
+import { ArrowLeftIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,11 @@ export function sessionHref(id: number) {
   return `/training/sessions/${id}`;
 }
 
+/** The full editor (type, title, targets, notes) — off the workout picker, for one-offs. */
+export function sessionDetailsHref(id: number) {
+  return `/training/sessions/${id}/details`;
+}
+
 export function newSessionHref(date: string) {
   return `/training/sessions/new/${date}`;
 }
@@ -45,7 +50,7 @@ function longDate(iso: string) {
 }
 
 /**
- * /training/sessions/<id> and /training/sessions/new/<date> — add or edit one
+ * /training/sessions/<id>/details and /training/sessions/new/<date> — add or edit one
  * session as its own page (it was a modal; Berto, 2026-10-04). Runs get a pace
  * suggested from his Fitbit runs. Editing an existing session saves as you type;
  * a new one is created with Add.
@@ -157,7 +162,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
       const dy = e.changedTouches[0].clientY - start.y;
       if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
       const target = dx < 0 ? neighbours.next : neighbours.prev;
-      if (target) router.replace(sessionHref(target));
+      if (target) router.replace(sessionDetailsHref(target));
     },
   };
 
@@ -212,6 +217,11 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
   return (
     <div className="mx-auto max-w-xl space-y-5 pb-16" {...swipe}>
       <header className="space-y-2">
+        {existing && (
+          <Link href={sessionHref(existing.id)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeftIcon className="size-4" /> Workouts
+          </Link>
+        )}
         <h1 className="text-3xl font-semibold tracking-tight">{existing ? "Edit session" : "Add session"}</h1>
         {d.session_date && <p className="text-lg text-muted-foreground">{longDate(d.session_date)}</p>}
       </header>
@@ -385,7 +395,7 @@ export function SessionPage({ id, date }: { id?: number; date?: string }) {
  * worked out, and they save as he types. Heart rate, AZM and zones come from the
  * Fitbit workout attached when he ticked it.
  */
-function Actuals({ s }: { s: TrainingSession }) {
+export function Actuals({ s }: { s: TrainingSession }) {
   const run = isRunType(s.type);
   const [km, setKm] = useState(s.actual_km?.toString() ?? "");
   const [pace, setPace] = useState(

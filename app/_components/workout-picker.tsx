@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Actuals, sessionDetailsHref } from "@/app/_components/session-editor";
 import { formatPace, sessionMeta, type TrainingSession } from "@/lib/training";
+import { SessionTypeIcon } from "./session-type-icon";
 import type { WorkoutTemplate } from "@/lib/workout-templates";
 import { weekStartISO } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -96,9 +97,9 @@ export function WorkoutPicker({ id }: { id: number }) {
     }
   };
 
-  const choices: { slug: string; name: string; label: string; color: string }[] = [
-    ...workouts.map((w) => ({ slug: w.slug, name: w.name, label: planLabel(w), color: sessionMeta(w.session_type).color })),
-    { slug: REST, name: "Rest", label: "Day off", color: sessionMeta("rest").color },
+  const choices: { slug: string; name: string; label: string; type: string }[] = [
+    ...workouts.map((w) => ({ slug: w.slug, name: w.name, label: planLabel(w), type: w.session_type as string })),
+    { slug: REST, name: "Rest", label: "Day off", type: "rest" },
   ];
 
   return (
@@ -126,7 +127,7 @@ export function WorkoutPicker({ id }: { id: number }) {
                 selected ? "bg-muted dark:bg-muted/70" : "hover:bg-muted/50",
               )}
             >
-              <span className={cn("size-2.5 shrink-0 rounded-full", c.color)} />
+              <SessionTypeIcon type={c.type} className="size-5" />
               <span className="min-w-0 flex-1">
                 <span className="block text-base font-medium leading-snug">{c.name}</span>
                 <span className="block text-sm tabular-nums text-muted-foreground">{c.label}</span>

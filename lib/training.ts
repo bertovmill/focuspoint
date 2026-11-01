@@ -12,7 +12,8 @@ const GYM = ["WEIGHTLIFTING", "WEIGHTS", "STRENGTH_TRAINING", "INTERVAL_WORKOUT"
 export const SESSION_TYPES = [
   { key: "long_run", label: "Long run", short: "Run", color: "bg-sky-500", sports: RUNS },
   { key: "intervals", label: "Intervals / tempo", short: "Speed", color: "bg-orange-500", sports: RUNS },
-  { key: "easy", label: "Easy run / recovery", short: "Easy", color: "bg-teal-500", sports: [...RUNS, "HIKING"] },
+  // Shown as "Mobility" since 2026-11-01 (Berto); the key stays "easy" so saved sessions keep working.
+  { key: "easy", label: "Mobility / recovery", short: "Mobility", color: "bg-teal-500", sports: [...RUNS, "HIKING"] },
   { key: "hyrox", label: "Hyrox / hybrid", short: "Hyrox", color: "bg-rose-500", sports: [...GYM, "RUNNING"] },
   { key: "strength", label: "Strength", short: "Lift", color: "bg-violet-500", sports: GYM },
   // Restorative yoga took Wednesday's rest day (Berto, 2026-10-04): a real session, ticked off like one.

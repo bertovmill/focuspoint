@@ -23,6 +23,7 @@ import {
   TrendingUpIcon,
 } from "lucide-react";
 import type { WeeklyProgress } from "@/lib/progress";
+import { SessionTypeIcon } from "./session-type-icon";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -807,7 +808,7 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
         <div className="flex items-start gap-3">
           <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <span className={cn("size-2 shrink-0 rounded-full", meta.color)} />
+              <SessionTypeIcon type={s.type} className="size-4" />
               <span className="tabular-nums">{metaLine}</span>
             </span>
             <span className="mt-1 block text-xl font-semibold leading-snug tracking-tight">{s.title}</span>
@@ -849,7 +850,7 @@ function SessionCard({ s, past, big, onToggle, onEdit, onDelete }: { s: Training
       <div className="flex items-start gap-2">
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left" title={s.notes ?? undefined}>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn("size-1.5 shrink-0 rounded-full", meta.color)} />
+            <SessionTypeIcon type={s.type} />
             {meta.short}
             {s.intensity === "hard" && " · hard"}
           </span>

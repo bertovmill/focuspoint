@@ -4,6 +4,18 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Training: icons instead of coloured dots, "Easy" is now "Mobility"
+
+Berto wanted real icons per workout kind instead of the coloured dots on /training cards.
+New `app/_components/session-type-icon.tsx` maps each session type to a tinted lucide icon
+(Run footprints, Speed zap, Mobility person, Hyrox flame, Lift dumbbell, Yoga flower,
+Rest moon). Used on the week-grid and hero cards (`training-plan-panel.tsx`), the workout
+picker and the swap dialog. The `easy` type's short label is now "Mobility" (label
+"Mobility / recovery"); the key stays `easy` so saved sessions are untouched. The phone
+week strip's done/race dots are status, not type, so they stay.
+
+---
+
 ## 2026-11-01 — Second Search Console tag for bertomill.com
 
 The existing `google-site-verification` tag on bertomill.com belonged to a different

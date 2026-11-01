@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { sessionMeta, type TrainingSession } from "@/lib/training";
+import type { TrainingSession } from "@/lib/training";
+import { SessionTypeIcon } from "./session-type-icon";
 import type { WorkoutTemplate } from "@/lib/workout-templates";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +86,7 @@ export function SwapWorkoutDialog({
                   pick === w.slug && "border-foreground bg-muted",
                 )}
               >
-                <span className={cn("size-2 shrink-0 rounded-full", sessionMeta(w.session_type).color)} />
+                <SessionTypeIcon type={w.session_type} className="size-4" />
                 <span className="font-medium">{w.name}</span>
               </button>
             ))

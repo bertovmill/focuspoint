@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CalendarPlusIcon, ClockIcon, LinkIcon, SearchIcon, Trash2Icon, UtensilsIcon } from "lucide-react";
+import { ClockIcon, LinkIcon, SearchIcon, Trash2Icon, UtensilsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { AddToPlanDialog } from "@/app/_components/add-to-plan-dialog";
 import { cookDisplay } from "@/app/_components/cook-fonts";
+import { MarkdownDoc } from "@/app/_components/markdown-doc";
 import { MealFeedback } from "@/app/_components/meal-feedback";
 import type { Recipe } from "@/lib/nutrition-plan";
 import { recipeHref } from "@/lib/nutrition";
@@ -42,11 +42,11 @@ function host(url: string) {
 }
 
 /**
- * The recipe box at /meals/recipes: every recipe Cael knows, as warm pastel
- * cards. Paste a link (or, for sites that block apps, the recipe text) to save
- * one; any card goes onto the meal plan in one step. Saved recipes never fill
- * the week on their own. Thumbs on each card feed the taste profile and the
- * rotation (liked first, disliked out); Remove archives a recipe, with Undo.
+ * The Meals page at /meals: every meal Cael knows, as warm pastel cards, and
+ * the taste profile under them. It's the database Cael recommends from, not a
+ * plan. Paste a link (or, for sites that block apps, the recipe text) to save
+ * one. Thumbs on each card feed the taste profile (liked first, disliked out);
+ * Remove archives a meal, with Undo.
  */
 export function RecipeBox() {
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
@@ -54,7 +54,6 @@ export function RecipeBox() {
   const [saving, setSaving] = useState(false);
   const [shelf, setShelf] = useState<Shelf>("all");
   const [query, setQuery] = useState("");
-  const [adding, setAdding] = useState<Recipe | null>(null);
   const [fresh, setFresh] = useState<number | null>(null);
 
   useEffect(() => {
@@ -139,29 +138,21 @@ export function RecipeBox() {
   return (
     <div id="recipe-box" className="cook-paper -mx-3 -my-4 min-h-[calc(100%+2rem)] px-4 pb-16 pt-6 sm:-mx-4 sm:px-8">
       <div className="mx-auto max-w-5xl">
-        <Link
-          href="/meals"
-          className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-[var(--cook-soft)] transition-colors hover:text-[var(--cook-ink)]"
-        >
-          <ArrowLeftIcon className="size-3.5" />
-          This week&apos;s meals
-        </Link>
-
-        <header className="mt-5">
+        <header>
           <h1 className="font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl" style={{ fontFamily: cookDisplay.style.fontFamily }}>
-            Recipe box
+            Meals
           </h1>
           <p className="mt-2 text-[15px] text-[var(--cook-soft)]">
             {recipes === null
               ? " "
-              : `${recipes.length} recipe${recipes.length === 1 ? "" : "s"} · ${saved.length} saved. Paste a recipe link, or the recipe itself, to keep it here.`}
+              : `${recipes.length} meal${recipes.length === 1 ? "" : "s"} · ${saved.length} saved. Cael recommends from these. Paste a recipe link, or the recipe itself, to add one.`}
           </p>
           <p className="mt-1 text-[15px] text-[var(--cook-soft)]">
             Thumbs up or down on any recipe teaches Cael{" "}
-            <Link href="/meals#meal-taste-profile" className="underline decoration-[var(--cook-accent)] underline-offset-4 hover:text-[var(--cook-ink)]">
+            <Link href="#meal-taste-profile" className="underline decoration-[var(--cook-accent)] underline-offset-4 hover:text-[var(--cook-ink)]">
               your taste
             </Link>
-            . Liked ones come first and get planned more; disliked ones drop out of the rotation.
+            . Liked ones come first and get recommended more; disliked ones stop coming up.
           </p>
         </header>
 
@@ -209,7 +200,7 @@ export function RecipeBox() {
             <SearchIcon className="size-4 shrink-0 text-[var(--cook-soft)]" />
             <input
               type="search"
-              placeholder="Search recipes"
+              placeholder="Search meals or ingredients"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--cook-soft)]"
@@ -294,21 +285,9 @@ export function RecipeBox() {
                     recipeId={r.id}
                     rating={r.rating ?? null}
                     reason={r.rating_reason ?? null}
-                    downToast={
-                      r.saved_to_box
-                        ? "Got it. Cael will steer away from meals like this."
-                        : "Got it. It's out of the rotation, and Cael is writing a new one for this sitting."
-                    }
+                    downToast="Got it. Cael will steer away from meals like this."
                     onChange={(rating, reason) => rate(r.id, rating, reason)}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setAdding(r)}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--cook-ink)] px-3 py-1.5 text-xs font-medium text-[var(--cook-bg)] transition-opacity hover:opacity-85"
-                  >
-                    <CalendarPlusIcon className="size-3.5" />
-                    Add to plan
-                  </button>
                 </div>
               </article>
             ))}
@@ -316,7 +295,23 @@ export function RecipeBox() {
         )}
       </div>
 
-      <AddToPlanDialog recipe={adding} onClose={() => setAdding(null)} />
+      {/* Taste profile — rewritten by a model from his 👍/👎 and one-liners
+          (lib/meal-feedback.ts); recommendations follow it. */}
+      <div className="mx-auto mt-10 max-w-5xl">
+        <MarkdownDoc
+          id="meal-taste-profile"
+          endpoint="/api/meals/taste-profile"
+          heading={
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Taste profile</h2>
+              <p className="text-xs text-muted-foreground">
+                Cael rewrites this from your 👍/👎 on meals and recommends to fit it. Edit anything here and it sticks.
+              </p>
+            </div>
+          }
+          placeholder="Rate a meal and Cael starts this for you."
+        />
+      </div>
     </div>
   );
 }

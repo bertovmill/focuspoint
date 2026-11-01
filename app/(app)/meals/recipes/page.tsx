@@ -1,5 +1,6 @@
-// /meals/recipes — the recipe box. The content lives in the (app) layout shell
-// (RecipeBox reads the pathname); this file only makes the URL a real route.
+import { redirect } from "next/navigation";
+
+// The recipe box became the Meals page itself (2026-11-01); old links land there.
 export default function Page() {
-  return null;
+  redirect("/meals");
 }

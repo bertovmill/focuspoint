@@ -37,7 +37,6 @@ const HEAVY_MODULES = [
   "app/_components/score-chart.tsx",
   "app/_components/writing-panel.tsx",
   "app/_components/training-plan-panel.tsx",
-  "app/_components/week-plan-panel.tsx",
   "app/_components/career-panel.tsx",
   "app/_components/newsletter-panel.tsx",
 ];

@@ -38,7 +38,6 @@ import {
 const AgentChat = dynamic(() => import("@/app/_components/agent-chat").then((m) => m.AgentChat), { ssr: false });
 const ChatSidebar = dynamic(() => import("@/app/_components/chat-sidebar").then((m) => m.ChatSidebar), { ssr: false });
 const NewsletterPanel = dynamic(() => import("@/app/_components/newsletter-panel").then((m) => m.NewsletterPanel), { ssr: false });
-const WeekPlanPanel = dynamic(() => import("@/app/_components/week-plan-panel").then((m) => m.WeekPlanPanel), { ssr: false });
 const RecipeView = dynamic(() => import("@/app/_components/recipe-view").then((m) => m.RecipeView), { ssr: false });
 const RecipeBox = dynamic(() => import("@/app/_components/recipe-box").then((m) => m.RecipeBox), { ssr: false });
 const TrainingPlanPanel = dynamic(() => import("@/app/_components/training-plan-panel").then((m) => m.TrainingPlanPanel), { ssr: false });
@@ -258,8 +257,6 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   const mobileTab = PATH_TABS[pathname] ?? PATH_TABS["/" + pathname.split("/")[1]] ?? "home";
   // /meals/recipes/<id>-<slug> opens one recipe inside the Meals section.
   const recipeId = Number(pathname.match(/^\/meals\/recipes\/(\d+)/)?.[1]) || null;
-  // /meals/recipes on its own is the recipe box.
-  const recipeBox = pathname === "/meals/recipes";
   const setMobileTab = useCallback(
     (tab: MobileTab) => router.push(TAB_PATHS[tab]),
     [router],
@@ -615,7 +612,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             <NewsletterPanel />
           ) : mobileTab === "meals" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">
-              {recipeId ? <RecipeView id={recipeId} /> : recipeBox ? <RecipeBox /> : <WeekPlanPanel />}
+              {recipeId ? <RecipeView id={recipeId} /> : <RecipeBox />}
             </div>
           ) : mobileTab === "training" ? (
             <div className="h-full overflow-y-auto px-3 py-4 sm:px-4">

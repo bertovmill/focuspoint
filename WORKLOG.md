@@ -4,6 +4,21 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Meals is just the meal database now
+
+Berto: "all this planning things for the meals, lets remove, i want to make it just
+the db of meals for recommendations". /meals now renders the recipe box (titled
+"Meals"): every meal as a card with thumbs, search, Liked/Saved/Meal bank shelves, and
+the taste profile under it. Removed the week grid, protein ring, Fill week from bank,
+grocery list, Add to plan (cards and recipe page) and the meal Notes page from the UI.
+Deleted week-plan-panel, add-to-plan-dialog, meal-week-table, recipe-picker and
+protein-ring (no other users). /meals/recipes redirects to /meals; the recipe page's
+back link goes to /meals. Agent instructions: Cael recommends from the database and
+no longer plans weeks with set_daily_meal unless asked for a specific day; protein
+logging and meals_doc stay. Data and APIs (planned meals, groceries) are untouched.
+
+---
+
 ## 2026-11-01 — Sleep: 4-week averages; Fitbit zone bars explain themselves
 
 Berto asked to compare weekly sleep over the last ~4 weeks. The home sleep card now

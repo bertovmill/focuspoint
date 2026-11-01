@@ -4,6 +4,26 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Recipe box at /meals/recipes (Cael task 29, NYT Cooking inspired)
+
+First slice of Cael's own cooking experience. Berto picked the recipe box over cook mode.
+`/meals/recipes` shows every recipe (meal bank plus saved ones) as warm pastel cards in
+the bertomill.com palette (`.cook-paper` in globals.css, Fraunces via
+`app/_components/cook-fonts.ts`), with All / Saved / Meal bank shelves and search.
+Paste a recipe link, or the recipe text for sites that block apps (Budget Bytes,
+Serious Eats, Cookie and Kate all 402/403), and `lib/recipe-import.ts` reads the page's
+schema.org Recipe JSON-LD (or page text), has the model scale it to one serving with
+protein, kcal and plain grocery names, and saves it with `saved_to_box = true` and its
+`source_url`. Public-address check on every fetch and redirect hop. The photo is made in
+the background with the existing bank image route, so cards match the bank. "Add to
+plan" (`add-to-plan-dialog.tsx`, also on the recipe page) picks a day in the coming week
+and a sitting, shows what it replaces, and PUTs the plan cell. Saved recipes never go
+into "Fill week from bank" (`fillFromBank` skips `saved_to_box`), so the Robbins
+rotation is unchanged. Meals panel has a "Recipe box" button; a saved recipe's page links
+back to the box and to its source site. Next slices: cook mode with timers, notes per recipe.
+
+---
+
 ## 2026-11-01 — Training: icons instead of coloured dots, "Easy" is now "Mobility"
 
 Berto wanted real icons per workout kind instead of the coloured dots on /training cards.

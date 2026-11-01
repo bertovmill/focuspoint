@@ -45,6 +45,10 @@ export interface Recipe {
   minutes: number | null;
   ingredient_lines: string[];
   steps: string[];
+  /** The page a recipe-box recipe was saved from; null for bank meals and pasted ones. */
+  source_url: string | null;
+  /** Saved into the recipe box (from a link or pasted text), not part of the bank rotation. */
+  saved_to_box: boolean;
   created_at: string;
 }
 
@@ -83,6 +87,8 @@ export function shapeRecipe(row: Record<string, unknown>): Recipe {
     minutes: num(row.minutes),
     ingredient_lines: Array.isArray(row.ingredient_lines) ? row.ingredient_lines.map(String) : [],
     steps: Array.isArray(row.steps) ? row.steps.map(String) : [],
+    source_url: (row.source_url as string | null) ?? null,
+    saved_to_box: row.saved_to_box === true,
     created_at: String(row.created_at),
   };
 }
@@ -404,7 +410,8 @@ export async function fillFromBank(
   const cells = targets.filter((t) => MEAL_SLOT_KEYS.includes(t.slot)).sort((a, b) => a.date.localeCompare(b.date));
   if (cells.length === 0) return { filled: [], skipped: targets.length };
   const sql = getDb();
-  const recipes = (await sql`SELECT * FROM nutrition_recipes WHERE archived_at IS NULL`).map((r) => shapeRecipe(r as Record<string, unknown>));
+  // Recipes saved from a link sit in the recipe box until he adds one by hand.
+  const recipes = (await sql`SELECT * FROM nutrition_recipes WHERE archived_at IS NULL AND NOT saved_to_box`).map((r) => shapeRecipe(r as Record<string, unknown>));
   if (recipes.length === 0) throw new Error("The meal bank is empty — add a few meals first.");
 
   const from = addDaysISO(cells[0].date, -21);

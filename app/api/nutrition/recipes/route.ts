@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const sql = getDb();
     const rows = await sql`
-      SELECT id, name, description, slot, protein_g, kcal, ingredients, image_url, created_at
+      SELECT id, name, description, slot, protein_g, kcal, ingredients, image_url, minutes, source_url, saved_to_box, created_at
       FROM nutrition_recipes
       WHERE archived_at IS NULL
       ORDER BY name ASC

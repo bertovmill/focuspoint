@@ -693,6 +693,12 @@ async function applySchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS meal_feedback_recipe_idx ON meal_feedback (recipe_id, created_at DESC)`;
   await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS replaces_id INTEGER`;
+  // The recipe box (2026-11-01): recipes saved on /meals/recipes from a link
+  // (source_url keeps the page) or from pasted text. They go on the plan only
+  // when he adds them, never through "Fill week from bank", so the Robbins
+  // rotation stays as it is.
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS source_url TEXT`;
+  await sql`ALTER TABLE nutrition_recipes ADD COLUMN IF NOT EXISTS saved_to_box BOOLEAN NOT NULL DEFAULT false`;
 
   // ── Training plan (2026-09-26) ───────────────────────────────────────────
   // /training: the week's sessions, the races they build toward, and a cache of

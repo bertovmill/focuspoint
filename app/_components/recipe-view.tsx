@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ClockIcon, UtensilsIcon } from "lucide-react";
+import { ArrowLeftIcon, CalendarPlusIcon, CheckIcon, ClockIcon, ExternalLinkIcon, UtensilsIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MealRatingEntry, Recipe } from "@/lib/nutrition-plan";
 import { MealFeedback } from "@/app/_components/meal-feedback";
+import { AddToPlanDialog } from "@/app/_components/add-to-plan-dialog";
 import { cn } from "@/lib/utils";
 
 // Which Robbins rule each sitting's meals are built around — shown under the
@@ -28,6 +29,7 @@ export function RecipeView({ id }: { id: number }) {
   const [recipe, setRecipe] = useState<Recipe | null | "missing">(null);
   const [have, setHave] = useState<Set<number>>(new Set());
   const [rating, setRating] = useState<MealRatingEntry | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     let stale = false;
@@ -78,12 +80,13 @@ export function RecipeView({ id }: { id: number }) {
 
   return (
     <article id="recipe" className="mx-auto max-w-4xl pb-16">
+      {/* A recipe saved into the recipe box goes back there. */}
       <Link
-        href="/"
+        href={recipe?.saved_to_box ? "/meals/recipes" : "/"}
         className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />
-        Today&apos;s meals
+        {recipe?.saved_to_box ? "Recipe box" : "Today\u2019s meals"}
       </Link>
 
       <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-muted sm:aspect-[16/8]">
@@ -122,6 +125,25 @@ export function RecipeView({ id }: { id: number }) {
                 <UtensilsIcon className="size-4 text-muted-foreground" />
                 <span className="font-medium">Serves 1</span>
               </span>
+              {recipe.source_url && (
+                <a
+                  href={recipe.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLinkIcon className="size-4" />
+                  {new URL(recipe.source_url).hostname.replace(/^www\./, "")}
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-85"
+              >
+                <CalendarPlusIcon className="size-3.5" />
+                Add to plan
+              </button>
             </div>
             <MealFeedback
               className="mt-4"
@@ -176,6 +198,7 @@ export function RecipeView({ id }: { id: number }) {
           </div>
         </>
       )}
+      <AddToPlanDialog recipe={adding && recipe ? recipe : null} onClose={() => setAdding(false)} />
     </article>
   );
 }

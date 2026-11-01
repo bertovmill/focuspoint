@@ -13,6 +13,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   ShoppingCartIcon,
+  BookOpenIcon,
   ShuffleIcon,
   TrashIcon,
   XIcon,
@@ -711,6 +712,12 @@ export function WeekPlanPanel() {
           <Button size="sm" variant="outline" className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs" onClick={() => setGroceriesOpen(true)}>
             <ShoppingCartIcon className="size-3" />
             Grocery list
+          </Button>
+          <Button asChild size="sm" variant="outline" className="h-9 gap-1.5 text-sm md:h-8 md:gap-1 md:text-xs">
+            <Link href="/meals/recipes">
+              <BookOpenIcon className="size-3" />
+              Recipe box
+            </Link>
           </Button>
         </div>
       </section>

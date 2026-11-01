@@ -12877,3 +12877,24 @@ calendar squeezed every event into slivers whose titles were cut mid-word.
   calendar title reads. tsc clean.
 - Next: once Mobbin is connected, pull references (Sunsama/Akiflow/Notion Calendar day
   views) for a second pass, e.g. a denser agenda view of the empty afternoon.
+
+---
+
+## 2026-11-01 — Site: MakersLounge playbook page + budget/outcomes block (Cael tasks 47, 48)
+
+- **New page** `bertomill.com/work/makerslounge/playbook` (`app/site/work/[slug]/playbook/page.tsx`,
+  every other slug 404s): four formats with show-up and when to use each, a meetup run-of-show,
+  the approval rule (approve ≈ seats ÷ show-up: 38 / 86 / 143 for 30 seats), the 48-hour
+  follow-up template, and the fund-or-cut rule (cut a format under 25% show-up twice in a row).
+  Berto picked the draft rule; run-of-show times and the template are agent drafts he approved
+  to ship. Anchors are descriptive (`#approval-rule`, `#fund-or-cut`, ...).
+- **Case study block** `app/site/work/makerslounge-outcomes.tsx`, rendered under the MakersLounge
+  case study: total spend (self-funded) and cost per check-in, partners (New Stadium, TMU,
+  MuleRun), makerslounge.ca platform counts, and a card linking the playbook. Values are `null`
+  until Berto gives them; nulls show as dashed "To fill" pills in dev/preview and are hidden in
+  production (keyed on NODE_ENV, since `.env.local` carries VERCEL_ENV=production).
+- Playbook added to `app/sitemap.ts` and `app/site/llms.txt/route.ts`.
+- Numbers only from the real Luma funnel (80/35/21% show-up, 263 unique, 47 repeat, ~16
+  check-ins per event); never the Luma guest total.
+- Local preview tip: `http://site.localhost:<port>/...` counts as the public host, so no login.
+- Next: fill TOTAL_SPEND, partner terms and PLATFORM values when Berto sends them.

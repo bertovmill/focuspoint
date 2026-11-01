@@ -6,6 +6,7 @@ import { Prose } from "../../_components/prose";
 import { PostFooterCta } from "../../_components/post-footer-cta";
 import { SiteLink } from "../../_components/site-link";
 import { WorkTile } from "../work-tile";
+import { MakersLoungeOutcomes } from "../makerslounge-outcomes";
 
 export async function generateStaticParams() {
   const projects = await listContent("work");
@@ -124,6 +125,9 @@ export default async function WorkProjectPage({
       <div className="mt-8">
         <Prose variant="article">{project.body}</Prose>
       </div>
+
+      {/* Only MakersLounge has a budget/outcomes block and a playbook so far. */}
+      {project.slug === "makerslounge" && <MakersLoungeOutcomes />}
 
       <PostFooterCta />
     </article>

@@ -10,6 +10,7 @@ export const revalidate = 3600;
 const PAGES = [
   ["About", "/about", "Background, career, and what he's working on now."],
   ["Work", "/work", "Case studies: Aucctus, MakersLounge, AI coaching, Cael."],
+  ["MakersLounge event playbook", "/work/makerslounge/playbook", "Free playbook: four event formats and when to use each, a run-of-show, the approval rule, the 48-hour follow-up template, and what to fund or cut."],
   ["Capabilities", "/capabilities", "Shipped builds: AI agents, GTM systems, events."],
   ["Writing", "/writing", "Essays on AI-native go-to-market."],
   ["Podcast", "/podcast", "Conversations with Cael, his personal AI agent."],

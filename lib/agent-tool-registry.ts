@@ -19,6 +19,8 @@ import list_calendar_events from "@/agent/tools/list_calendar_events";
 import list_folders from "@/agent/tools/list_folders";
 import list_github_prs from "@/agent/tools/list_github_prs";
 import list_luma_events from "@/agent/lib/toolsets/events_and_news/list_luma_events";
+import list_makerslounge_events from "@/agent/lib/toolsets/events_and_news/list_makerslounge_events";
+import get_makerslounge_event from "@/agent/lib/toolsets/events_and_news/get_makerslounge_event";
 import list_meal_history from "@/agent/tools/list_meal_history";
 import list_notes from "@/agent/tools/list_notes";
 import list_nutrition from "@/agent/tools/list_nutrition";
@@ -89,6 +91,8 @@ export const agentTools = {
   list_folders,
   list_github_prs,
   list_luma_events,
+  list_makerslounge_events,
+  get_makerslounge_event,
   list_meal_history,
   list_notes,
   list_nutrition,

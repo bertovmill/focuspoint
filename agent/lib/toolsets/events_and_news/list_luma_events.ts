@@ -10,7 +10,7 @@ import { jsonSafe } from "../../../../lib/json-safe";
  */
 export default defineTool({
   description:
-    "List Berto's Luma events (MakersLounge) with dates, venue, signups and turnout. Use this for anything about events — writing a newsletter, planning the next meetup, or recalling how the last one went. Defaults to upcoming events.",
+    "List MakersLounge events from before Nov 2026, when they ran on Luma, with dates, venue, signups and turnout. Events now run on makerslounge.ca: use list_makerslounge_events for current and upcoming ones, and this for history (past recaps, long-run turnout).",
   inputSchema: z.object({
     when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
     limit: z.number().int().min(1).max(50).default(10),

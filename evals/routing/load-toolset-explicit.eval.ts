@@ -5,5 +5,5 @@ export default routeEval({
   description: "With no trigger word, Cael loads a toolset itself before using it.",
   prompt: "How many people actually showed up to my last event?",
   allOf: ["load_toolset"],
-  anyOf: ["list_luma_events", "get_luma_event"],
+  anyOf: ["list_makerslounge_events", "get_makerslounge_event", "list_luma_events", "get_luma_event"],
 });

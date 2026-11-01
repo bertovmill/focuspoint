@@ -4,6 +4,19 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Cael reads makerslounge.ca events as an admin
+
+MakersLounge events moved off Luma onto makerslounge.ca, so Cael couldn't see them.
+Berto's call: "cael should be an admin of makerslounge". The site (makerslounge-web)
+now treats `Authorization: Bearer <CAEL_ADMIN_TOKEN>` as its admin account and has
+`GET /api/admin/events` (events with RSVP counts plus totals). Cael calls it with
+`MAKERSLOUNGE_ADMIN_TOKEN` via `lib/makerslounge.ts`. New tools in the events_and_news
+toolset (and over MCP): `list_makerslounge_events` (events, RSVPs, check-ins, totals:
+members, events run, RSVPs) and `get_makerslounge_event` (one event with guest names and
+what they're building; emails never leave the site). Read-only for now. The site has no
+check-in yet, so check-ins come back as "not tracked yet" (null), not 0. Luma tools stay
+for pre-Nov 2026 history; instructions and routing evals point at the new tools first.
+Next: a check-in feature on makerslounge.ca so show-up counts exist.
 ## 2026-11-01 — Recipe box at /meals/recipes (Cael task 29, NYT Cooking inspired)
 
 First slice of Cael's own cooking experience. Berto picked the recipe box over cook mode.

@@ -25,6 +25,8 @@ import ai_reading_list from "./events_and_news/ai_reading_list";
 import get_luma_event from "./events_and_news/get_luma_event";
 import latest_ai_news from "./events_and_news/latest_ai_news";
 import list_luma_events from "./events_and_news/list_luma_events";
+import list_makerslounge_events from "./events_and_news/list_makerslounge_events";
+import get_makerslounge_event from "./events_and_news/get_makerslounge_event";
 import sync_luma from "./events_and_news/sync_luma";
 
 export const TOOLSETS = {
@@ -65,10 +67,12 @@ export const TOOLSETS = {
   },
   events_and_news: {
     summary:
-      "MakersLounge events from the Luma mirror (upcoming/past events, one event in full, turnout, re-sync) and AI news and reading lists.",
+      "MakersLounge events: live from makerslounge.ca (events, RSVPs, guest lists, member and turnout totals) and older history from the Luma mirror; plus AI news and reading lists.",
     triggers: [
       "makerslounge",
       "makers lounge",
+      "rsvp",
+      "guest list",
       "luma",
       "newsletter",
       "event recap",
@@ -77,7 +81,7 @@ export const TOOLSETS = {
       "reading list",
       "morning digest",
     ],
-    tools: { list_luma_events, get_luma_event, sync_luma, latest_ai_news, ai_reading_list },
+    tools: { list_makerslounge_events, get_makerslounge_event, list_luma_events, get_luma_event, sync_luma, latest_ai_news, ai_reading_list },
   },
 } as const;
 

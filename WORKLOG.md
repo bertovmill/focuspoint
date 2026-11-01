@@ -4,6 +4,23 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Sleep: 4-week averages; Fitbit zone bars explain themselves
+
+Berto asked to compare weekly sleep over the last ~4 weeks. The home sleep card now
+has a row of four bars under the headline (this week, last week, 2 and 3 weeks ago),
+each the average of the nights tracked that week, coloured like the ring. The bars
+start at 4h, not zero, so a 6h40 week reads visibly shorter than an 8h one; full =
+goal. `getScorecardSummary` returns `sleepWeeks` (SLEEP_WEEKS = 4, ending on the
+viewed day); the newest week takes the card's own average so a typed-in night shows.
+
+He also found the heart-rate zone bars under Fitbit workouts confusing. `ZoneBar`
+(app/_components/zone-bar.tsx) now has a hover tooltip listing every zone with its
+colour, minutes, share and effort (easy / moderate / hard / max effort), dimming the
+others when one segment is under the pointer. Every zone bar in the app gets it.
+Tooltips don't open on tap, so phone users still only see the bar.
+
+---
+
 ## 2026-11-01 — Recipe box: thumbs, Remove with Undo, Liked shelf
 
 Berto asked to like, rate and delete recipes in the recipe box "so we constantly get

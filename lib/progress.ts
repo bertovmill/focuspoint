@@ -60,8 +60,8 @@ export function compare(ex: Pick<TemplateExercise, "measure" | "unit">, prev: St
   return { before: label(prev.weight, repsBefore), now: label(cur.weight, repsNow), change: (now - before) / before };
 }
 
-export async function weeklyProgress(today: string): Promise<WeeklyProgress> {
-  const logs = await getAllStrengthLogs();
+export async function weeklyProgress(today: string, allLogs?: StrengthLog[]): Promise<WeeklyProgress> {
+  const logs = allLogs ?? (await getAllStrengthLogs());
   const from = addDaysISO(today, -6); // the past 7 days, today included
   const items: ExerciseProgress[] = [];
 

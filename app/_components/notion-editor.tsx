@@ -39,7 +39,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { outdentFromToggle } from "@/lib/toggle-outdent";
+import { indentIntoToggle, outdentFromToggle } from "@/lib/toggle-outdent";
 
 /** tiptap-markdown hangs its serializer off editor.storage without typing it. */
 function toMarkdown(editor: Editor): string {
@@ -268,6 +268,13 @@ const ToggleShortcuts = Extension.create({
   priority: 200,
   addKeyboardShortcuts() {
     return {
+      // Tucks the block under a toggle into it; anywhere else Tab falls through to the lists' own nesting.
+      Tab: ({ editor }) => {
+        const tr = indentIntoToggle(editor.state);
+        if (!tr) return false;
+        editor.view.dispatch(tr);
+        return true;
+      },
       // Steps a block out of a toggle's body to sit after the toggle (see lib/toggle-outdent.ts).
       "Shift-Tab": ({ editor }) => {
         const tr = outdentFromToggle(editor.state);

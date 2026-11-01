@@ -19,6 +19,8 @@ Site fixes from Berto's Cael task board, for the events-led GTM job hunt.
   prompt, sitemap and llms.txt updated. /fitness dropped from sitemap and llms.txt.
 - Portfolio DB rows (not code): attribution card now "~1,370 Luma registrations (1,040
   approved, 320 check-ins)"; Cael project "860+ commits", linked to /work/cael.
+- MakersLounge community size is now "2,000+ members" (Berto, Oct 31) on the homepage card,
+  the case study and the May portfolio row. Event numbers unchanged.
 Next: Google Search Console steps for task 45 are Berto's.
 
 ---

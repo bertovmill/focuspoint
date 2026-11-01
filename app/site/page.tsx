@@ -58,7 +58,7 @@ const PILLARS = [
     role: "Founder",
     image: "/site-art/moment-makerslounge-4-hosting.webp",
     imageAlt: "Berto hosting a MakersLounge night in Toronto",
-    stat: "1,500 builders in Toronto",
+    stat: "2,000+ members in Toronto",
     description:
       "A Toronto community of founders and builders using AI in their businesses. Monthly demo nights, online workshops, and a matching app for finding collaborators.",
     href: MAKERSLOUNGE_URL,

@@ -74,7 +74,7 @@ are approved by hand to keep each room the right mix of people.
 
 In-person, that's 320 check-ins from 263 different people. 47 of them came
 to two or more events, and the community around the events has grown to
-1,500 builders in Toronto. What it produces is connections, the kind that
+2,000+ members in Toronto. What it produces is connections, the kind that
 turn into co-founders, hires, customers and friends. The most common thing
 people say is that it's a very welcoming room, which is the whole point. A
 room where a beginner can show a half-finished thing without flinching is a

@@ -4,6 +4,16 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Second Search Console tag for bertomill.com
+
+The existing `google-site-verification` tag on bertomill.com belonged to a different
+Google account, so the bertmill19@gmail.com Search Console account could not verify the
+`https://bertomill.com/` property (Cael task 45). `app/site/layout.tsx` now emits both
+tags (`verification.google` takes an array). Next: click Verify in Search Console, submit
+sitemap.xml, request indexing for /, /work/makerslounge and /about.
+
+---
+
 ## 2026-11-01 — Toggle triangles go dark when they hold something
 
 Berto wanted note toggles (e.g. "What are my core values?") to show at a glance which

@@ -1,11 +1,14 @@
 // makerslounge.ca, read as an admin. Since Nov 2026 MakersLounge events, RSVPs
 // and the guest list live on the site itself (not Luma), and Cael is an admin
 // there: it calls the site's admin API with MAKERSLOUNGE_ADMIN_TOKEN, which the
-// site checks against its CAEL_ADMIN_TOKEN. Read-only for now.
+// site checks against its CAEL_ADMIN_TOKEN. The site also holds the imported
+// Luma history (guests, check-ins), so one call covers every event. Read-only for now.
 
 const BASE = process.env.MAKERSLOUNGE_URL ?? "https://makerslounge.ca";
 
 export type MakersLoungeEvent = {
+  /** "site" = run on makerslounge.ca; "luma" = a past Luma event imported into the site. */
+  source: "site" | "luma";
   id: string;
   slug: string | null;
   title: string;
@@ -15,19 +18,29 @@ export type MakersLoungeEvent = {
   capacity: number | null;
   series_slug: string | null;
   rsvps: number;
-  /** null = the site doesn't track check-ins yet (unknown, not zero). */
+  /** null = makerslounge.ca doesn't track check-ins yet (unknown, not zero). */
   check_ins: number | null;
   url: string;
 };
 
 export type MakersLoungeTotals = {
+  /** Site sign-ups (profiles). */
   members: number;
-  events_total: number;
+  /** Past events, both sources. */
   events_run: number;
   events_upcoming: number;
+  /** RSVPs on the site plus approved Luma registrations. */
   rsvps_total: number;
-  rsvps_past: number;
-  check_ins: number | null;
+  /** Check-ins; only Luma events recorded them so far. */
+  check_ins: number;
+  site_events_run: number;
+  site_rsvps: number;
+  luma_events: number;
+  luma_rsvps: number;
+  luma_check_ins: number;
+  /** Distinct people who registered for / showed up to at least one Luma event. */
+  luma_people_registered: number;
+  luma_people_checked_in: number;
 };
 
 export type MakersLoungeGuest = {

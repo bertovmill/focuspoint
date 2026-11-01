@@ -44,9 +44,11 @@ now treats `Authorization: Bearer <CAEL_ADMIN_TOKEN>` as its admin account and h
 `MAKERSLOUNGE_ADMIN_TOKEN` via `lib/makerslounge.ts`. New tools in the events_and_news
 toolset (and over MCP): `list_makerslounge_events` (events, RSVPs, check-ins, totals:
 members, events run, RSVPs) and `get_makerslounge_event` (one event with guest names and
-what they're building; emails never leave the site). Read-only for now. The site has no
-check-in yet, so check-ins come back as "not tracked yet" (null), not 0. Luma tools stay
-for pre-Nov 2026 history; instructions and routing evals point at the new tools first.
+what they're building; emails never leave the site). Read-only for now. The same API also
+returns the Luma history another session imported into the site that day (25 events,
+1,382 registrations, 398 check-ins), tagged `source: "luma"`. Site events have no check-in
+yet, so theirs come back as "not tracked yet" (null), not 0. Instructions and routing
+evals point at the new tools first; `get_luma_event` stays for old event descriptions.
 Next: a check-in feature on makerslounge.ca so show-up counts exist.
 ## 2026-11-01 — Recipe box at /meals/recipes (Cael task 29, NYT Cooking inspired)
 

@@ -3,13 +3,13 @@ import { z } from "zod";
 import { listMakersLoungeEvents } from "../../../../lib/makerslounge";
 
 /**
- * MakersLounge events as they are now: run on makerslounge.ca (own RSVP and
- * guest list), read live through the site's admin API. Luma only holds the
- * history from before Nov 2026.
+ * Every MakersLounge event, read live through makerslounge.ca's admin API: the
+ * ones run on the site since Nov 2026 and the Luma history imported into it
+ * (with real check-ins), in one list.
  */
 export default defineTool({
   description:
-    "List MakersLounge events from makerslounge.ca (where events run since Nov 2026), with RSVP and check-in counts per event, plus community totals: members, events run, RSVPs, check-ins. Use this first for anything about MakersLounge events, turnout or community numbers. For events before Nov 2026 use list_luma_events.",
+    "List MakersLounge events from makerslounge.ca, past and upcoming, with RSVPs and check-ins (who showed up) per event, plus community totals: members, events run, RSVPs, check-ins, distinct people. Covers events run on the site since Nov 2026 and the earlier Luma events imported into it. Use this first for anything about MakersLounge events, turnout or community numbers.",
   inputSchema: z.object({
     when: z.enum(["upcoming", "past", "all"]).default("upcoming"),
     limit: z.number().int().min(1).max(100).default(10),
@@ -22,8 +22,10 @@ export default defineTool({
     const t = output.totals;
     const checkIns = (n: number | null) => (n === null ? "check-ins not tracked yet" : `${n} checked in`);
     const header =
-      `makerslounge.ca totals: ${t.members} members, ${t.events_run} events run, ${t.events_upcoming} upcoming, ` +
-      `${t.rsvps_total} RSVPs (${t.rsvps_past} to past events), ${checkIns(t.check_ins)}.`;
+      `MakersLounge totals: ${t.members} site members; ${t.events_run} events run (${t.luma_events} on Luma, ` +
+      `${t.site_events_run} on makerslounge.ca), ${t.events_upcoming} upcoming; ${t.rsvps_total} RSVPs ` +
+      `(${t.luma_people_registered} distinct people on Luma); ${t.check_ins} check-ins ` +
+      `(${t.luma_people_checked_in} distinct people). makerslounge.ca events don't record check-ins yet.`;
     if (output.events.length === 0) {
       return { type: "text", value: `${header}\nNo ${output.when} events on makerslounge.ca.` };
     }
@@ -34,7 +36,7 @@ export default defineTool({
         timeStyle: "short",
       });
       const cap = e.capacity ? ` of ${e.capacity}` : "";
-      return `${when} — ${e.title} (${e.location ?? "location TBC"}) — ${e.rsvps}${cap} RSVPs, ${checkIns(e.check_ins)} [id ${e.id}]\n  ${e.url}`;
+      return `${when} — ${e.title} [${e.source}] (${e.location ?? "location TBC"}) — ${e.rsvps}${cap} RSVPs, ${checkIns(e.check_ins)}\n  ${e.url}`;
     });
     return { type: "text", value: `${header}\n${lines.join("\n")}` };
   },

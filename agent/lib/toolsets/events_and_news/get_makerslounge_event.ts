@@ -9,14 +9,15 @@ import { getMakersLoungeGuests, listMakersLoungeEvents } from "../../../../lib/m
  */
 export default defineTool({
   description:
-    "Get one MakersLounge event from makerslounge.ca with its guest list: each guest's name, what they're building, and whether they're a site member, plus RSVP and check-in counts. Match by part of the title or the slug, e.g. 'Nov 7' or 'makerslounge-saturdays-2026-11-07'.",
+    "Get one makerslounge.ca event (run on the site since Nov 2026) with its guest list: each guest's name, what they're building, and whether they're a site member. Match by part of the title or the slug, e.g. 'Nov 7'. For a past Luma event's description use get_luma_event; for its counts use list_makerslounge_events.",
   inputSchema: z.object({
     event: z.string().min(1).describe("Part of the event title, its slug, or its id."),
   }),
   async execute({ event }) {
     const { events } = await listMakersLoungeEvents("all", 100);
     const q = event.toLowerCase();
-    const match = events.find(
+    // Guest lists exist for site events only; imported Luma guests stay on the site.
+    const match = events.filter((e) => e.source === "site").find(
       (e) => e.id === event || e.slug === event || e.title.toLowerCase().includes(q) || e.slug?.includes(q),
     );
     if (!match) return { found: false as const, event };

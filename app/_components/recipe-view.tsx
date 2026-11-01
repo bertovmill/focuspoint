@@ -148,6 +148,7 @@ export function RecipeView({ id }: { id: number }) {
             <MealFeedback
               className="mt-4"
               recipeId={recipe.id}
+              downToast={recipe.saved_to_box ? "Got it. Cael will steer away from meals like this." : undefined}
               rating={rating?.rating ?? null}
               reason={rating?.reason ?? null}
               onChange={(r, reason) => setRating(r ? { rating: r, reason } : null)}

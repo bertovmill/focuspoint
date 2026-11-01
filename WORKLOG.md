@@ -4,6 +4,22 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Recipe box: thumbs, Remove with Undo, Liked shelf
+
+Berto asked to like, rate and delete recipes in the recipe box "so we constantly get
+closer to better meals". Built on the existing 👍/👎 system (meal_feedback, taste
+profile rewrite, rotation favours likes and drops dislikes) rather than a new one:
+every card on /meals/recipes now has the compact `MealFeedback` thumbs (optional
+one-line why), a Liked shelf, liked-first / disliked-last sort with disliked cards
+dimmed, and a line linking to the taste profile. `GET /api/nutrition/recipes` now
+carries each recipe's latest rating. Remove archives (`PATCH { archived }` on
+/api/nutrition/recipes/[id]) rather than deletes, since planned cells and ratings
+point at it, and the toast has a 10s Undo. A 👎 on a recipe-box recipe skips the
+"write a replacement bank meal" step (`replaceIfDisliked`), since those were never in
+the rotation; it still feeds the taste profile. `MealFeedback` takes a `downToast`.
+
+---
+
 ## 2026-11-01 — Telegram and SMS answer only Berto
 
 Found in the open-source audit (Cael task 71): `agent/channels/twilio.ts` defaulted
@@ -16,6 +32,8 @@ Telegram stays off). Slack was already gated on his user id. If SMS stops answer
 `TWILIO_ALLOW_FROM` in Vercel prod was `"*"`: set it to his number.
 
 The public copy (github.com/bertovmill/cael, MIT, one commit) has the same gates.
+
+---
 
 ## 2026-11-01 — Cael reads makerslounge.ca events as an admin
 

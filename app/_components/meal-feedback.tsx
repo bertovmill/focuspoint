@@ -20,6 +20,7 @@ export function MealFeedback({
   rating: initialRating,
   reason: initialReason,
   compact = false,
+  downToast = "Got it. It's out of the rotation, and Cael is writing a new one for this sitting.",
   onChange,
   className,
 }: {
@@ -27,6 +28,8 @@ export function MealFeedback({
   rating: MealRating | null;
   reason: string | null;
   compact?: boolean;
+  /** What a fresh 👎 says; recipe-box recipes aren't in the rotation, so they say something else. */
+  downToast?: string;
   onChange?: (rating: MealRating | null, reason: string | null) => void;
   className?: string;
 }) {
@@ -58,7 +61,7 @@ export function MealFeedback({
       saved.current = { rating: next, reason: why };
       onChange?.(next, why);
       if (next === "down" && was !== "down") {
-        toast("Got it. It's out of the rotation, and Cael is writing a new one for this sitting.");
+        toast(downToast);
       }
     } catch {
       setRating(saved.current.rating);

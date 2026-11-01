@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { MEAL_SLOT_KEYS, normalizeIngredients } from "@/lib/nutrition";
-import { shapeRecipe } from "@/lib/nutrition-plan";
+import { getMealRatings, shapeRecipe } from "@/lib/nutrition-plan";
 
 export async function GET() {
   try {
@@ -12,7 +12,15 @@ export async function GET() {
       WHERE archived_at IS NULL
       ORDER BY name ASC
     `;
-    return NextResponse.json(rows.map((r) => shapeRecipe(r as Record<string, unknown>)));
+    // Each carries his latest 👍/👎 so the recipe box can show and sort by it.
+    const ratings = await getMealRatings();
+    return NextResponse.json(
+      rows.map((r) => {
+        const recipe = shapeRecipe(r as Record<string, unknown>);
+        const rated = ratings.get(recipe.id);
+        return { ...recipe, rating: rated?.rating ?? null, rating_reason: rated?.reason ?? null };
+      }),
+    );
   } catch {
     return NextResponse.json([], { status: 200 });
   }

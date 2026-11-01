@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, CalendarPlusIcon, ClockIcon, LinkIcon, SearchIcon, UtensilsIcon } from "lucide-react";
+import { ArrowLeftIcon, CalendarPlusIcon, ClockIcon, LinkIcon, SearchIcon, Trash2Icon, UtensilsIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { AddToPlanDialog } from "@/app/_components/add-to-plan-dialog";
 import { cookDisplay } from "@/app/_components/cook-fonts";
+import { MealFeedback } from "@/app/_components/meal-feedback";
 import type { Recipe } from "@/lib/nutrition-plan";
 import { recipeHref } from "@/lib/nutrition";
 import { cn } from "@/lib/utils";
@@ -21,12 +22,16 @@ const TINTS = [
   "bg-[var(--tint-6)]",
 ] as const;
 
-type Shelf = "all" | "saved" | "bank";
+type Shelf = "all" | "liked" | "saved" | "bank";
 const SHELVES: { key: Shelf; label: string }[] = [
   { key: "all", label: "All" },
+  { key: "liked", label: "Liked" },
   { key: "saved", label: "Saved" },
   { key: "bank", label: "Meal bank" },
 ];
+
+// Liked recipes lead, disliked ones sink to the end.
+const RANK = { up: 0, none: 1, down: 2 } as const;
 
 function host(url: string) {
   try {
@@ -40,7 +45,8 @@ function host(url: string) {
  * The recipe box at /meals/recipes: every recipe Cael knows, as warm pastel
  * cards. Paste a link (or, for sites that block apps, the recipe text) to save
  * one; any card goes onto the meal plan in one step. Saved recipes never fill
- * the week on their own.
+ * the week on their own. Thumbs on each card feed the taste profile and the
+ * rotation (liked first, disliked out); Remove archives a recipe, with Undo.
  */
 export function RecipeBox() {
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
@@ -62,10 +68,38 @@ export function RecipeBox() {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (recipes ?? [])
-      .filter((r) => (shelf === "saved" ? r.saved_to_box : shelf === "bank" ? !r.saved_to_box : true))
+      .filter((r) =>
+        shelf === "liked" ? r.rating === "up" : shelf === "saved" ? r.saved_to_box : shelf === "bank" ? !r.saved_to_box : true,
+      )
       .filter((r) => !q || r.name.toLowerCase().includes(q) || r.ingredients.some((i) => i.toLowerCase().includes(q)))
-      .sort((a, b) => Number(b.saved_to_box) - Number(a.saved_to_box) || b.created_at.localeCompare(a.created_at));
+      .sort(
+        (a, b) =>
+          RANK[a.rating ?? "none"] - RANK[b.rating ?? "none"] ||
+          Number(b.saved_to_box) - Number(a.saved_to_box) ||
+          b.created_at.localeCompare(a.created_at),
+      );
   }, [recipes, shelf, query]);
+
+  const rate = (id: number, rating: Recipe["rating"], reason: string | null) =>
+    setRecipes((cur) => cur?.map((x) => (x.id === id ? { ...x, rating, rating_reason: reason } : x)) ?? cur);
+
+  const archive = async (r: Recipe, archived: boolean) => {
+    const res = await fetch(`/api/nutrition/recipes/${r.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ archived }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      toast.error(archived ? "Couldn't remove that." : "Couldn't bring that back.");
+      return;
+    }
+    if (archived) {
+      setRecipes((cur) => cur?.filter((x) => x.id !== r.id) ?? cur);
+      toast(`Removed ${r.name}`, { duration: 10_000, action: { label: "Undo", onClick: () => archive(r, false) } });
+    } else {
+      setRecipes((cur) => (cur && !cur.some((x) => x.id === r.id) ? [...cur, r] : cur));
+    }
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +120,7 @@ export function RecipeBox() {
         toast(`${recipe.name} is already in the box.`);
         return;
       }
-      setRecipes((cur) => [recipe, ...(cur ?? [])]);
+      setRecipes((cur) => [{ ...recipe, rating: null, rating_reason: null }, ...(cur ?? [])]);
       toast(`Saved ${recipe.name}`);
       // A photo in the same style as the bank meals, made once in the background.
       fetch(`/api/nutrition/recipes/${recipe.id}/image`, { method: "POST" })
@@ -121,6 +155,13 @@ export function RecipeBox() {
             {recipes === null
               ? " "
               : `${recipes.length} recipe${recipes.length === 1 ? "" : "s"} · ${saved.length} saved. Paste a recipe link, or the recipe itself, to keep it here.`}
+          </p>
+          <p className="mt-1 text-[15px] text-[var(--cook-soft)]">
+            Thumbs up or down on any recipe teaches Cael{" "}
+            <Link href="/meals#meal-taste-profile" className="underline decoration-[var(--cook-accent)] underline-offset-4 hover:text-[var(--cook-ink)]">
+              your taste
+            </Link>
+            . Liked ones come first and get planned more; disliked ones drop out of the rotation.
           </p>
         </header>
 
@@ -184,7 +225,13 @@ export function RecipeBox() {
           </div>
         ) : shown.length === 0 ? (
           <p className="py-16 text-center text-[15px] text-[var(--cook-soft)]">
-            {query ? `Nothing matches "${query}".` : shelf === "saved" ? "No saved recipes yet. Paste a link above." : "No recipes yet."}
+            {query
+              ? `Nothing matches "${query}".`
+              : shelf === "saved"
+                ? "No saved recipes yet. Paste a link above."
+                : shelf === "liked"
+                  ? "Nothing liked yet. Give a recipe a thumbs up."
+                  : "No recipes yet."}
           </p>
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -193,11 +240,21 @@ export function RecipeBox() {
                 key={r.id}
                 id={`recipe-card-${r.id}`}
                 className={cn(
-                  "group flex flex-col overflow-hidden rounded-3xl transition-shadow",
+                  "group relative flex flex-col overflow-hidden rounded-3xl transition-[box-shadow,opacity]",
+                  r.rating === "down" && "opacity-60 hover:opacity-100",
                   TINTS[i % TINTS.length],
                   fresh === r.id && "ring-2 ring-[var(--cook-accent)]",
                 )}
               >
+                <button
+                  type="button"
+                  onClick={() => archive(r, true)}
+                  aria-label={`Remove ${r.name}`}
+                  title="Remove from the recipe box"
+                  className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full bg-[var(--cook-bg)]/90 text-[var(--cook-soft)] shadow-sm transition-opacity hover:text-[var(--cook-ink)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                >
+                  <Trash2Icon className="size-4" />
+                </button>
                 <Link href={recipeHref(r)} className="block">
                   <div className="m-2 mb-0 aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-black/5">
                     {r.image_url ? (
@@ -221,7 +278,7 @@ export function RecipeBox() {
                     </h2>
                   </div>
                 </Link>
-                <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap px-5 pb-4 pt-3 text-xs tabular-nums text-[var(--cook-soft)]">
+                <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap px-5 pb-3 pt-3 text-xs tabular-nums text-[var(--cook-soft)]">
                   {r.minutes != null && (
                     <span className="inline-flex items-center gap-1">
                       <ClockIcon className="size-3.5" />
@@ -230,6 +287,20 @@ export function RecipeBox() {
                   )}
                   {r.protein_g != null && <span>{r.protein_g} g protein</span>}
                   {r.kcal != null && <span>{r.kcal} kcal</span>}
+                </div>
+                <div className="flex items-center gap-2 px-5 pb-4">
+                  <MealFeedback
+                    compact
+                    recipeId={r.id}
+                    rating={r.rating ?? null}
+                    reason={r.rating_reason ?? null}
+                    downToast={
+                      r.saved_to_box
+                        ? "Got it. Cael will steer away from meals like this."
+                        : "Got it. It's out of the rotation, and Cael is writing a new one for this sitting."
+                    }
+                    onChange={(rating, reason) => rate(r.id, rating, reason)}
+                  />
                   <button
                     type="button"
                     onClick={() => setAdding(r)}

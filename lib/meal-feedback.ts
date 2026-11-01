@@ -9,8 +9,9 @@ import { getSettingsDoc, setSettingsDoc, type SettingsDoc } from "./settings-doc
 //  1. the rotation (fillFromBank) drops 👎 meals and favours 👍 ones;
 //  2. the taste profile — a short markdown doc on /meals#meal-taste-profile —
 //     is rewritten by a model from every rating and reason;
-//  3. a 👎 meal gets one new meal written for its sitting, following the
-//     Robbins rules and the taste profile, so the bank doesn't shrink.
+//  3. a 👎 bank meal gets one new meal written for its sitting, following the
+//     Robbins rules and the taste profile, so the bank doesn't shrink
+//     (not a recipe-box one: those were never in the rotation).
 // 2 and 3 run after the response (next/server `after`), so tapping stays instant.
 
 const MODEL = "anthropic/claude-sonnet-4.6";
@@ -157,7 +158,9 @@ export async function replaceIfDisliked(recipeId: number): Promise<Recipe | null
   const [done] = await sql`SELECT 1 FROM nutrition_recipes WHERE replaces_id = ${recipeId} LIMIT 1`;
   if (done) return null;
   const [row] = await sql`SELECT * FROM nutrition_recipes WHERE id = ${recipeId}`;
-  if (!row) return null;
+  // A recipe saved into the recipe box isn't in the rotation, so there's no
+  // sitting to refill; its rating still shapes the taste profile.
+  if (!row || row.saved_to_box) return null;
   const disliked = shapeRecipe(row as Record<string, unknown>);
   const slot = disliked.slot ?? "meal2";
 

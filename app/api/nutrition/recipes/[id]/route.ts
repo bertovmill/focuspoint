@@ -6,6 +6,9 @@ import { shapeRecipe } from "@/lib/nutrition-plan";
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH any subset of { name, description, slot, protein_g, kcal, ingredients }
+// PATCH { archived: true | false } removes a meal from the recipe box and the
+// rotation (or puts it back). Archived, not deleted: planned cells and ratings
+// still point at it.
 // GET  one bank meal with its full recipe, archived or not (a planned cell may
 // still point at an archived one).
 export async function GET(_req: Request, { params }: Params) {
@@ -23,6 +26,13 @@ export async function PATCH(req: Request, { params }: Params) {
     const sql = getDb();
     const [cur] = await sql`SELECT * FROM nutrition_recipes WHERE id = ${id}`;
     if (!cur) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (typeof body.archived === "boolean") {
+      const [row] = await sql`
+        UPDATE nutrition_recipes SET archived_at = ${body.archived ? new Date().toISOString() : null}, updated_at = NOW()
+        WHERE id = ${id} RETURNING *
+      `;
+      return NextResponse.json(shapeRecipe(row as Record<string, unknown>));
+    }
     const name = body.name !== undefined ? String(body.name).trim() : String(cur.name);
     if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
     const slot = body.slot !== undefined ? (MEAL_SLOT_KEYS.includes(body.slot) ? body.slot : null) : cur.slot;

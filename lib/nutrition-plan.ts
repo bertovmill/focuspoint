@@ -50,6 +50,9 @@ export interface Recipe {
   /** Saved into the recipe box (from a link or pasted text), not part of the bank rotation. */
   saved_to_box: boolean;
   created_at: string;
+  /** His latest 👍/👎 and one-liner, when the list was asked to carry them. */
+  rating?: MealRating | null;
+  rating_reason?: string | null;
 }
 
 // meal_date is formatted in SQL: the driver would otherwise hand back a Date

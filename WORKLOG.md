@@ -13085,3 +13085,16 @@ calendar squeezed every event into slivers whose titles were cut mid-word.
   check-ins per event); never the Luma guest total.
 - Local preview tip: `http://site.localhost:<port>/...` counts as the public host, so no login.
 - Next: fill TOTAL_SPEND, partner terms and PLATFORM values when Berto sends them.
+
+## 2026-11-01 — Meals: vision, values and process on top; smaller meal photos
+
+Berto: make the meal images smaller so the titles fit on the first fold, and put our
+vision, values and process above everything, since every meal comes after that.
+- **Vision, values and process** (`#meals-vision-values-process`) sits right under the
+  Meals title on /meals, above the save form and the cards. It's a `MarkdownDoc` he edits
+  in place, stored in app_settings under `meals.foundation.markdown` (`lib/meal-foundation.ts`,
+  `/api/meals/foundation`). Until he saves it, it shows a draft written from the eating
+  rules in `lib/nutrition.ts`.
+- **Smaller card photos**: 16:9 instead of 4:3, so each card is about 60px shorter and the
+  meal names land higher on the page.
+- Verified: tsc clean. Local preview is behind Clerk sign-in, so checked on production.

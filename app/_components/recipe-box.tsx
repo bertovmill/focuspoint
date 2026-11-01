@@ -42,8 +42,8 @@ function host(url: string) {
 }
 
 /**
- * The Meals page at /meals: every meal Cael knows, as warm pastel cards, and
- * the taste profile under them. It's the database Cael recommends from, not a
+ * The Meals page at /meals: the vision, values and process on top, then every
+ * meal Cael knows as warm pastel cards, and the taste profile under them. It's the database Cael recommends from, not a
  * plan. Paste a link (or, for sites that block apps, the recipe text) to save
  * one. Thumbs on each card feed the taste profile (liked first, disliked out);
  * Remove archives a meal, with Undo.
@@ -142,6 +142,23 @@ export function RecipeBox() {
           <h1 className="font-display text-4xl leading-[1.05] tracking-tight sm:text-5xl" style={{ fontFamily: cookDisplay.style.fontFamily }}>
             Meals
           </h1>
+        </header>
+
+        {/* Everything below follows from this: why he eats the way he does. */}
+        <MarkdownDoc
+          id="meals-vision-values-process"
+          endpoint="/api/meals/foundation"
+          className="mt-5"
+          heading={
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Vision, values and process</h2>
+              <p className="text-xs text-muted-foreground">Why we eat this way. Every meal below comes after this. Edit anything and it sticks.</p>
+            </div>
+          }
+          placeholder="Write the vision, values and process for how you eat."
+        />
+
+        <header className="mt-6">
           <p className="mt-2 text-[15px] text-[var(--cook-soft)]">
             {recipes === null
               ? " "
@@ -211,7 +228,7 @@ export function RecipeBox() {
         {recipes === null ? (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-72 rounded-3xl" />
+              <Skeleton key={i} className="h-60 rounded-3xl" />
             ))}
           </div>
         ) : shown.length === 0 ? (
@@ -247,7 +264,7 @@ export function RecipeBox() {
                   <Trash2Icon className="size-4" />
                 </button>
                 <Link href={recipeHref(r)} className="block">
-                  <div className="m-2 mb-0 aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-black/5">
+                  <div className="m-2 mb-0 aspect-[16/9] overflow-hidden rounded-[1.25rem] bg-black/5">
                     {r.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={r.image_url} alt="" className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />

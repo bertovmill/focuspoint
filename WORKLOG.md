@@ -4,6 +4,24 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-10-31 — Improve box ("liquid software")
+
+After Patrick Collison's "improvements" tweet: a freeform box that ships whatever is
+typed, no review. "Improve Cael" sits at the bottom of the nav rail, on the I key, in
+the ⌘K palette and in the phone More drawer (`app/_components/improve-dialog.tsx`).
+Submit → `POST /api/improvements` opens a GitHub issue labelled `improvement` that
+mentions @claude (`createIssue`; `listIssues` feeds the dialog's Recent list, open =
+Building, closed = Shipped). `.github/workflows/claude.yml` builds it on a
+`claude/issue-N-*` branch; the new `ship` job squash-merges that branch onto main as
+Berto Mill once `npm run typecheck` passes, pushes (Vercel deploys), deletes the branch
+and comments. On conflict or a type error it comments with the run link instead.
+The repo is public, so requests are public issues. Local `.env.local` GitHub token is
+stale (401), so the Recent list only works in prod.
+Verified locally: dialog opens from the rail and the I key; tsc clean; YAML parses.
+Not yet run end to end.
+
+---
+
 ## 2026-10-30 — Home tasks: details drawer
 
 Berto asked for task details and a right-side drawer when a task is clicked. Clicking a

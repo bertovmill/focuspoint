@@ -33,12 +33,14 @@ import {
   UserRoundIcon,
   UtensilsIcon,
   LightbulbIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { CommandPalette, type PaletteGroup, type PaletteItem } from "@/app/_components/command-palette";
 import { usePaletteHotkey } from "@/app/_components/use-palette-hotkey";
 import { useThreads } from "@/app/_components/threads-provider";
 import { noteTitleAndPreview } from "@/lib/note-title";
 import { PUBLIC_HOST } from "@/lib/public-site";
+import { openImprove } from "@/app/_components/improve-dialog";
 
 type Icon = typeof HomeIcon;
 
@@ -160,6 +162,7 @@ export function AppCommandPalette({ onNewChat, onNewTask }: { onNewChat: () => v
     const actions: PaletteItem[] = [
       { id: "action:new-chat", label: "New chat", hint: "C", icon: <MessageSquarePlusIcon />, keywords: ["cael", "ask"], onSelect: onNewChat },
       { id: "action:new-task", label: "New task", hint: "N", icon: <PlusIcon />, keywords: ["todo", "add"], onSelect: onNewTask },
+      { id: "action:improve", label: "Improve Cael", hint: "I", icon: <SparklesIcon />, keywords: ["feedback", "feature", "change", "fix", "request"], onSelect: openImprove },
       {
         id: "action:theme",
         label: dark ? "Switch to light mode" : "Switch to dark mode",

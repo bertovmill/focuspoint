@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon, UserRoundIcon, LightbulbIcon } from "lucide-react";
+import { ActivityIcon, DumbbellIcon, MessageCircleIcon, ListTodoIcon, FileTextIcon, BrainIcon, BrushIcon, ImageIcon, PanelLeftCloseIcon, PanelLeftIcon, CalendarClockIcon, CalendarDaysIcon, ListChecksIcon, BookOpenIcon, GaugeIcon, TelescopeIcon, MoreHorizontalIcon, HomeIcon, HeartIcon, BookMarkedIcon, MailIcon, AppleIcon, UtensilsIcon, BriefcaseIcon, PenLineIcon, UserRoundIcon, LightbulbIcon, SparklesIcon } from "lucide-react";
 import { ModeToggle } from "@/app/_components/mode-toggle";
 import { AccountButton } from "@/app/_components/account-button";
 import { PinButton } from "@/app/_components/pin-button";
@@ -16,6 +16,7 @@ import { KonstaApp } from "@/app/_components/konsta-app";
 import { Tabbar, TabbarLink } from "konsta/react";
 import { PIN_EVENT } from "@/app/_components/pin-button";
 import { AppCommandPalette } from "@/app/_components/app-command-palette";
+import { ImproveDialog, openImprove } from "@/app/_components/improve-dialog";
 import { ThreadsProvider, useThreads } from "@/app/_components/threads-provider";
 // The streak + points live above both the dashboard and the pinned window, so a
 // task finished in either one scores in the same place (see lib/streak.ts).
@@ -411,7 +412,7 @@ function Workspace({ children }: { readonly children: ReactNode }) {
   }, []);
 
   // Global shortcuts: T opens Tasks, N opens Tasks and focuses the new-task input,
-  // C starts a new chat.
+  // C starts a new chat, I opens the Improve box.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (pinned) return;
@@ -432,6 +433,9 @@ function Workspace({ children }: { readonly children: ReactNode }) {
       } else if (key === "c") {
         e.preventDefault();
         openNewChat();
+      } else if (key === "i") {
+        e.preventDefault();
+        openImprove();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -452,6 +456,8 @@ function Workspace({ children }: { readonly children: ReactNode }) {
         setFocusNewTaskSignal((n) => n + 1);
       }}
     />
+    {/* "Liquid software": type how Cael should change and Claude Code ships it. */}
+    <ImproveDialog />
     <main
       className={cn(
         "flex h-dvh overflow-hidden bg-background text-foreground",
@@ -534,6 +540,21 @@ function Workspace({ children }: { readonly children: ReactNode }) {
             </div>
           ))}
         </nav>
+        <div className="shrink-0 px-2 pb-2">
+          <button
+            onClick={openImprove}
+            title="Improve Cael (I)"
+            className={cn(
+              "group relative flex w-full items-center gap-2.5 rounded-md h-8 text-[13px] text-muted-foreground hover:text-foreground transition-colors",
+              "hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+              navRailOpen ? "px-2.5" : "justify-center px-0",
+            )}
+          >
+            <SparklesIcon className="size-4 shrink-0 text-primary" />
+            {navRailOpen && <span className="truncate">Improve Cael</span>}
+            {navRailOpen && <kbd className="ml-auto text-[11px] text-muted-foreground/70">I</kbd>}
+          </button>
+        </div>
         {/* Utility controls — pin, traces, panel collapse, theme. These used to
             live in the dashboard's top bar; the rail holds them now so the
             content panel is header-free. */}
@@ -775,6 +796,16 @@ function Workspace({ children }: { readonly children: ReactNode }) {
                   <span className="text-xs font-medium">{label}</span>
                 </button>
               ))}
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  openImprove();
+                }}
+                className="flex flex-col items-center gap-1.5 rounded-xl px-1 py-3 text-primary transition-colors hover:bg-muted active:scale-95 active:transition-transform"
+              >
+                <SparklesIcon className="size-5" />
+                <span className="text-xs font-medium">Improve</span>
+              </button>
             </div>
           </DrawerContent>
         </Drawer>}

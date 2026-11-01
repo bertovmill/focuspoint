@@ -49,3 +49,66 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: --allowedTools "Bash(npm run typecheck),Bash(npm run build),Bash(git:*)"
+
+  # The Improve box (issues labelled `improvement`, see app/api/improvements/route.ts)
+  # ships without review: once Claude has committed to its branch, squash it onto main
+  # if it still typechecks. The push to main deploys on Vercel; "Closes #N" closes the
+  # issue. Only runs after the claude job above, so the same actor gate applies.
+  ship:
+    needs: claude
+    if: |
+      contains(github.event.issue.labels.*.name, 'improvement') && (
+        github.event_name == 'issues' ||
+        (github.event_name == 'issue_comment' && !github.event.issue.pull_request)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ship-improvement
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      N: ${{ github.event.issue.number }}
+      TITLE: ${{ github.event.issue.title }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find Claude's branch
+        id: branch
+        run: |
+          git fetch -q origin main
+          branch=$(git branch -r --sort=-committerdate --list "origin/claude/issue-${N}-*" | head -1 | sed 's#^ *origin/##')
+          if [ -z "$branch" ] || [ -z "$(git log --oneline "origin/main..origin/$branch")" ]; then
+            echo "Claude left no changes for #$N; nothing to ship."
+            exit 0
+          fi
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.branch.outputs.name
+        with:
+          node-version: 24
+          cache: npm
+      - name: Squash onto main and typecheck
+        if: steps.branch.outputs.name
+        run: |
+          git config user.name "Berto Mill"
+          git config user.email "rmill@aucctus.com"
+          git checkout -q -B main origin/main
+          git merge --squash "origin/${{ steps.branch.outputs.name }}"
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          git commit -q -m "$TITLE (#$N)" -m "Shipped from Cael's Improve box by Claude Code. Closes #$N." -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+      - name: Push to main
+        if: steps.branch.outputs.name
+        run: |
+          git push origin main
+          git push origin --delete "${{ steps.branch.outputs.name }}" || true
+          gh issue comment "$N" --body "Shipped to main as $(git rev-parse --short HEAD). Vercel deploys it in a few minutes."
+      - name: Report failure
+        if: failure()
+        run: |
+          gh issue comment "$N" --body "Couldn't ship this: the merge conflicted or \`npm run typecheck\` failed ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})). Reply with @claude to have it fix the branch, and it'll ship again."

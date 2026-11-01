@@ -219,3 +219,47 @@ export async function createIssue(
   const body = (await res.json()) as { number: number; html_url: string };
   return { number: body.number, url: body.html_url };
 }
+
+export interface IssueSummary {
+  number: number;
+  title: string;
+  url: string;
+  state: "open" | "closed";
+  createdAt: string;
+  closedAt: string | null;
+}
+
+/** Recent issues with a label, newest first (the Improve box's history). */
+export async function listIssues(repo: string, label: string, limit = 10): Promise<IssueSummary[]> {
+  const res = await fetch(
+    `${API}/repos/${repo}/issues?labels=${encodeURIComponent(label)}&state=all&per_page=${limit}&sort=created&direction=desc`,
+    {
+      headers: {
+        Authorization: `Bearer ${token()}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) throw new Error(`GitHub ${res.status} listing issues on ${repo}: ${await res.text()}`);
+  const rows = (await res.json()) as {
+    number: number;
+    title: string;
+    html_url: string;
+    state: "open" | "closed";
+    created_at: string;
+    closed_at: string | null;
+    pull_request?: unknown;
+  }[];
+  return rows
+    .filter((r) => !r.pull_request)
+    .map((r) => ({
+      number: r.number,
+      title: r.title,
+      url: r.html_url,
+      state: r.state,
+      createdAt: r.created_at,
+      closedAt: r.closed_at,
+    }));
+}

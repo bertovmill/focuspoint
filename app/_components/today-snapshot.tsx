@@ -132,8 +132,12 @@ export function SleepToday({ today }: { today: string }) {
     .find((d) => d.metrics.find((m) => m.key === "sleep_minutes")?.value != null)?.date;
   const avg = nights.size ? [...nights.values()].reduce((a, b) => a + b, 0) / nights.size : null;
   const pct = avg === null ? 0 : avg / target;
-  const tone =
-    avg === null ? "#a1a1aa" : pct >= 1 ? "#059669" : pct >= 0.85 ? "#d97706" : "#e11d48";
+  const tone = sleepTone(avg, target);
+  // Week over week (Berto, 2026-11-01): the last 4 weeks' averages side by side. The
+  // newest week takes the headline's number so a just-typed night shows in both.
+  const weeks = (summary?.sleepWeeks ?? []).map((w, i, all) =>
+    i === all.length - 1 ? { ...w, avg, nights: nights.size } : w,
+  );
 
   const save = async () => {
     const hours = Number(draft.replace(",", "."));
@@ -253,9 +257,55 @@ export function SleepToday({ today }: { today: string }) {
             </div>
           </div>
         )}
+        {weeks.some((w) => w.avg !== null) && (
+          <div id="sleep-weekly-averages" className="mt-5 grid grid-cols-4 gap-3">
+            {weeks.map((w, i) => {
+              const ago = weeks.length - 1 - i;
+              return (
+                <div
+                  key={w.to}
+                  className="space-y-1.5"
+                  title={`${shortDate(w.from)} – ${shortDate(w.to)} · ${w.nights} of 7 tracked`}
+                >
+                  <div className="relative h-12 overflow-hidden rounded-md bg-zinc-400/15">
+                    <div
+                      className="absolute inset-x-0 bottom-0 rounded-md transition-[height]"
+                      style={{
+                        height: `${w.avg === null ? 0 : weekBarShare(w.avg, target) * 100}%`,
+                        backgroundColor: sleepTone(w.avg, target),
+                      }}
+                    />
+                  </div>
+                  <p className={cn("text-sm font-medium tabular-nums", w.avg === null && "text-muted-foreground")}>
+                    {w.avg === null ? "—" : hoursMinutes(w.avg)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {ago === 0 ? "This week" : ago === 1 ? "Last week" : `${ago} wks ago`}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
+}
+
+/**
+ * How full a week's bar is: the scale starts at 4h, not zero, so a 6h40 week reads
+ * clearly shorter than an 8h one instead of both looking nearly full. Full = goal.
+ */
+function weekBarShare(avg: number, target: number): number {
+  const floor = 240;
+  return Math.max(0.04, Math.min((avg - floor) / (target - floor), 1));
+}
+
+/** Green at the sleep goal, amber within 15% of it, red below that. */
+function sleepTone(avg: number | null, target: number): string {
+  if (avg === null) return "#a1a1aa";
+  const pct = avg / target;
+  return pct >= 1 ? "#059669" : pct >= 0.85 ? "#d97706" : "#e11d48";
 }
 
 /** "Today's", "Tomorrow's", "Yesterday's", else the weekday: "Thursday's". */

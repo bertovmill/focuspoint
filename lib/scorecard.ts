@@ -280,7 +280,15 @@ export type ScorecardSummary = {
   recordsSince: string;
   /** Top days per metric, best first — today included, so it can place live. */
   leaderboards: Record<MetricKey, PersonalBest[]>;
+  /** Average sleep per 7-day week, oldest first, the last ending on the viewed day. */
+  sleepWeeks: SleepWeek[];
 };
+
+/** One week of sleep for the home card's week-over-week strip. */
+export type SleepWeek = { from: string; to: string; avg: number | null; nights: number };
+
+/** How many weeks the sleep comparison looks back over (Berto, 2026-11-01). */
+export const SLEEP_WEEKS = 4;
 
 /** How many days each metric's leaderboard shows. */
 export const LEADERBOARD_SIZE = 5;
@@ -539,6 +547,24 @@ export async function getScorecardSummary(sql: Sql, date?: string): Promise<Scor
 
   const records = computeRecords(byDate, viewKey, trackingSince);
 
+  // He doesn't wear the watch every night, so each week averages only the nights
+  // tracked in it, the same way the card's headline does.
+  const sleepWeeks: SleepWeek[] = [];
+  for (let w = SLEEP_WEEKS - 1; w >= 0; w--) {
+    const to = shiftDay(viewKey, w * 7);
+    const tracked: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const v = values.get(shiftDay(to, i))?.sleep_minutes;
+      if (v != null) tracked.push(v);
+    }
+    sleepWeeks.push({
+      from: shiftDay(to, 6),
+      to,
+      avg: tracked.length ? tracked.reduce((a, b) => a + b, 0) / tracked.length : null,
+      nights: tracked.length,
+    });
+  }
+
   return {
     today,
     isToday: viewKey === todayKey,
@@ -553,6 +579,7 @@ export async function getScorecardSummary(sql: Sql, date?: string): Promise<Scor
     maxScore: MAX_DAY_SCORE,
     recordsSince: trackingSince,
     leaderboards: computeLeaderboards(byDate, trackingSince),
+    sleepWeeks,
   };
 }
 

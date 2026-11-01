@@ -44,6 +44,46 @@ export interface TemplateExercise {
   perSide?: boolean;
   /** Charted week over week. Superset partners and abs are logged but not charted. */
   tracked?: boolean;
+  /** Where he wants it by the end of the year (Berto, 2026-11-01). Core work has none. */
+  goal?: ExerciseGoal;
+}
+
+/** A year-end goal on one exercise; the log page shows how close the latest is. */
+export interface ExerciseGoal {
+  /** In his words: "4 plates a side × 10". */
+  label: string;
+  /** Weight to reach, as logged (per side for a perSide lift) — progress is weight ÷ this. */
+  weight?: number;
+  /** Reps per set at that weight; once the weight's there, progress is reps done ÷ reps × sets. */
+  reps?: number;
+  /** Sets at that weight (defaults to the exercise's). */
+  sets?: number;
+  /** Time to beat, in seconds — progress is this ÷ the best time. */
+  time?: number;
+  /** No fixed time yet: this much faster than the first logged time (0.1 = 10%). */
+  faster?: number;
+}
+
+/** "Goal: …" and how far along (0–1, null when there's nothing to measure yet). */
+export function goalProgress(
+  ex: TemplateExercise,
+  now: { weight: number | null; time: number | null; reps?: number },
+  firstTime: number | null,
+): { text: string; pct: number | null } | null {
+  const g = ex.goal;
+  if (!g) return null;
+  const clamp = (n: number) => Math.max(0, Math.min(1, n));
+  if (g.weight) {
+    const w = now.weight ?? 0;
+    if (w >= g.weight && g.reps && now.reps !== undefined) return { text: g.label, pct: clamp(now.reps / (g.reps * (g.sets ?? ex.sets))) };
+    return { text: g.label, pct: clamp(w / g.weight) };
+  }
+  const time = g.time ?? (g.faster && firstTime ? Math.round(firstTime * (1 - g.faster)) : null);
+  if (time) {
+    const text = g.time ? g.label : `${g.label} (≤ ${formatTime(time)})`;
+    return { text, pct: now.time ? clamp(time / now.time) : null };
+  }
+  return { text: g.label, pct: null };
 }
 
 export interface TemplateBlock {
@@ -73,6 +113,8 @@ export interface WorkoutTemplate {
   warmup?: string;
   cooldown?: string;
   blocks: TemplateBlock[];
+  /** The whole workout's year-end goal, when it's one number ("Sub 60 min"). */
+  goal?: string;
 }
 
 const LADDER = [10, 15, 20];

@@ -15,6 +15,7 @@ import {
   checklistParts,
   cuesFor,
   formatTime,
+  goalProgress,
   hitAll,
   hitSet,
   nextPrescription,
@@ -271,6 +272,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t.name}</h1>
+            {t.goal && <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Goal by Dec 31: {t.goal}</p>}
             <Link href={`/training/workouts/${t.slug}/edit`} className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">Edit workout</Link>
             <div className="mt-1 flex items-center gap-1">
               <Link href={workoutHref(t.slug, addDaysISO(date, -7))} className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="A week earlier">
@@ -306,7 +308,7 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
           <section id={b.key} className="overflow-hidden rounded-xl border">
             <h2 className="border-b bg-muted/40 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{b.label}</h2>
             {timed.map((ex) => (
-              <TimeRow key={ex.key} ex={ex} draggable={b.exercises.length > 1} row={rows[ex.key]} p={data.prescriptions[ex.key]} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
+              <TimeRow key={ex.key} ex={ex} draggable={b.exercises.length > 1} row={rows[ex.key]} p={data.prescriptions[ex.key]} firstTime={firstTime(data.history, ex.key, date)} activeSet={active?.exKey === ex.key ? active.set : null} onChange={(fn) => update(ex.key, fn)} onRename={(n) => renameExercise(ex.key, n)} onSaveCues={(c) => saveCues(ex.key, c)} />
             ))}
             {reps.length > 0 && (
             <div className={cn("overflow-x-auto", timed.length > 0 && "border-t")}>
@@ -381,6 +383,29 @@ export function WorkoutLog({ slug, date }: { slug: string; date: string }) {
         </section>
       )}
     </div>
+  );
+}
+
+/** The fastest set in a log (timed exercises). */
+function bestTime(l: StrengthLog | null): number | null {
+  const t = (l?.reps ?? []).filter((n): n is number => n !== null && n > 0);
+  return t.length ? Math.min(...t) : null;
+}
+
+/** The first time he logged this exercise (before `date`): the baseline a "10% faster" goal counts from. */
+function firstTime(history: StrengthLog[], key: string, date: string): number | null {
+  const first = history.filter((l) => l.exercise === key && l.log_date < date && bestTime(l) !== null).sort((a, b) => a.log_date.localeCompare(b.log_date))[0];
+  return first ? bestTime(first) : null;
+}
+
+/** "Goal by Dec 31: 360 lbs × 10 · 53%" under an exercise that has one. */
+function GoalLine({ goal }: { goal: { text: string; pct: number | null } | null }) {
+  if (!goal) return null;
+  return (
+    <p className="mt-0.5 text-xs text-muted-foreground">
+      Goal by Dec 31: <span className="font-medium text-foreground/80">{goal.text}</span>
+      {goal.pct !== null && <span className={cn("ml-1 tabular-nums", goal.pct >= 1 && "font-semibold text-emerald-700 dark:text-emerald-400")}>· {Math.round(goal.pct * 100)}%</span>}
+    </p>
   );
 }
 
@@ -506,6 +531,14 @@ function ExerciseRow({ ex, draggable, row, p, columns, onChange, onRename, onSav
         )}
       </td>
     </tr>
+    {ex.goal && (
+      // Its own full-width line: the exercise column is too narrow on a phone.
+      <tr>
+        <td colSpan={columns + 2} className={cn("px-3 pb-2.5 sm:px-4", draggable && "pl-7 sm:pl-8")}>
+          <GoalLine goal={goalProgress(ex, { weight: parseNum(row.weight) ?? p?.last?.weight ?? null, time: null, reps: total || totalReps(p?.last?.reps ?? []) }, null)} />
+        </td>
+      </tr>
+    )}
     {showNext && (
       <tr>
         <td colSpan={columns + 2} className="px-3 pb-3 sm:px-4">
@@ -797,7 +830,7 @@ function WeightField({ ex, value, onChange }: { ex: TemplateExercise; value: str
  * A timed exercise (a 1 km rep, a station, a 5 km split): one time box per set,
  * wrapping on a phone. Type "345" for 3:45 — the number pad has no colon.
  */
-function TimeRow({ ex, draggable, row, p, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; draggable: boolean; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
+function TimeRow({ ex, draggable, row, p, firstTime, activeSet, onChange, onRename, onSaveCues }: { ex: TemplateExercise; draggable: boolean; row: Row | undefined; p: (Prescription & { last: StrengthLog | null }) | undefined; firstTime: number | null; activeSet: number | null; onChange: (fn: (r: Row) => Row) => void; onRename: (name: string) => Promise<void>; onSaveCues: (cues: string) => Promise<void> }) {
   const [showCues, setShowCues] = useState(false);
   const sort = useSortable({ id: ex.key, disabled: !draggable });
   if (!row) return null;
@@ -874,6 +907,7 @@ function TimeRow({ ex, draggable, row, p, activeSet, onChange, onRename, onSaveC
             )}
           </div>
           {ex.note && <p className="mt-0.5 text-xs text-muted-foreground">{ex.note}</p>}
+          <GoalLine goal={goalProgress(ex, { weight: parseNum(row.weight), time: done.length ? Math.min(...done) : bestTime(p?.last ?? null) }, firstTime)} />
         </div>
         {single ? (
           box(row.reps[0], 0)

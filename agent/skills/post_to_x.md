@@ -6,6 +6,17 @@ description: Use when the user asks to post a tweet, share something on X, or wa
 
 When the user asks to tweet or post to X, follow this process.
 
+## Which account
+
+Two X accounts post from Cael:
+
+- **@robrt_mill** — his own. The default, and the rest of this skill is about it.
+- **@makersloungeto** — MakersLounge, the Toronto builders community he runs. Use it (`account: "makersloungeto"`) when he says MakersLounge, @makersloungeto, "the community account", or "post to both".
+
+If it's unclear which one he means, ask. "Post to both" means two separate `post_tweet` calls, one per account, each confirmed.
+
+MakersLounge tweets are a different voice: the community's, not his inner world. Skip Steps 1–2 for them. Write plainly about the event, the people building, or what happened, and link makerslounge.ca pages (e.g. makerslounge.ca/events/makerslounge-saturdays), never Luma. Take event facts from what he tells you, and never quote Luma signup counts.
+
 ## Step 1 — Draw from their inner world
 
 Before drafting, call `search_memory` with the user's current mood, focus, or topic. Look for:
@@ -69,7 +80,7 @@ Never call `post_tweet` without a clear "yes, post that" or equivalent from the 
 
 ## Step 5 — Post
 
-Once approved, call `post_tweet` with the exact confirmed text, plus `image_urls` for any confirmed images. Confirm it went through and share the link.
+Once approved, call `post_tweet` with the exact confirmed text, plus `image_urls` for any confirmed images and `account` when it isn't his own. Confirm it went through and share the link.
 
 ## Tone reference
 

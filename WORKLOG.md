@@ -4,6 +4,27 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-01 — Second X account: @makersloungeto posts from Cael
+
+Berto wanted MakersLounge's X account next to his own on /writing so he can ask Cael to
+post to either (or both). No second X developer app: @makersloungeto approves the same
+app through X's PIN flow (no callback URL to register), so both share one credit balance.
+- `x_accounts` table (handle, tokens) + `lib/x-accounts.ts`. @robrt_mill still signs with
+  the env tokens; any other handle uses its saved tokens. `tweets.account` and
+  `scheduled_tweets.account` record who posted (null = robrt_mill).
+- `lib/x-api.ts`: `postTweet`/`uploadTweetImage` take `account`; `startXConnect` /
+  `finishXConnect` do the PIN flow. Tweet URLs are now `x.com/<handle>/status/<id>`.
+- `/api/x-accounts` (list) and `/api/x-accounts/connect` (POST `{}` → authorize URL,
+  POST `{ pin }` → saves the account; request token waits in an httpOnly cookie).
+- /writing?tab=tweets: "Post as" pills above the composer (`&account=makersloungeto` in
+  the URL), "@makersloungeto · Connect" opens the Connect dialog, + connects any other
+  handle. Scheduled and posted rows show the handle once there are two accounts.
+- Agent `post_tweet` takes `account`; `post_to_x` skill has a MakersLounge section
+  (community voice, makerslounge.ca links, never Luma); instructions mention both.
+Next: Berto connects @makersloungeto once (sign in to X as it, approve, paste PIN).
+
+---
+
 ## 2026-11-01 — Calendar add fixed for the agent and MCP (Cael board 28)
 
 Every agent calendar call (add_calendar_event, list_calendar_events, the daily snapshot)

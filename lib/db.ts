@@ -961,6 +961,20 @@ async function applySchema() {
   await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS quotes INTEGER`;
   await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS bookmarks INTEGER`;
   await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS metrics_at TIMESTAMPTZ`;
+  // Which account posted it: Berto's own (robrt_mill) or another connected one
+  // in `x_accounts`. Null on tweets from before accounts existed: all robrt_mill (2026-11-01).
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS account TEXT`;
+  // Other X accounts Cael posts as (e.g. makersloungeto), connected through the
+  // X app's PIN flow on /writing?tab=tweets (lib/x-accounts.ts, 2026-11-01).
+  await sql`
+    CREATE TABLE IF NOT EXISTS x_accounts (
+      handle TEXT PRIMARY KEY,
+      x_user_id TEXT NOT NULL,
+      access_token TEXT NOT NULL,
+      access_token_secret TEXT NOT NULL,
+      connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   // Tweets saved from the composer to finish later, text only (2026-10-19).
   await sql`
     CREATE TABLE IF NOT EXISTS tweet_drafts (
@@ -986,6 +1000,8 @@ async function applySchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  // The account it will post as; null means robrt_mill (2026-11-01).
+  await sql`ALTER TABLE scheduled_tweets ADD COLUMN IF NOT EXISTS account TEXT`;
 
   // bertomill.com/capabilities: what Berto can do, and the projects that prove
   // each one (lib/portfolio.ts). The join row carries the evidence — how that

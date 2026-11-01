@@ -27,8 +27,8 @@ async function publish(id: number) {
         return new Blob([new Uint8Array(media.data)], { type: media.contentType });
       }),
     );
-    const mediaIds = await Promise.all(images.map((img) => uploadTweetImage(img)));
-    const tweet = await postTweet(claimed.text, { mediaIds });
+    const mediaIds = await Promise.all(images.map((img) => uploadTweetImage(img, claimed.account)));
+    const tweet = await postTweet(claimed.text, { mediaIds, account: claimed.account });
     await finishScheduledTweet(id, { tweetUrl: tweet.url });
     return { url: tweet.url };
   } catch (err) {

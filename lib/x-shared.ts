@@ -26,3 +26,11 @@ export function estimateTweetCost(text: string): number {
 export function formatUsd(n: number): string {
   return n < 1 ? `$${n.toFixed(3).replace(/0$/, "")}` : `$${n.toFixed(2)}`;
 }
+
+/** Berto's own X account, posted to with the env tokens. Others are connected on the Writing page. */
+export const PERSONAL_X_HANDLE = "robrt_mill";
+
+/** "@MakersLoungeTO" → "makersloungeto": how handles are stored and compared. */
+export function normalizeHandle(handle: string): string {
+  return handle.trim().replace(/^@/, "").toLowerCase();
+}

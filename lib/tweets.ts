@@ -1,4 +1,5 @@
 import { ensureSchema, getDb } from "./db";
+import { PERSONAL_X_HANDLE } from "./x-shared";
 
 /** A tweet Cael posted to X (lib/x-api.ts saves every one). */
 export interface Tweet {
@@ -9,6 +10,8 @@ export interface Tweet {
   /** The article it shared, when tweeted from a post in the editor. */
   postId: number | null;
   postTitle: string | null;
+  /** The handle it was posted as, without the @. */
+  account: string;
   createdAt: string;
   /** X's counts as of `metricsAt`; null until stats are first refreshed. */
   metrics: TweetMetrics | null;
@@ -32,6 +35,7 @@ function toTweet(row: Record<string, unknown>): Tweet {
     url: String(row.url),
     postId: row.post_id == null ? null : Number(row.post_id),
     postTitle: (row.post_title as string | null) ?? null,
+    account: (row.account as string | null) ?? PERSONAL_X_HANDLE,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     metrics:
       row.metrics_at == null
@@ -53,10 +57,16 @@ function toTweet(row: Record<string, unknown>): Tweet {
   };
 }
 
-export async function recordTweet(t: { tweetId: string; text: string; url: string; postId?: number }): Promise<void> {
+export async function recordTweet(t: {
+  tweetId: string;
+  text: string;
+  url: string;
+  postId?: number;
+  account: string;
+}): Promise<void> {
   await getDb()`
-    INSERT INTO tweets (tweet_id, text, url, post_id)
-    VALUES (${t.tweetId}, ${t.text}, ${t.url}, ${t.postId ?? null})
+    INSERT INTO tweets (tweet_id, text, url, post_id, account)
+    VALUES (${t.tweetId}, ${t.text}, ${t.url}, ${t.postId ?? null}, ${t.account})
     ON CONFLICT (tweet_id) DO NOTHING
   `;
 }
@@ -133,6 +143,8 @@ export interface ScheduledTweet {
   text: string;
   /** Public URLs of the attached images, from the `media` table. */
   imageUrls: string[];
+  /** The handle it will post as, without the @. */
+  account: string;
   scheduledAt: string;
   status: "scheduled" | "posting" | "posted" | "failed" | "cancelled";
   tweetUrl: string | null;
@@ -147,6 +159,7 @@ function toScheduled(row: Record<string, unknown>): ScheduledTweet {
     imageUrls: ((row.media_keys as string[] | null) ?? []).map(
       (k) => `/media/${k.split("/").map(encodeURIComponent).join("/")}`,
     ),
+    account: (row.account as string | null) ?? PERSONAL_X_HANDLE,
     scheduledAt: iso(row.scheduled_at),
     status: row.status as ScheduledTweet["status"],
     tweetUrl: (row.tweet_url as string | null) ?? null,
@@ -165,11 +178,16 @@ export async function listScheduledTweets(): Promise<ScheduledTweet[]> {
   return rows.map(toScheduled);
 }
 
-export async function createScheduledTweet(t: { text: string; mediaKeys: string[]; scheduledAt: Date }): Promise<ScheduledTweet> {
+export async function createScheduledTweet(t: {
+  text: string;
+  mediaKeys: string[];
+  scheduledAt: Date;
+  account: string;
+}): Promise<ScheduledTweet> {
   await ensureSchema();
   const rows = await getDb()`
-    INSERT INTO scheduled_tweets (text, media_keys, scheduled_at)
-    VALUES (${t.text}, ${t.mediaKeys}, ${t.scheduledAt.toISOString()})
+    INSERT INTO scheduled_tweets (text, media_keys, scheduled_at, account)
+    VALUES (${t.text}, ${t.mediaKeys}, ${t.scheduledAt.toISOString()}, ${t.account})
     RETURNING *
   `;
   return toScheduled(rows[0]);
@@ -189,13 +207,21 @@ export async function cancelScheduledTweet(id: number): Promise<boolean> {
  * Claim a due tweet for posting. Returns null when it was cancelled meanwhile,
  * or already claimed, so a retried step can never post it twice.
  */
-export async function claimScheduledTweet(id: number): Promise<{ text: string; mediaKeys: string[] } | null> {
+export async function claimScheduledTweet(
+  id: number,
+): Promise<{ text: string; mediaKeys: string[]; account: string } | null> {
   const rows = await getDb()`
     UPDATE scheduled_tweets SET status = 'posting'
     WHERE id = ${id} AND status = 'scheduled'
-    RETURNING text, media_keys
+    RETURNING text, media_keys, account
   `;
-  return rows[0] ? { text: String(rows[0].text), mediaKeys: (rows[0].media_keys as string[]) ?? [] } : null;
+  return rows[0]
+    ? {
+        text: String(rows[0].text),
+        mediaKeys: (rows[0].media_keys as string[]) ?? [],
+        account: (rows[0].account as string | null) ?? PERSONAL_X_HANDLE,
+      }
+    : null;
 }
 
 export async function finishScheduledTweet(id: number, result: { tweetUrl: string } | { error: string }): Promise<void> {

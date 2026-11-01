@@ -51,6 +51,7 @@ import {
   estimateTweetCost,
   formatUsd,
   hasLink,
+  PERSONAL_X_HANDLE,
   TWEET_IMAGE_MAX_BYTES,
   TWEET_IMAGE_TYPES,
   TWEET_MAX_IMAGES,
@@ -270,6 +271,7 @@ type TweetRow = {
   url: string;
   postId: number | null;
   postTitle: string | null;
+  account: string;
   createdAt: string;
   metrics: {
     impressions: number;
@@ -290,21 +292,41 @@ type ScheduledTweetRow = {
   id: number;
   text: string;
   imageUrls: string[];
+  account: string;
   scheduledAt: string;
   status: "scheduled" | "posting" | "failed";
   error: string | null;
 };
 
 /** A `datetime-local` value (local time, minute precision) for `d`. */
+/**
+ * Accounts that can be picked even before they're connected: picking one opens
+ * the Connect dialog. Any other handle can be connected from the + button.
+ */
+const SUGGESTED_X_HANDLES = ["makersloungeto"];
+
+// `?tab=tweets&account=makersloungeto` opens the composer posting as that account.
+function accountFromUrl(): string {
+  if (typeof window === "undefined") return PERSONAL_X_HANDLE;
+  return new URLSearchParams(window.location.search).get("account")?.toLowerCase() || PERSONAL_X_HANDLE;
+}
+function setUrlAccount(handle: string) {
+  const url = new URL(window.location.href);
+  if (handle === PERSONAL_X_HANDLE) url.searchParams.delete("account");
+  else url.searchParams.set("account", handle);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
 function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /**
- * /writing?tab=tweets — write a tweet and post it as @robrt_mill, and every
- * tweet Cael has posted (from here, a post's Tweet button, the agent, or the
- * daily-tweet task). Tweets written on X itself aren't here.
+ * /writing?tab=tweets — write a tweet and post it as @robrt_mill or another
+ * connected account (@makersloungeto), and every tweet Cael has posted (from
+ * here, a post's Tweet button, the agent, or the daily-tweet task). Tweets
+ * written on X itself aren't here.
  */
 function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [tweets, setTweets] = useState<TweetRow[] | null>(null);
@@ -324,7 +346,30 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
   const [balance, setBalance] = useState<number | null | undefined>(undefined);
   const [refreshingStats, setRefreshingStats] = useState(false);
   const [sortTop, setSortTop] = useState(false);
+  // Connected handles (Berto's own first) and the one the composer posts as.
+  const [accounts, setAccounts] = useState<string[]>([PERSONAL_X_HANDLE]);
+  const [account, setAccount] = useState(accountFromUrl);
+  const [connecting, setConnecting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const loadAccounts = useCallback(() => {
+    fetch("/api/x-accounts")
+      .then((r) => r.json())
+      .then((rows) => Array.isArray(rows) && setAccounts(rows.map((a: { handle: string }) => a.handle)))
+      .catch(() => {});
+  }, []);
+  useEffect(loadAccounts, [loadAccounts]);
+
+  const pickAccount = (handle: string) => {
+    if (!accounts.includes(handle)) {
+      setConnecting(true);
+      return;
+    }
+    setAccount(handle);
+    setUrlAccount(handle);
+  };
+  const pickerHandles = [...accounts, ...SUGGESTED_X_HANDLES.filter((h) => !accounts.includes(h))];
+  const accountReady = accounts.includes(account);
 
   const loadBalance = useCallback(() => {
     fetch("/api/tweets/credits")
@@ -384,7 +429,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
 
   const length = tweetLength(text);
   const cost = estimateTweetCost(text);
-  const canPost = !posting && (text.trim().length > 0 || images.length > 0) && length <= TWEET_LIMIT;
+  const canPost = !posting && accountReady && (text.trim().length > 0 || images.length > 0) && length <= TWEET_LIMIT;
   const saveDraft = async () => {
     setSaving(true);
     try {
@@ -425,6 +470,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
     try {
       const form = new FormData();
       form.append("text", text);
+      form.append("account", account);
       images.forEach((img) => form.append("images", img.file));
       const res = await fetch("/api/tweets", { method: "POST", body: form });
       const tweet = await res.json();
@@ -432,7 +478,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       if (draftId !== null) await fetch(`/api/tweets/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
       clearComposer();
       load();
-      toast.success("Posted to X.", {
+      toast.success(`Posted to X as @${tweet.account}.`, {
         action: { label: "View", onClick: () => window.open(tweet.url, "_blank", "noreferrer") },
       });
     } catch (err) {
@@ -473,6 +519,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       const form = new FormData();
       form.append("text", text);
       form.append("scheduledAt", new Date(scheduleAt).toISOString());
+      form.append("account", account);
       images.forEach((img) => form.append("images", img.file));
       const res = await fetch("/api/tweets/scheduled", { method: "POST", body: form });
       const row = await res.json();
@@ -511,9 +558,14 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           <h1 className="text-xl font-semibold">Writing</h1>
           <p className="text-sm text-muted-foreground">
             Tweets posted as{" "}
-            <a href="https://x.com/robrt_mill" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
-              @robrt_mill
-            </a>{" "}
+            {accounts.map((h, i) => (
+              <span key={h}>
+                {i > 0 && (i === accounts.length - 1 ? " and " : ", ")}
+                <a href={`https://x.com/${h}`} target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-foreground">
+                  @{h}
+                </a>
+              </span>
+            ))}{" "}
             from Cael: here, a post&apos;s Tweet button, or by asking Cael.
           </p>
         </header>
@@ -521,6 +573,33 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
         {tabs}
 
         <div className="flex flex-col gap-2 rounded-lg border p-3">
+          <div id="post-as" className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground">Post as</span>
+            {pickerHandles.map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => pickAccount(h)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 transition-colors",
+                  h === account ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                title={accounts.includes(h) ? undefined : `Connect @${h} first`}
+              >
+                @{h}
+                {!accounts.includes(h) && " · Connect"}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setConnecting(true)}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Connect another X account"
+              title="Connect another X account"
+            >
+              <PlusIcon className="size-3" />
+            </button>
+          </div>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -534,7 +613,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                 addImages(files);
               }
             }}
-            placeholder="What's happening?"
+            placeholder={account === PERSONAL_X_HANDLE ? "What's happening?" : `What's happening at @${account}?`}
             rows={3}
             className="field-sizing-content min-h-20 resize-none bg-transparent text-base outline-none placeholder:text-muted-foreground/60"
           />
@@ -631,6 +710,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                 <li key={t.id} className="flex items-start gap-2 px-3 py-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     {t.text && <p className="whitespace-pre-wrap break-words text-sm">{t.text}</p>}
+                    {accounts.length > 1 && <p className="text-xs text-muted-foreground">@{t.account}</p>}
                     {t.imageUrls.length > 0 && (
                       <div className="flex gap-2">
                         {t.imageUrls.map((url) => (
@@ -770,6 +850,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
                   </p>
                 )}
                 <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  {accounts.length > 1 && <span>@{t.account} ·</span>}
                   <span>{formatMoment(t.createdAt)}</span>
                   {t.postTitle && <span>· shared “{t.postTitle}”</span>}
                   <a href={t.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
@@ -799,7 +880,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
             />
           </label>
           <p className="text-xs text-muted-foreground">
-            Cael posts it publicly at that time ({Intl.DateTimeFormat().resolvedOptions().timeZone}), about {formatUsd(cost)} in X API credit.
+            Cael posts it publicly as @{account} at that time ({Intl.DateTimeFormat().resolvedOptions().timeZone}), about {formatUsd(cost)} in X API credit.
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setScheduleAt(null)}>
@@ -816,7 +897,7 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Post this to X?</AlertDialogTitle>
+            <AlertDialogTitle>Post this to X as @{account}?</AlertDialogTitle>
             <AlertDialogDescription className="whitespace-pre-wrap break-words">{text}</AlertDialogDescription>
           </AlertDialogHeader>
           {images.length > 0 && (
@@ -844,7 +925,123 @@ function TweetList({ tabs }: { tabs: React.ReactNode }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ConnectXAccountDialog
+        open={connecting}
+        onOpenChange={setConnecting}
+        onConnected={(handle) => {
+          setAccounts((cur) => (cur.includes(handle) ? cur : [...cur, handle]));
+          setAccount(handle);
+          setUrlAccount(handle);
+        }}
+      />
     </div>
+  );
+}
+
+/**
+ * Connect another X account through X's PIN flow: open X signed in as that
+ * account, approve Cael, paste the PIN X shows. The account then posts through
+ * the same X developer app (and credit) as @robrt_mill.
+ */
+function ConnectXAccountDialog({
+  open,
+  onOpenChange,
+  onConnected,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnected: (handle: string) => void;
+}) {
+  const [opened, setOpened] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [pin, setPin] = useState("");
+  const [finishing, setFinishing] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setOpened(false);
+      setPin("");
+    }
+  }, [open]);
+
+  const start = async () => {
+    // Opened before the request so the browser doesn't block it as a popup.
+    const tab = window.open("", "_blank");
+    setStarting(true);
+    try {
+      const res = await fetch("/api/x-accounts/connect", { method: "POST", body: "{}" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (tab) tab.location.href = data.authorizeUrl;
+      else window.open(data.authorizeUrl, "_blank");
+      setOpened(true);
+    } catch (err) {
+      tab?.close();
+      toast.error(err instanceof Error ? err.message : "Couldn't reach X.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const finish = async () => {
+    setFinishing(true);
+    try {
+      const res = await fetch("/api/x-accounts/connect", { method: "POST", body: JSON.stringify({ pin }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(`Connected @${data.handle}. Cael can post as it now.`);
+      onConnected(data.handle);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't connect.");
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !finishing && onOpenChange(o)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Connect an X account</DialogTitle>
+          <DialogDescription>
+            X asks you to sign in. Use the account Cael should post as, like @makersloungeto, then approve Cael.
+          </DialogDescription>
+        </DialogHeader>
+        <ol className="flex flex-col gap-4 text-sm">
+          <li className="flex flex-col gap-2">
+            <span>1. Open X and approve Cael.</span>
+            <Button variant={opened ? "outline" : "default"} className="self-start" onClick={() => void start()} disabled={starting}>
+              {starting ? <Loader2Icon className="animate-spin" /> : <ExternalLinkIcon />}
+              {opened ? "Open X again" : "Open X"}
+            </Button>
+          </li>
+          <li className="flex flex-col gap-2">
+            <span>2. Paste the PIN X shows you.</span>
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && opened && pin && void finish()}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="1234567"
+              disabled={!opened}
+              className="w-40 rounded-md border bg-transparent px-3 py-2 text-base tracking-widest disabled:opacity-50"
+            />
+          </li>
+        </ol>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={finishing}>
+            Cancel
+          </Button>
+          <Button onClick={() => void finish()} disabled={!opened || !pin || finishing}>
+            {finishing && <Loader2Icon className="animate-spin" />}
+            Connect
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

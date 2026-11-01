@@ -13,19 +13,23 @@ export async function GET() {
 }
 
 /**
- * POST — post a tweet from the Writing page's Tweets tab. Takes JSON `{ text }`,
- * or multipart form data with `text` and up to four `images`.
+ * POST — post a tweet from the Writing page's Tweets tab. Takes JSON `{ text, account? }`,
+ * or multipart form data with `text`, `account` and up to four `images`. `account`
+ * is a connected handle (lib/x-accounts.ts); robrt_mill when left out.
  */
 export async function POST(req: Request) {
   let text = "";
+  let account: string | undefined;
   let images: File[] = [];
   if (req.headers.get("content-type")?.startsWith("multipart/form-data")) {
     const form = await req.formData().catch(() => null);
     text = String(form?.get("text") ?? "");
+    account = String(form?.get("account") ?? "") || undefined;
     images = (form?.getAll("images") ?? []).filter((v): v is File => v instanceof File && v.size > 0);
   } else {
     const body = await req.json().catch(() => ({}));
     text = typeof body.text === "string" ? body.text : "";
+    account = typeof body.account === "string" && body.account ? body.account : undefined;
   }
   text = text.trim();
 
@@ -41,8 +45,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const mediaIds = await Promise.all(images.map((f) => uploadTweetImage(f)));
-    return NextResponse.json(await postTweet(text, { mediaIds }));
+    const mediaIds = await Promise.all(images.map((f) => uploadTweetImage(f, account)));
+    return NextResponse.json(await postTweet(text, { mediaIds, account }));
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't post to X" }, { status: 502 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { animate, stagger } from "motion";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +39,7 @@ export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay =
       el.style.opacity = "0";
       el.style.filter = "blur(16px)";
       el.style.transform = "translateY(14px)";
+      el.style.willChange = "transform, filter, opacity";
     });
 
     const byLine = new Map<number, HTMLSpanElement[]>();
@@ -56,7 +57,9 @@ export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay =
           delay: stagger(0.08, { startDelay: startDelay + lineIndex * 0.3 }),
           ease: [0.22, 1, 0.36, 1],
         },
-      );
+        // Drop the layers once the words land: a GPU layer per word of
+        // background-clipped type is more than a phone wants to hold while scrolling.
+      ).then(() => lineWords.forEach((el) => (el.style.willChange = "")));
     }
   }, [startDelay, tokensPerLine]);
 
@@ -64,16 +67,18 @@ export function AnimatedHeading({ as: Tag = "h1", className, lines, startDelay =
     <Tag ref={ref} className={cn(className)} aria-label={lines.join(" ")}>
       <span aria-hidden>
         {tokensPerLine.map((tokens, lineIndex) => (
-          <span key={lines[lineIndex]} className="block">
+          <span key={lines[lineIndex]} className="block text-balance">
             {tokens.map((token, tokenIndex) =>
               /^\s+$/.test(token) ? (
-                <span key={`space-${lineIndex}-${tokenIndex}`}>{" "}</span>
+                // A plain breaking space: the non-breaking one here used to carry over
+                // to the start of the next line when the headline wrapped.
+                <Fragment key={`space-${lineIndex}-${tokenIndex}`}>{" "}</Fragment>
               ) : (
                 <span
                   key={`word-${lineIndex}-${tokenIndex}`}
                   data-word
                   data-line-index={lineIndex}
-                  className="inline-block will-change-[transform,filter,opacity]"
+                  className="inline-block"
                 >
                   {token}
                 </span>

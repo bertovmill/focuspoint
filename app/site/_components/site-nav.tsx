@@ -203,7 +203,7 @@ export function SiteNav() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-28 bg-gradient-to-b from-background/85 via-background/50 to-transparent"
       />
-      <nav className="flex h-16 items-center gap-4 px-6 @min-[1180px]:gap-10">
+      <nav className="flex h-16 items-center gap-3 px-4 sm:gap-4 sm:px-6 @min-[1180px]:gap-10">
         <SiteLink href="/" className="group flex shrink-0 items-center gap-3 whitespace-nowrap text-lg font-medium tracking-tight">
           <Image
             src="/berto-headshot.jpg"
@@ -255,7 +255,7 @@ export function SiteNav() {
             MENU buttons on the right. */}
         <div className="ml-auto flex items-center gap-2 @min-[1180px]:hidden">
           <AskAiButton
-            className={cn(LABEL, "rounded-md border-border/60 bg-muted/60 px-3 py-2.5 text-foreground hover:bg-muted")}
+            className={cn(LABEL, "min-h-11 rounded-md border-border/60 bg-muted/60 px-3 py-2.5 text-foreground hover:bg-muted")}
           >
             Ask AI
           </AskAiButton>
@@ -266,7 +266,7 @@ export function SiteNav() {
             onClick={() => setOpen(true)}
             className={cn(
               LABEL,
-              "rounded-md border border-border/60 bg-muted/60 px-4 py-2.5 text-foreground transition-colors hover:bg-muted",
+              "min-h-11 rounded-md border border-border/60 bg-muted/60 px-4 py-2.5 text-foreground transition-colors hover:bg-muted",
             )}
           >
             Menu

@@ -144,7 +144,7 @@ export default async function SiteHomePage() {
   const latestEpisode = episodes[0];
 
   return (
-    <div className="overflow-x-clip px-6">
+    <div className="overflow-x-clip px-4 sm:px-6">
       {/* Intro: the pitch over the concrete wall, with the desk and the window
           to Toronto. Full-viewport, headline pinned bottom-left the way koto.com
           does it, resting on the wall just above the desk. `--desk-w` is the

@@ -72,7 +72,9 @@ export function ConcreteWall({ className, scene = false }: { className?: string;
   }, [weather]);
 
   useEffect(() => {
-    setSupported(typeof navigator !== "undefined" && "gpu" in navigator);
+    // Phones keep the CSS wall: the shader's frame loop never stops, and with
+    // the rest of the hero on the GPU it's enough to blank the page mid-scroll.
+    setSupported("gpu" in navigator && !window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
   // While the shader is up it draws the roller shade; otherwise the page does.

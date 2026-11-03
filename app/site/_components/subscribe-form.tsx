@@ -89,7 +89,8 @@ export function SubscribeForm({
           aria-label="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={variant === "inline" ? "flex-1" : undefined}
+          // 44px tall and 16px text on phones: a tap target, and iOS won't zoom on focus.
+          className={cn("h-11 text-base sm:h-9 sm:text-sm", variant === "inline" && "flex-1")}
         />
         {/* Hidden from people, and from screen readers; bots fill it in. */}
         <input
@@ -102,7 +103,7 @@ export function SubscribeForm({
           onChange={(e) => setWebsite(e.target.value)}
           className="absolute -left-[9999px] h-0 w-0 opacity-0"
         />
-        <Button type="submit" disabled={email.trim().length === 0 || state === "sending"}>
+        <Button type="submit" className="h-11 sm:h-9" disabled={email.trim().length === 0 || state === "sending"}>
           {state === "sending" && <Loader2Icon className="size-4 animate-spin" />}
           Subscribe
         </Button>

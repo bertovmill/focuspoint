@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PaperTexture, StaticRadialGradient } from "@paper-design/shaders-react";
 
 /**
@@ -21,6 +22,13 @@ const FILL: React.CSSProperties = { width: "100%", height: "100%" };
  * scrolls under it — grain that scrolls reads as a texture *image*, not as film.
  */
 export function PageGrain() {
+  // Not on touch screens. A fixed, blended layer over the whole page makes the
+  // phone recomposite everything under it on every scroll frame, and iOS gives
+  // up and paints the page blank mid-scroll. At 5% the grain isn't missed there.
+  const [show, setShow] = useState(false);
+  useEffect(() => setShow(!window.matchMedia("(pointer: coarse)").matches), []);
+  if (!show) return null;
+
   return (
     <div
       aria-hidden

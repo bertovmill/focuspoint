@@ -92,7 +92,11 @@ export function WindowStylePicker() {
               type="button"
               aria-label={`Window: ${style.label}. Show the next style`}
               onClick={() => windowStyleStore.cycle(1)}
-              className="flex h-6 items-center gap-1.5 rounded-full px-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+              className={cn(
+                "flex h-6 items-center gap-1.5 rounded-full px-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/10",
+                // A finger-sized hit area around the small pill on phones.
+                compact && "relative after:absolute after:-inset-2.5 after:content-['']",
+              )}
             >
               <WindowGlyph style={style} />
               {!compact && (

@@ -50,7 +50,7 @@ const DEFAULT = [
  */
 const ARTICLE = [
   "max-w-none font-serif text-[1.25rem]/[1.75] text-foreground/90 sm:text-[1.35rem]/[1.75]",
-  "[&>div>p:first-child]:first-letter:float-left [&>div>p:first-child]:first-letter:mr-3 [&>div>p:first-child]:first-letter:mt-1.5 [&>div>p:first-child]:first-letter:font-display [&>div>p:first-child]:first-letter:text-[5.6rem] [&>div>p:first-child]:first-letter:leading-[0.78] [&>div>p:first-child]:first-letter:font-semibold [&>div>p:first-child]:first-letter:text-primary",
+  "[&>div>p:first-child]:first-letter:float-left [&>div>p:first-child]:first-letter:mr-3 [&>div>p:first-child]:first-letter:mt-1.5 [&>div>p:first-child]:first-letter:font-display [&>div>p:first-child]:first-letter:text-[5.6rem] [&>div>p:first-child]:first-letter:leading-[0.78] [&>div>p:first-child]:first-letter:font-normal [&>div>p:first-child]:first-letter:text-primary",
   "[&_h2]:mt-16 [&_h2]:mb-5 [&_h2]:scroll-mt-24 [&_h2]:font-display [&_h2]:text-3xl [&_h2]:leading-tight [&_h2]:font-medium [&_h2]:tracking-tight [&_h2]:text-foreground sm:[&_h2]:text-4xl",
   "[&_h3]:mt-10 [&_h3]:mb-3 [&_h3]:scroll-mt-24 [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-medium [&_h3]:text-foreground",
   "[&_p]:my-6",

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { Fraunces, Newsreader } from "next/font/google";
+import { GeistSerifRegular } from "geist/font/serif/regular";
 import { PUBLIC_HOST, SITE_PREFIX, CHANNELS, isPublicHost } from "@/lib/public-site";
 import { SiteBasePathProvider } from "./_components/site-link";
 import { SiteNav } from "./_components/site-nav";
@@ -11,23 +11,10 @@ import { SiteFooter } from "./_components/site-footer";
 import { PageGrain } from "./_components/grain";
 import { AskAiProvider } from "./_components/ask-ai";
 
-// Fraunces for headlines, Newsreader for reading. Loaded here rather than in the
-// root layout so the Cael app doesn't download them.
-const display = Fraunces({
-  subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
-  display: "swap",
-});
-
-const serif = Newsreader({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-  display: "swap",
-});
-
-/* Set on :root rather than a wrapper, so portalled menus and popups get them too. */
-const FONT_VARS = `:root{--font-fraunces:${display.style.fontFamily};--font-newsreader:${serif.style.fontFamily}}`;
+// Geist Serif for headlines and reading text. It ships in one weight, 400.
+// Loaded here rather than in the root layout so the Cael app doesn't download it.
+/* Set on :root rather than a wrapper, so portalled menus and popups get it too. */
+const FONT_VARS = `:root{--font-geist-serif:${GeistSerifRegular.style.fontFamily}}`;
 
 /** The search snippet, og:description and the first line of llms.txt say the same thing. */
 const DESCRIPTION =

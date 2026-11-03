@@ -79,6 +79,7 @@
     "cmdk": "1.1.1",
     "embla-carousel-react": "^8.6.0",
     "eve": "^0.80.1",
+    "geist": "^1.9.0",
     "gray-matter": "^4.0.3",
     "hast-util-to-html": "^9.0.5",
     "heic-convert": "^2.1.0",

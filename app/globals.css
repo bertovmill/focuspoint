@@ -52,9 +52,10 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
-  /* bertomill.com's two serifs, loaded by app/site/layout.tsx. */
-  --font-display: var(--font-fraunces), Georgia, serif;
-  --font-serif: var(--font-newsreader), Georgia, serif;
+  /* bertomill.com sets headlines and reading text in Geist Serif, loaded by
+     app/site/layout.tsx. */
+  --font-display: var(--font-geist-serif), Georgia, serif;
+  --font-serif: var(--font-geist-serif), Georgia, serif;
 }
 
 :root {
@@ -903,9 +904,15 @@
   --tint-6: oklch(0.27 0.045 10);
 }
 
-/* Fraunces with its soft, slightly wonky cuts on: the fun in the headlines. */
+/* Geist Serif is the site's base face too: nav, buttons and labels, not just
+   headlines and articles. Mono labels keep their own face. */
+:root:has(.site-paper) body {
+  font-family: var(--font-serif);
+}
+
+/* Geist Serif has one weight; never fake a bolder one. */
 .font-display {
-  font-variation-settings: "SOFT" 100, "WONK" 1;
+  font-synthesis-weight: none;
 }
 
 /*

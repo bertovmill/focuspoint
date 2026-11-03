@@ -246,7 +246,7 @@ function Monogram({ title, large }: { title: string; large?: boolean }) {
     >
       <span
         className={cn(
-          "font-display font-semibold italic leading-none text-primary/80 transition-transform duration-500 group-hover:rotate-[-6deg] group-hover:scale-110",
+          "font-display italic leading-none text-primary/80 transition-transform duration-500 group-hover:rotate-[-6deg] group-hover:scale-110",
           large ? "text-[14rem]" : "text-[8rem]",
         )}
       >

@@ -4,6 +4,20 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-03 — bertomill.com is set in Geist Serif
+
+Berto: "change our website main font to geist serif", then "Everywhere". Headlines,
+reading text and the site's base face (nav, buttons) are now Geist Serif, replacing
+Fraunces + Newsreader. Loaded from the `geist` package (`geist/font/serif/regular`) in
+app/site/layout.tsx as `--font-geist-serif`; `--font-display` and `--font-serif` both
+point at it, and `:root:has(.site-paper) body` makes it the default on the site only
+(the Cael app keeps Geist Sans). Mono labels stay mono. Geist Serif ships one weight
+(400), so semibold drop caps/monograms were dropped to normal and `.font-display`
+turns off synthetic bold; the fitness page headings moved off `font-sans`. Finishes a
+draft from 2026-11-02 that had put body text in Sans.
+
+---
+
 ## 2026-11-01 — Meals is just the meal database now
 
 Berto: "all this planning things for the meals, lets remove, i want to make it just

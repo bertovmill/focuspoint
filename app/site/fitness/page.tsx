@@ -29,7 +29,7 @@ export const revalidate = 3600;
 
 /* Small uppercase mono label, the same one the nav and About page use. */
 const LABEL = "font-mono text-xs uppercase tracking-[0.18em]";
-const display = "font-sans font-semibold text-foreground/90";
+const display = "font-display text-foreground/90";
 
 export default function FitnessPage() {
   const today = torontoToday();

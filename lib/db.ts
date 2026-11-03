@@ -1058,4 +1058,25 @@ async function applySchema() {
       PRIMARY KEY (project_id, capability_id)
     )
   `;
+
+  // The evening reading loop (2026-11-03, lib/reading-picks.ts): one pick a night
+  // at 7pm, rated 👍/👎 with a one-liner. The ratings, plus what he logs and
+  // posts, rewrite the interest profile that the next pick is chosen from.
+  await sql`
+    CREATE TABLE IF NOT EXISTS reading_picks (
+      id SERIAL PRIMARY KEY,
+      pick_date DATE NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'article',
+      why TEXT NOT NULL DEFAULT '',
+      prompt TEXT NOT NULL DEFAULT '',
+      task_id INTEGER,
+      rating TEXT CHECK (rating IN ('up', 'down')),
+      feedback TEXT,
+      rated_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

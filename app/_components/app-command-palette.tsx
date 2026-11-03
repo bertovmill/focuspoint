@@ -52,6 +52,7 @@ const SECTIONS: { href: string; label: string; icon: Icon; keywords?: string[] }
   { href: "/notes", label: "Notes", icon: FileTextIcon, keywords: ["thoughts"] },
   { href: "/writing", label: "Writing", icon: PenLineIcon, keywords: ["posts", "articles", "blog"] },
   { href: "/writing?tab=tweets", label: "Tweets", icon: AtSignIcon, keywords: ["x", "twitter"] },
+  { href: "/writing?tab=reading", label: "Tonight's read", icon: BookOpenIcon, keywords: ["reading", "read", "pick", "article", "book"] },
   { href: "/sketches", label: "Sketches", icon: BrushIcon, keywords: ["draw", "excalidraw"] },
   { href: "/training", label: "Training", icon: DumbbellIcon, keywords: ["workout", "run", "hyrox", "week"] },
   { href: "/training/workouts", label: "Workouts", icon: DumbbellIcon, keywords: ["bank", "templates"] },

@@ -22,6 +22,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ReadingPicks } from "@/app/_components/reading-picks";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -90,13 +91,17 @@ function tweetLength(text: string) {
 function slugFromUrl() {
   return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("post");
 }
-// The list shows articles, or `?tab=tweets` for the tweet composer and history.
-type Tab = "posts" | "tweets";
+// The list shows articles, `?tab=tweets` for the tweet composer and history, or
+// `?tab=reading` for the evening reading pick (2026-11-03).
+type Tab = "posts" | "tweets" | "reading";
+function asTab(t: string | null): Tab {
+  return t === "tweets" || t === "reading" ? t : "posts";
+}
 function tabFromUrl(): Tab {
-  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "tweets" ? "tweets" : "posts";
+  return typeof window !== "undefined" ? asTab(new URLSearchParams(window.location.search).get("tab")) : "posts";
 }
 function setUrlTab(tab: Tab) {
-  window.history.pushState(null, "", tab === "tweets" ? "/writing?tab=tweets" : "/writing");
+  window.history.pushState(null, "", tab === "posts" ? "/writing" : `/writing?tab=${tab}`);
 }
 
 function setUrlSlug(slug: string | null, mode: "push" | "replace" = "push") {
@@ -211,7 +216,7 @@ export function WritingPanel() {
           if (slug) setTab("posts");
         }}
       />
-      <UrlParamWatcher name="tab" onChange={(t) => setTab(t === "tweets" ? "tweets" : "posts")} />
+      <UrlParamWatcher name="tab" onChange={(t) => setTab(asTab(t))} />
     </>
   );
 
@@ -226,6 +231,11 @@ export function WritingPanel() {
           setUrlSlug(s, "replace");
         }}
       />
+    </>
+  ) : tab === "reading" ? (
+    <>
+      {followUrl}
+      <ReadingPicks tabs={<WritingTabs tab={tab} onChange={switchTab} />} />
     </>
   ) : tab === "tweets" ? (
     <>
@@ -243,7 +253,7 @@ export function WritingPanel() {
 function WritingTabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
   return (
     <div role="tablist" className="inline-flex w-fit gap-1 rounded-lg bg-muted p-1">
-      {(["posts", "tweets"] as const).map((t) => (
+      {(["posts", "tweets", "reading"] as const).map((t) => (
         <button
           key={t}
           type="button"
@@ -255,7 +265,7 @@ function WritingTabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void
             tab === t && "bg-background text-foreground shadow-sm",
           )}
         >
-          {t === "posts" ? "Posts" : "Tweets"}
+          {t === "posts" ? "Posts" : t === "tweets" ? "Tweets" : "Reading"}
         </button>
       ))}
     </div>

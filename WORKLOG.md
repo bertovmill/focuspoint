@@ -13112,3 +13112,13 @@ vision, values and process above everything, since every meal comes after that.
 - **Smaller card photos**: 16:9 instead of 4:3, so each card is about 60px shorter and the
   meal names land higher on the page.
 - Verified: tsc clean. Local preview is behind Clerk sign-in, so checked on production.
+
+## 2026-11-03 — Evening reading loop (/writing?tab=reading)
+
+Berto wants an evening obsession that pays back instead of NFL: read what excites him, tweet or film his take, and have Cael learn what he's into.
+
+- **7pm pick** (`/api/cron/reading-pick`, `0 0 * * *` UTC = 7pm EST / 8pm EDT): `lib/reading-picks.ts` pulls founder/startup/AI essay feeds (Paul Graham, Naval, Stratechery, Lenny, Not Boring, Latent Space, YC, One Useful Thing, Elena Verna, SaaStr), skips anything picked before, and has Sonnet choose ONE (or, ~1 night in 5, a real book) against his interest profile. It goes on the board as "Read tonight: …" with the link, why, and a tweet prompt as a task update, plus a push.
+- **Feedback**: 👍/👎 + a one-liner on `/writing?tab=reading` (new Writing tab, also in the command palette as "Tonight's read"), or by telling Cael (`reading_pick` tool, also on MCP: tonight / swap / history / rate).
+- **Learning**: each rating rewrites the interest profile (`app_settings` `reading.interest_profile.markdown`) from ratings + his recent tweets, articles and finished books; lines he types in himself are kept, same pattern as the meal taste profile. "Try next" keeps it exploring.
+- New table `reading_picks` (one row per day). Files: `lib/reading-picks.ts`, `agent/tools/reading_pick.ts`, `app/_components/reading-picks.tsx`, `app/api/reading-picks/*`, `app/api/cron/reading-pick/route.ts`.
+- Next: the cron hour drifts an hour with DST (Vercel crons are UTC); auto-tweet from his feedback once he's rated a few.

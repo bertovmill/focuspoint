@@ -2,6 +2,7 @@ import { generateText } from "ai";
 import { getDb } from "@/lib/db";
 import { addDaysISO, todayISO } from "@/lib/nutrition";
 import { getProteinTarget } from "@/lib/nutrition-plan";
+import { getChatModelCached } from "@/lib/chat-model";
 
 // "What did you eat yesterday?" — the first-open-of-day check-in on Home
 // (Berto's ask, 2026-11-04). He answers in plain words ("fish with rice and
@@ -105,7 +106,6 @@ export async function weekSummary(endISO: string) {
   };
 }
 
-const ESTIMATE_MODEL = "anthropic/claude-haiku-4.5";
 
 const ESTIMATE_PROMPT = `You turn a short plain-English description of what someone ate in a day into a rough meal list with ballpark macros.
 Rules:
@@ -126,8 +126,11 @@ function fallbackEstimate(text: string): EstimatedMeal[] {
 
 export async function estimateMeals(text: string): Promise<EstimatedMeal[]> {
   try {
+    // Whatever model the chat picker is on: on the free Gateway tier that is the
+    // only one guaranteed to answer (Claude models 403 there, 2026-11-04).
+    const model = await getChatModelCached(getDb());
     const { text: raw } = await generateText({
-      model: ESTIMATE_MODEL,
+      model,
       system: ESTIMATE_PROMPT,
       prompt: text,
       temperature: 0.2,

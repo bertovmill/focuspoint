@@ -60,6 +60,8 @@ import set_training_session from "@/agent/tools/set_training_session";
 import sync_workouts from "@/agent/tools/sync_workouts";
 import training_plan_doc from "@/agent/tools/training_plan_doc";
 import set_focus from "@/agent/tools/set_focus";
+import list_chat_models from "@/agent/tools/list_chat_models";
+import set_chat_model from "@/agent/tools/set_chat_model";
 import sync_luma from "@/agent/lib/toolsets/events_and_news/sync_luma";
 import update_todo from "@/agent/tools/update_todo";
 import update_vision_item from "@/agent/tools/update_vision_item";
@@ -133,6 +135,8 @@ export const agentTools = {
   sync_workouts,
   training_plan_doc,
   set_focus,
+  list_chat_models,
+  set_chat_model,
   sync_luma,
   update_todo,
   update_vision_item,

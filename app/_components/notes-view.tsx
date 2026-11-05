@@ -359,7 +359,8 @@ export function NoteDetail({
   const created = new Date(note.created_at).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
 
   return (
-    <div className="flex min-h-full flex-col bg-background">
+    // `id` lets Cael's navigate_to tool scroll to and flash this note.
+    <div id={isNew ? undefined : `note-${note.id}`} className="flex min-h-full flex-col bg-background">
       <div className="sticky top-0 z-10 flex items-center gap-1 bg-background/90 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         {onBack ? (
           <Button

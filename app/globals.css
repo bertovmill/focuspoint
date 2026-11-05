@@ -946,3 +946,25 @@
   --tint-5: oklch(0.26 0.04 230);
   --tint-6: oklch(0.27 0.045 10);
 }
+
+/* Cael pointing at something on the page after `navigate_to` (hooks/use-agent-navigation.ts) */
+@keyframes cael-highlight-in {
+  0% {
+    box-shadow: 0 0 0 0 var(--primary);
+    background-color: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--primary) 35%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 14%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
+  }
+}
+
+.cael-highlight {
+  animation: cael-highlight-in 2.6s ease-out;
+  border-radius: 0.75rem;
+  scroll-margin: 6rem;
+}

@@ -336,6 +336,7 @@ function rendersInline(part: EveMessagePart): boolean {
 const QUIET_TOOLS = new Set(["load_toolset", "load_skill", "eve__skill", "eve__search", "eve__tool"]);
 
 const TOOL_LABELS: Record<string, string> = {
+  navigate_to: "taking you there",
   search_memory: "your notes",
   list_notes: "your notes",
   meals_doc: "meal notes",
@@ -377,7 +378,10 @@ function ToolGroup({ parts }: { parts: EveDynamicToolPart[] }) {
   const verb = parts.every((p) => isReadOnly(p.toolName))
     ? running ? "Checking" : "Checked"
     : running ? "Working on" : "Used";
-  const summary = `${verb} ${what}`;
+  // navigate_to moves his screen rather than touching data, so it gets its own line.
+  const summary = parts.every((p) => p.toolName === "navigate_to")
+    ? running ? "Taking you there" : "Took you there"
+    : `${verb} ${what}`;
 
   return (
     <Collapsible defaultOpen={failed} className="group/tools my-0.5 w-full">

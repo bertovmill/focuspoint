@@ -12,7 +12,8 @@ import {
 } from "eve/react";
 import { AlertCircleIcon, CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, KeyRoundIcon, ShieldQuestionIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { MODEL_CHANGED_EVENT } from "@/app/_components/model-picker";
 import {
   Attachment,
   AttachmentPreview,
@@ -400,6 +401,12 @@ function ToolGroup({ parts }: { parts: EveDynamicToolPart[] }) {
 
 function ToolPart({ part }: { part: EveDynamicToolPart }) {
   const running = isToolRunning(part.state);
+
+  // Cael switched its own model: tell the chat bar's picker to re-read it.
+  const switched = part.toolName === "set_chat_model" && part.state === "output-available";
+  useEffect(() => {
+    if (switched) window.dispatchEvent(new Event(MODEL_CHANGED_EVENT));
+  }, [switched]);
 
   if (part.toolName === "list_calendar_events") {
     const result =

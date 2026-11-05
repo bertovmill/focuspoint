@@ -56,9 +56,20 @@ function publish(next: Partial<Settings>) {
 
 let loadStarted = false;
 
+/**
+ * Fired (on `window`) when Cael switches its own model mid-chat with the
+ * `set_chat_model` tool, so the picker catches up without a reload.
+ */
+export const MODEL_CHANGED_EVENT = "cael:model-changed";
+
 function loadOnce() {
   if (loadStarted) return;
   loadStarted = true;
+  window.addEventListener(MODEL_CHANGED_EVENT, refresh);
+  refresh();
+}
+
+function refresh() {
   fetch("/api/settings/chat-model")
     .then((r) => r.json())
     .then((d) => {

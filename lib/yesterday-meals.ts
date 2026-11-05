@@ -25,6 +25,15 @@ export const SEED_CHIPS = [
 
 export const CHIP_COUNT = 6;
 export const CHECKIN_NOTE = "yesterday check-in";
+/** Meals he adds during the day itself ("+ Log a meal" on Home, 2026-11-05). */
+export const SAME_DAY_NOTE = "logged same day";
+
+/** Which day a check-in is about. */
+export type CheckinDay = "yesterday" | "today";
+
+export function dayISO(day: CheckinDay) {
+  return day === "today" ? todayISO() : yesterdayISO();
+}
 
 /** Rough daily calorie band that counts as "ate well" for a 160g-protein day. */
 export const KCAL_GOOD_MIN = 1700;
@@ -82,6 +91,22 @@ export async function getChips(): Promise<string[]> {
 export async function hasLoggedOn(date: string): Promise<boolean> {
   const [row] = await getDb()`SELECT 1 FROM nutrition_meals WHERE eaten_date = ${date} LIMIT 1`;
   return Boolean(row);
+}
+
+/** True once the "what did you eat yesterday?" answer for that date is in. Meals he
+ *  logged during the day don't count: the next morning still asks for the rest. */
+export async function hasCheckedIn(date: string): Promise<boolean> {
+  const [row] = await getDb()`SELECT 1 FROM nutrition_meals WHERE eaten_date = ${date} AND notes = ${CHECKIN_NOTE} LIMIT 1`;
+  return Boolean(row);
+}
+
+/** Everything logged for a date, however it got there. */
+export async function mealsOn(date: string): Promise<EstimatedMeal[]> {
+  const rows = await getDb()`
+    SELECT name, COALESCE(protein_g, 0)::float AS protein_g, COALESCE(kcal, 0)::int AS kcal
+    FROM nutrition_meals WHERE eaten_date = ${date} ORDER BY id
+  `;
+  return rows.map((r) => ({ name: String(r.name), protein_g: Math.round(Number(r.protein_g)), kcal: Number(r.kcal) }));
 }
 
 /** Last 7 logged days: average kcal + protein, and how many days were logged. */
@@ -170,20 +195,29 @@ export function judge(totals: { protein_g: number; kcal: number }, target_g: num
   return { verdict: "off", note: `Off day: ${parts.join(", ")}.` };
 }
 
-/** Estimate, store for yesterday, and judge. Replaces any earlier check-in rows for that date. */
-export async function saveCheckin(text: string, sweets: boolean, date = yesterdayISO()): Promise<CheckinResult> {
+/**
+ * Estimate, store, and judge. For yesterday this replaces any earlier check-in rows
+ * for that date (re-answering shouldn't double-count). For today it appends: each
+ * "+ Log a meal" adds to the day. Either way the totals and verdict cover the whole
+ * day, including meals logged any other way.
+ */
+export async function saveCheckin(text: string, sweets: boolean, day: CheckinDay = "yesterday"): Promise<CheckinResult> {
   const sql = getDb();
+  const date = dayISO(day);
+  const note = day === "today" ? SAME_DAY_NOTE : CHECKIN_NOTE;
   const described = sweets && !/sweet|dessert|chocolate|cookie|cake|candy|ice cream/i.test(text) ? `${text}. Also some sweets.` : text;
-  const [meals, target_g] = await Promise.all([estimateMeals(described), getProteinTarget()]);
-  // Re-answering the same day shouldn't double-count: drop the previous check-in rows only.
-  await sql`DELETE FROM nutrition_meals WHERE eaten_date = ${date} AND notes = ${CHECKIN_NOTE}`;
-  for (const m of meals) {
+  const [added, target_g] = await Promise.all([estimateMeals(described), getProteinTarget()]);
+  if (day === "yesterday") {
+    await sql`DELETE FROM nutrition_meals WHERE eaten_date = ${date} AND notes = ${CHECKIN_NOTE}`;
+  }
+  for (const m of added) {
     await sql`
       INSERT INTO nutrition_meals (name, notes, felt_good, eaten_date, protein_g, kcal)
-      VALUES (${m.name}, ${CHECKIN_NOTE}, TRUE, ${date}, ${m.protein_g}, ${m.kcal})
+      VALUES (${m.name}, ${note}, TRUE, ${date}, ${m.protein_g}, ${m.kcal})
     `;
   }
+  const meals = await mealsOn(date);
   const totals = meals.reduce((a, m) => ({ protein_g: a.protein_g + m.protein_g, kcal: a.kcal + m.kcal }), { protein_g: 0, kcal: 0 });
-  const { verdict, note } = judge(totals, target_g, sweets);
-  return { date, meals, totals, target_g, sweets, verdict, note };
+  const { verdict, note: verdictNote } = judge(totals, target_g, sweets);
+  return { date, meals, totals, target_g, sweets, verdict, note: verdictNote };
 }

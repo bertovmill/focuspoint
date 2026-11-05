@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { sessionHref } from "@/app/_components/session-editor";
 import { MealFeedback } from "@/app/_components/meal-feedback";
 import { SwapWorkoutDialog } from "@/app/_components/swap-workout-dialog";
+import { LogMealLink } from "@/app/_components/yesterday-checkin";
 import { daysUntil, isTraining, sessionMeta, targetLabel, type Activity, type TrainingEvent, type TrainingSession } from "@/lib/training";
 import type { DayStrategy, StrategyBlock } from "@/lib/day-strategy";
 import type { PlannedMeal } from "@/lib/nutrition-plan";
@@ -616,8 +617,10 @@ export function MealsToday({ today }: { today: string }) {
   return (
     <div className="@container flex h-full flex-col">
       {/* In a div so the heading keeps its line box, level with the sleep heading. */}
-      <div>
+      <div className="flex items-start justify-between gap-2">
         <Heading href="/meals">{`${dayPossessive(today)} meals`}</Heading>
+        {/* Day-of logging, when a meal comes to mind (Berto, 2026-11-05). */}
+        {today === todayISO() && <LogMealLink className="-mt-0.5" />}
       </div>
       {meals === null ? (
         <div className="grid gap-3 @md:grid-cols-3">

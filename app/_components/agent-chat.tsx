@@ -14,6 +14,7 @@ import { EveComposer } from "@/components/chat/eve-composer";
 import { EveThread, type EveAgent, type SentFile } from "@/components/chat/eve-thread";
 import { useResumeInterruptedTurn } from "@/hooks/use-resume-turn";
 import { useThreadAgent } from "@/hooks/use-thread-agent";
+import { useAgentNavigation } from "@/hooks/use-agent-navigation";
 import { PinButton } from "@/app/_components/pin-button";
 import { useThreadLoaded, useThreads } from "@/app/_components/threads-provider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,6 +131,8 @@ function ChatSession({
 
   const rawAgent = useThreadAgent(threadId, { onSessionLost });
   const corner = variant === "corner";
+  // Cael's `navigate_to` results move the page under this chat (hooks/use-agent-navigation.ts).
+  useAgentNavigation(rawAgent.data.messages);
 
   // In the corner, every send carries a hidden line about the page Berto is on
   // (lib/chat-context strips it from the bubble). Read through a ref so the

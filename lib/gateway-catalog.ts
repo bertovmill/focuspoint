@@ -1,6 +1,8 @@
-import "server-only";
-
 import { gateway } from "ai";
+
+// No `server-only` guard: Cael's own tools (agent/tools/*_chat_model*.ts) import
+// this too, and eve's build evaluates tool modules outside Next's server
+// context, where that guard throws. Nothing here is client code anyway.
 
 import {
   CHAT_MODEL_FALLBACK,

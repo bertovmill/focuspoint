@@ -8,6 +8,7 @@ import { BUDDY } from "./cast";
 import { useAskAi } from "../ask-ai-context";
 import { NEUTRAL_SKY, skyAt, useSiteWeather, wallNow } from "../concrete-wall/sky";
 import type { AgentStage, Pose, RoomLayout } from "./stage";
+import { createBubbleGlass, MARGIN as GLASS_MARGIN } from "./bubble-glass";
 import type { JarErrandEvent, JarHoldEvent } from "../concrete-wall/desk-scene";
 
 // The chat (and its network code) loads the first time someone opens it.
@@ -54,6 +55,15 @@ export function HeroAgents() {
   const [nudge, setNudge] = useState<"typing" | "said" | null>(null);
   const nudgeRef = useRef<HTMLDivElement>(null);
   const [firstQuestion, setFirstQuestion] = useState<string | null>(null);
+  // Liquid glass under the hello bubble (bubble-glass.ts), where WebGPU is in;
+  // the plain CSS bubble otherwise, or if the GPU gives up.
+  const [glass, setGlass] = useState(false);
+  const glassRef = useRef<ReturnType<typeof createBubbleGlass> | null>(null);
+  const glassCanvasRef = useRef<HTMLCanvasElement>(null);
+  const glassBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setGlass("gpu" in navigator);
+  }, []);
 
   // Where the desk is, remeasured when the hero changes size.
   const layoutRef = useRef<RoomLayout>({ width: 0, height: 0, desk: null });
@@ -111,6 +121,7 @@ export function HeroAgents() {
       bubble.style.transform = `translate(${x}px, ${pose.y - pose.height * 1.2 - bubble.offsetHeight}px)`;
       // The tail points at its head even when the bubble is pushed in from an edge.
       bubble.style.setProperty("--tail", `${Math.min(Math.max(18, pose.x - x), bw - 18)}px`);
+      glassRef.current?.move(x, pose.y);
     }
     const el = buttonRef.current;
     if (!el) return;
@@ -120,6 +131,39 @@ export function HeroAgents() {
     el.style.height = `${pose.height * 1.1}px`;
     el.style.transform = `translate(${pose.x - w / 2}px, ${pose.y - pose.height * 1.1}px)`;
   }, []);
+
+  // Pour the glass while the hello bubble is up.
+  const nudging = nudge !== null && !open;
+  useEffect(() => {
+    const canvas = glassCanvasRef.current;
+    const box = glassBoxRef.current;
+    if (!glass || !nudging || !canvas || !box) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const html = document.documentElement;
+    const renderer = createBubbleGlass(canvas, {
+      isDark: () => html.classList.contains("dark"),
+      reducedMotion: () => motion.matches,
+      box: () => ({
+        width: box.offsetWidth,
+        height: box.offsetHeight,
+        corner: 16,
+        tail: parseFloat(box.parentElement?.style.getPropertyValue("--tail") || "") || box.offsetWidth / 2,
+      }),
+      onFail: (error) => {
+        console.warn("Bubble glass stopped", error);
+        setGlass(false);
+      },
+    });
+    glassRef.current = renderer;
+    renderer.ready.catch((error: unknown) => {
+      console.warn("Bubble glass could not start", error);
+      setGlass(false);
+    });
+    return () => {
+      glassRef.current = null;
+      renderer.dispose();
+    };
+  }, [glass, nudging]);
 
   // Start the stage once the page has settled.
   useEffect(() => {
@@ -396,14 +440,33 @@ export function HeroAgents() {
             className="pointer-events-auto absolute left-0 top-0 w-[min(17rem,calc(100vw-1.5rem))] [--tail:50%]"
           >
             <div
+              ref={glassBoxRef}
               className={cn(
-                "relative rounded-2xl bg-background/95 text-sm/5 text-foreground shadow-[0_10px_30px_rgba(20,16,10,0.18)] ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10",
+                "relative rounded-2xl text-sm/5 text-foreground",
+                !glass && "bg-background/95 shadow-[0_10px_30px_rgba(20,16,10,0.18)] ring-1 ring-black/5 backdrop-blur-md dark:ring-white/10",
                 "animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-300",
                 nudge === "typing" ? "w-fit px-3.5 py-3" : "px-4 pb-3 pt-3",
               )}
             >
+              {glass && (
+                <>
+                  {/* The page blurs under a static box; the glass draws the shape over it, the text sits on top. */}
+                  <div aria-hidden className="absolute inset-0 rounded-2xl backdrop-blur-md" />
+                  <canvas
+                    ref={glassCanvasRef}
+                    aria-hidden
+                    className="pointer-events-none absolute block"
+                    style={{
+                      left: -GLASS_MARGIN,
+                      top: -GLASS_MARGIN,
+                      width: `calc(100% + ${2 * GLASS_MARGIN}px)`,
+                      height: `calc(100% + ${2 * GLASS_MARGIN}px)`,
+                    }}
+                  />
+                </>
+              )}
               {nudge === "typing" ? (
-                <span className="flex gap-1" aria-label="Berto's helper is typing">
+                <span className="relative flex gap-1" aria-label="Berto's helper is typing">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
@@ -413,7 +476,7 @@ export function HeroAgents() {
                   ))}
                 </span>
               ) : (
-                <>
+                <div className="relative animate-in fade-in duration-300">
                   <button
                     type="button"
                     onClick={() => setNudge(null)}
@@ -446,13 +509,15 @@ export function HeroAgents() {
                       </button>
                     ))}
                   </div>
-                </>
+                </div>
               )}
-              {/* The tail, toward its head. */}
-              <span
-                aria-hidden
-                className="absolute -bottom-1.5 left-[var(--tail)] size-3 -translate-x-1/2 rotate-45 rounded-[2px] bg-background/95"
-              />
+              {/* The tail, toward its head; the glass draws its own. */}
+              {!glass && (
+                <span
+                  aria-hidden
+                  className="absolute -bottom-1.5 left-[var(--tail)] size-3 -translate-x-1/2 rotate-45 rounded-[2px] bg-background/95"
+                />
+              )}
             </div>
           </div>
         </div>

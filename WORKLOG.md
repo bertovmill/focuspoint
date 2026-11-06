@@ -4,6 +4,40 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-06 — Buddy's hello bubble is liquid glass, and wobbles when he stops
+
+Berto (from a screenshot of the homepage greeting bubble): make the bubble a "liquid
+layout" after the vgpu `liquid-layout` example, and give the box a little momentum
+wiggle when the sprite stops. Scope he set: the hello bubble only, subtle, still
+squarish.
+- **`app/site/_components/hero-agents/bubble-glass.wgsl`** (new): one fullscreen pass
+  over a canvas 32 px bigger than the bubble on every side. The bubble is a rounded
+  rect plus its tail (a diamond, smooth-min'd in) as a distance field, strained by a
+  2×2 jelly matrix; lit as pale glass: a soft bevel toward the upper-left key light,
+  a faint sheen, a hairline on the rim (dark ring in light mode, lit edge in dark),
+  and a shadow on the desk below. Premultiplied output, so outside the glass only the
+  shadow shows. The DOM bubble carries no fill, shadow, ring or tail of its own when
+  the glass is live; the text sits on top, over a static `backdrop-blur` box.
+- **`bubble-glass.ts`** (new): the dynamics, cut down from the example's
+  `liquid-dynamics.ts` to one blob. The strain chases a velocity-aligned stretch
+  through an under-damped spring (ω = 3 Hz, ζ = 0.26), so when the buddy stops the
+  bubble overshoots into a squash and rings two or three times. The body trails the
+  bubble up to 8 px so a stretch reads as drag. The size follows the DOM box through a
+  spring too, so the typing pill blooms into the text box (and the change of size kicks
+  the jelly). Velocity comes from the wrapper's per-pose translate (`move(x, y)` from
+  `onPose`). Fill colour is the page's `--background` read through a 1×1 2D canvas,
+  re-read when `html.dark` flips. Reduced motion: no strain, sizes snap, glass stays.
+- **`hero-agents.tsx`**: `glass` state (`"gpu" in navigator`, falls back to the CSS
+  bubble on any GPU failure, same shape as the concrete wall); the renderer lives while
+  the hello bubble is up. The "said" content fades in over the pill.
+- No new dependencies: the installed vgpu 0.5 has everything the example needs.
+  Checked in the browser pane on a `site.localhost` preview: glass bubble with tail in
+  light and dark, follows the buddy on the watering errand with a visible lean mid-walk.
+- Next: the chat card could get the same glass (not asked for; he chose the hello
+  bubble only).
+
+---
+
 ## 2026-11-06 — Meal check-in is a voice dump first
 
 Berto (from a screenshot of the morning "What did you eat yesterday?" popup, dictating

@@ -12,6 +12,7 @@ import { SubscribeForm } from "./subscribe-form";
 const EXPLORE = [
   { href: "/about", label: "About" },
   { href: "/writing", label: "Writing" },
+  { href: "/learning", label: "Learning" },
   { href: "/podcast", label: "Podcast" },
   { href: "/capabilities", label: "Builds" },
   { href: "/newsletter", label: "Newsletter" },

@@ -31,11 +31,12 @@ export type ChatModel = {
 
 /**
  * The picker only offers models at or under this output price (USD per 1M
- * tokens). Since 2026-10-03: the Claude tiers drained Gateway credits until
- * chats died mid-conversation, so the expensive end of the catalog is gone
- * from the list and the settings route refuses it.
+ * tokens). 2026-10-03: the Claude tiers drained Gateway credits until chats
+ * died mid-conversation, so the ceiling went to $3. 2026-11-06: raised to $15
+ * so Sonnet-class / GPT-5-class models are available again (Opus-class stays
+ * out). The default model stays cheap; the pricier ones are an explicit pick.
  */
-export const MAX_OUTPUT_PRICE = 3;
+export const MAX_OUTPUT_PRICE = 15;
 
 /**
  * The picker only offers models with at least this much context. A fresh Cael
@@ -87,6 +88,8 @@ export const CHAT_MODEL_DEFAULT_PINS: readonly string[] = [
   CHAT_MODEL_DEFAULT,
   "openai/gpt-5-mini",
   "google/gemini-3-flash",
+  "anthropic/claude-sonnet-5.5",
+  "openai/gpt-5",
 ];
 
 /**

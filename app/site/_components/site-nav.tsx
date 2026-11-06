@@ -19,6 +19,7 @@ const NAV = [
   { href: "/work", label: "Work" },
   { href: "/capabilities", label: "Capabilities" },
   { href: "/writing", label: "Writing" },
+  { href: "/learning", label: "Learning" },
   { href: "/podcast", label: "Podcast" },
   { href: "/fitness", label: "Fitness" },
 ];

@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/content";
 import { listPublishedPosts } from "@/lib/posts";
 import { listMediumPosts } from "@/lib/medium";
 import { listSubstackPosts } from "@/lib/substack";
+import { sameTitle } from "@/lib/latest";
 import { cn } from "@/lib/utils";
 import { SiteLink } from "../_components/site-link";
 import { SubscribeForm } from "../_components/subscribe-form";
@@ -266,11 +267,4 @@ function tintFor(index: number): string {
 }
 
 /** Titles match when they're the same words, ignoring case, quotes and punctuation. */
-function sameTitle(a: string, b: string): boolean {
-  const norm = (t: string) =>
-    t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-  return norm(a) === norm(b);
-}
+

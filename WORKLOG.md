@@ -13160,3 +13160,24 @@ Berto wants an evening obsession that pays back instead of NFL: read what excite
 - **Learning**: each rating rewrites the interest profile (`app_settings` `reading.interest_profile.markdown`) from ratings + his recent tweets, articles and finished books; lines he types in himself are kept, same pattern as the meal taste profile. "Try next" keeps it exploring.
 - New table `reading_picks` (one row per day). Files: `lib/reading-picks.ts`, `agent/tools/reading_pick.ts`, `app/_components/reading-picks.tsx`, `app/api/reading-picks/*`, `app/api/cron/reading-pick/route.ts`.
 - Next: the cron hour drifts an hour with DST (Vercel crons are UTC); auto-tweet from his feedback once he's rated a few.
+
+## 2026-11-06 — Homepage "Latest" is three photo cards, pulled live
+
+The home page's Latest list only read the Substack feed, so the site-native
+posts Cael publishes (the ones with covers) never showed, and the Substack
+`&#8217;` showed raw. Tweets were not on the homepage at all.
+
+- `lib/latest.ts`: one loader for the three cards. `listAllWriting()` merges
+  site posts + Substack + Medium (dedupe by title, newest first; a post with no
+  cover falls back to its first inline sketch). `latestPodcast()` takes the
+  newest episode and fetches its cover from Spotify's public oEmbed (no keys,
+  cached a day). `latestTweet()` reads the newest row in `tweets`, with the
+  photo from the `scheduled_tweets` row it was posted from, or the shared
+  article's cover; a text-only tweet gets a tinted block.
+- `app/site/page.tsx`: `#latest` is a 3-up grid (Writing / Podcast / On X)
+  with 4:3 photo, label, date, title, clamped summary. The tweet card shows the
+  tweet text itself and links to X.
+- `lib/substack.ts` decodes numeric entities. `next.config.ts` allows
+  `i.scdn.co` and `*.spotifycdn.com`. The writing index reuses `sameTitle`.
+- Verified on site.localhost:3061: "We are the harness" (Nov 3) with its
+  sketch, the Paul Campbell episode with Spotify art, the Nov 4 tweet.

@@ -36,6 +36,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "miro.medium.com" },
       // Images stored in the database since 2026-10-19 (app/media).
       { protocol: "https", hostname: "bertomill.com", pathname: "/media/**" },
+      // Podcast episode covers from Spotify's oEmbed (lib/latest.ts).
+      { protocol: "https", hostname: "i.scdn.co" },
+      { protocol: "https", hostname: "*.spotifycdn.com" },
     ],
   },
 };

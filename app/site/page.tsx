@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
 import { ASK_AI_HASH } from "@/lib/public-site";
-import { listContent, formatDate } from "@/lib/content";
-import { listSubstackPosts } from "@/lib/substack";
+import { formatDate } from "@/lib/content";
+import { listAllWriting, latestPodcast, latestTweet } from "@/lib/latest";
 import { SiteLink } from "./_components/site-link";
 import { AskAiButton } from "./_components/ask-ai";
 import { RevealOnView } from "./_components/reveal-on-view";
@@ -136,12 +136,12 @@ const EXPERIENCE = [
 }[];
 
 export default async function SiteHomePage() {
-  const [writing, episodes] = await Promise.all([
-    listSubstackPosts(),
-    listContent("podcast"),
+  const [writing, latestEpisode, tweet] = await Promise.all([
+    listAllWriting(),
+    latestPodcast(),
+    latestTweet(),
   ]);
   const latestWriting = writing[0];
-  const latestEpisode = episodes[0];
 
   return (
     <div className="overflow-x-clip px-4 sm:px-6">
@@ -328,63 +328,50 @@ export default async function SiteHomePage() {
       </section>
 
       <div className="mx-auto max-w-3xl">
-        {/* Latest */}
-        {(latestWriting || latestEpisode) && (
-          <section className="border-t border-border/60 py-14">
+        {/* Latest: the newest article, episode and tweet as three cards with
+            their photos. Each source is fetched live, so a post Cael publishes
+            or a tweet it sends shows here on the next revalidate. */}
+        {(latestWriting || latestEpisode || tweet) && (
+          <section id="latest" className="border-t border-border/60 py-14">
             <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
               Latest
             </h2>
-            <ul className="mt-6 divide-y divide-border/60">
+            <ul className="mt-6 grid gap-5 sm:grid-cols-3">
               {latestWriting && (
-                <li>
-                  <SiteLink
-                    href={latestWriting.url}
-                    className="group block py-5"
-                  >
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                        Writing
-                      </span>
-                      <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
-                        {formatDate(latestWriting.date)}
-                      </span>
-                    </div>
-                    <p className="font-display mt-2 text-2xl font-medium tracking-tight transition-colors group-hover:text-primary">
-                      {latestWriting.title}
-                    </p>
-                    {latestWriting.summary && (
-                      <p className="mt-1.5 font-serif text-lg leading-snug text-muted-foreground">
-                        {latestWriting.summary}
-                      </p>
-                    )}
-                  </SiteLink>
-                </li>
+                <LatestCard
+                  kind="Writing"
+                  href={latestWriting.href}
+                  external={latestWriting.external}
+                  date={formatDate(latestWriting.date)}
+                  title={latestWriting.title}
+                  summary={latestWriting.summary}
+                  imageUrl={latestWriting.coverUrl}
+                  imageAlt={latestWriting.title}
+                />
               )}
               {latestEpisode && (
-                <li>
-                  <SiteLink
-                    href={`/podcast/${latestEpisode.slug}`}
-                    className="group block py-5"
-                  >
-                    <div className="flex items-baseline gap-4">
-                      <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">
-                        Podcast
-                      </span>
-                      <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
-                        {latestEpisode.duration ??
-                          formatDate(latestEpisode.date)}
-                      </span>
-                    </div>
-                    <p className="font-display mt-2 text-2xl font-medium tracking-tight transition-colors group-hover:text-primary">
-                      {latestEpisode.title}
-                    </p>
-                    {latestEpisode.summary && (
-                      <p className="mt-1.5 font-serif text-lg leading-snug text-muted-foreground">
-                        {latestEpisode.summary}
-                      </p>
-                    )}
-                  </SiteLink>
-                </li>
+                <LatestCard
+                  kind="Podcast"
+                  href={latestEpisode.href}
+                  date={latestEpisode.duration ?? formatDate(latestEpisode.date)}
+                  title={latestEpisode.title}
+                  summary={latestEpisode.summary}
+                  imageUrl={latestEpisode.coverUrl}
+                  imageAlt={latestEpisode.title}
+                />
+              )}
+              {tweet && (
+                <LatestCard
+                  kind="On X"
+                  href={tweet.url}
+                  external
+                  date={formatDate(tweet.date)}
+                  title={tweet.text}
+                  summary=""
+                  imageUrl={tweet.imageUrl}
+                  imageAlt="Photo from the tweet"
+                  titleIsBody
+                />
               )}
             </ul>
           </section>
@@ -452,5 +439,81 @@ export default async function SiteHomePage() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** One Latest card: photo on top (or a quiet tinted block when there is none), label, date, title. */
+function LatestCard({
+  kind,
+  href,
+  external,
+  date,
+  title,
+  summary,
+  imageUrl,
+  imageAlt,
+  titleIsBody,
+}: {
+  kind: string;
+  href: string;
+  external?: boolean;
+  date: string;
+  title: string;
+  summary: string;
+  imageUrl: string | null;
+  imageAlt: string;
+  /** A tweet: the "title" is the whole post, so show it in body type and let it run. */
+  titleIsBody?: boolean;
+}) {
+  const inner = (
+    <>
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-[var(--tint-3)]">
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={imageAlt}
+            fill
+            sizes="(min-width: 640px) 33vw, 100vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            {kind}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 flex items-baseline gap-3">
+        <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">{kind}</span>
+        <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{date}</span>
+      </div>
+      {titleIsBody ? (
+        <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/90 transition-colors group-hover:text-primary line-clamp-6">
+          {title}
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 font-medium leading-snug tracking-tight transition-colors group-hover:text-primary line-clamp-3">
+            {title}
+          </p>
+          {summary && (
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-3">{summary}</p>
+          )}
+        </>
+      )}
+    </>
+  );
+  const cls = "group block";
+  return (
+    <li>
+      {external ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+          {inner}
+        </a>
+      ) : (
+        <SiteLink href={href} className={cls}>
+          {inner}
+        </SiteLink>
+      )}
+    </li>
   );
 }

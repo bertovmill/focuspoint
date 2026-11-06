@@ -18,7 +18,8 @@ notification on his devices (same channel as the habit nudge).
   `@vercel/schedules`, namespace `reminders`, topic `cael-reminders`, timezone
   `America/Toronto`; `explainScheduleError` turns SDK error codes into sentences.
 - `agent/tools/schedule_reminder.ts`, `list_reminders.ts`, `cancel_reminder.ts` —
-  eve tools, so they're also on the MCP server automatically.
+  eve tools; registered in `lib/agent-tool-registry.ts` so the MCP server carries them
+  too (the registry is a hand-kept list, not auto-discovery).
 - `app/api/queues/cael-reminders/route.ts` — `handleCallback` consumer → `sendPush`;
   retries 3× a minute apart, then acknowledges.
 - `vercel.json` — `functions[...].experimentalTriggers` `queue/v2beta` on that route.

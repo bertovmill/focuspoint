@@ -7,6 +7,7 @@ import add_family_memory from "@/agent/tools/add_family_memory";
 import add_todo from "@/agent/tools/add_todo";
 import add_vision_item from "@/agent/tools/add_vision_item";
 import ai_reading_list from "@/agent/lib/toolsets/events_and_news/ai_reading_list";
+import cancel_reminder from "@/agent/tools/cancel_reminder";
 import capture_thought from "@/agent/tools/capture_thought";
 import complete_todo from "@/agent/tools/complete_todo";
 import create_folder from "@/agent/tools/create_folder";
@@ -23,6 +24,7 @@ import list_makerslounge_events from "@/agent/lib/toolsets/events_and_news/list_
 import get_makerslounge_event from "@/agent/lib/toolsets/events_and_news/get_makerslounge_event";
 import list_meal_history from "@/agent/tools/list_meal_history";
 import list_notes from "@/agent/tools/list_notes";
+import list_reminders from "@/agent/tools/list_reminders";
 import list_nutrition from "@/agent/tools/list_nutrition";
 import list_training_plan from "@/agent/tools/list_training_plan";
 import list_reading from "@/agent/tools/list_reading";
@@ -59,6 +61,7 @@ import set_daily_meal from "@/agent/tools/set_daily_meal";
 import set_training_session from "@/agent/tools/set_training_session";
 import sync_workouts from "@/agent/tools/sync_workouts";
 import training_plan_doc from "@/agent/tools/training_plan_doc";
+import schedule_reminder from "@/agent/tools/schedule_reminder";
 import set_focus from "@/agent/tools/set_focus";
 import list_chat_models from "@/agent/tools/list_chat_models";
 import set_chat_model from "@/agent/tools/set_chat_model";
@@ -82,6 +85,7 @@ export const agentTools = {
   add_todo,
   add_vision_item,
   ai_reading_list,
+  cancel_reminder,
   capture_thought,
   complete_todo,
   create_folder,
@@ -92,6 +96,7 @@ export const agentTools = {
   latest_ai_news,
   list_calendar_events,
   list_folders,
+  list_reminders,
   list_github_prs,
   list_luma_events,
   list_makerslounge_events,
@@ -134,6 +139,7 @@ export const agentTools = {
   set_training_session,
   sync_workouts,
   training_plan_doc,
+  schedule_reminder,
   set_focus,
   list_chat_models,
   set_chat_model,

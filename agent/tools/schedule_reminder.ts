@@ -15,7 +15,7 @@ export default defineTool({
   async execute({ message, at, cron, url, todo_id }) {
     try {
       const s = await createReminder({ message, at, cron, url, todo_id });
-      return { ok: true as const, reminder: describeReminder(s) };
+      return { ok: true as const, reminder: describeReminder(s, message) };
     } catch (err) {
       return { ok: false as const, error: explainScheduleError(err) };
     }

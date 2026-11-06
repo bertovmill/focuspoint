@@ -54,12 +54,18 @@ function slug(message: string): string {
 /** YYYY-MM-DDTHH:mm, the local-time shape the API wants (no zone suffix). */
 const LOCAL_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:00)?$/;
 
-export function describeReminder(s: Schedule): ReminderSummary {
-  // Schedule has no typed payload; our own creates always store ReminderPayload.
+/**
+ * The API doesn't return a schedule's payload on create/list/get, only to the
+ * queue when it fires. The name carries the first 40 characters of the message
+ * (see slug()), so that's what a listing can show; `message` overrides it when
+ * the caller still has the original (right after create).
+ */
+export function describeReminder(s: Schedule, message?: string): ReminderSummary {
   const payload = ((s as unknown as { payload?: ReminderPayload }).payload ?? {}) as ReminderPayload;
+  const fromName = s.name.replace(/-[a-z0-9]{6,}$/, "").replace(/-/g, " ");
   return {
     name: s.name,
-    message: payload.message ?? "",
+    message: message ?? payload.message ?? fromName,
     when: s.expression.type === "single" ? `once at ${s.expression.at}` : `cron ${s.expression.cron}`,
     state: s.state,
     timezone: s.timezone,

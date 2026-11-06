@@ -9,7 +9,7 @@ export default defineTool({
   async execute() {
     try {
       const all = await listReminders();
-      return { ok: true as const, reminders: all.map(describeReminder) };
+      return { ok: true as const, reminders: all.map((s) => describeReminder(s)) };
     } catch (err) {
       return { ok: false as const, error: explainScheduleError(err) };
     }

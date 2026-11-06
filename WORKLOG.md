@@ -13181,3 +13181,12 @@ posts Cael publishes (the ones with covers) never showed, and the Substack
   `i.scdn.co` and `*.spotifycdn.com`. The writing index reuses `sameTitle`.
 - Verified on site.localhost:3061: "We are the harness" (Nov 3) with its
   sketch, the Paul Campbell episode with Spotify art, the Nov 4 tweet.
+
+### Follow-up, same day: each Latest card wears its own medium
+
+Berto: tweets should look like an X embed, the podcast like a pod card, the
+article like an article card. `app/site/page.tsx` now has `ArticleCard`
+(cover, dateline, title, summary, "N min read"), `PodCard` (square art with a
+green play button, "Listen on Spotify") and `TweetCard` (headshot, Robert Mill
+/ @robrt_mill, X mark, the post, its photo when there is one, date · View on X).
+`lib/latest.ts` passes `readingMinutes` and `spotifyUrl` through.

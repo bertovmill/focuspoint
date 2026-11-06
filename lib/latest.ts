@@ -18,6 +18,7 @@ export interface LatestWriting {
   summary: string;
   coverUrl: string | null;
   external: boolean;
+  readingMinutes: number;
 }
 
 export interface LatestPodcast {
@@ -27,6 +28,7 @@ export interface LatestPodcast {
   summary: string;
   duration?: string;
   coverUrl: string | null;
+  spotifyUrl: string | null;
 }
 
 export interface LatestTweet {
@@ -62,6 +64,7 @@ export async function listAllWriting(): Promise<LatestWriting[]> {
       summary: p.summary,
       coverUrl: p.coverUrl ?? firstBodyImage(p.body),
       external: false,
+      readingMinutes: p.readingMinutes,
     })),
     ...substack.map((p) => ({
       title: p.title,
@@ -70,6 +73,7 @@ export async function listAllWriting(): Promise<LatestWriting[]> {
       summary: p.summary,
       coverUrl: null,
       external: true,
+      readingMinutes: p.readingMinutes,
     })),
     ...medium.map((p) => ({
       title: p.title,
@@ -78,6 +82,7 @@ export async function listAllWriting(): Promise<LatestWriting[]> {
       summary: p.summary,
       coverUrl: p.coverUrl,
       external: true,
+      readingMinutes: p.readingMinutes,
     })),
   ]
     .filter((post, i, all) => all.findIndex((o) => sameTitle(o.title, post.title)) === i)
@@ -108,6 +113,7 @@ export async function latestPodcast(): Promise<LatestPodcast | null> {
     date: episode.date,
     summary: episode.summary ?? "",
     duration: episode.duration,
+    spotifyUrl: episode.spotify ? `https://open.spotify.com/episode/${episode.spotify}` : null,
     coverUrl: episode.image ?? (episode.spotify ? await spotifyCover(episode.spotify) : null),
   };
 }

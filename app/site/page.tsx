@@ -4,7 +4,14 @@ import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
 import { ASK_AI_HASH } from "@/lib/public-site";
 import { formatDate } from "@/lib/content";
-import { listAllWriting, latestPodcast, latestTweet } from "@/lib/latest";
+import {
+  listAllWriting,
+  latestPodcast,
+  latestTweet,
+  type LatestWriting,
+  type LatestPodcast,
+  type LatestTweet,
+} from "@/lib/latest";
 import { SiteLink } from "./_components/site-link";
 import { AskAiButton } from "./_components/ask-ai";
 import { RevealOnView } from "./_components/reveal-on-view";
@@ -337,42 +344,9 @@ export default async function SiteHomePage() {
               Latest
             </h2>
             <ul className="mt-6 grid gap-5 sm:grid-cols-3">
-              {latestWriting && (
-                <LatestCard
-                  kind="Writing"
-                  href={latestWriting.href}
-                  external={latestWriting.external}
-                  date={formatDate(latestWriting.date)}
-                  title={latestWriting.title}
-                  summary={latestWriting.summary}
-                  imageUrl={latestWriting.coverUrl}
-                  imageAlt={latestWriting.title}
-                />
-              )}
-              {latestEpisode && (
-                <LatestCard
-                  kind="Podcast"
-                  href={latestEpisode.href}
-                  date={latestEpisode.duration ?? formatDate(latestEpisode.date)}
-                  title={latestEpisode.title}
-                  summary={latestEpisode.summary}
-                  imageUrl={latestEpisode.coverUrl}
-                  imageAlt={latestEpisode.title}
-                />
-              )}
-              {tweet && (
-                <LatestCard
-                  kind="On X"
-                  href={tweet.url}
-                  external
-                  date={formatDate(tweet.date)}
-                  title={tweet.text}
-                  summary=""
-                  imageUrl={tweet.imageUrl}
-                  imageAlt="Photo from the tweet"
-                  titleIsBody
-                />
-              )}
+              {latestWriting && <ArticleCard post={latestWriting} />}
+              {latestEpisode && <PodCard episode={latestEpisode} />}
+              {tweet && <TweetCard tweet={tweet} />}
             </ul>
           </section>
         )}
@@ -442,78 +416,135 @@ export default async function SiteHomePage() {
   );
 }
 
-/** One Latest card: photo on top (or a quiet tinted block when there is none), label, date, title. */
-function LatestCard({
-  kind,
-  href,
-  external,
-  date,
-  title,
-  summary,
-  imageUrl,
-  imageAlt,
-  titleIsBody,
-}: {
-  kind: string;
-  href: string;
-  external?: boolean;
-  date: string;
-  title: string;
-  summary: string;
-  imageUrl: string | null;
-  imageAlt: string;
-  /** A tweet: the "title" is the whole post, so show it in body type and let it run. */
-  titleIsBody?: boolean;
-}) {
+/** Article card: cover on top, dateline, title, a line of summary, read time. */
+function ArticleCard({ post }: { post: LatestWriting }) {
   const inner = (
     <>
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-[var(--tint-3)]">
-        {imageUrl ? (
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--tint-3)]">
+        {post.coverUrl ? (
           <Image
-            src={imageUrl}
-            alt={imageAlt}
+            src={post.coverUrl}
+            alt={post.title}
             fill
             sizes="(min-width: 640px) 33vw, 100vw"
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
           <span className="absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {kind}
+            Writing
           </span>
         )}
       </div>
-      <div className="mt-3 flex items-baseline gap-3">
-        <span className="font-mono text-xs uppercase tracking-[0.18em] text-primary">{kind}</span>
-        <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{date}</span>
-      </div>
-      {titleIsBody ? (
-        <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/90 transition-colors group-hover:text-primary line-clamp-6">
-          {title}
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex items-baseline gap-3 font-mono text-xs text-muted-foreground">
+          <span className="uppercase tracking-[0.18em] text-primary">Writing</span>
+          <span className="ml-auto">{formatDate(post.date)}</span>
+        </div>
+        <p className="mt-2 font-medium leading-snug tracking-tight transition-colors group-hover:text-primary line-clamp-3">
+          {post.title}
         </p>
-      ) : (
-        <>
-          <p className="mt-2 font-medium leading-snug tracking-tight transition-colors group-hover:text-primary line-clamp-3">
-            {title}
-          </p>
-          {summary && (
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-3">{summary}</p>
-          )}
-        </>
-      )}
+        {post.summary && (
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">{post.summary}</p>
+        )}
+        <p className="mt-auto pt-3 font-mono text-xs text-muted-foreground">
+          {post.readingMinutes} min read{post.external ? " ↗" : ""}
+        </p>
+      </div>
     </>
   );
-  const cls = "group block";
+  const cls = "group flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card";
   return (
-    <li>
-      {external ? (
-        <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
-          {inner}
-        </a>
+    <li className="flex">
+      {post.external ? (
+        <a href={post.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
       ) : (
-        <SiteLink href={href} className={cls}>
-          {inner}
-        </SiteLink>
+        <SiteLink href={post.href} className={cls}>{inner}</SiteLink>
       )}
+    </li>
+  );
+}
+
+/** Pod card: square episode art with a play button, show name, title, Listen on Spotify. */
+function PodCard({ episode }: { episode: LatestPodcast }) {
+  return (
+    <li className="flex">
+      <SiteLink
+        href={episode.href}
+        className="group flex h-full w-full flex-col rounded-2xl border border-border/70 bg-card p-4"
+      >
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-[var(--tint-3)] shadow-sm">
+          {episode.coverUrl ? (
+            <Image
+              src={episode.coverUrl}
+              alt={episode.title}
+              fill
+              sizes="(min-width: 640px) 33vw, 100vw"
+              className="object-cover"
+            />
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              Podcast
+            </span>
+          )}
+          <span className="absolute bottom-3 right-3 flex size-11 items-center justify-center rounded-full bg-[#1DB954] text-black shadow-lg transition-transform group-hover:scale-105">
+            <svg viewBox="0 0 24 24" className="ml-0.5 size-5 fill-current" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+          </span>
+        </div>
+        <div className="mt-3 flex items-baseline gap-3 font-mono text-xs text-muted-foreground">
+          <span className="uppercase tracking-[0.18em] text-primary">Podcast</span>
+          <span className="ml-auto">{episode.duration ?? formatDate(episode.date)}</span>
+        </div>
+        <p className="mt-2 font-medium leading-snug tracking-tight transition-colors group-hover:text-primary line-clamp-3">
+          {episode.title}
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">{episode.summary}</p>
+        <p className="mt-auto flex items-center gap-1.5 pt-3 font-mono text-xs text-muted-foreground">
+          <svg viewBox="0 0 24 24" className="size-3.5 fill-[#1DB954]" aria-hidden>
+            <path d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm5.5 17.3a.75.75 0 0 1-1.03.25c-2.82-1.72-6.37-2.11-10.55-1.16a.75.75 0 1 1-.33-1.46c4.57-1.04 8.5-.59 11.66 1.34.35.22.46.68.25 1.03zm1.47-3.27a.94.94 0 0 1-1.29.31c-3.23-1.98-8.15-2.56-11.97-1.4a.94.94 0 1 1-.54-1.8c4.36-1.32 9.78-.68 13.49 1.6.44.27.58.85.31 1.29zm.13-3.4C15.24 8.33 8.82 8.12 5.13 9.24a1.12 1.12 0 1 1-.65-2.15c4.24-1.29 11.28-1.04 15.73 1.6a1.12 1.12 0 0 1-1.15 1.94z" />
+          </svg>
+          {episode.spotifyUrl ? "Listen on Spotify" : "Listen"}
+        </p>
+      </SiteLink>
+    </li>
+  );
+}
+
+/** Tweet card, in the shape of an X embed: avatar, name, handle, the post, its photo, the date. */
+function TweetCard({ tweet }: { tweet: LatestTweet }) {
+  return (
+    <li className="flex">
+      <a
+        href={tweet.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex h-full w-full flex-col rounded-2xl border border-border/70 bg-card p-4 transition-colors hover:bg-[var(--tint-3)]/40"
+      >
+        <div className="flex items-center gap-3">
+          <Image
+            src="/berto-headshot.jpg"
+            alt="Robert Mill"
+            width={40}
+            height={40}
+            className="size-10 rounded-full object-cover"
+          />
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-sm font-semibold">Robert Mill</p>
+            <p className="truncate text-sm text-muted-foreground">@robrt_mill</p>
+          </div>
+          <svg viewBox="0 0 24 24" className="ml-auto size-5 shrink-0 fill-foreground" aria-hidden>
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </div>
+        <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed line-clamp-[8]">{tweet.text}</p>
+        {tweet.imageUrl && (
+          <div className="relative mt-3 aspect-[16/10] w-full overflow-hidden rounded-xl border border-border/60">
+            <Image src={tweet.imageUrl} alt="Photo from the post" fill sizes="(min-width: 640px) 33vw, 100vw" className="object-cover" />
+          </div>
+        )}
+        <p className="mt-auto pt-3 font-mono text-xs text-muted-foreground">
+          {formatDate(tweet.date)} · View on X
+        </p>
+      </a>
     </li>
   );
 }

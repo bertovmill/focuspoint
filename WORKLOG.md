@@ -4,6 +4,42 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-06 — Cael sets its own reminders on Vercel Schedules
+
+**What.** Cael can now create reminders at runtime, from the conversation, on
+**Vercel Schedules** (public beta, Nov 2026) — the first dynamic scheduling in the
+app since the in-app scheduled tasks were removed on 2026-10-04. "Remind me Friday
+at 9" is now a real one-off schedule in Toronto time; "every weekday at 9" is a cron.
+Each firing publishes to the `cael-reminders` Vercel Queue topic and becomes a push
+notification on his devices (same channel as the habit nudge).
+
+**Files.**
+- `lib/reminders.ts` — `createReminder` / `listReminders` / `cancelReminder` on
+  `@vercel/schedules`, namespace `reminders`, topic `cael-reminders`, timezone
+  `America/Toronto`; `explainScheduleError` turns SDK error codes into sentences.
+- `agent/tools/schedule_reminder.ts`, `list_reminders.ts`, `cancel_reminder.ts` —
+  eve tools, so they're also on the MCP server automatically.
+- `app/api/queues/cael-reminders/route.ts` — `handleCallback` consumer → `sendPush`;
+  retries 3× a minute apart, then acknowledges.
+- `vercel.json` — `functions[...].experimentalTriggers` `queue/v2beta` on that route.
+- `agent/instructions.md` — Reminders bullet.
+- Deps: `@vercel/schedules@0.0.3`, `@vercel/queue@0.11.0`.
+
+**Decisions.**
+- Dynamic schedules only (no static `schedules` key in vercel.json): during the beta
+  a deployment that declares static schedules fails unless the team has access, and
+  the agent-sets-its-own-reminders story is the point.
+- Delivery via Queue → push, not a direct path: dynamic schedules can only target a
+  Queue topic. Push over e.g. a chat message because a reminder has to reach him when
+  the app is closed.
+- Names are `<slug-of-message>-<base36 time>`, told back to him so he can cancel.
+
+**Next.** Confirm in production that `Schedules.create` is enabled for the team
+(error code `not_enabled` otherwise). If it is, next job candidates: Luma mirror
+refresh as a cron schedule; reminders tied to todos marking themselves done.
+
+---
+
 ## 2026-11-06 — Buddy's hello bubble is liquid glass, and wobbles when he stops
 
 Berto (from a screenshot of the homepage greeting bubble): make the bubble a "liquid

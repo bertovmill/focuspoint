@@ -35,8 +35,14 @@ notification on his devices (same channel as the habit nudge).
   the app is closed.
 - Names are `<slug-of-message>-<base36 time>`, told back to him so he can cancel.
 
-**Next.** Confirm in production that `Schedules.create` is enabled for the team
-(error code `not_enabled` otherwise). If it is, next job candidates: Luma mirror
+**Verified in production (2026-11-06).** A one-off set for 10:52 Toronto over MCP
+fired at 11:04, execution `succeeded` (the Hobby plan adds up to 15 minutes of
+jitter, so reminders land a little late; Pro would make it 1 minute). Check runs with
+`vercel schedules executions list <name> --namespace reminders` from a folder linked
+to cael-agent on team `berto-mill` (the checkouts' `.vercel/project.json` still points
+at the old team).
+
+**Next.** Candidates: Luma mirror
 refresh as a cron schedule; reminders tied to todos marking themselves done.
 
 ---

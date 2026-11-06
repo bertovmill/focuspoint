@@ -4,6 +4,44 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-06 — Meal check-in is a voice dump first
+
+Berto (from a screenshot of the morning "What did you eat yesterday?" popup, dictating
+into the box with the keyboard mic): the fastest way to get it out in the morning is to
+just say it, so drive the check-in with voice; quick selects can stay but most days it's
+a voice note of what he ate.
+- **Mic first.** `app/_components/yesterday-checkin.tsx` opens on a big round mic
+  ("Tap and talk"). A tap starts the browser's own speech recognition and the words
+  stream into the text box live; the mic pulses red ("Listening… tap when you're done")
+  and the box gets a red ring. Tap again, or just tap Save, to stop (Save stops the mic
+  itself). Recognition ending on its own (Safari after a silence) just drops back to
+  "Tap and talk" with the text kept. The box is still there for typing or the keyboard
+  mic. Same in the "+ Log a meal" (today) mode.
+- **Quick picks demoted.** The six most-logged-meal chips and the Sweets flag moved
+  under the box as a small "Or tap what fits" row (smaller, muted until tapped). They
+  still combine with the text on save, same request as before; nothing changed server-side.
+- **No speech recognition** (the Capacitor WKWebView): the mic is hidden, the copy says
+  "Type it or use the keyboard mic", and the box is focused so the keyboard mic is one
+  tap away. The chat composer already handled this case the same way.
+- `hooks/use-dictation.ts` (new): plain tap-to-talk hook (`supported` null → true/false,
+  `listening`, `start/stop/toggle`), appending after whatever was typed. Decided in a
+  layout effect so the mic never flashes in or out on open. `lib/speech-recognition.ts`
+  (new) holds the loose `SpeechRecognition` typing and constructor lookup, now shared
+  with the chat composer's hands-free dictation (`components/chat/eve-composer.tsx`
+  imports it instead of carrying its own copy; its behaviour is unchanged).
+- Verified: tsc clean; headless Chromium at 390 and 1440 against a stubbed
+  `/api/nutrition/yesterday` (no DB/env in the cloud session; eve dropped from the Next
+  config for the run since it needs Node 24): idle, listening with a fake recogniser
+  streaming two chunks into the box, stop, a chip plus the text saved through to the
+  summary, and the no-recognition layout with the box focused. **Not tried on the
+  phone**: iOS Safari / the Home Screen app should show the mic (webkitSpeechRecognition);
+  if the first tap asks for mic permission that's a one-time prompt. The dialog's chat
+  mic uses the same API, so if that works on his phone this does too.
+- Next: if he wants it even faster, auto-save when recognition ends on its own in
+  yesterday mode (one tap total); held off so he can read the transcript first.
+
+---
+
 ## 2026-11-03 — bertomill.com is set in Geist Serif
 
 Berto: "change our website main font to geist serif", then "Everywhere". Headlines,

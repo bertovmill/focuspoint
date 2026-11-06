@@ -43,6 +43,7 @@ import { ModelPicker } from "@/app/_components/model-picker";
 import type { EveAgent, SentFile } from "@/components/chat/eve-thread";
 import type { EveMessagePart } from "eve/react";
 import { cn } from "@/lib/utils";
+import { type SpeechRecognitionLike, speechRecognitionCtor } from "@/lib/speech-recognition";
 
 /**
  * Cael's composer on AI Elements' PromptInput, styled after the Claude mobile
@@ -564,25 +565,6 @@ function VoiceMenu({
 // Started with `auto` (hands-free), it also decides when Berto has finished:
 // a pause after a final result, or recognition ending on its own, sends what
 // was heard through `onAutoSend`; a round that heard nothing calls `onAutoEmpty`.
-
-type SpeechResultList = ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: { results: SpeechResultList }) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-};
-
-function speechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as Record<string, unknown>;
-  return ((w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => SpeechRecognitionLike) | undefined) ?? null;
-}
 
 function useDictation(
   value: string,

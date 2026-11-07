@@ -4,6 +4,17 @@ A personal guide with memory. Built with Vercel Eve + Next.js + Neon Postgres.
 
 ---
 
+## 2026-11-07 — Shift+Enter in the meal log (issue #22)
+
+**What.** The "What did you eat that worked?" box in `app/_components/nutrition-panel.tsx`
+is now a `Textarea`: Enter logs the meal, Shift+Enter inserts a new line. Logged meal
+names now wrap and keep line breaks instead of truncating.
+
+**Decision.** The issue was terse; I read "shift enter" as the chat-style newline. If
+they meant Shift+Enter to *submit*, flip the `!e.shiftKey` check.
+
+---
+
 ## 2026-11-06 — Cael sets its own reminders on Vercel Schedules
 
 **What.** Cael can now create reminders at runtime, from the conversation, on

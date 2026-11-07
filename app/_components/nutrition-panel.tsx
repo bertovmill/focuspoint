@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { ProtocolChart, type NutritionDay } from "@/app/_components/protocol-chart";
 import { MealPlan } from "@/app/_components/meal-plan";
@@ -326,11 +327,19 @@ export function NutritionPanel() {
             logMeal(newMeal);
           }}
         >
-          <Input
+          <Textarea
             value={newMeal}
             onChange={(e) => setNewMeal(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter logs the meal; Shift+Enter inserts a new line.
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                logMeal(newMeal);
+              }
+            }}
+            rows={1}
             placeholder="What did you eat that worked?"
-            className="h-9"
+            className="min-h-9 py-1.5"
           />
           <Button type="submit" size="sm" className="h-9" disabled={!newMeal.trim()}>
             Log
@@ -353,7 +362,7 @@ export function NutritionPanel() {
                       className="group flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5"
                     >
                       <UtensilsCrossedIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+                      <span className="min-w-0 flex-1 whitespace-pre-line break-words text-sm">{m.name}</span>
                       {m.notes && <span className="truncate text-xs text-muted-foreground">{m.notes}</span>}
                       <button
                         type="button"
